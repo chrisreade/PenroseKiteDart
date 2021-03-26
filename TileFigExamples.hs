@@ -53,8 +53,10 @@ markedTiles = hsep 1
                 pR = origin .+^ phi*^rotate (ttangle 9) unitX
 
 
+test1 = patchWith (fillDK' fuchsia cornflowerblue) sun6 # lw ultraThin # lc blue
+
 fig::Diagram B
-fig = filledSun6
+fig = test1
 
 main = mainWith fig
 

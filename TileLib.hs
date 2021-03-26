@@ -74,9 +74,19 @@ fillDK dcol kcol c =
                (LK _) -> (strokeLoop $ glueLine $ fromOffsets $ tileEdges c)  # fc kcol
                _      -> mempty
 
--- | To fill half tiles separately, use drawJComp which adds the join edge of each half tile to make loops
+-- | drawComp with added join edge (also fillable as a loop)
 drawJComp:: Component -> Diagram B
 drawJComp = strokeLoop . closeLine . fromOffsets . compEdges
+
+-- | similar to fillDK except using drawJComp
+--  so that half tiles are not completed and both left and right are filled
+fillDK':: Colour Double -> Colour Double -> Component -> Diagram B
+fillDK' dcol kcol c = drawComp c <> (drawJComp c # fc col # lc col) where
+    col = case c of (LD _) -> dcol
+                    (RD _) -> dcol
+                    (LK _) -> kcol
+                    (RK _) -> kcol
+
            
 -- | experiment uses a different rule for drawing half tiles.  This clearly displays the larger kites and darts.
 -- Half darts diplay the join edge in red but supress the other 2 edges as dashed lines. while

@@ -23,6 +23,7 @@ executable mydiagrams
   -- other-extensions:
   build-depends:       base >=4.13 && <4.14,
                        diagrams >=1.4,
-                       BlogLiterately >=0.8.7
+                       diagrams-lib,
+                       diagrams-svg
   -- hs-source-dirs:
   default-language:    Haskell2010
