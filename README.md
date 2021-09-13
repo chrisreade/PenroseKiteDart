@@ -15,13 +15,14 @@ Drawing uses half tiles (Pieces) represented with vectors.
 For documentation/description of version 0.1 see 
 https://readerunner.wordpress.com/2021/03/20/diagrams-for-penrose-tiles/
 
-For just displaying tilings plus inflate/decompose you need TilePiece, TileLIb (and possibly TileFigExamples)
+For just displaying tilings plus inflate/decompose you need TileLib, HalfTile
+(and possibly TileFigExamples)
 and a version of Main that only imports what you need.
 
 Version 0.2 adds experimental Tgraphs
 
 Tgraphs are for graph representations
-In TilePiece constructors are polymorphic (with previous vector based components a special case)
+In HalfTile constructors are polymorphic (with previous vector based components a special case)
 GraphDecompose implemented as a Tgraph version of (vector) decompose
 Plus experimental Tgraph ops to compose/force
 
