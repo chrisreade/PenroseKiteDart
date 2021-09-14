@@ -59,39 +59,36 @@ buildVEAssocs:
 Create initial [face] as list of faces to be processed, with the head (face) as current face and
        more as list of 'unencountered' faces
        Start record of assocV and assocE (using first edge vector - both directions and offset vector for origin of face)
-     assocV is an association list of (vertex, vector offset)
+     assocV is an association list of (vertex, point)
      assocE is an association list of (directed edge, vector)
 Step: For current face (processFace face)
-    assign vectors (in each direction) for all 3 edges (not already assigned), and offsets for the 3 vertices (not already assigned)
+    assign vectors (in each direction) for all 3 edges (not already assigned), and points for the 3 vertices (not already assigned)
     For each edge of current face (clockwise) find other faces in 'unencountered' sharing the edge (reversed)
     Transfer these to the end of list of faces to be processed - and removing from unencountered,
     Remove current face from faces to be processed
 When no more faces to be processed  (unencountered should also be empty for edge connected graph) - return both the assoc lists
 
 Second: convert original faces
-Extract the join vector and offset for each of the original faces from assocs to build a vpatch 
-(at this stage vector offsets are used to make things Located with point positions)
-Similarly assocV is converted to Located Vertices to allow drawing of vertex labels (makeVPatch).
+Extract the join vector and origV location for each of the original faces from assocs
+to build a vpatch with located hybrids and convert assocV to located vertices.
 -}
 makeVPatch::Tgraph -> VPatch
 makeVPatch g = if emptyGraph g 
                then VPatch { lVertices = [], lHybrids = [] }
-               else VPatch { lVertices = fmap convertV assocV
-                           , lHybrids = fmap convertH $ faces g
+               else VPatch { lVertices = fmap locateV assocV
+                           , lHybrids  = fmap makeLHyb $ faces g
                            }
     where
     (face:more) = chooseLowest (faces g)
-    (assocV,assocE) = buildVEAssocs [face] more [(originV face,zero)] (initJvec face)
-    
-    convertH fc = case (lookup (originV fc) assocV , lookup (joinOfTile fc) assocE) of
-                  (Just voff, Just vec) -> fmap (dualRep vec) fc `at` (origin .+^ voff) -- using HalfTile functor fmap
+    (assocV,assocE) = buildVEAssocs [face] more [(originV face,origin)] (initJvec face)
+    locateV (v,p) = v `at` p
+    makeLHyb fc = case (lookup (originV fc) assocV , lookup (joinOfTile fc) assocE) of
+                  (Just p, Just vec) -> fmap (dualRep vec) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
 
-    convertV (a,vec) = a `at` (origin .+^ vec)
-
 {-
-For makePatch  the Hybrids are converted to Pieces and the Located Vertex information is thrown away
-after makeVPatch
+makePatch uses makeVPatch first then the Hybrids are converted to Pieces
+and the Located Vertex information is thrown away
 -}
 makePatch:: Tgraph -> Patch
 makePatch = asPatch . makeVPatch
@@ -129,7 +126,6 @@ drawVlabels locvs = position $ fmap (viewLoc . mapLoc label) locvs
    local - same as global for unscaled examples
           label n = baselineText (show n) # fontSize (normalized 0.02) # fc red
 -}
-
 removeFaces :: [TileFace] -> VPatch -> VPatch
 removeFaces fcs vp = foldr removeFace vp fcs where
     removeFace fc = withHybs (filter (not . matchingF fc))
@@ -149,11 +145,6 @@ selectForVPatch fcs g = selectFaces fcs (makeVPatch g)
 removeForVPatch :: [TileFace] -> Tgraph -> VPatch
 removeForVPatch fcs g = removeFaces fcs (makeVPatch g)
 
-{-
-selectForPatch :: [TileFace] -> Tgraph -> Patch
-selectForPatch fcs g = asPatch $ selectForVPatch fcs g
--}
-
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
 findLoc v vp = fmap loc $ find matchingV (lVertices vp) -- fmap for Functor Maybe
                where matchingV lv = unLoc lv==v
@@ -164,22 +155,6 @@ centerOn a vp =
     case findLoc a vp of
         Just loca -> translate (origin .-. loca) vp
         _ -> error ("centerOn: vertex not found "++ show a)
-
-{- OLDER Version
--- | alignAll' (a,b) vpList
--- provided both vertices a and b exist in each Vpatch in vpList, the VPatches are all aligned with the first one
--- and all are centred on a
-alignAll' :: (Vertex, Vertex) -> [VPatch] -> [VPatch]     
-alignAll' (a,b) vps = vp1: fmap alignD more where
-    (vp1:more) = fmap (centerOn a) vps
-    locb1 = case findLoc b vp1 of 
-            Just p -> p 
-            _      -> error ("alignAll': non-common vertex "++ show b ++" in "++show vp1)
-    alignD vp2 = case findLoc b vp2 of
-        Just locb2 -> rotate angle vp2 
-                   where angle = signedAngleBetweenDirs (direction (locb1 .-. origin)) (direction (locb2 .-. origin))
-        _ -> error ("alignAll': non-common vertex "++ show b ++" in "++show vp2)
--}
 
 -- | alignments takes a list of vertex pairs for respective rotations of VPatches in the second list.
 -- For a pair (a,b) the Vpatch is centered on a then b is aligned along the positive x axis. 
@@ -238,19 +213,18 @@ initJvec (RD(a,_,c)) = [((a,c), unitX), ((c,a), unit_X)]
 initJvec (LK(a,_,c)) = [((a,c), phi*^unitX), ((c,a), phi*^unit_X)]
 initJvec (RK(a,b,_)) = [((a,b), phi*^unitX), ((b,a), phi*^unit_X)]
 
-{- | buildVEAssocs: process faces to associate vectors for each edge and offset vectors for each vertex.
-The first argument list of faces contain the ones being processed next in order where
-each will have at least one known edge vector and at least one known vertex offset vector.
+{- | buildVEAssocs: process faces to associate vectors for each directed edge and points for each vertex.
+The first argument list of faces contains the ones being processed next in order where
+each will have at least one known edge vector and at least one known vertex point.
 The second argument list of faces have not yet been added and may not yet have a known edge.
-The third argument is the association list for vertices.
-The fourth argument is the association list for edges.
+The third argument is the association list for (vertices,points).
+The fourth argument is the association list for (edges,vectors).
 -}
+buildVEAssocs [] [] assocV assocE = (assocV, assocE) 
+buildVEAssocs [] fcOther assocV assocE = error ("buildVEAssocs: Faces not face-edge-connected " ++ show fcOther)
 buildVEAssocs (fc:fcs) fcOther assocV assocE = buildVEAssocs (fcs++fcs') fcOther' assocV' assocE' where
   (assocV', assocE') = processFace fc assocV assocE
   (fcs', fcOther')   = edgeNbs fc fcOther
-buildVEAssocs [] fcOther assocV assocE = if null fcOther 
-                                         then (assocV, assocE)
-                                         else error ("buildVEAssocs: Faces not face-edge-connected " ++ show fcOther)
 
 -- | process a face to get updated association lists
 processFace face assocV assocE = (assocV',assocE') where
@@ -259,21 +233,22 @@ processFace face assocV assocE = (assocV',assocE') where
     assocV' = completeV (faceVs face) evecs assocV
 
 -- | for a given face, find edge neighbouring faces in the supplied list of faces
--- returns a list of the ones found and also the suuplied list with these removed
+-- returns a pair - the list of the ones found followed by the supplied list with these removed
 edgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
 edgeNbs fc fcOther = (fcnbs, fcOther') where
       fcnbs = filter sharedEdge fcOther
       fcOther' = fcOther \\ fcnbs
       sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
 
--- | calculate offset vectors for 3 vertices and add to assocV
--- needs at least 1 already in assocV
+-- | calculate points for 3 vertices given 3 edge vectors and assocV
+-- needs at least 1 already in assocV and adds new ones to assocV
+-- returning new assocV
 completeV (a,b,c) (ev1,ev2,ev3) assocV = 
     case (lookup a assocV , lookup b assocV ,lookup c assocV) of
-        (Just v1, _, _) -> addPair (b,v1^+^ev1) $ addPair (c,v1^-^ev3) assocV
-        (Nothing, Just v2, _) -> addPair (a,v2 ^-^ ev1) $ addPair (c,v2^-^ev2) assocV
-        (Nothing, Nothing, Just v3) -> addPair (a,v3 ^+^ ev3) $ addPair (b,v3^-^ev2) assocV
-        _ -> error ("completeV: no offset for " ++ show (a,b,c))
+        (Just p, _, _) -> addPair (b,p.+^ev1) $ addPair (c,p.-^ev3) assocV
+        (Nothing, Just p, _) -> addPair (a,p .-^ ev1) $ addPair (c,p.-^ev2) assocV
+        (Nothing, Nothing, Just p) -> addPair (a,p.+^ev3) $ addPair (b,p.-^ev2) assocV
+        _ -> error ("completeV: no locations for " ++ show (a,b,c))
 
 -- | find 3 maybe edge vectors in assocE
 find3E [e1,e2,e3] assocE = (lookup e1 assocE, lookup e2 assocE, lookup e3 assocE)
@@ -307,7 +282,8 @@ addPair (k,v) assoc  = case lookup k assoc of
     Nothing -> (k,v):assoc
     _       -> assoc
 
--- | adds 6 vectors - for 3 edges
+-- | add3E - given 3 directed edges and 3 vectors it will add
+-- to assocE 6 vectors for the 3 edges using both directions - adds only missing ones
 add3E [e1,e2,e3] (v1,v2,v3) assocE = 
     foldr addPair assocE [(e1,v1),(e2,v2),(e3,v3)
                          ,(reverseE e1, negated v1),(reverseE e2, negated v2),(reverseE e3, negated v3)
