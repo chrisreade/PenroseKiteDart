@@ -43,7 +43,7 @@ sun6Fig = drawPatch sun6 # lw thin
 
 -- | overlaying sun5 in red atop sun6
 sun5Over6Fig = (drawPatch sun5 # lc red # dashingN [0.003,0.003] 0 <> drawPatch sun6) # lw thin
--- | Using experiment on sun6 clearly illustrates the embedded sun5
+-- | Using experiment (defined in Tilelib) on sun6 clearly illustrates the embedded sun5
 experimentFig = patchWith experiment sun6 # lw thin
 -- | similarly experiment on sun5
 twoLevels = patchWith experiment sun5 # lw thin
@@ -69,23 +69,16 @@ newPiecesFig = pad 1.2 $ centerXY $
                          [rdart,ldart,lkite,rkite]
                         )
                           
-
-{-
-markedTiles = hsep 1  
-        [ drawPatch [lkite `at` origin, rkite `at` origin] # showOrigin 
-        , drawPatch [ldart `at` origin, rdart `at` origin] # showOrigin 
-        , drawPatch [lkite `at` origin, rkite `at` origin] <> (pL ~~ pR # lc red # lw thick) 
-        , drawPatch [ldart `at` origin, rdart `at` origin] <> (origin ~~ p2(1,0) # lc red # lw thick)
-        ] where pL = origin .+^ phi*^rotate (ttangle 1) unitX
-                pR = origin .+^ phi*^rotate (ttangle 9) unitX
--}
+dartWingFig = pad 1.2 $ hsep 1 [dkite, ddart] where
+  ddart = showOrigin (translate unit_X $ dashJPatch  $ decompose [ldart `at` origin, rdart `at` origin])
+  dkite = showOrigin (translate unit_X $ dashJPatch  $ decompose [lkite `at` origin, rkite `at` origin])
 
 -- colour-filled examples
 
 -- | using fillDK'
-filledSun6' = patchWith (fillDK' red blue) sun6 # lw ultraThin
+filledSun6 = patchWith (fillDK' red blue) sun6 # lw ultraThin
 -- | using fillDK
-filledSun6 = patchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
+newFillSun6 = patchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
 
 -- | A swatch is a list of triples of colours which are used to fill sun5s (dart, kite, grout)
 -- showSwatch produces a diagram from a swatch where n is used to indicate how many samples in a row

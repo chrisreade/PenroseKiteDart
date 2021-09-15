@@ -69,7 +69,7 @@ Step: For current face (processFace face)
 When no more faces to be processed  (unencountered should also be empty for edge connected graph) - return both the assoc lists
 
 Second: convert original faces
-Extract the join vector and origV location for each of the original faces from assocs
+Extract the join vector and originV location for each of the graph faces from the two assoc lists
 to build a vpatch with located hybrids and convert assocV to located vertices.
 -}
 makeVPatch::Tgraph -> VPatch
@@ -126,24 +126,24 @@ drawVlabels locvs = position $ fmap (viewLoc . mapLoc label) locvs
    local - same as global for unscaled examples
           label n = baselineText (show n) # fontSize (normalized 0.02) # fc red
 -}
-removeFaces :: [TileFace] -> VPatch -> VPatch
-removeFaces fcs vp = foldr removeFace vp fcs where
+removeFacesVP :: [TileFace] -> VPatch -> VPatch
+removeFacesVP fcs vp = foldr removeFace vp fcs where
     removeFace fc = withHybs (filter (not . matchingF fc))
     matchingF fc lhyb = asFace (unLoc lhyb) == fc
 
-selectFaces:: [TileFace] -> VPatch -> VPatch
-selectFaces fcs vp = withHybs (findAll fcs) vp where
+selectFacesVP:: [TileFace] -> VPatch -> VPatch
+selectFacesVP fcs vp = withHybs (findAll fcs) vp where
     findAll fcs lfaces = mapMaybe (findIn lfaces) fcs 
     findIn lfaces fc = find (matchingF fc) lfaces
     matchingF fc lhyb = asFace (unLoc lhyb) == fc
 
--- | selectForVPatch fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
-selectForVPatch :: [TileFace] -> Tgraph -> VPatch
-selectForVPatch fcs g = selectFaces fcs (makeVPatch g)
+-- | selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
+selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
+selectFacesGtoVP fcs g = selectFacesVP fcs (makeVPatch g)
 
--- | removeForVPatch fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
-removeForVPatch :: [TileFace] -> Tgraph -> VPatch
-removeForVPatch fcs g = removeFaces fcs (makeVPatch g)
+-- | removeFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
+removeFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
+removeFacesGtoVP fcs g = removeFacesVP fcs (makeVPatch g)
 
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
 findLoc v vp = fmap loc $ find matchingV (lVertices vp) -- fmap for Functor Maybe
@@ -196,7 +196,7 @@ scales _  [] = error "scales: too many scalars"
  Auxilliary definitions
 ------------------------------------------- -}
 
--- | find the face with lowest origin (and then lowest oppV) - return that face first along with other faces
+-- | find the face with lowest originV (and then lowest oppV) - return that face first along with other faces
 -- used be makeVPatch (and hence makePatch) 
 chooseLowest fcs = face:(fcs\\[face]) where
     a = minimum (fmap originV fcs)
@@ -206,7 +206,7 @@ chooseLowest fcs = face:(fcs\\[face]) where
            (face:_) -> face
            []       -> error "chooseLowest: empty graph?"
 
--- | initial join edge vectors (2) for starting face on x axis - used by buildVEAssocs
+-- | initial join edge vectors (2) for starting face join on x axis - used to initialise buildVEAssocs
 initJvec::TileFace -> [((Vertex,Vertex), V2 Double)]                  
 initJvec (LD(a,b,_)) = [((a,b), unitX), ((b,a), unit_X)]
 initJvec (RD(a,_,c)) = [((a,c), unitX), ((c,a), unit_X)]

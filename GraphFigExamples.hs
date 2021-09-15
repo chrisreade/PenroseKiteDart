@@ -30,7 +30,8 @@ fool = checkTgraph [ RD(1,2,3)
 foolD = graphDecompose fool
 
 -- foolDminus: 3 faces removed from foolD to see limits of forcing
-foolDminus = checkTgraph (faces foolD \\ [RD(6,14,11), LD(6,12,14), RK(5,13,2)])
+foolDminus = removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
+--foolDminus = checkTgraph (faces foolD \\ [RD(6,14,11), LD(6,12,14), RK(5,13,2)])
 
 foolDs = graphDecompositions fool
 
@@ -100,7 +101,7 @@ alignEmplaceMulti (a,b) g = -- padBorder $ hsep 1 $
 -- | Shows labelled vertices For checking partCompose to get alignment vertices
 checkPCompose :: Tgraph -> Diagram B
 checkPCompose g = 
-        padBorder $ hsep 1 $ [drawVPatch $ selectForVPatch fcs g, scale phi $ drawVGraph g'] where
+        padBorder $ hsep 1 $ [drawVPatch $ selectFacesGtoVP fcs g, scale phi $ drawVGraph g'] where
         (fcs,g') = partCompose g
 
 {- | alignCompose (a,b) g  applies pCompose to g, then aligns and draws the composed graph with the remainder faces (in lime)
@@ -110,9 +111,9 @@ Vertices a and b must be common to composed g and remainder patch
 -}
 alignPCompose :: (Vertex, Vertex) -> Tgraph -> Diagram B
 alignPCompose (a,b) g = case emptyGraph g' of
-        True -> lc lime $ dashJPatch $ asPatch $ selectForVPatch fcs g
+        True -> lc lime $ dashJPatch $ asPatch $ selectFacesGtoVP fcs g
         False -> (lw ultraThin $ drawPatch $ asPatch large) <> (lc lime $ dashJPatch $ asPatch rem) where
-                 [rem,large] = alignAll (a,b) [ selectForVPatch fcs g
+                 [rem,large] = alignAll (a,b) [ selectFacesGtoVP fcs g
                                               , scale phi $ makeVPatch g'
                                               ]
       where (fcs,g') = partCompose g
@@ -161,8 +162,8 @@ embedFoolD2Multi = padBorder $ hsep 1 $ alignEmplaceMulti (1,6) (foolDs !! 2)
 
 multiGapsFig = padBorder $ hsep 1 [d1,d2]
        where vp = makeVPatch foolD
-             d1 = drawVPatch $ removeFaces [LK(3,11,14), RK(3,14,4), RK(3,13,11)] vp
-             d2 = drawVPatch $ removeFaces [RK(5,13,2), LD(6,11,13), RD(6,14,11), LD(6,12,14)] vp
+             d1 = drawVPatch $ removeFacesVP [LK(3,11,14), RK(3,14,4), RK(3,13,11)] vp
+             d2 = drawVPatch $ removeFacesVP [RK(5,13,2), LD(6,11,13), RD(6,14,11), LD(6,12,14)] vp
 
 pfMistakeFig  = padBorder $ hsep 1 [drawVGraph mistake, drawVGraph pfMistake]
 fdMistake = padBorder $ drawVGraph $ force $ graphDecompose mistake
@@ -172,8 +173,8 @@ cdMistake1Fig = padBorder $ hsep 1 [ drawVGraph mistake1
            
 testAlignments = padBorder $ hsep 1 $ fmap drawVPatch $ 
                   alignments [(1,6),(1,6),(12,6),(12,6)] $ fmap makeVPatch $ exploreSeq $ graphCompose (makeChoices fool !! 3)
--- | figure testing selectForVPatch
-testDartsOnly = drawVPatch $ selectForVPatch (ldarts g++rdarts g) g where g = sunDs !! 5
+-- | figure testing selectFacesGtoVP
+testDartsOnly = drawVPatch $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
 
 
@@ -205,6 +206,53 @@ exploreFool1 =  padBorder $ hsep 1 $ fmap (drawVPatch . centerOn 1) $ scales [1,
 exploreFool3 =  padBorder $ hsep 1 $ fmap (drawVPatch) $ scales [1,1,1,phi] $ rotations [4,4,4,5] 
                     $ fmap makeVPatch $ exploreSeq $ graphCompose (makeChoices fool !! 3)               
 
+
+forceAndCompsDarts = padBorder $ lw ultraThin $ allPosition
+                     $ fixRotations [[0,1,1],[0,1,1],[1,1],[1]] 
+                     (fComps (dartDs !! 4))         
+
+gapSize = 20.0
+insertHead x [] = [[x]]
+insertHead x (a:as) = (x:a):as
+
+-- Messy but works on rows bottom up and ok with shorter list than rows
+fixRotations:: [[Int]] -> [(Diagram B,[Diagram B])] -> [(Diagram B,[Diagram B])]
+fixRotations [] more = more
+fixRotations [rots1] ((f,r):more) = (f,rotations rots1 r):more
+fixRotations (rots1:(rot:rots2):rotsmore) ((f,r):more) = 
+    (rotate (ttangle rot) f, rotations rots1 r):fixRotations (rots2:rotsmore) more
+fixRotations (rots1:[]:rotsmore) ((f,r):more) = 
+    (f,rotations rots1 r):fixRotations ([]:rotsmore) more
+{-
+fixRotations:: [[Int]] -> [(Diagram B,[Diagram B])] -> [(Diagram B,[Diagram B])]
+fixRotations [] more = more
+fixRotations (rots1:_) [(f,r)] = [(f,rotations rots1 r)]
+fixRotations (rots1:(rot:rots2):rotsmore) ((f,r):more) = 
+    (rotate (ttangle rot) f, rotations rots1 r):fixRotations (rots2:rotsmore) more
+fixRotations (rots1:[]:rotsmore) ((f,r):more) = 
+    (f,rotations rots1 r):fixRotations ([]:rotsmore) more
+-}
+
+allPosition:: [(Diagram B,[Diagram B])] -> Diagram B
+allPosition [] = mempty
+allPosition ((f,r):more) = rowPosition r <> 
+                           translate (gapSize*unitY) (f <> translate (gapSize*unitX) (allPosition more))
+
+rowPosition:: [Diagram B] -> Diagram B
+rowPosition [] = mempty
+rowPosition (g:gs) = g<>(translate (gapSize*unitX) $ rowPosition gs)
+
+fComps:: Tgraph -> [(Diagram B,[Diagram B])]
+fComps g = let fg = force g
+               g' = graphCompose fg
+           in if emptyGraph g'
+               then [(dashJGraph fg, [dashJGraph g])]
+               else (dashJGraph fg, allComps g) : scale phi (fComps g')
+
+allComps:: Tgraph -> [Diagram B]
+allComps g = if emptyGraph g 
+             then [] 
+             else dashJGraph g : (scale phi $ allComps $ graphCompose g)
 
 
 -- checkPCompose $ emplace $ kiteDs !! 3

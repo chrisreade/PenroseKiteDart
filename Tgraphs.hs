@@ -134,6 +134,11 @@ checkTgraph fcs =
                                    )
     else g
 
+-- | select or remove faces but check resulting graph for connected and no multi-gaps
+selectFaces, removeFaces  :: [TileFace] -> Tgraph -> Tgraph
+selectFaces fcs g = checkTgraph (faces g `intersect` fcs)
+removeFaces fcs g = checkTgraph (faces g \\ fcs)
+
        
 {--------------------
 Other face operations

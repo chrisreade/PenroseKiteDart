@@ -12,7 +12,7 @@ Main Operations are decompose and inflate in TileLib along with drawing tools.
 Now requires HalfTile module with half tile representation generalised
 Drawing uses half tiles (Pieces) represented with vectors.
 
-For documentation/description of version 0.1 see 
+For documentation/description of TileLib see 
 https://readerunner.wordpress.com/2021/03/20/diagrams-for-penrose-tiles/
 
 For just displaying tilings plus inflate/decompose you need TileLib, HalfTile
