@@ -22,7 +22,7 @@ tileRep (RD r) = r
 tileRep (LK r) = r
 tileRep (RK r) = r
 
-isLD,isRD,isLK,isRK :: HalfTile rep -> Bool
+isLD,isRD,isLK,isRK,isDart,isKite :: HalfTile rep -> Bool
 isLD (LD _) = True
 isLD _      = False
 isRD (RD _) = True
@@ -31,3 +31,6 @@ isLK (LK _) = True
 isLK _      = False
 isRK (RK _) = True
 isRK _      = False
+isDart x = isLD x || isRD x
+isKite x = isLK x || isRK x
+

@@ -94,6 +94,21 @@ makePatch:: Tgraph -> Patch
 makePatch = asPatch . makeVPatch
 
 
+-- | touchingVertices checks that no vertices are too close to each other by making a VPatch of a Tgraph.
+-- If vertices are too close that indicates we may have the same point with two different vertex numbers
+-- arising from the touching vertex problem. 
+-- It returns pairs of vertices that are too close 
+-- (i.e less than 0.5 where 1.0 would be the length of short edges)
+-- An empty list is returned if there is no touching vertex problem.
+touchingVertices:: Tgraph -> [(Vertex,Vertex)]
+touchingVertices g = [(v1,v2) | v1 <- vertices g, v2 <- vertices g \\[v1], tooClose v1 v2] where
+    tooClose v1 v2 = dist v1 v2 < 0.5
+    dist v1 v2 = lengthVec (locPoint v1 .-. locPoint v2)
+    lengthVec vec = sqrt $ dot vec vec
+    locPoint v = p where Just p = lookup v assocVP
+    assocVP = fmap viewLoc' $ lVertices $ makeVPatch g
+    viewLoc' x = (v,p) where (p,v) = viewLoc x
+
 {-
 *************************************
 Drawing Patches, VPatches, and Graphs
@@ -304,5 +319,7 @@ asPiece = fmap vector  -- fmap of functor HalfTile
 -- asPatch removes vertex information from Hybrids and removes located vertex list
 asPatch:: VPatch -> Patch
 asPatch vp = fmap (mapLoc asPiece) (lHybrids vp)
+
+   
 
 

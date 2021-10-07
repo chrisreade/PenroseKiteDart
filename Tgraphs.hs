@@ -36,44 +36,7 @@ makeTgraph fcs =
            , faces = fcs
            }
 
--- | insertFace checks there is no conflict before adding a face to a graph
--- However other code now uses insertVFace instead       
-insertFace :: TileFace -> Tgraph -> Tgraph
-insertFace fc g =  if noConflict fc g
-                   then makeTgraph (fc:faces g)
-                   else error ("insertFace: Conflicting face: " ++ show fc ++ " to add to " ++ show g)
 
--- | insertVFace is used to add a new face to a graph and checks there is no conflict before adding.
--- It assumes findThirdV has been used to look for the third vertex of the face, so it takes as
--- arguments: a Maybe Vertex result from findThirdV,
--- a function to create the face given the third vertex, and the tgraph.
--- If the Maybe Vertex is Nothing then a new vertex is created, 
--- otherwise the vertex is part of the existing graph.
--- Elsewhere we rely on the last face added using insertVFace is at the front of the list
--- in order to chain a sequence of additions
-insertVFace :: Maybe Vertex -> (Vertex -> TileFace) -> Tgraph -> Tgraph
-insertVFace Nothing makeF g = 
-    let v = makeNewV (vertices g) -- create new vertex
-        fc = makeF v
-    in  if noConflict fc g
-        then Tgraph { faces = fc:faces g
-                    , vertices = v:vertices g
-                    } 
-        else error ("insertVFace: Conflicting face: " ++ show fc ++ " to add to " ++ show g)
-insertVFace (Just v) makeF g = 
-    let fc = makeF v
-    in  if noConflict fc g
-        then Tgraph { faces = fc:faces g
-                    , vertices = vertices g
-                    } 
-        else error ("insertVFace: Conflicting face: " ++ show fc ++ " to add to " ++ show g)
-
--- | there is no conflict if none of the new directed face edges are already directed edges of g
--- (in the same direction) and the edge length types (phi/nonPhi) do not conflict
-noConflict :: TileFace -> Tgraph -> Bool
-noConflict fc g = null (faceDedges fc `intersect` graphDedges g) &&
-                  null (faceNonPhiEdges fc `intersect` phiEdges g) &&
-                  null (facePhiEdges fc `intersect` nonPhiEdges g)
 
 {-----------------------------------------------
 Some important tests and properties for Tgraphs
@@ -93,16 +56,17 @@ conflictingLengthEdges g = phiEdges g `intersect` nonPhiEdges g -- using undirec
 edgeConflicts :: Tgraph -> Bool
 edgeConflicts g = not $ null $ conflictingDedges g ++ conflictingLengthEdges g
 
--- | There are multi-gaps if vertices occur more than once at the start of all boundary directed edges
--- or more than once at the end of all boundary directed edges.
--- multiGapVs g returns a list of vertices with multi-gaps.
--- (which should be empty)                 
-multiGapVs :: Tgraph -> [Vertex]
-multiGapVs g = nub $ (fmap fst bDedges \\ vertices g) ++ (fmap snd bDedges \\ vertices g)
-     where bDedges = boundaryDedges g
+-- | There are crossing boundaries if vertices occur more than once
+-- at the start of all boundary directed edges
+-- (or more than once at the end of all boundary directed edges).
+-- crossingBVs g returns a list of vertices with crossing boundaries
+-- (which should be empty).               
+crossingBVs :: Tgraph -> [Vertex]
+crossingBVs g = bVerts \\ nub bVerts  -- leaves any duplicates
+     where bVerts = fmap fst $ boundaryDedges g -- snd could replace fst here
 
-multiGaps :: Tgraph -> Bool
-multiGaps g = not $ null $ multiGapVs g
+crossingBoundaries :: Tgraph -> Bool
+crossingBoundaries g = not $ null $ crossingBVs g
 
 connected :: Tgraph -> Bool
 connected g = if emptyGraph g 
@@ -119,8 +83,9 @@ connectedTo v unvisited edges = dfs [] [v] (unvisited \\[v]) where
        where nextVs = map snd $ filter ((== x) . fst) edges
              newVs = nextVs \\ (done++visited) -- assumes no self-loops
 
--- | checkTgraph creates a graph from faces but checks for edge conflicts and multi-gaps and connectedness
--- No multi-gaps and connected => face-edge-connected
+-- | checkTgraph creates a graph from faces but checks for edge conflicts and
+-- crossing boundaries and connectedness
+-- No crossing boundaries and connected => face-edge-connected
 checkTgraph:: [TileFace] -> Tgraph
 checkTgraph fcs = 
     let g = makeTgraph fcs in
@@ -129,12 +94,13 @@ checkTgraph fcs =
                                         "\nConflicting length edges: " ++ show (conflictingLengthEdges g) ++
                                         "\nwith " ++ show g
                                        )
-    else if multiGaps g then error ("checkTgraph: multi-gaps found at " ++ show (multiGapVs g) ++
-                                    "\n in " ++ show g
-                                   )
-    else g
+    else if crossingBoundaries g 
+         then error ("checkTgraph: crossing boundaries found at " ++ show (crossingBVs g) ++
+                     "\n in " ++ show g
+                    )
+         else g
 
--- | select or remove faces but check resulting graph for connected and no multi-gaps
+-- | select or remove faces but check resulting graph for connected and no crossing boundaries
 selectFaces, removeFaces  :: [TileFace] -> Tgraph -> Tgraph
 selectFaces fcs g = checkTgraph (faces g `intersect` fcs)
 removeFaces fcs g = checkTgraph (faces g \\ fcs)
@@ -333,25 +299,25 @@ mustFind p ls err = case find p ls of
                      Just a  -> a
                      Nothing -> err
 
+-- | occurs n vs returns a list of items in vs that occur exactly n times
+occurs :: Eq a => Int -> [a] -> [a]
+occurs n vs = nub [v | v <- vs,  length (filter (==v) vs) == n]
 
 
-{----------------------------
-********************************************
-Emplace
-********************************************
-------------------------------}
-
--- | emplace does maximal composing with graphCompose, then forces, then applies graphDecompose and force
--- repeatedly back to the starting level. It produces the 'emplacement' of influence of the argument graph.            
-emplace:: Tgraph -> Tgraph
-emplace g = let g' = graphCompose g in
-            if emptyGraph g'
-            then force g 
-            else force . graphDecompose $ emplace g'
-            
-emptyGraph g = null (faces g)
+{- |
+For testing  allAnglesAnti and allAnglesClock on a boundary edge
+The RHS of directed edge (a,b) should be the exterior side.
+-}
+testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces g),
+                      allAnglesClock [(intAngle 0,a)] $ filter (isAtV b) (faces g))
 
 
+
+
+
+
+
+ 
 {-------------------------------------------------------------------------
 ******************************************** *****************************              
 COMPOSING graphCompose and partCompose 
@@ -366,17 +332,17 @@ graphCompose = snd . partCompose
 -- | partCompose produces a graph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed graph
 partCompose:: Tgraph -> ([TileFace],Tgraph)
-partCompose g = (remainder,makeTgraph newFaces)
+partCompose g = (remainder,makeTgraph newFaces) -- should be checkTgraph
   where
     dwClass = classifyDartWings g
 -- ignore unknowns
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
     remainder = faces g \\ concat (groupRDs ++ groupLDs ++ groupRKs ++ groupLKs)
 {- Finding new ldarts and rdarts
-find lkites/rkites whose oppV is in nodesDB
+find lkites/rkites whose oppV is in largeDartBases
 for such a half-kite find the half dart attached to the short edge
 -}
-    preRDs = filter ((`elem` (nodesDB dwClass)) . oppV) $ lkites g
+    preRDs = filter ((`elem` (largeDartBases dwClass)) . oppV) $ lkites g
     newRDs = fmap makeRD groupRDs 
     groupRDs = mapMaybe groupRD preRDs
     makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
@@ -384,7 +350,7 @@ for such a half-kite find the half dart attached to the short edge
                   Just rd -> Just [rd,lk]
                   Nothing -> Nothing
     
-    preLDs = filter ((`elem` (nodesDB dwClass)) . oppV) $ rkites g 
+    preLDs = filter ((`elem` (largeDartBases dwClass)) . oppV) $ rkites g 
     newLDs = fmap makeLD groupLDs
     groupLDs = mapMaybe groupLD preLDs 
     makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
@@ -395,12 +361,12 @@ for such a half-kite find the half dart attached to the short edge
     glueNodes = nub $ (fmap oppV (ldarts g) `intersect` fmap wingV (rkites g)) ++
                       (fmap oppV (rdarts g) `intersect` fmap wingV (lkites g))
 {- Finding new rkites and lkites
-Find rkites whose wing vertex is not in glueNodes BUT oppV is in nodesKC,
+Find rkites whose wing vertex is not in glueNodes BUT oppV is in largeKiteCentres,
 for each one, find mirror lkite and rdart attached to this lkite
 Similar symmetric version for lkites            
 -}
     preRKs = filter ((`notElem` glueNodes) . wingV) $ 
-             filter ((`elem` (nodesKC dwClass)) . oppV) $ rkites g
+             filter ((`elem` (largeKiteCentres dwClass)) . oppV) $ rkites g
     newRKs = fmap makeRK groupRKs 
     groupRKs = mapMaybe groupRK preRKs 
     makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
@@ -411,7 +377,7 @@ Similar symmetric version for lkites
                    Nothing -> Nothing
 
     preLKs = filter ((`notElem` glueNodes) . wingV) $ 
-             filter ((`elem` (nodesKC dwClass)) . oppV) $ lkites g
+             filter ((`elem` (largeKiteCentres dwClass)) . oppV) $ lkites g
     newLKs = fmap makeLK groupLKs 
     groupLKs = mapMaybe groupLK preLKs 
     makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
@@ -422,16 +388,16 @@ Similar symmetric version for lkites
                    Nothing -> Nothing
 
 -- DWClass is a record type for the result of classifying dart wings
-data DWClass = DWClass {nodesKC  :: [Vertex]
-                       ,nodesDB  :: [Vertex]
-                       ,unknowns :: [Vertex]
+data DWClass = DWClass { largeKiteCentres  :: [Vertex]
+                       , largeDartBases  :: [Vertex]
+                       , unknowns :: [Vertex]
                        } deriving Show
                        
 -- | classifyDartWings classifies all dart wing tips
--- the result is a DWClass record of of nodesKC, nodesDB, unknowns where
--- nodesKC are new kite centres, nodesDB are new dart bases
+-- the result is a DWClass record of largeKiteCentres, largeDartBases, unknowns where
+-- largeKiteCentres are new kite centres, largeDartBases are new dart bases
 classifyDartWings :: Tgraph -> DWClass
-classifyDartWings g = DWClass {nodesKC = kcs, nodesDB = dbs, unknowns = unks} where
+classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks} where
    (kcs,dbs,unks) = foldl (processD g) ([],[],[]) (rdarts g ++ ldarts g)
 
 -- kcs = kite centres of larger kites, dbs = dart bases of larger darts, unks = unclassified dart wing tips
@@ -444,15 +410,15 @@ processD g (kcs,dbs,unks) rd@(RD(orig,w,_)) -- classify wing tip w
     Nothing -> (kcs,dbs,w:unks) -- unknown if incomplete kite attached to short edge of rd
     Just rk@(RK _)  ->  
       case find (matchingShortE rk) (faces g) of
-      Just (LK _) -> (w:kcs,dbs,unks) -- short edge rk shared with an lk => nodesKC
-      Just (LD _) -> (kcs,w:dbs,unks) -- short edge rk shared with an ld => nodesDB
+      Just (LK _) -> (w:kcs,dbs,unks) -- short edge rk shared with an lk => largeKiteCentres
+      Just (LD _) -> (kcs,w:dbs,unks) -- short edge rk shared with an ld => largeDartBases
       _ -> case find (matchingLongE rk) (faces g) of -- short edge rk has nothing attached
            Nothing -> (kcs,dbs,w:unks)  -- long edge of rk has nothing attached => unknown
-           Just (LD _) -> (w:kcs,dbs,unks) -- long edge rk shared with ld => nodesKC
+           Just (LD _) -> (w:kcs,dbs,unks) -- long edge rk shared with ld => largeKiteCentres
            Just lk@(LK _) ->               -- long edge rk shared with lk
              case find (matchingShortE lk) (faces g) of
-             Just (RK _) -> (w:kcs,dbs,unks) -- short edge of this lk shared with another rk => nodesKC
-             Just (RD _) -> (kcs,w:dbs,unks) -- short edge of this lk shared with rd => nodesDB
+             Just (RK _) -> (w:kcs,dbs,unks) -- short edge of this lk shared with another rk => largeKiteCentres
+             Just (RD _) -> (kcs,w:dbs,unks) -- short edge of this lk shared with rd => largeDartBases
              _ -> (kcs,dbs,w:unks) -- short edge of this lk has nothing attached => unknown
 
 processD g (kcs,dbs,unks) ld@(LD(orig,_,w)) -- classify wing tip w
@@ -464,15 +430,15 @@ processD g (kcs,dbs,unks) ld@(LD(orig,_,w)) -- classify wing tip w
     Nothing -> (kcs,dbs,w:unks) -- unknown if incomplete kite attached to short edge of ld
     Just lk@(LK _)  ->  
       case find (matchingShortE lk) (faces g) of
-      Just (RK _) -> (w:kcs,dbs,unks) -- short edge lk shared with an rk => nodesKC
-      Just (RD _) -> (kcs,w:dbs,unks) -- short edge lk shared with an rd => nodesDB
+      Just (RK _) -> (w:kcs,dbs,unks) -- short edge lk shared with an rk => largeKiteCentres
+      Just (RD _) -> (kcs,w:dbs,unks) -- short edge lk shared with an rd => largeDartBases
       _ -> case find (matchingLongE lk) (faces g) of -- short edge lk has nothing attached
            Nothing -> (kcs,dbs,w:unks)  -- long edge of lk has nothing attached => unknown
-           Just (RD _) -> (w:kcs,dbs,unks) -- long edge lk shared with rd => nodesKC
+           Just (RD _) -> (w:kcs,dbs,unks) -- long edge lk shared with rd => largeKiteCentres
            Just rk@(RK _) ->               -- long edge lk is shared with an rk
              case find (matchingShortE rk) (faces g) of
-             Just (LK _) -> (w:kcs,dbs,unks) -- short edge of this rk shared with another lk => nodesKC
-             Just (LD _) -> (kcs,w:dbs,unks) -- short edge of this rk shared with ld => nodesDB
+             Just (LK _) -> (w:kcs,dbs,unks) -- short edge of this rk shared with another lk => largeKiteCentres
+             Just (LD _) -> (kcs,w:dbs,unks) -- short edge of this rk shared with ld => largeDartBases
              _ -> (kcs,dbs,w:unks) -- short edge of this rk has nothing attached => unknown
 
 -- | find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
@@ -485,6 +451,26 @@ findFarK ld@(LD _) g = case find (matchingShortE ld) (rkites g) of
                          Nothing -> Nothing
                          Just rk -> find (matchingJoinE rk) (lkites g)
 findFarK _ _ = error "findFarK: applied to non-dart face"
+
+
+
+
+allComps:: Tgraph -> [Tgraph]
+allComps g = takeWhile (not . emptyGraph) $ iterate graphCompose g
+--allComps g = if emptyGraph g then [] else g:allComps (graphCompose g)
+
+allFComps:: Tgraph -> [Tgraph]
+allFComps g = takeWhile (not . emptyGraph) $ iterate (graphCompose . force) g
+--allFComps g = if emptyGraph g then [] else g:allFComps (graphCompose $ force g)
+
+
+maxCompose, maxFCompose:: Tgraph -> (Tgraph,Int)
+maxCompose g = (last comps, length comps - 1) where comps = allComps g
+maxFCompose g = (last comps, length comps - 1) where comps = allFComps g
+
+
+
+
 
 {------------------------------- 
 **************************************
@@ -534,38 +520,380 @@ graphDecompositions :: Tgraph -> [Tgraph]
 graphDecompositions = iterate graphDecompose
 
 
-{---------------------------
+
+
+
+
+
+
+
+
+{-
 ***************************************************************************   
-FORCING (adding missing faces which are fully determined by existing faces)
+NEW FORCING with Boundaries
 ***************************************************************************
+-}
+force:: Tgraph -> Tgraph
+force = boundaryForce
 
-This includes:
-(nonKDarts) any half dart with a missing half kite on its short edge
-    then (addDK) add the appropriate half kite,
-(incompletes) faces with missing mirror halves
-    then (complete) add the missing mirror half,
-(noTouchingDarts) darts whose wingV is a nodesDB but no second dart wing at that vertex
-    then (addTouchingDart) add the missing second dart half,
-(kiteGaps) kite halves with no dart on the short edge, but the mirror kite half shares its short edge with another kite
-    then (addDartTop) add dart faces in the 'gap',
-(almostSunStar) when at least 8 of the 10 dart faces already share an origin,
-             or when at least 6 of the 10 kite faces already share an origin 
-   then (completeSunStar) adding another half dart/half kite),
-(noKTop)  darts whose wing is a nodesDB with no kite half on the long edge
-   then (addKTop) add a missing kite half on the long edge
+-- | calculate boundary information, then call forceBD to do all updates, then convert back to a Tgraph
+boundaryForce:: Tgraph -> Tgraph
+boundaryForce = finalGraph . forceBD . makeBoundary 
 
-********  Note: That last kite half will need another kite half on its short edge  ***** TO DO
--}    
-force :: Tgraph -> Tgraph
-force g = case updates g of
-          (g': _) -> force g'
-          _  -> g        
-  where updates g = fmap (addDK g) (nonKDarts g) ++
-                    fmap (complete g) (incompletes g) ++
-                    fmap (addTouchingDart g) (noTouchingDarts g) ++
-                    fmap (addDartTop g) (kiteGaps g) ++
-                    fmap (completeSunStar g) (almostSunStar g) ++
-                    fmap (addKTop g) (noKTop g)
+{- | A Boundary records
+the boundary directed edges plus an association list of the faces incident with each boundary vertex.
+It also keeps track of all the faces and vertices, 
+and the next vertex label to be used when adding a new vertex.
+Note that vFaceAssoc is initially only defined for boundary vertices,
+but the information is not removed when a vertex is no longer on the boundary
+-}
+data Boundary = Boundary{ bDedges::[(Vertex,Vertex)]      -- boundary directed edges
+                        , vFaceAssoc::[(Vertex,[TileFace])] -- association list for boundary vertices
+                        , allFaces::[TileFace]
+                        , allVertices::[Vertex]
+                        , nextVertex::Vertex
+                        } deriving (Show)
+
+-- | calculate Boundary information from a Tgraph
+makeBoundary:: Tgraph -> Boundary
+makeBoundary g = 
+    let bdes = boundaryDedges g
+        bvs = fmap fst bdes -- or snd would do for all boundary vertices
+    in
+      Boundary{ bDedges = bdes
+              , vFaceAssoc = fmap (\v -> (v, filter (isAtV v) (faces g))) bvs
+              , allFaces = faces g
+              , allVertices = vertices g
+              , nextVertex = makeNewV (vertices g)
+              }
+-- | convert a Boundary back to a Tgraph
+finalGraph:: Boundary -> Tgraph
+finalGraph bd = Tgraph{ faces = allFaces bd
+                      , vertices = allVertices bd
+                      }
+
+{- | The recursive `forceBD`selects safe updates first from the list of all possible updates of a boundary,
+only doing an unsafe update if there are no safe ones. The update list is
+recalculated at each recursive call after an update
+and the recursion stops only when the new update list is empty.
+-}
+forceBD:: Boundary -> Boundary
+forceBD bd = let upDts = updatesBD bd
+             in case find safeUpdate upDts of
+                Just u -> forceBD (doUpdate u bd)       -- do first safe step
+                _  -> case upDts of
+                      (u: _) -> forceBD (doUpdate u bd) -- do first unsafe step
+                      _  -> bd                          -- finish
+{-
+forceBD:: Boundary -> Boundary
+forceBD bd = let upDts = updatesBD bd
+             in case filter safeUpdate upDts of
+                (u: _) -> forceBD (doUpdate u bd)       -- do first safe step
+                _  -> case upDts of
+                      (u: _) -> forceBD (doUpdate u bd) -- do first unsafe step
+                      _  -> bd                          -- finish
+-}
+
+-- | an Update is a pair of
+-- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
+-- and a makeFace function to create the new face when given a third vertex.
+-- The function doUpdate applies makeFace to v for the Just v case and to a new vertex for the Nothing case
+type Update = (Maybe Vertex, Vertex -> TileFace)
+
+-- | safe updates are those which do not require a new vertex, 
+-- so have an identified existing vertex (Just v)
+safeUpdate :: Update -> Bool
+safeUpdate (Just _ , _) = True
+safeUpdate (Nothing, _) = False
+
+-- upDatesBD bd produces a list of all the possible single updates to bd (using the 8 rules)
+updatesBD:: Boundary -> [Update]
+updatesBD bd =
+    wholeTileUpdates bd             -- half tiles to whole tiles
+    ++ kiteBelowDartUpdates bd      -- kites on short edges of all darts (k2d1 and also k3d2, k2d2)
+    ++ kiteWingDartOriginUpdates bd -- k4d1 and k2d3 vertices add missing kite halves
+    ++ kiteGapUpdates bd            -- k2d2 (largeKiteCentres) vertices add missing dart halves
+    ++ secondTouchingDartUpdates bd -- k3d2 (largeDartBases) vertices add missing second dart
+    ++ sunStarUpdates bd            -- k5 and d5 vertices add more darts/kites
+    ++ dartKiteTopUpdates bd        -- k3d2 (largeDartBases) vertices - add missing kite top to dart
+    ++ thirdDartUpdates bd          -- k2d3 vertices with 2 of the 3 darts
+
+-- | doUpdate` adds a new face by making changes to the boundary information
+-- and checks that the new face is not in conflict with existing faces.
+-- Safe cases have Just v with existing vertex v as third vertex.
+doUpdate:: Update -> Boundary -> Boundary
+doUpdate (Just v, makeFace) bd = 
+    let newFace = makeFace v
+        fDedges = faceDedges newFace
+        matchedDedges = fDedges `intersect` bDedges bd
+        newfDedges = fDedges \\ matchedDedges
+        nbrFaces = concatMap (facesAtBV bd) (faceVList newFace)
+    in  if noConflict newFace nbrFaces
+        then Boundary{ bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
+                     , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
+                     , allFaces = newFace:allFaces bd
+                     , allVertices = allVertices bd
+                     , nextVertex = nextVertex bd
+                     }
+        else error ("doUpdate: conflicting new face:\n"
+                    ++ show newFace
+                    ++ "\nwith neighbouring faces:\n"
+                    ++ show nbrFaces
+                   )
+-- Unsafe cases have Nothing as third vertex, so a new vertex is added.        
+doUpdate (Nothing, makeFace) bd = 
+   let v = nextVertex bd
+       newFace = makeFace v
+       fDedges = faceDedges newFace
+       matchedDedges = fDedges `intersect` bDedges bd
+       newfDedges = fDedges \\ matchedDedges
+       nbrFaces = concatMap (facesAtBV bd) (faceVList newFace \\ [v])
+   in if noConflict newFace nbrFaces
+      then Boundary { bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
+                    , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
+                    , allFaces = newFace:allFaces bd
+                    , allVertices = v:allVertices bd
+                    , nextVertex = v+1
+                    }
+      else error ("doUpdate: conflicting new face:\n"
+                  ++ show newFace
+                  ++ "\nwith neighbouring faces:\n"
+                  ++ show nbrFaces
+                 )
+
+
+-- | noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
+-- There is no conflict if none of the new directed face edges of fc are already directed edges
+-- of neighbouring faces fcs (in the same direction)
+-- and the edge length types (phi/nonPhi) do not conflict
+noConflict :: TileFace -> [TileFace] -> Bool
+noConflict fc fcs = null (faceDedges fc `intersect` concatMap faceDedges fcs) &&
+                    null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
+                    null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
+
+-- | changeVFAssoc vs f assoc  - adds f to the list of faces associated with each v in vs
+changeVFAssoc:: Eq v => [v] -> f -> [(v,[f])] -> [(v,[f])]
+changeVFAssoc vs f assoc = foldl (changeV f) assoc vs
+  where changeV f assoc v = case lookup v assoc of
+                            Just fs -> (v,f:fs): assoc
+                            Nothing -> (v,[f]) : assoc
+
+-- | facesAtBV bd v - returns the faces found at v which should be a boundary vertex
+facesAtBV:: Boundary -> Vertex -> [TileFace]
+facesAtBV bd v = case lookup v (vFaceAssoc bd) of
+            Just fcs -> fcs
+            Nothing -> error ("facesAtBV: no faces found at boundary vertex " ++ show v)
+
+{-
+boundaryFilter: requires a Boundary and a predicate
+The predicate takes a boundary directed edge (a,b) and a tileface at a (the first vertex of the edge)
+and decides whether the face is wanted or not (True = wanted)
+This is then used to filter all the faces round the boundary by applying to all the boundary edges
+-}
+boundaryFilter::  Boundary -> ((Vertex,Vertex) -> TileFace -> Bool) -> [TileFace]
+boundaryFilter bd pred = concatMap (\e -> filter (pred e) (facesAtBV bd (fst e))) (bDedges bd)
+
+
+{-
+------------------  FORCING RULES ----------------------------
+-}
+
+wholeTileUpdates:: Boundary -> [Update]
+wholeTileUpdates bd = fmap (completeHalf bd) (incompleteHalves bd)
+
+-- | incompleteHalves bd returns faces with missing opposite face (mirror face)  
+incompleteHalves :: Boundary -> [TileFace]
+incompleteHalves bd = boundaryFilter bd boundaryJoin where
+    boundaryJoin (a,b) fc = joinE fc == (b,a)
+
+-- | completeHalf will add a symmetric (mirror) face for a given face at a boundary join edge.
+completeHalf :: Boundary -> TileFace -> Update        
+completeHalf bd (LD(a,b,_)) = (x, makeFace) where
+        makeFace v = RD(a,v,b)
+        x = checkThirdV bd (b,a) 3 1 
+-- WAS   x = findThirdV bd (b,a) (intAngle 7) (intAngle 1) 
+completeHalf bd (RD(a,_,b)) = (x, makeFace) where
+        makeFace v = LD(a,b,v)
+        x = checkThirdV bd (a,b) 1 3
+completeHalf bd (LK(a,_,b)) = (x, makeFace) where
+        makeFace v = RK(a,b,v)
+        x = checkThirdV bd (a,b) 1 2
+completeHalf bd (RK(a,b,_)) = (x, makeFace) where
+        makeFace v = LK(a,v,b)
+        x = checkThirdV bd (b,a) 2 1
+
+
+kiteBelowDartUpdates :: Boundary -> [Update]
+kiteBelowDartUpdates bd = fmap (addKiteShortE bd) (nonKDarts bd)
+
+-- half darts with boundary short edge
+nonKDarts:: Boundary -> [TileFace]
+nonKDarts bd = boundaryFilter bd bShortDarts where
+    bShortDarts (a,b) fc = isDart fc && shortE fc == (b,a)
+
+-- | add a (missing) half kite on a (boundary) short edge of a dart or kite
+addKiteShortE::  Boundary -> TileFace -> Update   
+addKiteShortE bd (RD(_,b,c)) = (x, makeFace) where
+    makeFace v = LK(v,c,b)
+    x = checkThirdV bd (c,b) 2 2
+addKiteShortE bd (LD(_,b,c)) = (x, makeFace) where
+    makeFace v = RK(v,c,b)
+    x = checkThirdV bd (c,b) 2 2
+addKiteShortE bd (LK(_,b,c)) = (x, makeFace) where
+    makeFace v = RK(v,c,b)
+    x = checkThirdV bd (c,b) 2 2
+addKiteShortE bd (RK(_,b,c)) = (x, makeFace) where
+    makeFace v = LK(v,c,b)
+    x = checkThirdV bd (c,b) 2 2
+
+
+
+kiteWingDartOriginUpdates :: Boundary -> [Update] -- k4d1 and k2d3 add a missing kite half
+kiteWingDartOriginUpdates bd = fmap (addKiteShortE bd) (kitesWingDartOrigin bd)
+
+-- kites with boundary short edge where the wing is a dart origin
+kitesWingDartOrigin:: Boundary -> [TileFace]   
+kitesWingDartOrigin bd = boundaryFilter bd kiteWDO where
+   kiteWDO (a,b) fc = shortE fc == (b,a) 
+                      && ((isLK fc && isDartOrigin b) || (isRK fc && isDartOrigin a))
+   isDartOrigin v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
+
+
+
+{- | (for k2d1 vertices)
+Kites whose short edge (b,a) matches a boundary edge (a,b) where their oppV (= a for LK and = b for RK)
+has 2 other kite halves sharing a shortE.
+These need a dart adding on the short edge.
+-}
+kiteGapUpdates :: Boundary -> [Update]
+kiteGapUpdates bd = fmap (addDartShortE bd) (kiteGaps bd)
+
+-- | add a half dart top to a boundary short edge of a half kite.
+addDartShortE :: Boundary -> TileFace -> Update
+addDartShortE bd (RK(_,b,c)) = (x, makeFace) where
+        makeFace v = LD(v,c,b)
+        x = checkThirdV bd (c,b) 3 1
+addDartShortE bd (LK(_,b,c)) = (x, makeFace) where
+        makeFace v = RD(v,c,b)
+        x = checkThirdV bd (c,b) 1 3
+addDartShortE bd _ = error "addDartShortE applied to non-kite face"
+
+-- | kite halves with a short edge on the boundary (a,b) 
+-- when there are 2 other kite halves sharing a short edge
+-- at oppV of the kite half (a for left kite and b for right kite)
+kiteGaps :: Boundary -> [TileFace]
+kiteGaps bd = boundaryFilter bd kiteGap where
+  kiteGap (a,b) fc = shortE fc == (b,a)
+                     && (isLK fc && hasKshortKat a || isRK fc && hasKshortKat b)
+  hasKshortKat v = hasMatchingE $ fmap shortE $ filter isKite $ facesAtBV bd v
+
+
+
+
+-- | secondTouchingDartUpdates - k3d2 vertex add a missing second dart
+secondTouchingDartUpdates :: Boundary -> [Update] 
+secondTouchingDartUpdates bd = fmap (addDartShortE bd) (noTouchingDarts bd)
+
+-- | kite halves with a short edge on the boundary (a,b) and oppV must be a large dart base (k3d2) vertex
+-- (oppV is a for left kite and b for right kite)
+-- function mustbeLDB determines if a vertex must be a a largeDartBase
+noTouchingDarts :: Boundary -> [TileFace]
+noTouchingDarts bd = boundaryFilter bd farKOfDarts where
+   farKOfDarts (a,b) fc  = shortE fc == (b,a)
+                           && (isRK fc && mustbeLDB bd b || isLK fc && mustbeLDB bd a)
+
+
+
+{- |  sunStarUpdates is for vertices that must be either k5 or d5 
+almostSunStar finds half-kites/half-darts with a long edge on the boundary
+where their origin vertex has 8 total half-kites/half-darts respectively
+or their origin vertex has 6 total half-kites in the case of kites only
+completeSunStar will add a new face of the same type (dart/kite) 
+sharing the long edge.
+[Note that unmatched join edges will be taken care of elsewhere with completeHalf]
+-}
+sunStarUpdates :: Boundary -> [Update] 
+sunStarUpdates bd = fmap (completeSunStar bd) (almostSunStar bd)
+
+almostSunStar :: Boundary -> [TileFace]    
+almostSunStar bd = boundaryFilter bd multiples68 where
+    multiples68 (a,b) fc =               
+        (isLD fc && longE fc == (b,a) && a `elem` occurs 8 dartOriginsAta) ||
+        (isRD fc && longE fc == (b,a) && b `elem` occurs 8 dartOriginsAtb) ||
+        (isLK fc && longE fc == (b,a) && (b `elem` occurs 6 kiteOriginsAtb || b `elem` occurs 8 kiteOriginsAtb)) ||
+        (isRK fc && longE fc == (b,a) && (a `elem` occurs 6 kiteOriginsAta || a `elem` occurs 8 kiteOriginsAta))
+        where
+            fcsAta = facesAtBV bd a
+            fcsAtb = facesAtBV bd b
+            kiteOriginsAta = fmap originV (filter isKite fcsAta)
+            kiteOriginsAtb = fmap originV (filter isKite fcsAtb)
+            dartOriginsAta = fmap originV (filter isDart fcsAta)             
+            dartOriginsAtb = fmap originV (filter isDart fcsAtb)             
+
+completeSunStar :: Boundary -> TileFace -> Update   
+completeSunStar bd (RK(a,_,c)) = (x, makeFace) where
+  makeFace v = LK(a,c,v)
+  x = checkThirdV bd (a,c) 1 2
+completeSunStar bd (LK(a,b,_)) = (x, makeFace) where
+  makeFace v = RK(a,v,b)
+  x = checkThirdV bd (b,a) 2 1
+completeSunStar bd (RD(a,b,_)) = (x, makeFace) where
+  makeFace v = LD(a,v,b)
+  x = checkThirdV bd (b,a) 1 1
+completeSunStar bd (LD(a,_,c)) = (x, makeFace) where
+  makeFace v = RD(a,c,v)
+  x = checkThirdV bd (a,c) 1 1
+
+
+
+-- k3d2 (largeDartBases) vertices with dart long edge on boundary - add missing kite top
+dartKiteTopUpdates :: Boundary -> [Update] 
+dartKiteTopUpdates bd = fmap (addKiteLongE bd) (noKiteTopDarts bd)
+
+addKiteLongE :: Boundary -> TileFace -> Update
+addKiteLongE bd (LD(a,_,c)) = (x, makeFace) where
+    makeFace v = RK(c,v,a)
+    x = checkThirdV bd (a,c) 2 1
+addKiteLongE bd (RD(a,b,_)) = (x, makeFace) where
+    makeFace v = LK(b,a,v)
+    x = checkThirdV bd (b,a) 1 2
+addKiteLongE bd _ = error "addKiteLongE: applied to kite"
+
+-- k3d2 (largeDartBase) vertices with dart long edge on boundary
+noKiteTopDarts :: Boundary -> [TileFace]
+noKiteTopDarts bd = boundaryFilter bd dartsWingDB where
+    dartsWingDB (a,b) fc = (isLD fc && longE fc == (b,a) && mustbeLDB bd b) ||
+                           (isRD fc && longE fc == (b,a) && mustbeLDB bd a)
+
+
+
+
+-- k2d3 nodes with 2 of the 3 darts  - add another half dart on a boundary long edge of existing darts
+thirdDartUpdates :: Boundary -> [Update] 
+thirdDartUpdates bd = fmap (addDartLongE bd) (missingThirdDarts bd)
+
+-- add a half dart on a boundary long edge of a dart
+addDartLongE:: Boundary -> TileFace -> Update
+addDartLongE bd (LD(a,_,c)) = (x, makeFace) where
+  makeFace v = RD(a,c,v)
+  x = checkThirdV bd (a,c) 1 1
+addDartLongE bd (RD(a,b,_)) = (x, makeFace) where
+  makeFace v = LD(a,v,b)
+  x = checkThirdV bd (b,a) 1 1
+addDartLongE bd _ = error "addDartLongE: applied to kite"
+
+-- k2d3 nodes with 2 of the 3 darts
+missingThirdDarts:: Boundary -> [TileFace]  
+missingThirdDarts bd = boundaryFilter bd pred where
+    pred (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && a `elem` occurs 4 (fmap originV (filter isDart fcsAta))) ||
+                    (isRD fc && longE fc == (b,a) && bHasKiteWing && b `elem` occurs 4 (fmap originV (filter isDart fcsAtb)))
+             where       
+                    fcsAta = facesAtBV bd a
+                    fcsAtb = facesAtBV bd b
+                    aHasKiteWing = a `elem` fmap wingV (filter isKite fcsAta)
+                    bHasKiteWing = b `elem` fmap wingV (filter isKite fcsAtb)
+
+
 
 
 {-------------------------------------------
@@ -590,12 +918,13 @@ If the first is false but second is true with edge (a,d), add edge (b,d) and fac
 If the first is true with edge (b,d) but second is false, add edge (a,d) and face RD(a,d,b)
 If both are true (and d node matches) we have a hole to be filled with RD(a,d,b)
 
-No multi-gaps property:
+No crossing boundary property:
 Going round a vertex starting from a boundary edge and starting towards the interior, 
-there will be a gap after the last face encountered.
-If there is an extra gap - i.e. faces left over when no face is found attached to the last found edge,
-this reports an error as it is unsafe to assume the sought edge does not already exist.
+there will be a boundary and gap after the last face encountered.
+If there is an extra gap - i.e. faces left over when no face is found attached to the last found edge, this
+indicates a crossing boundary so an error is reported as it is unsafe to assume the sought edge does not already exist.
 ---------------------------------}
+
 
 -- | IntAngles are Ints mod 10
 newtype IntAngle = IntAngle Int deriving(Eq,Show)
@@ -608,67 +937,68 @@ anti  (IntAngle n) (IntAngle m) = intAngle (n+m)
 clock (IntAngle n) (IntAngle m) = intAngle (n-m)
 
 
+-- | checkThirdV is a simpler interface to call findThirdV
+-- checkThirdV g (a,b) n m
+-- the two integer arguments n and m are the internal angles for the new face on the boundary edge (a,b)
+-- for a and b respectively and must both be either 1,2, or 3.
+-- It converts n and m to IntAngles
+-- but subtracts n from 10 to get the antiClockwise (external) angle on the first vertex.
+checkThirdV:: Boundary -> (Vertex,Vertex) -> Int -> Int -> Maybe Vertex
+checkThirdV bd (a,b) n m = checkAngleNumbers $ findThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
+  where checkAngleNumbers x = if n `elem` [1,2,3] && m `elem` [1,2,3]
+                              then x
+                              else error ("checkThirdV angles should be 1,2 or 3 but found "++ show(n,m))
+
+
 {-  | findThirdV             
 The main function for constructing a new face is findThirdV
-findThirdV g (a,b) nAnti nClock will find the third vertex of a face depending on edges found
-to form a face on the >>>RIGHT HAND SIDE <<<< of the directed edge (a,b) - which must be a boundary edge.
-(To add to the LHS of (a,b) just use the reverse directed edge (b,a) and add to the RHS)
+findThirdV bd (a,b) nAnti nClock will find the third vertex of a face depending on edges found
+to form a face on the >>>RIGHT HAND SIDE <<<< of the directed edge (a,b) - which must be 
+a boundary directed edge.
+(To add to the LHS of (a,b) then the boundary direction must be (b,a) so add to the right of (b,a))
 
 nAnti is the angle number searched for at vertex a going anticlockwise (starting with (a,b) as angle 0).
-nAnti should be 6..9 for the face to be on RHS
+nAnti should be 7, 8, or 9 for the face to be on RHS
 
 nClock is the angle number searched for at vertex b going clockwise (starting with (b,a) as 0).
-nClock should be 1..4 for the face to be on RHS
+nClock should be 1,2, or 3 for the face to be on RHS
 
 If existing edges are found in the specified directions
 they are used and the associated vertex is returned (Just v). 
 If nothing is found, Nothing is returned - indicating the a new vertex is needed
 
-Unsafe:
+Unsafe: touching vertex problem
 There is a pathalogical case where the vertex already exists but neither of the edges is found. 
 In this case it will lead to an erroneous new vertex.
 
-A gap in faces around a and b can result in a 'no multi-gaps' error
-when it is unsafe to conclude the edges do not exist. (*no multi-gaps* property - see findAnti and findClock)
--}
-findThirdV:: Tgraph -> (Vertex,Vertex) -> IntAngle -> IntAngle -> Maybe Vertex
-findThirdV g (a,b) nAnti nClock  =
-    case (findAnti nAnti (a,b) (faces g), findClock nClock (b,a) (faces g)) of
-        (Just c, Just d ) -> if c==d then Just c else error "findThirdV: non-matching end-points"
-        (Just c, Nothing) -> Just c
-        (Nothing, Just c) -> Just c
-        (Nothing, Nothing)-> Nothing
+A gap in faces around a and b can result in a *crossing boundary* error
+when it is unsafe to conclude the edges do not exist. (see also findAnti and findClock)
+-} 
+findThirdV:: Boundary -> (Vertex,Vertex) -> IntAngle -> IntAngle -> Maybe Vertex
+findThirdV bd (a,b) nAnti nClock  = 
+    case (findAnti nAnti (a,b) (facesAtBV bd a), findClock nClock (b,a) (facesAtBV bd b)) of
+         (Just c, Just d ) -> if c==d then Just c else error "findThirdV: non-matching end-points"
+         (Just c, Nothing) -> Just c
+         (Nothing, Just c) -> Just c
+         (Nothing, Nothing)-> Nothing
+  
 
-{- PREVIOUSLY findThirdV was findCreateV which created a new vertex when needed.
-findCreateV:: Tgraph -> (Vertex,Vertex) -> IntAngle -> IntAngle -> Vertex
-findCreateV g (a,b) nAnti nClock  =
-    case (findAnti nAnti (a,b) (faces g), findClock nClock (b,a) (faces g)) of
-        (Just c, Just d ) -> if c==d then c else error "findCreateV: non-matching end-points"
-        (Just c, Nothing) -> c
-        (Nothing, Just c) -> c
-        (Nothing, Nothing)-> makeNewV (vertices g)
--}
-
-{- | findAnti, findClock
-For an edge (a,b) of a single face (i.e. must not be a shared edge of 2 faces) 
-findAnti n will look at directed edges from a of faces going anti-clockwise round a with their direction
-starting with (a,b) in direction 0. It then returns Just c if (a,c) is found in direction n
+{- | findClock, findAnti
+For a boundary directed edge (a,b) 
+findAnti n (a,b) fcs will look at directed edges from a of fcs going anti-clockwise round a with their direction
+starting with (a,b) in direction 0. fcs must be the faces at a. It then returns Just c if (a,c) is found in direction n.
 It will return Nothing if no such edge (a,c) is found BUT an error if there are faces left over
-when a match fails - this indicates a gap. (*no multi-gaps* property required of Tgraphs for this to be avoided).
+when a match fails - this indicates a *crossing boundary*).
 It also produces an error if the last angle found is beyond the one searched for.
-Similarly findClock in the clockwise direction.
+Similarly findClock in the clockwise direction but fcs must be faces at b.
 -}
 findClock, findAnti :: IntAngle -> (Vertex, Vertex) -> [TileFace] -> Maybe Vertex
-{-
-findClock n (a,b) fcs = lookup n $ allAnglesClock [(intAngle 0,b)] $ filter (isAtV a) fcs
-findAnti  n (a,b) fcs = lookup n $ allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) fcs
--}
+findClock n (a,b) fcs = checkClockFor n $ allAnglesClock [(intAngle 0,b)] $ fcs
+findAnti  n (a,b) fcs = checkAntiFor n $ allAnglesAnti [(intAngle 0,b)] $ fcs
 
--- | checkFor n instead of lookup n, because the search for n should find it in the front pair or not at all.
--- However if the first angle is bigger than n, there is something wrong - so error called.
-findClock n (a,b) fcs = checkClockFor n $ allAnglesClock [(intAngle 0,b)] $ filter (isAtV a) fcs
-findAnti  n (a,b) fcs = checkAntiFor n $ allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) fcs
-
+-- | checkClockFor n and checkAntiFor n instead of lookup n, because the search for n should find it in the front pair on the resulting list or not at all.
+-- However if the first angle is smaller than n for checkClockFor or bigger than n for checkAntiFor,
+-- there is something wrong - so error called.
 checkAntiFor,checkClockFor::IntAngle -> [(IntAngle,Vertex)] -> Maybe Vertex
 checkAntiFor n [] = Nothing
 checkAntiFor n ms@((m,a):_) = if m==n then Just a  else
@@ -681,10 +1011,9 @@ checkClockFor n ms@((m,a):_) = if m==n then Just a  else
 
 (IntAngle m) `smallerAngle`  (IntAngle n) = m<n-- only valid up to n==9
 
-
+-- isAtV v fc asks if a face fc has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool           
 isAtV v face  =  v `elem` faceVList face
---isAtV a face  =  a==x || a==y || a==z where (x,y,z) = faceVs face
 
 {- | allAnglesClock and allAnglesAnti are used by findClock and findAnti
 The second argument is the unprocessed list of faces attached to a common vertex a
@@ -694,21 +1023,20 @@ It looks for another face sharing vertex last (and therefore edge (a,last)) and 
 to get the next angle and edge. The found face is removed from the list of faces to be processed in the recursive call.
 If there is no such face, it will return the whole (angle,vertex) list found so far provided
 there are no faces left over.
-Faces left over indicate a multi-gap in the faces and therefore an error should be reported
+Faces left over indicate a crossing boundary at the vertex and therefore an error should be reported
 (because the angle list is incomplete and unsafe to use).
 -}
 allAnglesClock:: [(IntAngle,Vertex)] -> [TileFace] -> [(IntAngle,Vertex)]
 allAnglesClock la@((n,last):_) fcs = case filter (isAtV last) fcs of  
     [fc] ->  allAnglesClock ((clock n (intAngleAt (prevV last fc) fc), nextV last fc) :la)  $ fcs\\[fc]
-    []   -> if fcs==[] then la else error ("allAnglesClock: gap after "++ show last ++ " before " ++ show fcs)
+    []   -> if fcs==[] then la else error ("allAnglesClock: crossing boundaries?\nGap after "++ show last ++ " before " ++ show fcs)
     other    -> error ("allAnglesClock: Conflicting faces found: " ++ show other)
 
 allAnglesAnti:: [(IntAngle,Vertex)] -> [TileFace] -> [(IntAngle,Vertex)]
 allAnglesAnti la@((n,last):_) fcs = case filter (isAtV last) fcs of  
     [fc] ->  allAnglesAnti ((anti n (intAngleAt (nextV last fc) fc), prevV last fc) :la)  $ fcs\\[fc]
-    []    -> if fcs==[] then la else error ("allAnglesAnti: gap after "++ show last ++ " before " ++ show fcs)
+    []    -> if fcs==[] then la else error ("allAnglesAnti: crossing boundaries?\nGap after "++ show last ++ " before " ++ show fcs)
     other    -> error ("allAnglesAnti: Conflicting faces found: " ++ show other)
-
 
 -- | intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
 -- returning an IntAngle (1,2,or 3)
@@ -721,205 +1049,113 @@ faceAngles :: TileFace -> [IntAngle]
 faceAngles (LD _) = fmap intAngle [1,3,1]
 faceAngles (RD _) = fmap intAngle [1,1,3]
 faceAngles _      = fmap intAngle [1,2,2] -- LK and RK
-    
 
 
 
--- | incompletes g returns faces with missing opposite face (findMirror) - kites before darts  
-incompletes :: Tgraph -> [TileFace]    
-incompletes g = filter (noMirror g) $ concat [rkites g,lkites g,rdarts g,ldarts g] -- kites before darts
 
-{- |
-complete will add a symmetric (findMirror) face for a given face at the join edge.
-It should only be used when there is no existing partner on the join edge.
-It uses findThirdV to check if either edge of the new face already exist (apart from the join).
+-- | mustbeLDB (large dart base / k3d2) is true of a boundary vertex if it is a wing of a dart which has a kite on its long edge or is the wing of two darts not sharing a long edge (must be k3d2 vertex)
+mustbeLDB :: Boundary -> Vertex -> Bool
+mustbeLDB bd v =
+    let fcs = facesAtBV bd v
+        dWings = filter (isDartWing v) fcs
+        isDartWing v fc = isDart fc && wingV fc == v
+        isKiteOrigin v fc = isKite fc && originV fc == v
+    in  if length dWings == 1
+        then hasMatchingE $ fmap longE (dWings ++ filter (isKiteOrigin v) fcs) 
+        else if length dWings == 2
+             then not $ hasMatchingE $ fmap longE dWings
+             else False 
 
-Unsafe Case: see findThirdV
--}
-complete :: Tgraph -> TileFace -> Tgraph        
-complete g (LD(a,b,_)) = insertVFace x newFace g where
-    newFace v = RD(a,v,b)
-    x = findThirdV g (b,a) (intAngle 7) (intAngle 1) 
-complete g (RD(a,_,b)) = insertVFace x newFace g where
-    newFace v = LD(a,b,v)
-    x = findThirdV g (a,b) (intAngle 9) (intAngle 3)
-complete g (LK(a,_,b)) = insertVFace x newFace g where
-    newFace v = RK(a,b,v)
-    x = findThirdV g (a,b) (intAngle 9) (intAngle 2)
-complete g (RK(a,b,_)) = insertVFace x newFace g where
-    newFace v = LK(a,v,b)
-    x = findThirdV g (b,a) (intAngle 8) (intAngle 1)
-                
-
--- | add a (missing) half kite at the base (short edge) of a half dart
-addDK::  Tgraph -> TileFace -> Tgraph   
-addDK g (RD(_,b,c)) = insertVFace x newFace g where
-    newFace v = LK(v,c,b)
-    x = findThirdV g (c,b) (intAngle 8) (intAngle 2)
-addDK g (LD(_,b,c)) = insertVFace x newFace g where
-    newFace v = RK(v,c,b)
-    x = findThirdV g (c,b) (intAngle 8) (intAngle 2)
-addDK g _ = error "addDK applied to non-dart face"
-
--- | find the joined partner face of a face if it exists (returns Maybe face)
-findMirror :: TileFace -> Tgraph ->  Maybe TileFace
-findMirror fc g = find (matchingJoinE fc) (faces g)       
-
--- | noMirror g fc is True if fc has no mirror face joined in g
-noMirror :: Tgraph -> TileFace -> Bool
-noMirror g fc = findMirror fc g == Nothing
-
--- half darts with no face (necessarily a kite half) on the short edge
-nonKDarts::Tgraph -> [TileFace]
-nonKDarts g = filter (noK g) (ldarts g ++ rdarts g)
-
--- | does a dart face have a missing kite face at its base?
-noK :: Tgraph -> TileFace -> Bool
-noK g rd@(RD _) = find (matchingShortE rd) (lkites g) == Nothing
-noK g ld@(LD _) = find (matchingShortE ld) (rkites g) == Nothing 
-noK g _         = error "noK: cannot be applied to kites"
-
--- | noTouchingDarts finds dart halves with a wing tip at a nodesDB where
--- there is no second dart half sharing the wing tip
-noTouchingDarts :: Tgraph -> [TileFace]
-noTouchingDarts g = [ head ds | v <- nodesDB (classifyDartWings g)
-                              , let ds = dartsAt v, length ds  == 1] where 
-    dartsAt v = filter (isAtV v) (ldarts g ++ rdarts g)
-
--- | add a touching dart half (wing vertices touching) to argument dart half returned by 
--- noTouchingDarts. The whole shared kite at their bases must already exist.
--- also used by forceDBnode
-addTouchingDart :: Tgraph -> TileFace -> Tgraph
-addTouchingDart g drt = case findFarK drt g of
-                         Nothing -> error ("addTouchingDart to dart without complete kite " ++ show drt)
-                         Just kt -> addDartTop g kt
-
--- | add a half dart top to the short edge of a half kite.
--- used by addTouchingDart and therefore forceDBnode to add a dart face BUT also used in force for kiteGaps
-addDartTop :: Tgraph -> TileFace -> Tgraph
-addDartTop g (RK(_,b,c)) = insertVFace x newFace g where
-        newFace v = LD(v,c,b)
-        x = findThirdV g (c,b) (intAngle 7) (intAngle 1)
-addDartTop g (LK(_,b,c)) = insertVFace x newFace g where
-        newFace v = RD(v,c,b)
-        x = findThirdV g (c,b) (intAngle 9) (intAngle 3)
-addDartTop g _ = error "addDartTop applied to non-kite face"
+-- | hasMatching asks if a directed edge list has any two matching (=opposing) directed edges.
+hasMatchingE :: [(Vertex,Vertex)] -> Bool
+hasMatchingE ((x,y):more) = (y,x) `elem` more || hasMatchingE more
+hasMatchingE [] = False
+                      
 
 
-noKTop :: Tgraph -> [TileFace]
-noKTop g = [ d | v <- nodesDB (classifyDartWings g), d <- ldarts g ++ rdarts g
-               , wingV d == v
-               , find (matchingLongE d) (rkites g++lkites g) == Nothing]
-                   
-addKTop :: Tgraph -> TileFace -> Tgraph
-addKTop g (LD(a,_,c)) = insertVFace x newFace g where
-    newFace v = RK(c,v,a)
-    x = findThirdV g (a,c) (intAngle 8) (intAngle 1)
-addKTop g (RD(a,b,_)) = insertVFace x newFace g where
-    newFace v = LK(b,a,v)
-    x = findThirdV g (b,a) (intAngle 9) (intAngle 2)
-    
-{- |
-When two kite halves meet on their short edge, 
-the other two kite halves should have darts against their short edge (in the gap).
-kiteGaps finds such cases and returns the kite halves to which the darts are to be short-edge attached.
-addDartTop adds a missing dart half to the supplied kite half.
--}
-kiteGaps :: Tgraph -> [TileFace]
-kiteGaps g = [ k | lk <- lkites g
-                 , rk <- rkites g
-                 , shortE lk == reverseE (shortE rk)
-                 , Just k <- [findMirror lk g, findMirror rk g]
-                 , noD g k
-             ]
-
--- | noD g k g asks if there is no dart attached to the short edge of a kite half k in g
-noD :: Tgraph  -> TileFace-> Bool
-noD g rk@(RK _) = find (matchingShortE rk) (ldarts g) == Nothing
-noD g lk@(LK _) = find (matchingShortE lk) (rdarts g) == Nothing 
-noD g _         = error "noD: cannot be applied to dart"
 
 
-{- | almostSunStar finds vertices which are either
-the origins of 8 faces (which are necessarily 8 half kites or 8 half darts), or
-the origins of 6 half kites. 
-It returns those faces at such centres which don't share a long edge
-with one of the other faces at that centre.
-completeSunStar will add a new face of the same type (dart/kite) 
-sharing the long edge.
-[Note that unmatched join edges will be taken care of elsewhere with complete]
--}
-almostSunStar :: Tgraph -> [TileFace]    
-almostSunStar g = [ f | centre <- occurs 8 (fmap originV (faces g)) ++
-                                  occurs 6 (fmap originV (lkites g ++ rkites g)) -- NEW
-                      , let fcs = filter ((==centre) . originV) (faces g)
-                      , f <- fcs
-                      , reverseE (longE f) `notElem` fmap longE fcs
-                  ]
--- | occurs n vs returns a list of items in vs that occur exactly n times
-occurs :: Eq a => Int -> [a] -> [a]
-occurs n vs = nub [v | v <- vs,  length (filter (==v) vs) == n]
 
-{- | For a face f returned by almostSunStar, completeSunStar f g will add a matching half tile to f
-but back to back on the long edge.
-This will extend an incomplete sun or star, relying on complete to add a matching half tile.
-So eventually 4 darts will complete to a star, and 3 or 4 kites will complete to a sun.
--}
-completeSunStar :: Tgraph -> TileFace -> Tgraph   
-completeSunStar g (RK(a,b,c)) = insertVFace x newFace g where
-  newFace v = LK(a,c,v)
-  x = findThirdV g (a,c) (intAngle 9) (intAngle 2)
-completeSunStar g (LK(a,b,c)) = insertVFace x newFace g where
-  newFace v = RK(a,v,b)
-  x = findThirdV g (b,a) (intAngle 8) (intAngle 1)
-completeSunStar g (RD(a,b,c)) = insertVFace x newFace g where
-  newFace v = LD(a,v,b)
-  x = findThirdV g (b,a) (intAngle 9) (intAngle 1)
-completeSunStar g (LD(a,b,c)) = insertVFace x newFace g where
-  newFace v = RD(a,c,v)
-  x = findThirdV g (a,c) (intAngle 9) (intAngle 1)
+{----------------------------
+********************************************
+EMPLACEMENTS
+********************************************
+------------------------------}
 
+-- | emplace does maximal composing with force and graphCompose, 
+-- then applies graphDecompose and force repeatedly back to the starting level.
+-- It produces the 'emplacement' of influence of the argument graph.   
+emplace :: Tgraph -> Tgraph
+emplace g = let fg = force g
+                g' = graphCompose fg 
+            in
+                if emptyGraph g'
+                then fg 
+                else (force . graphDecompose . emplace) g'
+            
+emptyGraph g = null (faces g)
+
+-- emplace0 - earlier version of emplace which does not force when composing, only when decomposing
+emplace0 :: Tgraph -> Tgraph
+emplace0 g = let g' = graphCompose g in
+             if emptyGraph g'
+             then force g 
+             else force . graphDecompose $ emplace0 g'
+
+
+emplacements :: Tgraph -> [Tgraph]
+emplacements = (iterate (force . graphDecompose)) . force
+
+countEmplace :: Tgraph -> (Tgraph,Tgraph,Int)
+countEmplace g = (maxg, emplacements maxg !! n, n) where (maxg,n) = maxFCompose g
 
 {-------------------------------------------------------------------------
 ******************************************** *****************************              
 Experimental: makeChoices, multiEmplace
 ***************************************************************************
 
-There is a now both forceDBnode AND forceKCnode so composeUasKC has been replaced by graphCompose
-However, forceDBnode needs to create kite below dart when it is missing - not yet done
+There is now both forceLDB AND forceLKC so composeUasKC has been replaced by graphCompose
+However, forceLDB needs to create kite below dart when it is missing - not yet done
 Must also consider what to do for isolated dart wing case (currently excluded)
 ------------------------------------------------------------------------------}
 
 -- | a version of emplace using makeChoices at the top level.
 -- after makeChoices we use emplace to attempt further compositions but with no further choices
 multiEmplace:: Tgraph -> [Tgraph]
-multiEmplace g = let g' = graphCompose g in
-            if emptyGraph g'
-            then fmap emplace $ makeChoices g
-            else fmap (force . graphDecompose) $ multiEmplace g'
+multiEmplace g = 
+       let fg = force g
+           g' = graphCompose fg 
+       in
+           if emptyGraph g'
+           then fmap emplace $ makeChoices g
+           else fmap (force . graphDecompose) (multiEmplace g')
                                  
 {- | makeChoices is a temporary tool which does not attempt to analyse choices for correctness.
 It can thus create some choices which will be incorrect.
-The unknowns returned from classifyDartWings can become nodesKC or nodesDB.
+The unknowns returned from classifyDartWings can become largeKiteCentres or largeDartBases.
 This produces 2^n choices where n is the number of unknowns (excluding lone dart wing tips with valency 2).
 -}
 makeChoices :: Tgraph -> [Tgraph]
 makeChoices g = choices unks [g] where
     unks = filter ((>2).valency g) (unknowns (classifyDartWings g))
     choices [] gs = gs
-    choices (v:more) gs = choices more (fmap (forceKCnode v) gs ++ fmap (forceDBnode v) gs)              
+    choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)              
 
--- | For an unclassifiable dart tip v, force it to become a large dart base (nodesDB) by
+-- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBases) by
 -- adding a second half dart face (sharing the kite below the existing half dart face at v)
 -- This assumes exactly one dart wing tip is at v, and that half dart has a full kite below it.
-forceDBnode :: Vertex -> Tgraph -> Tgraph
-forceDBnode v g = addTouchingDart g d where
-    d = mustFind ((v==) . wingV) (rdarts g) $
-        mustFind ((v==) . wingV) (ldarts g) $
-           error ("forceDBnode: no dart wing at " ++ show v)
+forceLDB :: Vertex -> Tgraph -> Tgraph
+forceLDB v g = finalGraph $ doUpdate (addDartShortE bd k) bd where
+    bd = makeBoundary g
+    vFaces = facesAtBV bd v
+    d = mustFind ((v==) . wingV) (filter isDart vFaces) $
+           error ("forceLDB: no dart wing at " ++ show v)
+    ks = filter ((==v) . oppV) $ filter isKite vFaces
+    k = mustFind ((/= oppV d) . wingV) ks $
+           error ("forceLDB: incomplete kite below dart" ++ show d)
 
--- | forceKCnode adds 3 pieces of a larger kite at an unknown vertex. That is,
--- For an unclassifiable dart tip v, force it to become a large kite centre (nodesKC) by adding
+-- | forceLKC adds 3 pieces of a larger kite at an unknown vertex. That is,
+-- For an unclassifiable dart tip v, force it to become a large kite centre (largeKiteCentres) by adding
 -- 3 faces - a second half dart face sharing the long edge of the existing half dart face at v,
 -- and then completing the kite on the new half dart short edge.
 -- This assumes exactly one dart wing tip is at v.
@@ -927,42 +1163,22 @@ forceDBnode v g = addTouchingDart g d where
 -- existing dart has a boundary long edge and 
 -- the new farK does not already exist (attached to existing dart farK),
 -- provided the existing dart half has no kite or a full kite below.
--- If it has only a half kite below, but the new farK exists, then v will already have multi-gaps.
-forceKCnode :: Vertex -> Tgraph -> Tgraph
-forceKCnode v g = addLargeK g d where
-    d = mustFind ((v==) . wingV) (rdarts g) $
-        mustFind ((v==) . wingV) (ldarts g) $
-           error ("forceKCnode: no dart wing at " ++ show v)
+-- If it has only a half kite below, but the new farK exists, then v will already have crossing boundaries.
+forceLKC :: Vertex -> Tgraph -> Tgraph
+forceLKC v g = finalGraph bd3 where
+    bd0 = makeBoundary g
+    vFaces0 = facesAtBV bd0 v
+    d = mustFind ((v==) . wingV) (filter isDart vFaces0) $
+           error ("forceLKC: no dart wing at " ++ show v)
+    bd1 = doUpdate (addDartLongE bd0 d) bd0
+    vFaces1 = facesAtBV bd1 v
+    newd = head (vFaces1 \\ vFaces0)
+    bd2 = doUpdate (addKiteShortE bd1 newd) bd1
+    vFaces2 = facesAtBV bd2 v
+    newk = head (vFaces2 \\ vFaces1)
+    bd3 = doUpdate (completeHalf bd2 newk) bd2
 
--- | add all 3 parts of a large kite half to a dart long edge
---I.e. add a dart with matching long edge, then add the complete kite on the new short edge.
-addLargeK :: Tgraph -> TileFace -> Tgraph
-addLargeK g (LD(a,_,c)) = addDK2 g' (head $ faces g') where
-    g' = insertVFace x newFace g
-    newFace v = RD(a,c,v)
-    x = findThirdV g (a,c) (intAngle 9) (intAngle 1)
-addLargeK g (RD(a,b,_)) = addDK2 g' (head $ faces g') where
-    g' = insertVFace x newFace g
-    newFace v = LD(a,v,b)
-    x = findThirdV g (b,a) (intAngle 9) (intAngle 1)
 
--- | add a (missing) half kite at the base (short edge) of a half dart and then complete as a whole kite
-addDK2 ::  Tgraph -> TileFace -> Tgraph   
-addDK2 g (RD(_,b,c)) = complete g' (head $ faces g') where
-    g' = insertVFace x newFace g
-    newFace v = LK(v,c,b)
-    x = findThirdV g (c,b) (intAngle 8) (intAngle 2)
-addDK2 g (LD(_,b,c)) = complete g' (head $ faces g') where
-    g' = insertVFace x newFace g
-    newFace v = RK(v,c,b)
-    x = findThirdV g (c,b) (intAngle 8) (intAngle 2)
-addDK2 g _ = error "addDK2 applied to non-dart face"
 
-{- |
-For testing  allAnglesAnti and allAnglesClock on a boundary edge
-The RHS of directed edge (a,b) should be the exterior side.
--}
-testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces g),
-                      allAnglesClock [(intAngle 0,a)] $ filter (isAtV b) (faces g))
 
 

@@ -46,7 +46,7 @@ sun5Over6Fig = (drawPatch sun5 # lc red # dashingN [0.003,0.003] 0 <> drawPatch 
 -- | Using experiment (defined in Tilelib) on sun6 clearly illustrates the embedded sun5
 experimentFig = patchWith experiment sun6 # lw thin
 -- | similarly experiment on sun5
-twoLevels = patchWith experiment sun5 # lw thin
+twoLevelsFig = patchWith experiment (suns!!3)
 -- | figure showing origins and markings on tiles
 markedTiles = hsep 1  
         [ kiteDiag # showOrigin 
@@ -95,6 +95,11 @@ showSample (c1,c2,c3) = patchWith (fillDK c1 c2) sun6 # lw thin # lc c3
 -- display at 1000
 showLargeSample (c1,c2,c3) = patchWith (fillDK c1 c2) (suns!!7) # lw ultraThin # lc c3
 
+colouredSuns = showSwatch 3 [(darken 0.7 darkmagenta, indigo, gold)
+                            ,(goldenrod, darkturquoise, saddlebrown)
+                            ,(darkblue,blend 0.9 red magenta, yellow)
+                            ]
+                            
 sL1 = showLargeSample (darkmagenta, indigo, gold)
 sL2 = showLargeSample (goldenrod, darkturquoise, saddlebrown)
 sL3 = showLargeSample (darkblue,blend 0.9 red magenta, yellow) 
