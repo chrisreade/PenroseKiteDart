@@ -335,121 +335,147 @@ partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = (remainder,makeTgraph newFaces) -- should be checkTgraph
   where
     dwClass = classifyDartWings g
--- ignore unknowns
+-- ignores unknowns
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
     remainder = faces g \\ concat (groupRDs ++ groupLDs ++ groupRKs ++ groupLKs)
-{- Finding new ldarts and rdarts
-find lkites/rkites whose oppV is in largeDartBases
-for such a half-kite find the half dart attached to the short edge
--}
-    preRDs = filter ((`elem` (largeDartBases dwClass)) . oppV) $ lkites g
-    newRDs = fmap makeRD groupRDs 
-    groupRDs = mapMaybe groupRD preRDs
-    makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
-    groupRD lk = case find (matchingShortE lk) (rdarts g) of
-                  Just rd -> Just [rd,lk]
-                  Nothing -> Nothing
-    
-    preLDs = filter ((`elem` (largeDartBases dwClass)) . oppV) $ rkites g 
-    newLDs = fmap makeLD groupLDs
-    groupLDs = mapMaybe groupLD preLDs 
-    makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
-    groupLD rk = case find (matchingShortE rk) (ldarts g) of
-                  Just ld -> Just [ld,rk]
-                  Nothing -> Nothing
---  glueNodes are at the bases of current level darts where the dart join is to be glued to a kite edge to form a newPhiEdge
-    glueNodes = nub $ (fmap oppV (ldarts g) `intersect` fmap wingV (rkites g)) ++
-                      (fmap oppV (rdarts g) `intersect` fmap wingV (lkites g))
-{- Finding new rkites and lkites
-Find rkites whose wing vertex is not in glueNodes BUT oppV is in largeKiteCentres,
-for each one, find mirror lkite and rdart attached to this lkite
-Similar symmetric version for lkites            
--}
-    preRKs = filter ((`notElem` glueNodes) . wingV) $ 
-             filter ((`elem` (largeKiteCentres dwClass)) . oppV) $ rkites g
-    newRKs = fmap makeRK groupRKs 
-    groupRKs = mapMaybe groupRK preRKs 
-    makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
-    groupRK rk = case find (matchingJoinE rk) (lkites g) of
-                   Just lk -> case find (matchingShortE lk) (rdarts g) of
-                                Just rd -> Just [rd,lk,rk]
-                                Nothing -> Nothing
-                   Nothing -> Nothing
 
-    preLKs = filter ((`notElem` glueNodes) . wingV) $ 
-             filter ((`elem` (largeKiteCentres dwClass)) . oppV) $ lkites g
+    newRDs = fmap makeRD groupRDs 
+    groupRDs = mapMaybe groupRD (largeDartBases dwClass)
+    makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
+    groupRD v = case lookup v (vGroup dwClass) of
+                Nothing -> error ("groupRD: no faces found for largeDartBase:" ++ show v)
+                Just fcs -> let rd = mustFind isRD fcs (error ("groupRD: no RD found in faces: "++ show fcs))
+                            in case find (matchingShortE rd) fcs of
+                               Nothing -> Nothing
+                               Just lk -> Just [rd,lk]
+    
+    newLDs = fmap makeLD groupLDs
+    groupLDs = mapMaybe groupLD (largeDartBases dwClass) 
+    makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
+    groupLD v = case lookup v (vGroup dwClass) of
+                Nothing -> error ("groupLD: no faces found for largeDartBase:" ++ show v)
+                Just fcs -> let ld = mustFind isLD fcs (error ("groupLD: no LD found in faces: "++ show fcs))
+                            in case find (matchingShortE ld) fcs of
+                               Nothing -> Nothing
+                               Just rk -> Just [ld,rk]
+
+    newRKs = fmap makeRK groupRKs 
+    groupRKs = mapMaybe groupRK (largeKiteCentres dwClass) 
+    makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
+    groupRK v = case lookup v (vGroup dwClass) of
+                Nothing -> error ("groupRK: no faces found for largeKiteCentre:" ++ show v)
+                Just fcs -> let rd = mustFind isRD fcs (error ("groupRK: no RD found in faces: "++ show fcs))
+                            in case find (matchingShortE rd) fcs of
+                               Nothing -> Nothing
+                               Just lk -> case find (matchingJoinE lk) fcs of
+                                          Nothing -> Nothing
+                                          Just rk -> Just [rd,lk,rk]
+
     newLKs = fmap makeLK groupLKs 
-    groupLKs = mapMaybe groupLK preLKs 
+    groupLKs = mapMaybe groupLK (largeKiteCentres dwClass) 
     makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
-    groupLK lk = case find (matchingJoinE lk) (rkites g) of
-                   Just rk -> case find (matchingShortE rk) (ldarts g) of
-                                Just ld -> Just [ld,rk,lk]
-                                Nothing -> Nothing
-                   Nothing -> Nothing
+    groupLK v = case lookup v (vGroup dwClass) of
+                Nothing -> error ("groupLK: no faces found for largeKiteCentre:" ++ show v)
+                Just fcs -> let ld = mustFind isLD fcs (error ("groupLK: no LD found in faces: "++ show fcs))
+                            in case find (matchingShortE ld) fcs of
+                               Nothing -> Nothing
+                               Just rk -> case find (matchingJoinE rk) fcs of
+                                          Nothing -> Nothing
+                                          Just lk ->  Just [ld,rk,lk]
+
 
 -- DWClass is a record type for the result of classifying dart wings
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , largeDartBases  :: [Vertex]
                        , unknowns :: [Vertex]
+                       , vGroup :: [(Vertex,[TileFace])]
                        } deriving Show
                        
 -- | classifyDartWings classifies all dart wing tips
 -- the result is a DWClass record of largeKiteCentres, largeDartBases, unknowns where
 -- largeKiteCentres are new kite centres, largeDartBases are new dart bases
 classifyDartWings :: Tgraph -> DWClass
-classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks} where
-   (kcs,dbs,unks) = foldl (processD g) ([],[],[]) (rdarts g ++ ldarts g)
+classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks
+                              , vGroup = gps
+                              } where
+   (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],[]) (rdarts g ++ ldarts g)
 
 -- kcs = kite centres of larger kites, dbs = dart bases of larger darts, unks = unclassified dart wing tips
-processD g (kcs,dbs,unks) rd@(RD(orig,w,_)) -- classify wing tip w
-  = if valency g w ==2 then (kcs,dbs,w:unks) else -- lone dart wing => unknown
-    if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks) else -- already classified
-    if w `elem` fmap originV (rkites g ++ lkites g) then (kcs,w:dbs,unks) else -- wing is a half kite origin => nodeDB
-    if (w,orig) `elem` fmap longE (ldarts g) then (w:kcs,dbs,unks) else -- long edge rd shared with an ld => nodeKC
-    case findFarK rd g of
-    Nothing -> (kcs,dbs,w:unks) -- unknown if incomplete kite attached to short edge of rd
+processD g (kcs,dbs,unks,gps) rd@(RD(orig,w,_)) -- classify wing tip w
+  = if valency g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
+    if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
+    let
+         fcs = filter (isAtV w) (faces g)  -- faces at w
+         newgps = (w,fcs):gps
+    in
+    if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
+            -- wing is a half kite origin => largeDartBases
+    if (w,orig) `elem` fmap longE (filter isLD fcs) then (w:kcs,dbs,unks,newgps) else 
+            -- long edge rd shared with an ld => largeKiteCentres
+    case findFarK rd fcs of
+    Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of rd
     Just rk@(RK _)  ->  
-      case find (matchingShortE rk) (faces g) of
-      Just (LK _) -> (w:kcs,dbs,unks) -- short edge rk shared with an lk => largeKiteCentres
-      Just (LD _) -> (kcs,w:dbs,unks) -- short edge rk shared with an ld => largeDartBases
-      _ -> case find (matchingLongE rk) (faces g) of -- short edge rk has nothing attached
-           Nothing -> (kcs,dbs,w:unks)  -- long edge of rk has nothing attached => unknown
-           Just (LD _) -> (w:kcs,dbs,unks) -- long edge rk shared with ld => largeKiteCentres
-           Just lk@(LK _) ->               -- long edge rk shared with lk
-             case find (matchingShortE lk) (faces g) of
-             Just (RK _) -> (w:kcs,dbs,unks) -- short edge of this lk shared with another rk => largeKiteCentres
-             Just (RD _) -> (kcs,w:dbs,unks) -- short edge of this lk shared with rd => largeDartBases
-             _ -> (kcs,dbs,w:unks) -- short edge of this lk has nothing attached => unknown
+        case find (matchingShortE rk) fcs of
+        Just (LK _) -> (w:kcs,dbs,unks,newgps) -- short edge rk shared with an lk => largeKiteCentres
+        Just (LD _) -> (kcs,w:dbs,unks,newgps) -- short edge rk shared with an ld => largeDartBases
+        _ -> let 
+                 newfcs = filter (isAtV (wingV rk)) (faces g)   -- faces at rk wing    
+             in
+             case find (matchingLongE rk) newfcs of  -- short edge rk has nothing attached
+             Nothing -> (kcs,dbs,w:unks,gps)  -- long edge of rk has nothing attached => unknown
+             Just (LD _) -> (w:kcs,dbs,unks,newgps) -- long edge rk shared with ld => largeKiteCentres
+             Just lk@(LK _) ->               -- long edge rk shared with lk
+                  case find (matchingShortE lk) newfcs of
+                  Just (RK _) -> (w:kcs,dbs,unks,newgps)
+                          -- short edge of this lk shared with another rk => largeKiteCentres
+                  Just (RD _) -> (kcs,w:dbs,unks,newgps) 
+                          -- short edge of this lk shared with rd => largeDartBases
+                  _ -> (kcs,dbs,w:unks,gps) 
+                          -- short edge of this lk has nothing attached => unknown
 
-processD g (kcs,dbs,unks) ld@(LD(orig,_,w)) -- classify wing tip w
-  = if valency g w ==2 then (kcs,dbs,w:unks) else -- lone dart wing => unknown
-    if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks) else -- already classified
-    if w `elem` fmap originV (rkites g ++ lkites g) then (kcs,w:dbs,unks) else -- wing is a half kite origin => nodeDB
-    if (w,orig) `elem` fmap longE (rdarts g) then (w:kcs,dbs,unks) else -- long edge ld shared with an rd => nodeKC
-    case findFarK ld g of
-    Nothing -> (kcs,dbs,w:unks) -- unknown if incomplete kite attached to short edge of ld
+processD g (kcs,dbs,unks,gps) ld@(LD(orig,_,w)) -- classify wing tip w
+  = if valency g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
+    if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
+    let 
+        fcs = filter (isAtV w) (faces g) -- faces at w
+        newgps = (w,fcs):gps
+    in
+    if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else
+               -- wing is a half kite origin => nodeDB
+    if (w,orig) `elem` fmap longE (filter isRD fcs) then (w:kcs,dbs,unks,newgps) else
+               -- long edge ld shared with an rd => nodeKC
+    case findFarK ld fcs of
+    Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of ld
     Just lk@(LK _)  ->  
-      case find (matchingShortE lk) (faces g) of
-      Just (RK _) -> (w:kcs,dbs,unks) -- short edge lk shared with an rk => largeKiteCentres
-      Just (RD _) -> (kcs,w:dbs,unks) -- short edge lk shared with an rd => largeDartBases
-      _ -> case find (matchingLongE lk) (faces g) of -- short edge lk has nothing attached
-           Nothing -> (kcs,dbs,w:unks)  -- long edge of lk has nothing attached => unknown
-           Just (RD _) -> (w:kcs,dbs,unks) -- long edge lk shared with rd => largeKiteCentres
-           Just rk@(RK _) ->               -- long edge lk is shared with an rk
-             case find (matchingShortE rk) (faces g) of
-             Just (LK _) -> (w:kcs,dbs,unks) -- short edge of this rk shared with another lk => largeKiteCentres
-             Just (LD _) -> (kcs,w:dbs,unks) -- short edge of this rk shared with ld => largeDartBases
-             _ -> (kcs,dbs,w:unks) -- short edge of this rk has nothing attached => unknown
+        case find (matchingShortE lk) fcs of
+        Just (RK _) -> (w:kcs,dbs,unks,newgps) -- short edge lk shared with an rk => largeKiteCentres
+        Just (RD _) -> (kcs,w:dbs,unks,newgps) -- short edge lk shared with an rd => largeDartBases
+        _ -> let 
+                 newfcs = filter (isAtV (wingV lk)) (faces g)   -- faces at lk wing  
+             in
+             case find (matchingLongE lk) newfcs of -- short edge lk has nothing attached
+             Nothing -> (kcs,dbs,w:unks,gps)  -- long edge of lk has nothing attached => unknown
+             Just (RD _) -> (w:kcs,dbs,unks,newgps) -- long edge lk shared with rd => largeKiteCentres
+             Just rk@(RK _) ->               -- long edge lk is shared with an rk
+                 case find (matchingShortE rk) newfcs of
+                 Just (LK _) -> (w:kcs,dbs,unks,newgps)
+                         -- short edge of this rk shared with another lk => largeKiteCentres
+                 Just (LD _) -> (kcs,w:dbs,unks,newgps)
+                         -- short edge of this rk shared with ld => largeDartBases
+                 _ -> (kcs,dbs,w:unks,gps) -- short edge of this rk has nothing attached => unknown
+
+
+
 
 -- | find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
 -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
-findFarK :: TileFace -> Tgraph -> Maybe TileFace
-findFarK rd@(RD _) g = case find (matchingShortE rd) (lkites g) of
+findFarK :: TileFace -> [TileFace] -> Maybe TileFace
+findFarK rd@(RD _) fcs = case find (matchingShortE rd) (filter isLK fcs) of
                          Nothing -> Nothing
-                         Just lk -> find (matchingJoinE lk) (rkites g)
-findFarK ld@(LD _) g = case find (matchingShortE ld) (rkites g) of
+                         Just lk -> find (matchingJoinE lk) (filter isRK fcs)
+findFarK ld@(LD _) fcs = case find (matchingShortE ld) (filter isRK fcs) of
                          Nothing -> Nothing
-                         Just rk -> find (matchingJoinE rk) (lkites g)
+                         Just rk -> find (matchingJoinE rk)  (filter isLK fcs)
 findFarK _ _ = error "findFarK: applied to non-dart face"
 
 
@@ -1051,20 +1077,17 @@ faceAngles (RD _) = fmap intAngle [1,1,3]
 faceAngles _      = fmap intAngle [1,2,2] -- LK and RK
 
 
-
-
--- | mustbeLDB (large dart base / k3d2) is true of a boundary vertex if it is a wing of a dart which has a kite on its long edge or is the wing of two darts not sharing a long edge (must be k3d2 vertex)
+-- | mustbeLDB (large dart base / k3d2) is true of a boundary vertex if
+-- it is the wing of two darts not sharing a long edge or
+-- it is a wing of a dart and also a kite origin
+-- (false means it is either undetermined or is a large kite centre)
 mustbeLDB :: Boundary -> Vertex -> Bool
 mustbeLDB bd v =
-    let fcs = facesAtBV bd v
-        dWings = filter (isDartWing v) fcs
-        isDartWing v fc = isDart fc && wingV fc == v
-        isKiteOrigin v fc = isKite fc && originV fc == v
-    in  if length dWings == 1
-        then hasMatchingE $ fmap longE (dWings ++ filter (isKiteOrigin v) fcs) 
-        else if length dWings == 2
-             then not $ hasMatchingE $ fmap longE dWings
-             else False 
+  (length dWings == 2 && not (hasMatchingE (fmap longE dWings))) ||
+  (length dWings == 1 && isKiteOrigin) 
+  where fcs = facesAtBV bd v
+        dWings = filter ((==v) . wingV) $ filter isDart fcs
+        isKiteOrigin = v `elem` fmap originV (filter isKite fcs)
 
 -- | hasMatching asks if a directed edge list has any two matching (=opposing) directed edges.
 hasMatchingE :: [(Vertex,Vertex)] -> Bool
