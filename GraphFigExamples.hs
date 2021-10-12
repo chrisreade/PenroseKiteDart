@@ -72,10 +72,16 @@ pfMistake1 = Tgraph { vertices = [8,1,6,7,5,2,4,3]
 
 mistake = checkTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1), LD(3,5,7), RD(4,8,6)]
 -- | partially forced mistake (at the point of error)
+pfMistake = makeTgraph [RK (9,1,11),LK (9,10,7),RK (9,7,5),LK (9,5,1),RK (1,2,4)
+                       ,LK (1,3,2),RD (3,1,5),LD (4,6,1),LD (3,5,7),RD (4,8,6)
+                       ]
+
+{-
 pfMistake = Tgraph { vertices = [9,1,6,10,7,5,8,2,4,3]
                    , faces = [RK (9,1,6),RK (10,7,5),LK (10,5,1),LK (9,6,8),RK (1,2,4),LK (1,3,2)
                              ,RD (3,1,5) ,LD (4,6,1),LD (3,5,7),RD (4,8,6)]
                    }
+-}
 
 {- ************************
     Some display functions
@@ -206,12 +212,13 @@ crossingBdryFig = padBorder $ hsep 1 [d1,d2]
        where vp = makeVPatch foolD
              d1 = drawVPatch $ removeFacesVP [LK(3,11,14), RK(3,14,4), RK(3,13,11)] vp
              d2 = drawVPatch $ removeFacesVP [RK(5,13,2), LD(6,11,13), RD(6,14,11), LD(6,12,14)] vp
-
+                
 pfMistakeFig  = padBorder $ hsep 1 [drawVGraph mistake, drawVGraph pfMistake]
 fdMistake = padBorder $ drawVGraph $ force $ graphDecompose mistake
 
-cdMistake1Fig = padBorder $ hsep 1 [ drawVGraph mistake1
-                                       , (drawVGraph . graphCompose . graphDecompose) mistake1]
+cdMistake1Fig = padBorder $ hsep 1 $ fmap drawVPatch $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVPatch
+               [ mistake1 , mistake1D, force mistake1D, graphCompose mistake1D]
+               where mistake1D = graphDecompose mistake1
            
 testAlignments = padBorder $ hsep 1 $ fmap drawVPatch $ 
                   alignments [(1,6),(1,6),(12,6),(12,6)] $ fmap makeVPatch $ exploreSeq $ graphCompose (makeChoices fool !! 3)
@@ -253,79 +260,28 @@ exploreFool3 =  padBorder $ hsep 1 $ fmap (drawVPatch) $ scales [1,1,1,phi] $ ro
 vertexTypesFig = pad 1.2 $ vsep 1 [hsep 1 $ take 3 vTypeFigs, hsep 1 $ drop 3 vTypeFigs]
  where
  vTypeFigs = zipWith drawVertex [k5,k4d1,k3d2,k2d1,k2d2,k2d3,d5] -- subgraph lists
-                                [21,49,  34,  62,  101, 14,  1] -- center vertices
+                                [21,49,  34,  62,  101, 14,  1] -- centered vertices
  drawVertex list ctr = showOrigin $ dashJPatch $ asPatch $ centerOn ctr $ selectFacesVP list $ sunD3
  sunD3 = makeVPatch (sunDs!!3)
- k2d3 = [LD (14,70,106)
-        ,RD (14,108,70)
-        ,LD (14,69,28)
-        ,RD (14,106,69)
-        ,LD (14,74,108)
-        ,RD (14,32,74)
-        ,LK (32,14,109)
-        ,RK (32,109,75)
-        ,RK (28,109,14)
-        ,LK (28,66,109)
+ k2d3 = [LD (14,70,106),RD (14,108,70),LD (14,69,28),RD (14,106,69),LD (14,74,108)
+        ,RD (14,32,74),LK (32,14,109),RK (32,109,75),RK (28,109,14),LK (28,66,109)
         ]
- k2d1 = [RD (4,102,62)
-        ,LD (4,62,105)
-        ,LK (18,62,102)
-        ,LK (18,45,105)
-        ,RK (18,102,44)
-        ,RK (18,105,62)
+ k2d1 = [RD (4,102,62),LD (4,62,105),LK (18,62,102),LK (18,45,105),RK (18,102,44),RK (18,105,62)
         ]
- k2d2 = [LK (17,60,101)
-        ,RK (17,101,43)
-        ,RK (26,101,61)
-        ,LK (26,43,101)
-        ,LD (13,61,101)
-        ,RD (13,101,60)
-        ,RD (13,103,61)
-        ,LD (13,60,24)
+ k2d2 = [LK (17,60,101),RK (17,101,43),RK (26,101,61),LK (26,43,101),LD (13,61,101)
+        ,RD (13,101,60),RD (13,103,61),LD (13,60,24)
         ]
- d5 =   [LD (1,57,99)
-        ,RD (1,104,57)
-        ,LD (1,66,104)
-        ,RD (1,109,66)
-        ,LD (1,75,109)
-        ,RD (1,114,75)
-        ,LD (1,84,114)
-        ,RD (1,119,84)
-        ,LD (1,93,119)
-        ,RD (1,99,93)
+ d5 =   [LD (1,57,99),RD (1,104,57),LD (1,66,104),RD (1,109,66),LD (1,75,109)
+        ,RD (1,114,75),LD (1,84,114),RD (1,119,84),LD (1,93,119),RD (1,99,93)
         ]
- k4d1 = [LK (20,49,115)
-        ,RK (37,115,49)
-        ,LD (49,86,37)
-        ,RK (20,116,49)
-        ,LK (38,49,116)
-        ,RD (49,38,86)
-        ,RK (20,115,80)
-        ,LK (20,87,116)
-        ,LK (37,85,115)
-        ,RK (38,116,88)
+ k4d1 = [LK (20,49,115),RK (37,115,49),LD (49,86,37),RK (20,116,49),LK (38,49,116)
+        ,RD (49,38,86),RK (20,115,80),LK (20,87,116),LK (37,85,115),RK (38,116,88)
         ]
- k3d2 = [LK (34,47,111)
-        ,RK (34,111,79)
-        ,LK (7,77,34)
-        ,RD (47,34,77)
-        ,RK (34,113,48)
-        ,LK (34,79,113)
-        ,RK (7,34,82)
-        ,LD (48,82,34)
-        ,LD (47,77,33)
-        ,RD (48,35,82)
+ k3d2 = [LK (34,47,111),RK (34,111,79),LK (7,77,34),RD (47,34,77),RK (34,113,48)
+        ,LK (34,79,113),RK (7,34,82),LD (48,82,34),LD (47,77,33),RD (48,35,82)
         ]
- k5 =   [RK (21,117,50)
-        ,LK (21,89,117)
-        ,LK (21,50,118)
-        ,RK (21,118,92)
-        ,LK (21,92,40)
-        ,LK (21,51,120)
-        ,RK (21,120,89)
-        ,RK (21,121,51)
-        ,LK (21,96,121)
-        ,RK (21,40,96)
+ k5 =   [RK (21,117,50),LK (21,89,117),LK (21,50,118),RK (21,118,92),LK (21,92,40)
+        ,LK (21,51,120),RK (21,120,89),RK (21,121,51),LK (21,96,121),RK (21,40,96)
         ]
         
 maxAndEmplace g = hsep 1 $ scales [1,1,phi^n] $ fmap dashJGraph [g,empg,maxg]
@@ -405,6 +361,13 @@ brokenDartFig4 = padBorder $ vsep 1 [ hsep 1 $ phiScaling $ fmap dashJGraph $ al
                                     , hsep 1 $ phiScaling $ fmap dashJGraph $ allComps brokenDart4
                                     , hsep 1 $ phiScaling $ fmap dashJGraph $ allFComps brokenDart4
                                     ] 
+
+brokenKitesDFig = padBorder $ hsep 1 $fmap drawVPatch $ alignAll(1,3) $ scales [1,1,phi] $ fmap makeVPatch 
+                 [graphDecompose twoKites,brokenKites, graphCompose brokenKites, emplace brokenKites]
+brokenKites = removeFaces [LD(1,14,16),LK(5,4,16),RK(5,16,14)] $ graphDecompose twoKites
+twoKites = checkTgraph [ RK(1,2,11), LK(1,3,2)
+                       , RK(1,4,3) , LK(1,5,4)
+                       ]
 
 phiScaling :: [Diagram B] -> [Diagram B]
 phiScaling ds = zipWith scale (iterate (*phi) 1) ds

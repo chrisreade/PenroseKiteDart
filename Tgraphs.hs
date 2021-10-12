@@ -344,44 +344,48 @@ partCompose g = (remainder,makeTgraph newFaces) -- should be checkTgraph
     makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
     groupRD v = case lookup v (vGroup dwClass) of
                 Nothing -> error ("groupRD: no faces found for largeDartBase:" ++ show v)
-                Just fcs -> let rd = mustFind isRD fcs (error ("groupRD: no RD found in faces: "++ show fcs))
-                            in case find (matchingShortE rd) fcs of
-                               Nothing -> Nothing
-                               Just lk -> Just [rd,lk]
+                Just fcs -> case find isRD fcs of
+                            Nothing -> Nothing
+                            Just rd -> case find (matchingShortE rd) fcs of
+                                       Nothing -> Nothing
+                                       Just lk -> Just [rd,lk]
     
     newLDs = fmap makeLD groupLDs
     groupLDs = mapMaybe groupLD (largeDartBases dwClass) 
     makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
     groupLD v = case lookup v (vGroup dwClass) of
                 Nothing -> error ("groupLD: no faces found for largeDartBase:" ++ show v)
-                Just fcs -> let ld = mustFind isLD fcs (error ("groupLD: no LD found in faces: "++ show fcs))
-                            in case find (matchingShortE ld) fcs of
-                               Nothing -> Nothing
-                               Just rk -> Just [ld,rk]
+                Just fcs -> case find isLD fcs of
+                            Nothing -> Nothing
+                            Just ld -> case find (matchingShortE ld) fcs of
+                                       Nothing -> Nothing
+                                       Just rk -> Just [ld,rk]
 
     newRKs = fmap makeRK groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwClass) 
     makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
     groupRK v = case lookup v (vGroup dwClass) of
                 Nothing -> error ("groupRK: no faces found for largeKiteCentre:" ++ show v)
-                Just fcs -> let rd = mustFind isRD fcs (error ("groupRK: no RD found in faces: "++ show fcs))
-                            in case find (matchingShortE rd) fcs of
-                               Nothing -> Nothing
-                               Just lk -> case find (matchingJoinE lk) fcs of
-                                          Nothing -> Nothing
-                                          Just rk -> Just [rd,lk,rk]
+                Just fcs -> case find isRD fcs of
+                            Nothing -> Nothing
+                            Just rd -> case find (matchingShortE rd) fcs of
+                                       Nothing -> Nothing
+                                       Just lk -> case find (matchingJoinE lk) fcs of
+                                                  Nothing -> Nothing
+                                                  Just rk -> Just [rd,lk,rk]
 
     newLKs = fmap makeLK groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwClass) 
     makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
     groupLK v = case lookup v (vGroup dwClass) of
                 Nothing -> error ("groupLK: no faces found for largeKiteCentre:" ++ show v)
-                Just fcs -> let ld = mustFind isLD fcs (error ("groupLK: no LD found in faces: "++ show fcs))
-                            in case find (matchingShortE ld) fcs of
-                               Nothing -> Nothing
-                               Just rk -> case find (matchingJoinE rk) fcs of
-                                          Nothing -> Nothing
-                                          Just lk ->  Just [ld,rk,lk]
+                Just fcs -> case find isLD fcs of
+                            Nothing -> Nothing
+                            Just ld -> case find (matchingShortE ld) fcs of
+                                       Nothing -> Nothing
+                                       Just rk -> case find (matchingJoinE rk) fcs of
+                                                  Nothing -> Nothing
+                                                  Just lk ->  Just [ld,rk,lk]
 
 
 -- DWClass is a record type for the result of classifying dart wings
@@ -392,8 +396,11 @@ data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        } deriving Show
                        
 -- | classifyDartWings classifies all dart wing tips
--- the result is a DWClass record of largeKiteCentres, largeDartBases, unknowns where
+-- the result is a DWClass record of largeKiteCentres, largeDartBases, unknowns and assocs where
 -- largeKiteCentres are new kite centres, largeDartBases are new dart bases
+-- unknowns cannot be classified, and
+-- the assoc list gives faces found at each vertex in both largeKiteCentres and largeDartBases
+-- passed on to make partCompose more efficient
 classifyDartWings :: Tgraph -> DWClass
 classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks
                               , vGroup = gps
@@ -635,14 +642,40 @@ safeUpdate (Nothing, _) = False
 -- upDatesBD bd produces a list of all the possible single updates to bd (using the 8 rules)
 updatesBD:: Boundary -> [Update]
 updatesBD bd =
-    wholeTileUpdates bd             -- half tiles to whole tiles
-    ++ kiteBelowDartUpdates bd      -- kites on short edges of all darts (k2d1 and also k3d2, k2d2)
-    ++ kiteWingDartOriginUpdates bd -- k4d1 and k2d3 vertices add missing kite halves
-    ++ kiteGapUpdates bd            -- k2d2 (largeKiteCentres) vertices add missing dart halves
-    ++ secondTouchingDartUpdates bd -- k3d2 (largeDartBases) vertices add missing second dart
-    ++ sunStarUpdates bd            -- k5 and d5 vertices add more darts/kites
-    ++ dartKiteTopUpdates bd        -- k3d2 (largeDartBases) vertices - add missing kite top to dart
-    ++ thirdDartUpdates bd          -- k2d3 vertices with 2 of the 3 darts
+    wholeTileUpdates bd             -- (1)
+    ++ kiteBelowDartUpdates bd      -- (2)
+    ++ kiteWingDartOriginUpdates bd -- (3)
+    ++ kiteGapUpdates bd            -- (4)
+    ++ secondTouchingDartUpdates bd -- (5)
+    ++ sunStarUpdates bd            -- (6)
+    ++ dartKiteTopUpdates bd        -- (7)
+    ++ thirdDartUpdates bd          -- (8)
+{- 
+1. When a join edge is on the boundary - add the missing half tile to make a whole tile.    
+2. When a half dart has its short edge on the boundary
+   add the half kite that must be on the short edge
+   (this is at k2d1 vertices but also helps with k3d2 and k2d2 vertices).  
+3. When a vertex is both a dart origin and a kite wing it must be a k4d1 or k2d3 vertex
+   add any missing kite half on a boundary short edge of a kite half at the vertex
+   (this converts 1 kite to two and 3 kites to 4).
+4. When two half kites share a short edge their oppV vertex must be a k2d2 vertex
+   add any missing half darts at the vertex
+   (in the gap between the other two short edges of the kites).
+5. When a single dart wing is at a vertex which is recognised as an incomplete k3d2
+   and has a complete kite below the dart wing, 
+   add a second dart half touching at the vertex (sharing the kite below).
+   This is also known as a *largeDartBase* vertex (= new dart base next level up - see later)
+6. When a vertex has 3 or 4 whole kite origins (= 6 or 8 half kite origins)
+   it must be a sun centre (k5). Also if a vertex has 4 whole dart origins (= 8 half dart origins)
+   it must be a star centre (d5).
+   Add an appropriate half kite/dart on a boundary edge at the vertex.
+   (This will complete suns (resp. stars) along with case 1),
+7. When a dart half has its wing recognised as a k3d2 (largeDartBase) vertex
+   add a missing kite half on its long edge.
+8. When a vertex is a kite wing and also an origin for exactly 4 dart halves
+   it must be a k2d3 vertex.
+   Add a missing dart half (on any boundary long edge of a dart at the vertex).
+-}
 
 -- | doUpdate` adds a new face by making changes to the boundary information
 -- and checks that the new face is not in conflict with existing faces.
@@ -653,19 +686,21 @@ doUpdate (Just v, makeFace) bd =
         fDedges = faceDedges newFace
         matchedDedges = fDedges `intersect` bDedges bd
         newfDedges = fDedges \\ matchedDedges
-        nbrFaces = concatMap (facesAtBV bd) (faceVList newFace)
-    in  if noConflict newFace nbrFaces
-        then Boundary{ bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
-                     , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
-                     , allFaces = newFace:allFaces bd
-                     , allVertices = allVertices bd
-                     , nextVertex = nextVertex bd
-                     }
-        else error ("doUpdate: conflicting new face:\n"
-                    ++ show newFace
-                    ++ "\nwith neighbouring faces:\n"
-                    ++ show nbrFaces
-                   )
+        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace)
+        result = Boundary{ bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
+                         , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
+                         , allFaces = newFace:allFaces bd
+                         , allVertices = allVertices bd
+                         , nextVertex = nextVertex bd
+                         }
+    in  if noConflict newFace nbrFaces then result else
+        error ("doUpdate:\nConflicting new face "
+               ++ show newFace
+               ++ "\nwith neighbouring faces\n"
+               ++ show nbrFaces
+               ++ "\nwhen forming Tgraph from\n"
+               ++ show result
+              )
 -- Unsafe cases have Nothing as third vertex, so a new vertex is added.        
 doUpdate (Nothing, makeFace) bd = 
    let v = nextVertex bd
@@ -673,19 +708,21 @@ doUpdate (Nothing, makeFace) bd =
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd
        newfDedges = fDedges \\ matchedDedges
-       nbrFaces = concatMap (facesAtBV bd) (faceVList newFace \\ [v])
-   in if noConflict newFace nbrFaces
-      then Boundary { bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
-                    , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
-                    , allFaces = newFace:allFaces bd
-                    , allVertices = v:allVertices bd
-                    , nextVertex = v+1
-                    }
-      else error ("doUpdate: conflicting new face:\n"
-                  ++ show newFace
-                  ++ "\nwith neighbouring faces:\n"
-                  ++ show nbrFaces
-                 )
+       nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
+       result = Boundary { bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
+                         , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
+                         , allFaces = newFace:allFaces bd
+                         , allVertices = v:allVertices bd
+                         , nextVertex = v+1
+                         }
+   in if noConflict newFace nbrFaces then result else
+      error ("doUpdate:\nConflicting new face "
+             ++ show newFace
+             ++ "\nwith neighbouring faces\n"
+             ++ show nbrFaces
+             ++ "\nwhen forming Tgraph from\n"
+             ++ show result
+            )
 
 
 -- | noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
