@@ -9,11 +9,42 @@ import Diagrams.Backend.SVG.CmdLine
 
 import TileLib
 
--- | filled pieces and drawn edges of 4 pieces in a row         
+-- Used for adding text at a point
+label l p = baselineText l # fontSize (local 0.2) # fc blue # moveTo p
+
+
+{-
+Figures for the four Pieces
+-}
+
 thePieces =  [ldart, rdart, lkite, rkite]  
+-- | drawn edges of 4 pieces in a row         
 piecesFig = hsep 0.5 $ fmap (showOrigin . drawJPiece) thePieces 
+-- | filled 4 pieces in a row         
 piecesFig2 = hsep 1 $ fmap (fillDK' red blue) thePieces ++ fmap drawPiece thePieces 
-   
+
+-- | figure showing origins and markings on tiles
+markedTiles = hsep 1  
+        [ kiteDiag # showOrigin 
+        , dartDiag # showOrigin 
+        , kiteDiag <> (pL ~~ pR # lc red # lw thick) 
+        , dartDiag <> (origin ~~ p2(1,0) # lc red # lw thick)
+        ] where kiteDiag = drawPatch [lkite `at` origin, rkite `at` origin]
+                dartDiag = drawPatch [ldart `at` origin, rdart `at` origin]
+                pL = origin .+^ phi*^rotate (ttangle 1) unitX
+                pR = origin .+^ phi*^rotate (ttangle 9) unitX
+
+-- | labelled pieces with join and origin shown
+newPiecesFig = pad 1.2 $ centerXY $
+               label "RD" (p2 (negate 0.4,0.7)) <>
+               label "LD" (p2 (0.5,0.7)) <>
+               label "LK" (p2 (2.1,1.0)) <>
+               label "RK" (p2 (3.1,1.0)) <>
+               hsep 0.1 (fmap (rotate (90 @@ deg) . showOrigin . dashJPiece) 
+                         [rdart,ldart,lkite,rkite]
+                        )
+ 
+
 -- | 4 decompositions in a column for each piece
 fourDecomps = hsep 1 $ fmap decomps thePieces # lw thin where
          decomps pc = vsep 1 $ fmap drawPatch $ take 5 $ decompositions [pc `at` origin] 
@@ -45,60 +76,67 @@ sun6Fig = drawPatch sun6 # lw thin
 sun5Over6Fig = (drawPatch sun5 # lc red # dashingN [0.003,0.003] 0 <> drawPatch sun6) # lw thin
 -- | Using experiment (defined in Tilelib) on sun6 clearly illustrates the embedded sun5
 experimentFig = patchWith experiment sun6 # lw thin
--- | similarly experiment on sun5
+-- | similarly experiment on sun3
 twoLevelsFig = patchWith experiment (suns!!3)
--- | figure showing origins and markings on tiles
-markedTiles = hsep 1  
-        [ kiteDiag # showOrigin 
-        , dartDiag # showOrigin 
-        , kiteDiag <> (pL ~~ pR # lc red # lw thick) 
-        , dartDiag <> (origin ~~ p2(1,0) # lc red # lw thick)
-        ] where kiteDiag = drawPatch [lkite `at` origin, rkite `at` origin]
-                dartDiag = drawPatch [ldart `at` origin, rdart `at` origin]
-                pL = origin .+^ phi*^rotate (ttangle 1) unitX
-                pR = origin .+^ phi*^rotate (ttangle 9) unitX
 
-label l p = baselineText l # fontSize (local 0.2) # fc blue # moveTo p
-
-newPiecesFig = pad 1.2 $ centerXY $
-               label "RD" (p2 (negate 0.4,0.7)) <>
-               label "LD" (p2 (0.5,0.7)) <>
-               label "LK" (p2 (2.1,1.0)) <>
-               label "RK" (p2 (3.1,1.0)) <>
-               hsep 0.3 (fmap (rotate (90 @@ deg) . showOrigin . dashJPiece) 
-                         [rdart,ldart,lkite,rkite]
-                        )
-                          
+--- shows two types of dart wing vertices (largeKiteCentre, largeDartBase)                         
 dartWingFig = pad 1.2 $ hsep 1 [dkite, ddart] where
   ddart = showOrigin (translate unit_X $ dashJPatch  $ decompose [ldart `at` origin, rdart `at` origin])
   dkite = showOrigin (translate unit_X $ dashJPatch  $ decompose [lkite `at` origin, rkite `at` origin])
 
--- colour-filled examples
+{- 
+   ****************************
+      Colour-filled examples
+   ****************************
+-}
 
 -- | using fillDK'
 filledSun6 = patchWith (fillDK' red blue) sun6 # lw ultraThin
 -- | using fillDK
 newFillSun6 = patchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
 
--- | A swatch is a list of triples of colours which are used to fill sun5s (dart, kite, grout)
--- showSwatch produces a diagram from a swatch where n is used to indicate how many samples in a row
--- display at 800
+-- fill in a patch p with c1 colour for darts, c2 colour for kites and c3 colour for grout (edges)
+colPatch p (c1,c2,c3) = patchWith (fillDK c1 c2) p # lc c3
+
+-- | showing three decomposed shapes with colouring for dart,kite and grout (edges)
+threeShapesSample = lw thin $
+    position 
+    [ (p2(0.0,1.0)  ,colPatch sun4 (darken 0.7 darkmagenta, indigo, gold))
+    , (p2(-3.0,0.0) ,colPatch star4 (goldenrod, darkturquoise, saddlebrown))
+    , (p2(1.4,0.0)  ,colPatch kite5 (darkblue,blend 0.9 red magenta, yellow))
+    ] where
+        sun4 = suns!!4
+        star4 = decompositions TileLib.star !!4
+        kite5 = scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
+
+
+
+
+
+
+{- 
+  ********************
+  Swatches and Samples
+  ********************
+  
+A swatch is a list of triples of colours which are used to fill sun5s (dart, kite, grout)
+showSwatch n swproduces a diagram from a swatch sw where n is used to indicate how many samples in a row
+display at 800
+-}
 showSwatch n swatch = vsep 0.25 $ fmap (hsep 0.25 . fmap sample) $ group n swatch where
                      group n l = if length l <= n then [l] else take n l: group n (drop n l)
-                     sample (c1,c2,c3) = patchWith (fillDK c1 c2) sun5 # lw ultraThin # lc c3
+                     sample (c1,c2,c3) = colPatch sun5 (c1,c2,c3) # lw ultraThin
+--                     sample (c1,c2,c3) = patchWith (fillDK c1 c2) sun5 # lw ultraThin # lc c3
 
 -- | a sample is similarly a triple of colours  for a single sun6
 -- display at 800
-showSample (c1,c2,c3) = patchWith (fillDK c1 c2) sun6 # lw thin # lc c3
+showSample (c1,c2,c3) = colPatch sun6 (c1,c2,c3) # lw thin
+--showSample (c1,c2,c3) = patchWith (fillDK c1 c2) sun6 # lw thin # lc c3
 
 -- | a large sample is similarly a triple of colours  for a single sun7
 -- display at 1000
-showLargeSample (c1,c2,c3) = patchWith (fillDK c1 c2) (suns!!7) # lw ultraThin # lc c3
-
-colouredSuns = showSwatch 3 [(darken 0.7 darkmagenta, indigo, gold)
-                            ,(goldenrod, darkturquoise, saddlebrown)
-                            ,(darkblue,blend 0.9 red magenta, yellow)
-                            ]
+showLargeSample (c1,c2,c3) = colPatch (suns!!7) (c1,c2,c3) # lw ultraThin
+-- showLargeSample (c1,c2,c3) = patchWith (fillDK c1 c2) (suns!!7) # lw ultraThin # lc c3
                             
 sL1 = showLargeSample (darkmagenta, indigo, gold)
 sL2 = showLargeSample (goldenrod, darkturquoise, saddlebrown)

@@ -129,7 +129,8 @@ fillDK dcol kcol piece = drawPiece piece <> (drawJPiece piece # fc col # lc col)
 
 -- | join edge added as dashed-line
 dashJPiece:: Piece -> Diagram B
-dashJPiece piece = drawPiece piece <> (drawJ piece # dashingN [0.002,0.002] 0 # lw ultraThin)
+dashJPiece piece = drawPiece piece <> (drawJ piece # dashingO [1,1] 0 # lw ultraThin)
+-- dashJPiece piece = drawPiece piece <> (drawJ piece # dashingN [0.002,0.002] 0 # lw ultraThin)
 
 -- | draw join only 
 drawJ:: Piece -> Diagram B

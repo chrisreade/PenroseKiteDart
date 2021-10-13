@@ -89,14 +89,14 @@ connectedTo v unvisited edges = dfs [] [v] (unvisited \\[v]) where
 checkTgraph:: [TileFace] -> Tgraph
 checkTgraph fcs = 
     let g = makeTgraph fcs in
-    if not (connected g)    then error ("checkTgraph: \nGraph not connected " ++ show g) 
+    if not (connected g)    then error ("checkTgraph: \nTgraph not connected\n" ++ show g) 
     else if edgeConflicts g then error ("checkTgraph: \nConflicting face edges: " ++ show (conflictingDedges g) ++
                                         "\nConflicting length edges: " ++ show (conflictingLengthEdges g) ++
-                                        "\nwith " ++ show g
+                                        "\nin\n" ++ show g
                                        )
     else if crossingBoundaries g 
          then error ("checkTgraph: crossing boundaries found at " ++ show (crossingBVs g) ++
-                     "\n in " ++ show g
+                     "\nin\n" ++ show g
                     )
          else g
 
@@ -332,7 +332,7 @@ graphCompose = snd . partCompose
 -- | partCompose produces a graph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed graph
 partCompose:: Tgraph -> ([TileFace],Tgraph)
-partCompose g = (remainder,makeTgraph newFaces) -- should be checkTgraph
+partCompose g = (remainder,checkTgraph newFaces)
   where
     dwClass = classifyDartWings g
 -- ignores unknowns
@@ -342,29 +342,43 @@ partCompose g = (remainder,makeTgraph newFaces) -- should be checkTgraph
     newRDs = fmap makeRD groupRDs 
     groupRDs = mapMaybe groupRD (largeDartBases dwClass)
     makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
-    groupRD v = case lookup v (vGroup dwClass) of
+    groupRD v = do  fcs <- lookup v (vGroup dwClass)
+                    rd <- find isRD fcs
+                    lk <- find (matchingShortE rd) fcs
+                    return [rd,lk]
+{-  groupRD v = case lookup v (vGroup dwClass) of
                 Nothing -> error ("groupRD: no faces found for largeDartBase:" ++ show v)
                 Just fcs -> case find isRD fcs of
                             Nothing -> Nothing
                             Just rd -> case find (matchingShortE rd) fcs of
                                        Nothing -> Nothing
                                        Just lk -> Just [rd,lk]
-    
+-}
     newLDs = fmap makeLD groupLDs
     groupLDs = mapMaybe groupLD (largeDartBases dwClass) 
     makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
-    groupLD v = case lookup v (vGroup dwClass) of
+    groupLD v = do  fcs <- lookup v (vGroup dwClass)
+                    ld <- find isLD fcs
+                    rk <- find (matchingShortE ld) fcs
+                    return [ld,rk]
+{-  groupLD v = case lookup v (vGroup dwClass) of
                 Nothing -> error ("groupLD: no faces found for largeDartBase:" ++ show v)
                 Just fcs -> case find isLD fcs of
                             Nothing -> Nothing
                             Just ld -> case find (matchingShortE ld) fcs of
                                        Nothing -> Nothing
                                        Just rk -> Just [ld,rk]
+-}
 
     newRKs = fmap makeRK groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwClass) 
     makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
-    groupRK v = case lookup v (vGroup dwClass) of
+    groupRK v = do  fcs <- lookup v (vGroup dwClass)
+                    rd <- find isRD fcs
+                    lk <- find (matchingShortE rd) fcs
+                    rk <- find (matchingJoinE lk) fcs
+                    return [rd,lk,rk]
+{-  groupRK v = case lookup v (vGroup dwClass) of
                 Nothing -> error ("groupRK: no faces found for largeKiteCentre:" ++ show v)
                 Just fcs -> case find isRD fcs of
                             Nothing -> Nothing
@@ -373,11 +387,16 @@ partCompose g = (remainder,makeTgraph newFaces) -- should be checkTgraph
                                        Just lk -> case find (matchingJoinE lk) fcs of
                                                   Nothing -> Nothing
                                                   Just rk -> Just [rd,lk,rk]
-
+-}
     newLKs = fmap makeLK groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwClass) 
     makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
-    groupLK v = case lookup v (vGroup dwClass) of
+    groupLK v = do  fcs <- lookup v (vGroup dwClass)
+                    ld <- find isLD fcs
+                    rk <- find (matchingShortE ld) fcs
+                    lk <- find (matchingJoinE rk) fcs
+                    return [ld,rk,lk]
+{-  groupLK v = case lookup v (vGroup dwClass) of
                 Nothing -> error ("groupLK: no faces found for largeKiteCentre:" ++ show v)
                 Just fcs -> case find isLD fcs of
                             Nothing -> Nothing
@@ -386,7 +405,7 @@ partCompose g = (remainder,makeTgraph newFaces) -- should be checkTgraph
                                        Just rk -> case find (matchingJoinE rk) fcs of
                                                   Nothing -> Nothing
                                                   Just lk ->  Just [ld,rk,lk]
-
+-}
 
 -- DWClass is a record type for the result of classifying dart wings
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
@@ -477,6 +496,14 @@ processD g (kcs,dbs,unks,gps) ld@(LD(orig,_,w)) -- classify wing tip w
 -- | find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
 -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
 findFarK :: TileFace -> [TileFace] -> Maybe TileFace
+findFarK rd@(RD _) fcs = do lk <- find (matchingShortE rd) (filter isLK fcs)
+                            rk <- find (matchingJoinE lk) (filter isRK fcs)
+                            return rk
+findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
+                            lk <- find (matchingJoinE rk)  (filter isLK fcs)
+                            return lk
+findFarK _ _ = error "findFarK: applied to non-dart face"
+{-
 findFarK rd@(RD _) fcs = case find (matchingShortE rd) (filter isLK fcs) of
                          Nothing -> Nothing
                          Just lk -> find (matchingJoinE lk) (filter isRK fcs)
@@ -484,6 +511,7 @@ findFarK ld@(LD _) fcs = case find (matchingShortE ld) (filter isRK fcs) of
                          Nothing -> Nothing
                          Just rk -> find (matchingJoinE rk)  (filter isLK fcs)
 findFarK _ _ = error "findFarK: applied to non-dart face"
+-}
 
 
 
@@ -524,7 +552,7 @@ makeNewVs :: Int -> [Vertex] -> [Vertex]
 makeNewVs n vs = [k+1..k+n] where k = maximum vs
 -- | return one new vertex
 makeNewV :: [Vertex] -> Vertex
-makeNewV vs = 1+maximum vs -- head (makeNewVs 1 vs)
+makeNewV vs = 1+maximum vs
 
 -- | build a map associating a unique vertex from vs (list of new vertices) to each edge in the list
 -- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
@@ -534,7 +562,7 @@ buildAssocs ((a,b):more) vs assoc = case lookup (a,b) assoc  of
    Nothing -> buildAssocs more (tail vs) ([((a,b),v),((b,a),v)] ++ assoc) where v = head vs
 
 -- | main function to process a face in decomposition
--- producing new edges and faces (added to those passed in). 
+-- producing new faces (accumulated in third argument). 
 -- It uses argument findV - a function to get the unique vertex assigned to each phi edge
 processWith findV fc faces = case fc of
     RK(a,b,c) -> RK(c,x,b): LK(c,y,x): RD(a,x,y) :faces
@@ -591,7 +619,7 @@ data Boundary = Boundary{ bDedges::[(Vertex,Vertex)]      -- boundary directed e
 makeBoundary:: Tgraph -> Boundary
 makeBoundary g = 
     let bdes = boundaryDedges g
-        bvs = fmap fst bdes -- or snd would do for all boundary vertices
+        bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
     in
       Boundary{ bDedges = bdes
               , vFaceAssoc = fmap (\v -> (v, filter (isAtV v) (faces g))) bvs
@@ -639,7 +667,13 @@ safeUpdate :: Update -> Bool
 safeUpdate (Just _ , _) = True
 safeUpdate (Nothing, _) = False
 
--- upDatesBD bd produces a list of all the possible single updates to bd (using the 8 rules)
+{-
+------------------  FORCING RULES  ----------------------------
+Each rule is a function of type Boundary -> [Update] producing a list of possible updates for a boundary
+The lists for all the rules are then concatenated to form a single list of all possible updates for a boundary
+-}
+
+-- upDatesBD bd produces a list of all the possible single updates to bd (using the 8 forcing rules)
 updatesBD:: Boundary -> [Update]
 updatesBD bd =
     wholeTileUpdates bd             -- (1)
@@ -677,7 +711,7 @@ updatesBD bd =
    Add a missing dart half (on any boundary long edge of a dart at the vertex).
 -}
 
--- | doUpdate` adds a new face by making changes to the boundary information
+-- | doUpdate adds a new face by making changes to the boundary information
 -- and checks that the new face is not in conflict with existing faces.
 -- Safe cases have Just v with existing vertex v as third vertex.
 doUpdate:: Update -> Boundary -> Boundary
@@ -694,11 +728,11 @@ doUpdate (Just v, makeFace) bd =
                          , nextVertex = nextVertex bd
                          }
     in  if noConflict newFace nbrFaces then result else
-        error ("doUpdate:\nConflicting new face "
+        error ("doUpdate:(erroneous tiling)\nConflicting new face  "
                ++ show newFace
                ++ "\nwith neighbouring faces\n"
                ++ show nbrFaces
-               ++ "\nwhen forming Tgraph from\n"
+               ++ "\nin boundary\n"
                ++ show result
               )
 -- Unsafe cases have Nothing as third vertex, so a new vertex is added.        
@@ -716,11 +750,11 @@ doUpdate (Nothing, makeFace) bd =
                          , nextVertex = v+1
                          }
    in if noConflict newFace nbrFaces then result else
-      error ("doUpdate:\nConflicting new face "
+      error ("doUpdate:(erroneous tiling)\nConflicting new face  "
              ++ show newFace
              ++ "\nwith neighbouring faces\n"
              ++ show nbrFaces
-             ++ "\nwhen forming Tgraph from\n"
+             ++ "\nin boundary\n"
              ++ show result
             )
 
@@ -758,7 +792,7 @@ boundaryFilter bd pred = concatMap (\e -> filter (pred e) (facesAtBV bd (fst e))
 
 
 {-
-------------------  FORCING RULES ----------------------------
+------------------  FORCING CASES  ----------------------------
 -}
 
 wholeTileUpdates:: Boundary -> [Update]
@@ -955,8 +989,9 @@ missingThirdDarts bd = boundaryFilter bd pred where
                     fcsAtb = facesAtBV bd b
                     aHasKiteWing = a `elem` fmap wingV (filter isKite fcsAta)
                     bHasKiteWing = b `elem` fmap wingV (filter isKite fcsAtb)
-
-
+{-
+------------------  END OF FORCING CASES  ----------------------------
+-}
 
 
 {-------------------------------------------
