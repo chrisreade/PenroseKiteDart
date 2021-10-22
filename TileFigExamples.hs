@@ -95,15 +95,13 @@ filledSun6 = patchWith (fillDK' red blue) sun6 # lw ultraThin
 -- | using fillDK
 newFillSun6 = patchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
 
--- fill in a patch p with c1 colour for darts, c2 colour for kites and c3 colour for grout (edges)
-colPatch p (c1,c2,c3) = patchWith (fillDK c1 c2) p # lc c3
 
 -- | showing three decomposed shapes with colouring for dart,kite and grout (edges)
 threeShapesSample = lw thin $
     position 
-    [ (p2(0.0,1.0)  ,colPatch sun4 (darken 0.7 darkmagenta, indigo, gold))
-    , (p2(-3.0,0.0) ,colPatch star4 (goldenrod, darkturquoise, saddlebrown))
-    , (p2(1.4,0.0)  ,colPatch kite5 (darkblue,blend 0.9 red magenta, yellow))
+    [ (p2(0.0,1.0)  ,colourDKG (darken 0.7 darkmagenta, indigo, gold) sun4)
+    , (p2(-3.0,0.0) ,colourDKG (goldenrod, darkturquoise, saddlebrown) star4)
+    , (p2(1.4,0.0)  ,colourDKG (darkblue,blend 0.9 red magenta, yellow) kite5)
     ] where
         sun4 = suns!!4
         star4 = decompositions TileLib.star !!4
@@ -125,18 +123,16 @@ display at 800
 -}
 showSwatch n swatch = vsep 0.25 $ fmap (hsep 0.25 . fmap sample) $ group n swatch where
                      group n l = if length l <= n then [l] else take n l: group n (drop n l)
-                     sample (c1,c2,c3) = colPatch sun5 (c1,c2,c3) # lw ultraThin
+                     sample (c1,c2,c3) = colourDKG (c1,c2,c3) sun5 # lw ultraThin
 --                     sample (c1,c2,c3) = patchWith (fillDK c1 c2) sun5 # lw ultraThin # lc c3
 
 -- | a sample is similarly a triple of colours  for a single sun6
 -- display at 800
-showSample (c1,c2,c3) = colPatch sun6 (c1,c2,c3) # lw thin
---showSample (c1,c2,c3) = patchWith (fillDK c1 c2) sun6 # lw thin # lc c3
+showSample (c1,c2,c3) = colourDKG (c1,c2,c3) sun6 # lw thin
 
 -- | a large sample is similarly a triple of colours  for a single sun7
 -- display at 1000
-showLargeSample (c1,c2,c3) = colPatch (suns!!7) (c1,c2,c3) # lw ultraThin
--- showLargeSample (c1,c2,c3) = patchWith (fillDK c1 c2) (suns!!7) # lw ultraThin # lc c3
+showLargeSample (c1,c2,c3) = colourDKG (c1,c2,c3) (suns!!7) # lw ultraThin
                             
 sL1 = showLargeSample (darkmagenta, indigo, gold)
 sL2 = showLargeSample (goldenrod, darkturquoise, saddlebrown)

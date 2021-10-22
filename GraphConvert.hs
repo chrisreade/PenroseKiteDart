@@ -91,7 +91,7 @@ makePatch uses makeVPatch first then the Hybrids are converted to Pieces
 and the Located Vertex information is thrown away
 -}
 makePatch:: Tgraph -> Patch
-makePatch = asPatch . makeVPatch
+makePatch = dropVertices . makeVPatch
 
 
 -- | touchingVertices checks that no vertices are too close to each other by making a VPatch of a Tgraph.
@@ -131,7 +131,7 @@ drawVPatch:: VPatch -> Diagram B
 drawVPatch = drawVPatchWith dashJPiece
 
 drawVPatchWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-drawVPatchWith cd vp = drawVlabels (lVertices vp) <> patchWith cd (asPatch vp)
+drawVPatchWith cd vp = drawVlabels (lVertices vp) <> patchWith cd (dropVertices vp)
 
 drawVlabels :: [Located Vertex] -> Diagram B
 drawVlabels locvs = position $ fmap (viewLoc . mapLoc label) locvs
@@ -144,13 +144,13 @@ drawVlabels locvs = position $ fmap (viewLoc . mapLoc label) locvs
 removeFacesVP :: [TileFace] -> VPatch -> VPatch
 removeFacesVP fcs vp = foldr removeFace vp fcs where
     removeFace fc = withHybs (filter (not . matchingF fc))
-    matchingF fc lhyb = asFace (unLoc lhyb) == fc
+    matchingF fc lhyb = dropVectors (unLoc lhyb) == fc
 
 selectFacesVP:: [TileFace] -> VPatch -> VPatch
 selectFacesVP fcs vp = withHybs (findAll fcs) vp where
     findAll fcs lfaces = mapMaybe (findIn lfaces) fcs 
     findIn lfaces fc = find (matchingF fc) lfaces
-    matchingF fc lhyb = asFace (unLoc lhyb) == fc
+    matchingF fc lhyb = dropVectors (unLoc lhyb) == fc
 
 -- | selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
 selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
@@ -309,16 +309,16 @@ withHybs:: ([Located Hybrid]->[Located Hybrid]) -> VPatch -> VPatch
 withHybs f (VPatch {lVertices = lvs,  lHybrids = lhs}) = VPatch {lVertices = lvs,  lHybrids = f lhs}
 
 -- convert a Hybrid to a TileFace, dropping the vector information
-asFace:: Hybrid -> TileFace
-asFace = fmap face  -- fmap of functor HalfTile
+dropVectors:: Hybrid -> TileFace
+dropVectors = fmap face  -- fmap of functor HalfTile
 
 -- convert a Hybrid to a Piece, dropping the Vertex information
 asPiece:: Hybrid -> Piece
 asPiece = fmap vector  -- fmap of functor HalfTile
 
--- asPatch removes vertex information from Hybrids and removes located vertex list
-asPatch:: VPatch -> Patch
-asPatch vp = fmap (mapLoc asPiece) (lHybrids vp)
+-- dropVertices removes vertex information from Hybrids and removes located vertex list
+dropVertices:: VPatch -> Patch
+dropVertices vp = fmap (mapLoc asPiece) (lHybrids vp)
 
    
 

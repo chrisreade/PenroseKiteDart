@@ -346,14 +346,7 @@ partCompose g = (remainder,checkTgraph newFaces)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
                     return [rd,lk]
-{-  groupRD v = case lookup v (vGroup dwClass) of
-                Nothing -> error ("groupRD: no faces found for largeDartBase:" ++ show v)
-                Just fcs -> case find isRD fcs of
-                            Nothing -> Nothing
-                            Just rd -> case find (matchingShortE rd) fcs of
-                                       Nothing -> Nothing
-                                       Just lk -> Just [rd,lk]
--}
+
     newLDs = fmap makeLD groupLDs
     groupLDs = mapMaybe groupLD (largeDartBases dwClass) 
     makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
@@ -361,14 +354,6 @@ partCompose g = (remainder,checkTgraph newFaces)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
                     return [ld,rk]
-{-  groupLD v = case lookup v (vGroup dwClass) of
-                Nothing -> error ("groupLD: no faces found for largeDartBase:" ++ show v)
-                Just fcs -> case find isLD fcs of
-                            Nothing -> Nothing
-                            Just ld -> case find (matchingShortE ld) fcs of
-                                       Nothing -> Nothing
-                                       Just rk -> Just [ld,rk]
--}
 
     newRKs = fmap makeRK groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwClass) 
@@ -378,16 +363,7 @@ partCompose g = (remainder,checkTgraph newFaces)
                     lk <- find (matchingShortE rd) fcs
                     rk <- find (matchingJoinE lk) fcs
                     return [rd,lk,rk]
-{-  groupRK v = case lookup v (vGroup dwClass) of
-                Nothing -> error ("groupRK: no faces found for largeKiteCentre:" ++ show v)
-                Just fcs -> case find isRD fcs of
-                            Nothing -> Nothing
-                            Just rd -> case find (matchingShortE rd) fcs of
-                                       Nothing -> Nothing
-                                       Just lk -> case find (matchingJoinE lk) fcs of
-                                                  Nothing -> Nothing
-                                                  Just rk -> Just [rd,lk,rk]
--}
+
     newLKs = fmap makeLK groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwClass) 
     makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
@@ -396,16 +372,7 @@ partCompose g = (remainder,checkTgraph newFaces)
                     rk <- find (matchingShortE ld) fcs
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
-{-  groupLK v = case lookup v (vGroup dwClass) of
-                Nothing -> error ("groupLK: no faces found for largeKiteCentre:" ++ show v)
-                Just fcs -> case find isLD fcs of
-                            Nothing -> Nothing
-                            Just ld -> case find (matchingShortE ld) fcs of
-                                       Nothing -> Nothing
-                                       Just rk -> case find (matchingJoinE rk) fcs of
-                                                  Nothing -> Nothing
-                                                  Just lk ->  Just [ld,rk,lk]
--}
+
 
 -- DWClass is a record type for the result of classifying dart wings
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
@@ -503,28 +470,19 @@ findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
                             lk <- find (matchingJoinE rk)  (filter isLK fcs)
                             return lk
 findFarK _ _ = error "findFarK: applied to non-dart face"
-{-
-findFarK rd@(RD _) fcs = case find (matchingShortE rd) (filter isLK fcs) of
-                         Nothing -> Nothing
-                         Just lk -> find (matchingJoinE lk) (filter isRK fcs)
-findFarK ld@(LD _) fcs = case find (matchingShortE ld) (filter isRK fcs) of
-                         Nothing -> Nothing
-                         Just rk -> find (matchingJoinE rk)  (filter isLK fcs)
-findFarK _ _ = error "findFarK: applied to non-dart face"
--}
 
-
-
-
-allComps:: Tgraph -> [Tgraph]
-allComps g = takeWhile (not . emptyGraph) $ iterate graphCompose g
---allComps g = if emptyGraph g then [] else g:allComps (graphCompose g)
-
+-- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allFComps:: Tgraph -> [Tgraph]
 allFComps g = takeWhile (not . emptyGraph) $ iterate (graphCompose . force) g
---allFComps g = if emptyGraph g then [] else g:allFComps (graphCompose $ force g)
+
+-- | allComps g produces a list of all compositions starting from g up to but excluding the empty graph
+-- This is not safe in general
+allComps:: Tgraph -> [Tgraph]
+allComps g = takeWhile (not . emptyGraph) $ iterate graphCompose g
 
 
+-- maxCompose and maxFCompose count the number of compositions to get to a maximal graph.
+-- they return a pair of the maximal graph and the count
 maxCompose, maxFCompose:: Tgraph -> (Tgraph,Int)
 maxCompose g = (last comps, length comps - 1) where comps = allComps g
 maxFCompose g = (last comps, length comps - 1) where comps = allFComps g
@@ -728,7 +686,7 @@ doUpdate (Just v, makeFace) bd =
                          , nextVertex = nextVertex bd
                          }
     in  if noConflict newFace nbrFaces then result else
-        error ("doUpdate:(erroneous tiling)\nConflicting new face  "
+        error ("doUpdate:(incorrect tiling)\nConflicting new face  "
                ++ show newFace
                ++ "\nwith neighbouring faces\n"
                ++ show nbrFaces
@@ -750,7 +708,7 @@ doUpdate (Nothing, makeFace) bd =
                          , nextVertex = v+1
                          }
    in if noConflict newFace nbrFaces then result else
-      error ("doUpdate:(erroneous tiling)\nConflicting new face  "
+      error ("doUpdate:(incorrect tiling)\nConflicting new face  "
              ++ show newFace
              ++ "\nwith neighbouring faces\n"
              ++ show nbrFaces
@@ -782,13 +740,15 @@ facesAtBV bd v = case lookup v (vFaceAssoc bd) of
             Nothing -> error ("facesAtBV: no faces found at boundary vertex " ++ show v)
 
 {-
-boundaryFilter: requires a Boundary and a predicate
-The predicate takes a boundary directed edge (a,b) and a tileface at a (the first vertex of the edge)
+boundaryFilter: requires a predicate and a Boundary
+The predicate takes a boundary bd, a boundary directed edge (a,b) and a tileface at a (the first vertex of the edge)
 and decides whether the face is wanted or not (True = wanted)
-This is then used to filter all the faces round the boundary by applying to all the boundary edges
+This is then used to filter all the faces round the boundary by applying to all the boundary edges.
+For some predicates the boundary argument is not needed (eg boundaryJoin in incompleteHalves), but for others it is used to
+look at all the faces at b or at other faces at a besides the supplied fc (eg kiteWDO in kitesWingDartOrigin) 
 -}
-boundaryFilter::  Boundary -> ((Vertex,Vertex) -> TileFace -> Bool) -> [TileFace]
-boundaryFilter bd pred = concatMap (\e -> filter (pred e) (facesAtBV bd (fst e))) (bDedges bd)
+boundaryFilter::  (Boundary -> (Vertex,Vertex) -> TileFace -> Bool) -> Boundary -> [TileFace]
+boundaryFilter pred bd = concatMap (\e -> filter (pred bd e) (facesAtBV bd (fst e))) (bDedges bd)
 
 
 {-
@@ -800,8 +760,8 @@ wholeTileUpdates bd = fmap (completeHalf bd) (incompleteHalves bd)
 
 -- | incompleteHalves bd returns faces with missing opposite face (mirror face)  
 incompleteHalves :: Boundary -> [TileFace]
-incompleteHalves bd = boundaryFilter bd boundaryJoin where
-    boundaryJoin (a,b) fc = joinE fc == (b,a)
+incompleteHalves = boundaryFilter boundaryJoin where
+    boundaryJoin bd (a,b) fc = joinE fc == (b,a)
 
 -- | completeHalf will add a symmetric (mirror) face for a given face at a boundary join edge.
 completeHalf :: Boundary -> TileFace -> Update        
@@ -825,8 +785,8 @@ kiteBelowDartUpdates bd = fmap (addKiteShortE bd) (nonKDarts bd)
 
 -- half darts with boundary short edge
 nonKDarts:: Boundary -> [TileFace]
-nonKDarts bd = boundaryFilter bd bShortDarts where
-    bShortDarts (a,b) fc = isDart fc && shortE fc == (b,a)
+nonKDarts = boundaryFilter bShortDarts where
+    bShortDarts bd (a,b) fc = isDart fc && shortE fc == (b,a)
 
 -- | add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE::  Boundary -> TileFace -> Update   
@@ -850,10 +810,10 @@ kiteWingDartOriginUpdates bd = fmap (addKiteShortE bd) (kitesWingDartOrigin bd)
 
 -- kites with boundary short edge where the wing is a dart origin
 kitesWingDartOrigin:: Boundary -> [TileFace]   
-kitesWingDartOrigin bd = boundaryFilter bd kiteWDO where
-   kiteWDO (a,b) fc = shortE fc == (b,a) 
-                      && ((isLK fc && isDartOrigin b) || (isRK fc && isDartOrigin a))
-   isDartOrigin v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
+kitesWingDartOrigin = boundaryFilter kiteWDO where
+   kiteWDO bd (a,b) fc = shortE fc == (b,a) 
+                      && ((isLK fc && isDartOrigin bd b) || (isRK fc && isDartOrigin bd a))
+   isDartOrigin bd v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
 
 
 
@@ -879,10 +839,10 @@ addDartShortE bd _ = error "addDartShortE applied to non-kite face"
 -- when there are 2 other kite halves sharing a short edge
 -- at oppV of the kite half (a for left kite and b for right kite)
 kiteGaps :: Boundary -> [TileFace]
-kiteGaps bd = boundaryFilter bd kiteGap where
-  kiteGap (a,b) fc = shortE fc == (b,a)
-                     && (isLK fc && hasKshortKat a || isRK fc && hasKshortKat b)
-  hasKshortKat v = hasMatchingE $ fmap shortE $ filter isKite $ facesAtBV bd v
+kiteGaps = boundaryFilter kiteGap where
+  kiteGap bd (a,b) fc = shortE fc == (b,a)
+                     && (isLK fc && hasKshortKat bd a || isRK fc && hasKshortKat bd b)
+  hasKshortKat bd v = hasMatchingE $ fmap shortE $ filter isKite $ facesAtBV bd v
 
 
 
@@ -895,9 +855,9 @@ secondTouchingDartUpdates bd = fmap (addDartShortE bd) (noTouchingDarts bd)
 -- (oppV is a for left kite and b for right kite)
 -- function mustbeLDB determines if a vertex must be a a largeDartBase
 noTouchingDarts :: Boundary -> [TileFace]
-noTouchingDarts bd = boundaryFilter bd farKOfDarts where
-   farKOfDarts (a,b) fc  = shortE fc == (b,a)
-                           && (isRK fc && mustbeLDB bd b || isLK fc && mustbeLDB bd a)
+noTouchingDarts = boundaryFilter farKOfDarts where
+   farKOfDarts bd (a,b) fc  = shortE fc == (b,a)
+                              && (isRK fc && mustbeLDB bd b || isLK fc && mustbeLDB bd a)
 
 
 
@@ -913,8 +873,8 @@ sunStarUpdates :: Boundary -> [Update]
 sunStarUpdates bd = fmap (completeSunStar bd) (almostSunStar bd)
 
 almostSunStar :: Boundary -> [TileFace]    
-almostSunStar bd = boundaryFilter bd multiples68 where
-    multiples68 (a,b) fc =               
+almostSunStar = boundaryFilter multiples68 where
+    multiples68 bd (a,b) fc =               
         (isLD fc && longE fc == (b,a) && a `elem` occurs 8 dartOriginsAta) ||
         (isRD fc && longE fc == (b,a) && b `elem` occurs 8 dartOriginsAtb) ||
         (isLK fc && longE fc == (b,a) && (b `elem` occurs 6 kiteOriginsAtb || b `elem` occurs 8 kiteOriginsAtb)) ||
@@ -958,9 +918,9 @@ addKiteLongE bd _ = error "addKiteLongE: applied to kite"
 
 -- k3d2 (largeDartBase) vertices with dart long edge on boundary
 noKiteTopDarts :: Boundary -> [TileFace]
-noKiteTopDarts bd = boundaryFilter bd dartsWingDB where
-    dartsWingDB (a,b) fc = (isLD fc && longE fc == (b,a) && mustbeLDB bd b) ||
-                           (isRD fc && longE fc == (b,a) && mustbeLDB bd a)
+noKiteTopDarts = boundaryFilter dartsWingDB where
+    dartsWingDB bd (a,b) fc = (isLD fc && longE fc == (b,a) && mustbeLDB bd b) ||
+                              (isRD fc && longE fc == (b,a) && mustbeLDB bd a)
 
 
 
@@ -981,9 +941,9 @@ addDartLongE bd _ = error "addDartLongE: applied to kite"
 
 -- k2d3 nodes with 2 of the 3 darts
 missingThirdDarts:: Boundary -> [TileFace]  
-missingThirdDarts bd = boundaryFilter bd pred where
-    pred (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && a `elem` occurs 4 (fmap originV (filter isDart fcsAta))) ||
-                    (isRD fc && longE fc == (b,a) && bHasKiteWing && b `elem` occurs 4 (fmap originV (filter isDart fcsAtb)))
+missingThirdDarts = boundaryFilter pred where
+    pred bd (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && a `elem` occurs 4 (fmap originV (filter isDart fcsAta))) ||
+                       (isRD fc && longE fc == (b,a) && bHasKiteWing && b `elem` occurs 4 (fmap originV (filter isDart fcsAtb)))
              where       
                     fcsAta = facesAtBV bd a
                     fcsAtb = facesAtBV bd b
@@ -1180,33 +1140,36 @@ EMPLACEMENTS
 -- | emplace does maximal composing with force and graphCompose, 
 -- then applies graphDecompose and force repeatedly back to the starting level.
 -- It produces the 'emplacement' of influence of the argument graph.   
-emplace :: Tgraph -> Tgraph
-emplace g = let fg = force g
-                g' = graphCompose fg 
-            in
-                if emptyGraph g'
-                then fg 
-                else (force . graphDecompose . emplace) g'
+emplace:: Tgraph -> Tgraph
+emplace g = if emptyGraph g'
+            then fg 
+            else (force . graphDecompose . emplace) g'
+    where fg = force g
+          g' = graphCompose fg 
             
 emptyGraph g = null (faces g)
 
--- emplace0 - earlier version of emplace which does not force when composing, only when decomposing
-emplace0 :: Tgraph -> Tgraph
-emplace0 g = let g' = graphCompose g in
-             if emptyGraph g'
-             then force g 
-             else force . graphDecompose $ emplace0 g'
+-- emplaceSimple - version of emplace which does not force when composing, only when decomposing
+-- only safe to use on multi-decomposed maximal graphs.
+emplaceSimple :: Tgraph -> Tgraph
+emplaceSimple g = if emptyGraph g'
+                  then force g 
+                  else (force . graphDecompose . emplaceSimple) g'
+    where g' = graphCompose g
 
-
+-- emplacements must be supplied with a maximally composed graph
+-- and prodeces the infinite list of its emplacements.
 emplacements :: Tgraph -> [Tgraph]
 emplacements = (iterate (force . graphDecompose)) . force
 
+-- countEmplace g finds a maximally composed graph (maxg) for g and counts the number (n) of compsitions
+-- needed.  It retutns a triple of maxg, the nth emplacement of maxg, and n)
 countEmplace :: Tgraph -> (Tgraph,Tgraph,Int)
 countEmplace g = (maxg, emplacements maxg !! n, n) where (maxg,n) = maxFCompose g
 
 {-------------------------------------------------------------------------
 ******************************************** *****************************              
-Experimental: makeChoices, multiEmplace
+Experimental: makeChoices, emplaceChoices
 ***************************************************************************
 
 There is now both forceLDB AND forceLKC so composeUasKC has been replaced by graphCompose
@@ -1216,14 +1179,14 @@ Must also consider what to do for isolated dart wing case (currently excluded)
 
 -- | a version of emplace using makeChoices at the top level.
 -- after makeChoices we use emplace to attempt further compositions but with no further choices
-multiEmplace:: Tgraph -> [Tgraph]
-multiEmplace g = 
+emplaceChoices:: Tgraph -> [Tgraph]
+emplaceChoices g = 
        let fg = force g
            g' = graphCompose fg 
        in
            if emptyGraph g'
            then fmap emplace $ makeChoices g
-           else fmap (force . graphDecompose) (multiEmplace g')
+           else fmap (force . graphDecompose) (emplaceChoices g')
                                  
 {- | makeChoices is a temporary tool which does not attempt to analyse choices for correctness.
 It can thus create some choices which will be incorrect.
