@@ -73,7 +73,7 @@ Extract the join vector and originV location for each of the graph faces from th
 to build a vpatch with located hybrids and convert assocV to located vertices.
 -}
 makeVPatch::Tgraph -> VPatch
-makeVPatch g = if emptyGraph g 
+makeVPatch g = if nullGraph g 
                then VPatch { lVertices = [], lHybrids = [] }
                else VPatch { lVertices = fmap locateV assocV
                            , lHybrids  = fmap makeLHyb $ faces g

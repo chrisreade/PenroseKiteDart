@@ -1,7 +1,7 @@
 module Tgraphs where
 
 import Data.List ((\\), lookup, intersect, nub, elemIndex, find)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (mapMaybe, isNothing)
 
 import HalfTile
 
@@ -69,7 +69,7 @@ crossingBoundaries :: Tgraph -> Bool
 crossingBoundaries g = not $ null $ crossingBVs g
 
 connected :: Tgraph -> Bool
-connected g = if emptyGraph g 
+connected g = if nullGraph g 
               then True
               else null (vs \\ connectedTo (head vs) vs (graphEdges g))
                    where vs = vertices g
@@ -473,12 +473,12 @@ findFarK _ _ = error "findFarK: applied to non-dart face"
 
 -- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allFComps:: Tgraph -> [Tgraph]
-allFComps g = takeWhile (not . emptyGraph) $ iterate (graphCompose . force) g
+allFComps g = takeWhile (not . nullGraph) $ iterate (graphCompose . force) g
 
 -- | allComps g produces a list of all compositions starting from g up to but excluding the empty graph
 -- This is not safe in general
 allComps:: Tgraph -> [Tgraph]
-allComps g = takeWhile (not . emptyGraph) $ iterate graphCompose g
+allComps g = takeWhile (not . nullGraph) $ iterate graphCompose g
 
 
 -- maxCompose and maxFCompose count the number of compositions to get to a maximal graph.
@@ -597,21 +597,13 @@ recalculated at each recursive call after an update
 and the recursion stops only when the new update list is empty.
 -}
 forceBD:: Boundary -> Boundary
-forceBD bd = let upDts = updatesBD bd
-             in case find safeUpdate upDts of
-                Just u -> forceBD (doUpdate u bd)       -- do first safe step
-                _  -> case upDts of
-                      (u: _) -> forceBD (doUpdate u bd) -- do first unsafe step
-                      _  -> bd                          -- finish
-{-
-forceBD:: Boundary -> Boundary
-forceBD bd = let upDts = updatesBD bd
-             in case filter safeUpdate upDts of
-                (u: _) -> forceBD (doUpdate u bd)       -- do first safe step
-                _  -> case upDts of
-                      (u: _) -> forceBD (doUpdate u bd) -- do first unsafe step
-                      _  -> bd                          -- finish
--}
+forceBD bd = 
+    case find safeUpdate updates of
+        Just u -> forceBD (doUpdate u bd)         -- first safe update then recurse
+        _  -> case updates of
+                (u: _) -> forceBD (doUpdate u bd) -- first (unsafe) update then recurse
+                []     -> bd                      -- no more updates
+    where updates = updatesBD bd                  -- list of all updates for bd
 
 -- | an Update is a pair of
 -- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
@@ -647,12 +639,13 @@ updatesBD bd =
 2. When a half dart has its short edge on the boundary
    add the half kite that must be on the short edge
    (this is at k2d1 vertices but also helps with k3d2 and k2d2 vertices).  
-3. When a vertex is both a dart origin and a kite wing it must be a k4d1 or k2d3 vertex
-   add any missing kite half on a boundary short edge of a kite half at the vertex
-   (this converts 1 kite to two and 3 kites to 4).
+3. When a vertex is both a dart origin and a kite wing it must be a k4d1 or k2d3 vertex.
+   If there is a boundary short edge of a kite half at the vertex, 
+   add another kite half sharing the short edge. 
+   (This converts 1 kite to 2 and 3 kites to 4 in combination with the first rule).
 4. When two half kites share a short edge their oppV vertex must be a k2d2 vertex
-   add any missing half darts at the vertex
-   (in the gap between the other two short edges of the kites).
+   add any missing half darts needed to complete the vertex.
+   (In the gap between the other two short edges of the full kites).
 5. When a single dart wing is at a vertex which is recognised as an incomplete k3d2
    and has a complete kite below the dart wing, 
    add a second dart half touching at the vertex (sharing the kite below).
@@ -660,7 +653,7 @@ updatesBD bd =
 6. When a vertex has 3 or 4 whole kite origins (= 6 or 8 half kite origins)
    it must be a sun centre (k5). Also if a vertex has 4 whole dart origins (= 8 half dart origins)
    it must be a star centre (d5).
-   Add an appropriate half kite/dart on a boundary edge at the vertex.
+   Add an appropriate half kite/dart on a boundary long edge at the vertex.
    (This will complete suns (resp. stars) along with case 1),
 7. When a dart half has its wing recognised as a k3d2 (largeDartBase) vertex
    add a missing kite half on its long edge.
@@ -669,43 +662,29 @@ updatesBD bd =
    Add a missing dart half (on any boundary long edge of a dart at the vertex).
 -}
 
+
+
+
 -- | doUpdate adds a new face by making changes to the boundary information
 -- and checks that the new face is not in conflict with existing faces.
 -- Safe cases have Just v with existing vertex v as third vertex.
-doUpdate:: Update -> Boundary -> Boundary
-doUpdate (Just v, makeFace) bd = 
-    let newFace = makeFace v
-        fDedges = faceDedges newFace
-        matchedDedges = fDedges `intersect` bDedges bd
-        newfDedges = fDedges \\ matchedDedges
-        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace)
-        result = Boundary{ bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
-                         , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
-                         , allFaces = newFace:allFaces bd
-                         , allVertices = allVertices bd
-                         , nextVertex = nextVertex bd
-                         }
-    in  if noConflict newFace nbrFaces then result else
-        error ("doUpdate:(incorrect tiling)\nConflicting new face  "
-               ++ show newFace
-               ++ "\nwith neighbouring faces\n"
-               ++ show nbrFaces
-               ++ "\nin boundary\n"
-               ++ show result
-              )
 -- Unsafe cases have Nothing as third vertex, so a new vertex is added.        
-doUpdate (Nothing, makeFace) bd = 
-   let v = nextVertex bd
+doUpdate:: Update -> Boundary -> Boundary
+doUpdate (maybev, makeFace) bd = 
+   let v = maybe (nextVertex bd) id maybev       
+--         case maybev of Nothing -> nextVertex bd
+--                        Just v' -> v'
        newFace = makeFace v
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd
        newfDedges = fDedges \\ matchedDedges
-       nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
+       exempt = if isNothing maybev then [v] else []
+       nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ exempt)
        result = Boundary { bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
                          , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
                          , allFaces = newFace:allFaces bd
-                         , allVertices = v:allVertices bd
-                         , nextVertex = v+1
+                         , allVertices = if isNothing maybev then v:allVertices bd else allVertices bd
+                         , nextVertex = if isNothing maybev then v+1 else nextVertex bd
                          }
    in if noConflict newFace nbrFaces then result else
       error ("doUpdate:(incorrect tiling)\nConflicting new face  "
@@ -715,6 +694,7 @@ doUpdate (Nothing, makeFace) bd =
              ++ "\nin boundary\n"
              ++ show result
             )
+
 
 
 -- | noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
@@ -744,11 +724,13 @@ boundaryFilter: requires a predicate and a Boundary
 The predicate takes a boundary bd, a boundary directed edge (a,b) and a tileface at a (the first vertex of the edge)
 and decides whether the face is wanted or not (True = wanted)
 This is then used to filter all the faces round the boundary by applying to all the boundary edges.
-For some predicates the boundary argument is not needed (eg boundaryJoin in incompleteHalves), but for others it is used to
-look at all the faces at b or at other faces at a besides the supplied fc (eg kiteWDO in kitesWingDartOrigin) 
+For some predicates the boundary argument is not needed (eg boundaryJoin in incompleteHalves), 
+but for others it is used to look at all the faces at b or at other faces at a besides the supplied fc 
+(eg kiteWDO in kitesWingDartOrigin) 
 -}
 boundaryFilter::  (Boundary -> (Vertex,Vertex) -> TileFace -> Bool) -> Boundary -> [TileFace]
-boundaryFilter pred bd = concatMap (\e -> filter (pred bd e) (facesAtBV bd (fst e))) (bDedges bd)
+boundaryFilter pred bd =  [ fc | e <- bDedges bd, fc <- facesAtBV bd (fst e), pred bd e fc]
+    -- concatMap (\e -> filter (pred bd e) (facesAtBV bd (fst e))) (bDedges bd)
 
 
 {-
@@ -1141,26 +1123,27 @@ EMPLACEMENTS
 -- then applies graphDecompose and force repeatedly back to the starting level.
 -- It produces the 'emplacement' of influence of the argument graph.   
 emplace:: Tgraph -> Tgraph
-emplace g = if emptyGraph g'
+emplace g = if nullGraph g'
             then fg 
             else (force . graphDecompose . emplace) g'
     where fg = force g
           g' = graphCompose fg 
             
-emptyGraph g = null (faces g)
+nullGraph:: Tgraph -> Bool
+nullGraph g = null (faces g)
 
 -- emplaceSimple - version of emplace which does not force when composing, only when decomposing
 -- only safe to use on multi-decomposed maximal graphs.
 emplaceSimple :: Tgraph -> Tgraph
-emplaceSimple g = if emptyGraph g'
+emplaceSimple g = if nullGraph g'
                   then force g 
                   else (force . graphDecompose . emplaceSimple) g'
     where g' = graphCompose g
 
--- emplacements must be supplied with a maximally composed graph
--- and prodeces the infinite list of its emplacements.
+-- emplacements are best supplied with a maximally composed or near maximally composed graph
+-- It produces an infinite list of emplacements of the starting graph and its decompositions.
 emplacements :: Tgraph -> [Tgraph]
-emplacements = (iterate (force . graphDecompose)) . force
+emplacements = (iterate (force . graphDecompose)) . emplace -- was .force
 
 -- countEmplace g finds a maximally composed graph (maxg) for g and counts the number (n) of compsitions
 -- needed.  It retutns a triple of maxg, the nth emplacement of maxg, and n)
@@ -1184,7 +1167,7 @@ emplaceChoices g =
        let fg = force g
            g' = graphCompose fg 
        in
-           if emptyGraph g'
+           if nullGraph g'
            then fmap emplace $ makeChoices g
            else fmap (force . graphDecompose) (emplaceChoices g')
                                  

@@ -28,8 +28,13 @@ phiScaling :: [Diagram B] -> [Diagram B]
 phiScaling ds = zipWith scale (iterate (*phi) 1) ds
 
 
+-- use checkEmbed first to find a common pair of vertices to align (for use with drawEmbed)
+checkEmbed :: Tgraph -> Tgraph -> Diagram B
+checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
+                   fmap drawVGraph [g1, g2]
+
 -- | drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
--- vertices a and b must be common to g and g1 and scales should match for length of (a,b)
+-- vertices a and b must be common to g1 and g2 and scales should match for length of (a,b)
 drawEmbed :: (Vertex, Vertex) -> Tgraph -> Tgraph -> Diagram B
 drawEmbed (a,b) g1 g2 = 
     (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
@@ -45,27 +50,6 @@ dashJEmbed (a,b) g1 g2 =
 -- vertices a and b must be common to all graphs and scales should match
 alignGtoVP :: (Vertex, Vertex) -> [Tgraph] -> [VPatch]
 alignGtoVP (a,b) gs = alignAll (a,b) $ fmap makeVPatch gs
-
-{-
--- | drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
--- vertices a and b must be common to g and g1 and scales should match for length of (a,b)
-drawEmbed :: (Vertex, Vertex) -> Tgraph -> Tgraph -> Diagram B
-drawEmbed (a,b) g1 g2 = drawEmbedVP (a,b) (makeVPatch g1) (makeVPatch g2)
-
--- | drawEmbedVP (a,b) vp1 vp2 embeds  vp1 (coloured red) into vp2, by aligning with (a,b)
--- vertices a and b must be common to vp1 and vp2 and scales should match for length of (a,b)
-drawEmbedVP :: (Vertex, Vertex) -> VPatch -> VPatch -> Diagram B
-drawEmbedVP (a,b) vp1 vp2 =
-    (lc red $ lw thin $ drawPatch $ dropVertices newvp1) <> (lw ultraThin $ drawPatch $ dropVertices newvp2)  where
-    [newvp1,newvp2] =  alignAll (a,b) [vp1,vp2]
--}
-    
--- use checkEmbed first to find a common pair of vertices to align (for use with drawEmbed)
-checkEmbed :: Tgraph -> Tgraph -> Diagram B
-checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
-                   fmap drawVGraph [g1, g2]
-
-
 
 
 {-
@@ -141,7 +125,7 @@ Vertices a and b must be common to composed g and remainder patch
 (use checkPCompose to see possible vertices)                               
 -}
 showPCompose ::  Tgraph -> (Vertex, Vertex) -> Diagram B
-showPCompose g (a,b) = case emptyGraph g' of
+showPCompose g (a,b) = case nullGraph g' of
         True -> lc lime $ dashJPatch $ dropVertices $ selectFacesGtoVP fcs g
         False -> (lw ultraThin $ drawPatch $ dropVertices large) <> (lc lime $ dashJPatch $ dropVertices rem) where
                  [rem,large] = alignAll (a,b) [ selectFacesGtoVP fcs g
@@ -254,9 +238,10 @@ brokenDartFig4 = padBorder $ vsep 1 [ hsep 1 $ phiScaling $ fmap dashJGraph $ al
                                     , hsep 1 $ phiScaling $ fmap dashJGraph $ allFComps brokenDart4
                                     ] 
 
--- illustrates that brokenKites is repaired by emplace
--- NOTE third graphCompose of brokenKites produces a graph with crossing boundaries
--- so force is essential before composing
+
+-- 2 adjacent kites are decomposed. brokenKites has the top decomposed half kite removed.
+-- The figure illustrates that brokenKites is included in emplace brokenKites
+-- even though the missing part is not repaired.
 brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap drawVPatch $ alignAll(1,3) $ scales [1,1,phi] $ fmap makeVPatch 
                  [graphDecompose twoKites,brokenKites, graphCompose brokenKites, emplace brokenKites]
@@ -264,42 +249,6 @@ brokenKites = removeFaces [LD(1,14,16),LK(5,4,16),RK(5,16,14)] $ graphDecompose 
 twoKites = checkTgraph [ RK(1,2,11), LK(1,3,2)
                        , RK(1,4,3) , LK(1,5,4)
                        ]
-
-forceAndCompDart4  = padBorder $ lw ultraThin $ allPosition
-                     $ fixRotations [[0,1,1],[0,1,1],[1,1],[1]] 
-                     (fComps dart4)         
-forceAndCompBrokenDart4  = padBorder $ lw ultraThin $ allPosition
-                     $ fixRotations [[0,1,1],[0,1,1],[1,1],[1]] 
-                     (fComps brokenDart4)         
-
-gapSize = 25.0
-insertHead x [] = [[x]]
-insertHead x (a:as) = (x:a):as
-
--- Messy but works on rows bottom up and ok with shorter list than rows
-fixRotations:: [[Int]] -> [(Diagram B,[Diagram B])] -> [(Diagram B,[Diagram B])]
-fixRotations [] more = more
-fixRotations [rots1] ((f,r):more) = (f,rotations rots1 r):more
-fixRotations (rots1:(rot:rots2):rotsmore) ((f,r):more) = 
-    (rotate (ttangle rot) f, rotations rots1 r):fixRotations (rots2:rotsmore) more
-fixRotations (rots1:[]:rotsmore) ((f,r):more) = 
-    (f,rotations rots1 r):fixRotations ([]:rotsmore) more
-
-allPosition:: [(Diagram B,[Diagram B])] -> Diagram B
-allPosition [] = mempty
-allPosition ((f,r):more) = rowPosition r <> 
-                           translate (gapSize*unitY) (f <> translate (gapSize*unitX) (allPosition more))
-
-rowPosition:: [Diagram B] -> Diagram B
-rowPosition [] = mempty
-rowPosition (g:gs) = g<>(translate (gapSize*unitX) $ rowPosition gs)
-
-fComps:: Tgraph -> [(Diagram B,[Diagram B])]
-fComps g = let fg = force g
-               g' = graphCompose fg
-           in if emptyGraph g'
-               then [(dashJGraph fg, [dashJGraph g])]
-               else (dashJGraph fg, phiScaling $ fmap dashJGraph (allComps g)) : scale phi (fComps g')
 
 
 {-
@@ -323,14 +272,6 @@ emplaceFoolDChoices = padBorder $ hsep 1 $
         fmap (((lc red . dashJPatch . dropVertices) d1 <>) . lw ultraThin . drawPatch . dropVertices) rest where
         (d1:rest) = alignments [(1,6),(1,6),(1,6),(1,6),(34,6)] (fmap makeVPatch (g:emplaceChoices g))
         g = foolDs !! 1
-
-
-
-
-
-                   
-
-
 
 
 {- 
@@ -387,7 +328,8 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap drawVPatch $ scales [phi,1,1,phi] $ al
   *************************
 -}
 
--- | figire showing ordering of a decomposed kite and test with with an extra LK(3,6,8)
+-- | figure showing ordering of a decomposed kite (bottom), test with an extra LK(3,6,8),
+-- and forced figure at the top and composition of all 3 = kite on the right
 graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
               [cft,dcft,ft,t] = fmap drawVPatch $ scales [phi] $ alignAll (1,2) $ fmap makeVPatch 
                                 [cftest, dcftest, ftest, test]
@@ -399,8 +341,6 @@ graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
                                       ,RK (3,7,6),LD (1,6,7), LK(3,6,8)]
                             }
 
-labelD :: String -> Diagram B -> Diagram B
-labelD l d = baselineText l # fontSize (local 0.4) # fc blue <> d # moveTo (p2(0,2.2))
 
 -- | vertexTypesFig selects 7 subgraphs from sunD3 illustrating the 7 types of vertex
 vertexTypesFig = pad 1.2 $ vsep 1 [hsep 1 $ take 3 lTypeFigs, hsep 1 $ drop 3 lTypeFigs]
@@ -430,7 +370,8 @@ vertexTypesFig = pad 1.2 $ vsep 1 [hsep 1 $ take 3 lTypeFigs, hsep 1 $ drop 3 lT
  k5 =   [RK (21,117,50),LK (21,89,117),LK (21,50,118),RK (21,118,92),LK (21,92,40)
         ,LK (21,51,120),RK (21,120,89),RK (21,121,51),LK (21,96,121),RK (21,40,96)
         ]
-        
+labelD :: String -> Diagram B -> Diagram B
+labelD l d = baselineText l # fontSize (local 0.4) # fc blue <> d # moveTo (p2(0,2.2))
 
 
 bigPic0:: Diagram B
@@ -488,6 +429,7 @@ bigPic = (padBorder $ position $ concat $
               shaft = arc xDir (-1/10 @@ turn)
  
 
+
 {-
   *************************************
   Testing functions and figures and experiments
@@ -500,6 +442,7 @@ testCrossingBoundary = makeTgraph (faces foolDminus \\ [LD(6,11,13)])
 -- testing
 checkForceFig =  padBorder $ hsep 1 $ fmap dashJGraph [dart4, force dart4]
 
+-- diagram of potential touching vertex situation
 touchingProblem = padBorder $ (drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)) where
     vpLeft = removeFacesVP deleted vp
     vpGone = selectFacesVP deleted vp
@@ -508,12 +451,7 @@ touchingProblem = padBorder $ (drawVPatch vpLeft <> (dashJPatch (dropVertices vp
     deleted = filter ((==1).originV) (faces sunD2) ++
               filter ((==20).originV) (faces sunD2) ++
               [RK(16,49,20),LK(8,20,49),RK(8,49,37)]
-{-
-              filter ((==19).originV) (faces sunD3) ++
-              filter ((==20).originV) (faces sunD3) ++
-              filter ((==15).originV) (faces sunD3) ++
-              filter ((==8).originV) (faces sunD3)
--}
+
 -- testing selectFacesGtoVP figure testing selectFacesGtoVP
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
