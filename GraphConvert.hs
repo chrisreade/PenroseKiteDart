@@ -171,25 +171,30 @@ centerOn a vp =
         Just loca -> translate (origin .-. loca) vp
         _ -> error ("centerOn: vertex not found "++ show a)
 
+-- | alignXaxis takes a vertex pair (a,b) an a VPatch vp
+-- for centering vp on a and rotating the result so that b is on the positive X axis.
+alignXaxis :: (Vertex, Vertex) -> VPatch -> VPatch    
+alignXaxis (a,b) vp =  rotate angle newvp
+  where newvp = centerOn a vp
+        angle = signedAngleBetweenDirs (direction unitX) (direction (locb .-. origin))
+        locb = case findLoc b newvp of
+                Just l -> l
+                Nothing -> error ("alignX: second alignment vertex not found (Vertex " ++ show b ++ ")")
+
 -- | alignments takes a list of vertex pairs for respective rotations of VPatches in the second list.
 -- For a pair (a,b) the Vpatch is centered on a then b is aligned along the positive x axis. 
 -- The vertex pair list can be shorter than the list of vpatches - the remaining vpatches are left unrotated.
 alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]     
 alignments [] vps = vps
 alignments prs [] = error "alignments: Too many alignment pairs"  -- prs non-null
-alignments ((a,b):more) (vp:vps) =  rotate angle newvp : alignments more vps
-  where newvp = centerOn a vp
-        angle = signedAngleBetweenDirs (direction unitX) (direction (locb .-. origin))
-        locb = case findLoc b newvp of
-                Just l -> l
-                Nothing -> error ("alignments: second alignment vertex not found (" ++ show b 
-                                   ++ ") in remaining alignment list " ++ show ((a,b):more))
+alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
+
 -- | alignAll (a,b) vpList
 -- provided both vertices a and b exist in each Vpatch in vpList, the VPatches are all aligned
 -- centred on a, with b on the positive x axis
-
 alignAll :: (Vertex, Vertex) -> [VPatch] -> [VPatch]     
-alignAll (a,b) vps = alignments ablist vps where ablist = take (length vps) (repeat (a,b))
+alignAll (a,b) = fmap (alignXaxis (a,b))
+    -- alignments ablist vps where ablist = take (length vps) (repeat (a,b))
 
 -- rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
 -- This includes Diagrams, Patches, VPatches

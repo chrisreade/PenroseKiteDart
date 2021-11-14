@@ -76,8 +76,8 @@ sun6Fig = drawPatch sun6 # lw thin
 sun5Over6Fig = (drawPatch sun5 # lc red # dashingN [0.003,0.003] 0 <> drawPatch sun6) # lw thin
 -- | Using experiment (defined in Tilelib) on sun6 clearly illustrates the embedded sun5
 experimentFig = patchWith experiment sun6 # lw thin
--- | similarly experiment on sun3
-twoLevelsFig = patchWith experiment (suns!!3)
+-- | similarly experiment on sun4
+twoLevelsFig = patchWith experiment (suns!!4)
 
 --- shows two types of dart wing vertices (largeKiteCentre, largeDartBase)                         
 dartWingFig = pad 1.2 $ hsep 1 [dkite, ddart] where

@@ -38,18 +38,28 @@ checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
 drawEmbed :: (Vertex, Vertex) -> Tgraph -> Tgraph -> Diagram B
 drawEmbed (a,b) g1 g2 = 
     (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
-    [vp1,vp2] = alignGtoVP (a,b) [g1, g2]
+    vp1 = alignXaxis (a,b) $ makeVPatch g1
+    vp2 = alignXaxis (a,b) $ makeVPatch g2
+
+-- | drawEmbed' alms g1 g2 embeds  g1 (coloured red) onto g2, by aligning with alms
+drawEmbed' :: [(Vertex, Vertex)] -> Tgraph -> Tgraph -> Diagram B
+drawEmbed' alms g1 g2 = 
+    (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
+    [vp1,vp2] = alignments alms $ fmap makeVPatch [g1, g2]
 
 -- | dashJEmbed (a,b) g1 g2 sames as drawEmbed (a,b) g1 g2 but dashJ for g1
 dashJEmbed:: (Vertex, Vertex) -> Tgraph -> Tgraph -> Diagram B
 dashJEmbed (a,b) g1 g2 = 
     (lc red $ lw thin $ dashJPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
-    [vp1,vp2] = alignGtoVP (a,b) [g1, g2]
+    vp1 = alignXaxis (a,b) $ makeVPatch g1
+    vp2 = alignXaxis (a,b) $ makeVPatch g2
 
+{-
 -- | alignGtoV (a,b) glist converts Tgraphs to VPatches then aligns with (a,b)
 -- vertices a and b must be common to all graphs and scales should match
 alignGtoVP :: (Vertex, Vertex) -> [Tgraph] -> [VPatch]
 alignGtoVP (a,b) gs = alignAll (a,b) $ fmap makeVPatch gs
+-}
 
 
 {-
@@ -188,22 +198,22 @@ empSunD5Fig = padBorder $ empSunD 5
   *************************************
 -}
 
-dart4 = dartDs!!4
+dartD4 = dartDs!!4
 
--- brokenDart4 will now get repaired and be included in emplaceSimple
-brokenDart4 = removeFaces deleted dart4 where
+-- brokenDart will now get repaired and be included in emplaceSimple
+brokenDart = removeFaces deleted dartD4 where
   deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
 
--- badlyBrokenDart4 will cause emplaceSimple to fail by producung a graph which is not face connected
+-- badlyBrokenDart will cause emplaceSimple to fail by producung a graph which is not face connected
 -- Tgraph {vertices = [4,6,3,1,5], faces = [LD (4,6,3),LK (1,5,3)]} - which breaks on forcing
 -- HOWEVER emplace still works and (emplaceSimple . force) gives the same result
-badlyBrokenDart4 = removeFaces deleted dart4 where
+badlyBrokenDart = removeFaces deleted dartD4 where
   deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
             ++[LK(11,21,44),RK(11,44,34),LD(9,34,44),RD(9,44,35),LK(17,35,44),RK(17,44,21),RK(6,17,33)]
  
--- brokenDartFig shows the faces removed from dart4 to make brokenDart and badlyBrokenDart
+-- brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
 brokenDartFig :: Diagram B
-brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawGraph [dart4, brokenDart4, badlyBrokenDart4]
+brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawGraph [dartD4, brokenDart, badlyBrokenDart]
 
 -- brokenDartFig2 illustrates that emplaceSimple does not fully include the starting graph
 brokenDartFig2 :: Diagram B
@@ -212,7 +222,7 @@ brokenDartFig2 = padBorder $ lw ultraThin $
                          ,center $ hsep 10 $ rotations [0,1,1] $ phiScaling (fmap dashJGraph row1)
                          ] where
     row2 = fmap (\g -> dashJEmbed (1,3) g (emplaceSimple g)) row1
-    row1 = allComps brokenDart4
+    row1 = allComps brokenDart
 
 -- brokenDartFig2F illustrates that full emplace does include the starting graph (so repairs it)
 brokenDartFig2F :: Diagram B
@@ -221,21 +231,21 @@ brokenDartFig2F = padBorder $ lw ultraThin $
                           ,center $ hsep 13 $ rotations [0,1,1] $ phiScaling (fmap dashJGraph row1)
                          ] where
     row2 = fmap (\g -> dashJEmbed (1,3) g (emplace g)) row1
-    row1 = allFComps brokenDart4
+    row1 = allFComps brokenDart
 
 -- brokenDartFig3 illustrates that a single force before emplaceSimple
 -- also includes the starting graph (so repairs it) for both brokenDart and badlyBrokenDart
 brokenDartFig3 :: Diagram B
 brokenDartFig3 = padBorder $ lw ultraThin $ vsep (-2) [row1,row2,row3] where
-    row1 = hsep 5 $ [drawGraph dart4, drawEmbed (1,3) dart4 (force dart4)]
-    row2 = hsep 5 $ [drawGraph brokenDart4, drawEmbed (1,3) brokenDart4 fb, rotate (ttangle 4) $ drawGraph (emplaceSimple fb)]
-    row3 = hsep 5 $ [drawGraph badlyBrokenDart4, drawEmbed (1,3) badlyBrokenDart4 fb]
-    fb = force badlyBrokenDart4 -- same as force brokenDart4
+    row1 = hsep 5 $ [drawGraph dartD4, drawEmbed (1,3) dartD4 (force dartD4)]
+    row2 = hsep 5 $ [drawGraph brokenDart, drawEmbed (1,3) brokenDart fb, rotate (ttangle 4) $ drawGraph (emplaceSimple fb)]
+    row3 = hsep 5 $ [drawGraph badlyBrokenDart, drawEmbed (1,3) badlyBrokenDart fb]
+    fb = force badlyBrokenDart -- same as force brokenDart
 
 brokenDartFig4 :: Diagram B
-brokenDartFig4 = padBorder $ vsep 1 [ hsep 1 $ phiScaling $ fmap dashJGraph $ allComps dart4 
-                                    , hsep 1 $ phiScaling $ fmap dashJGraph $ allComps brokenDart4
-                                    , hsep 1 $ phiScaling $ fmap dashJGraph $ allFComps brokenDart4
+brokenDartFig4 = padBorder $ vsep 1 [ hsep 1 $ phiScaling $ fmap dashJGraph $ allComps dartD4 
+                                    , hsep 1 $ phiScaling $ fmap dashJGraph $ allComps brokenDart
+                                    , hsep 1 $ phiScaling $ fmap dashJGraph $ allFComps brokenDart
                                     ] 
 
 
@@ -341,37 +351,78 @@ graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
                                       ,RK (3,7,6),LD (1,6,7), LK(3,6,8)]
                             }
 
+empVsFig = padBorder $ hsep 1 $ 
+           zipWith gEmpAlign [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
+                             [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(1,2),(1,10)]]
+  where
+  gEmpAlign g alms = drawEmbed' alms g (emplace g)
+--  gEmpAlign g alms = hsep 1 $ fmap drawVPatch $ alignments alms $ fmap makeVPatch [g, emplace g]
 
--- | vertexTypesFig selects 7 subgraphs from sunD3 illustrating the 7 types of vertex
+vertexTypesFig = padBorder $ hsep 1 $ lTypeFigs
+    -- pad 1.2 $ vsep 1 [hsep 1 $ take 3 lTypeFigs, hsep 1 $ drop 3 lTypeFigs]
+ where
+ lTypeFigs = zipWith labelD ["sun","star","jack","queen","king","ace","deuce"] vTypeFigs
+ vTypeFigs = zipWith drawVertex [sunV, starV, jackV, queenV, kingV, aceV,  deuceV]
+                                [(1,2),(1,2), (1,2), (1,2),  (1,2), (3,6), (2,6)] -- alignments
+ drawVertex g alm = showOrigin $ dashJPatch $ dropVertices $ alignXaxis alm $ makeVPatch g
+{-
+ vTypeFigs = zipWith drawVertex [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
+                                [1,  1, 1,   1,  1,  3, 2] -- centres
+ drawVertex g ctr = showOrigin $ dashJPatch $ dropVertices $ centerOn ctr $ makeVPatch g
+-}
+
+labelD :: String -> Diagram B -> Diagram B
+labelD l d = baselineText l # fontSize (local 0.5) # fc blue <> d # moveTo (p2(0,2.2))
+
+jackV = makeTgraph [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
+                   ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
+                   ]
+kingV = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,4,5),RD (1,3,4),LD (1,10,11)
+                   ,RD (1,9,10),LK (9,1,7),RK (9,7,8),RK (5,7,1),LK (5,6,7)
+                   ]
+queenV = makeTgraph [LK (7,1,5),RK (3,5,1),LD (1,2,3),RK (7,9,1),LK (11,1,9)
+                    ,RD (1,11,2),RK (7,5,6),LK (7,8,9),LK (3,4,5),RK (11,9,10)
+                    ]
+
+aceV = fool -- centre 3
+deuceV = makeTgraph [LK (7,8,2),RK (7,2,6),RK (5,2,4),LK (5,6,2),LD (1,4,2)
+                    ,RD (1,2,8),RD (1,3,4),LD (1,8,9)
+                    ] -- centre 2
+
+starV = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
+                   ,RD (1,7,8),LD (1,6,7),RD (1,5,6),LD (1,4,5),RD (1,3,4)
+                   ]
+sunV = sunGraph
+
+{- Older version of vertexTypesFig selects 7 subgraphs from sunD3 illustrating the 7 types of vertex
 vertexTypesFig = pad 1.2 $ vsep 1 [hsep 1 $ take 3 lTypeFigs, hsep 1 $ drop 3 lTypeFigs]
  where
- lTypeFigs = zipWith labelD ["k5","k4d1","k3d2","k2d1","k2d2","k2d3","d5"] vTypeFigs
- vTypeFigs = zipWith drawVertex [k5,k4d1,k3d2,k2d1,k2d2,k2d3,d5] -- subgraph lists
-                                [21,49,  34,  62,  101, 14,  1] -- centered vertices
+ lTypeFigs = zipWith labelD ["sun","queen","jack","ace","deuce","king","star"] vTypeFigs
+ vTypeFigs = zipWith drawVertex [sun,queen,jack,ace,deuce,king,star] -- subgraph lists
+                                [21, 49,   34,  62, 101,  14,  1] -- centered vertices
  drawVertex list ctr = showOrigin $ dashJPatch $ dropVertices $ centerOn ctr $ selectFacesVP list $ sunD3
  sunD3 = makeVPatch (sunDs!!3)
- k2d3 = [LD (14,70,106),RD (14,108,70),LD (14,69,28),RD (14,106,69),LD (14,74,108)
+ king = [LD (14,70,106),RD (14,108,70),LD (14,69,28),RD (14,106,69),LD (14,74,108)
         ,RD (14,32,74),LK (32,14,109),RK (32,109,75),RK (28,109,14),LK (28,66,109)
         ]
- k2d1 = [RD (4,102,62),LD (4,62,105),LK (18,62,102),LK (18,45,105),RK (18,102,44),RK (18,105,62)
+ ace = [RD (4,102,62),LD (4,62,105),LK (18,62,102),LK (18,45,105),RK (18,102,44),RK (18,105,62)
         ]
- k2d2 = [LK (17,60,101),RK (17,101,43),RK (26,101,61),LK (26,43,101),LD (13,61,101)
+ deuce =[LK (17,60,101),RK (17,101,43),RK (26,101,61),LK (26,43,101),LD (13,61,101)
         ,RD (13,101,60),RD (13,103,61),LD (13,60,24)
         ]
- d5 =   [LD (1,57,99),RD (1,104,57),LD (1,66,104),RD (1,109,66),LD (1,75,109)
+ star = [LD (1,57,99),RD (1,104,57),LD (1,66,104),RD (1,109,66),LD (1,75,109)
         ,RD (1,114,75),LD (1,84,114),RD (1,119,84),LD (1,93,119),RD (1,99,93)
         ]
- k4d1 = [LK (20,49,115),RK (37,115,49),LD (49,86,37),RK (20,116,49),LK (38,49,116)
+ queen =[LK (20,49,115),RK (37,115,49),LD (49,86,37),RK (20,116,49),LK (38,49,116)
         ,RD (49,38,86),RK (20,115,80),LK (20,87,116),LK (37,85,115),RK (38,116,88)
         ]
- k3d2 = [LK (34,47,111),RK (34,111,79),LK (7,77,34),RD (47,34,77),RK (34,113,48)
+ jack = [LK (34,47,111),RK (34,111,79),LK (7,77,34),RD (47,34,77),RK (34,113,48)
         ,LK (34,79,113),RK (7,34,82),LD (48,82,34),LD (47,77,33),RD (48,35,82)
         ]
- k5 =   [RK (21,117,50),LK (21,89,117),LK (21,50,118),RK (21,118,92),LK (21,92,40)
+ sun =  [RK (21,117,50),LK (21,89,117),LK (21,50,118),RK (21,118,92),LK (21,92,40)
         ,LK (21,51,120),RK (21,120,89),RK (21,121,51),LK (21,96,121),RK (21,40,96)
-        ]
-labelD :: String -> Diagram B -> Diagram B
-labelD l d = baselineText l # fontSize (local 0.4) # fc blue <> d # moveTo (p2(0,2.2))
+        ]-}
+
 
 
 bigPic0:: Diagram B
@@ -440,7 +491,7 @@ bigPic = (padBorder $ position $ concat $
 testCrossingBoundary = makeTgraph (faces foolDminus \\ [LD(6,11,13)])
          
 -- testing
-checkForceFig =  padBorder $ hsep 1 $ fmap dashJGraph [dart4, force dart4]
+checkForceFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, force dartD4]
 
 -- diagram of potential touching vertex situation
 touchingProblem = padBorder $ (drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)) where
@@ -449,8 +500,7 @@ touchingProblem = padBorder $ (drawVPatch vpLeft <> (dashJPatch (dropVertices vp
     vp = makeVPatch sunD2
     sunD2 = sunDs!!2
     deleted = filter ((==1).originV) (faces sunD2) ++
-              filter ((==20).originV) (faces sunD2) ++
-              [RK(16,49,20),LK(8,20,49),RK(8,49,37)]
+              [LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
 
 -- testing selectFacesGtoVP figure testing selectFacesGtoVP
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
@@ -461,6 +511,6 @@ maxAndEmplace g = scales [1,1,phi^n] $ fmap drawGraph [g,empg,maxg]
 
 maxEdart4Fig :: Diagram B
 maxEdart4Fig = vsep 1 $ lw ultraThin $ fmap (hsep 1 . rotations [0,4,0])
-               [maxAndEmplace dart4, maxAndEmplace brokenDart4, maxAndEmplace badlyBrokenDart4]
+               [maxAndEmplace dartD4, maxAndEmplace brokenDart, maxAndEmplace badlyBrokenDart]
 
      

@@ -127,6 +127,7 @@ fillDK dcol kcol piece = drawPiece piece <> (drawJPiece piece # fc col # lc col)
                         (LK _) -> kcol
                         (RK _) -> kcol
 
+
 -- | join edge added as dashed-line
 dashJPiece:: Piece -> Diagram B
 dashJPiece piece = drawPiece piece <> (drawJ piece # dashingO [1,1] 0 # lw ultraThin)
@@ -135,8 +136,7 @@ dashJPiece piece = drawPiece piece <> (drawJ piece # dashingO [1,1] 0 # lw ultra
 -- | draw join only 
 drawJ:: Piece -> Diagram B
 drawJ piece = strokeLine (fromOffsets [getJVec piece]) 
-
-         
+        
 -- | experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.
 -- Half tiles are first drawn with dashed lines, then certain edges are overlayed to emphasise
@@ -149,6 +149,9 @@ experiment pc = emph pc <> (drawJPiece pc # dashingN [0.002,0.002] 0 # lw ultraT
           (RD v) -> (strokeLine . fromOffsets) [v] # lc red 
           (LK v) -> (strokeLine . fromOffsets) [rotate (ttangle 1) v] -- emphasise long edge for kites
           (RK v) -> (strokeLine . fromOffsets) [rotate (ttangle 9) v]
+
+
+
 
 -- | A patch is a list of Located pieces (i.e. a point associated with originV)
 type Patch = [Located Piece]
@@ -165,6 +168,13 @@ drawPatch = patchWith drawPiece
 -- | special case - turn patches to diagrams with dashJPiece
 dashJPatch:: Patch -> Diagram B      
 dashJPatch = patchWith dashJPiece
+
+-- colourDKG fill in a patch p with c1 colour for darts, c2 colour for kites and c3 colour for grout (edges)
+colourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
+colourDKG (c1,c2,c3) p = patchWith (fillDK c1 c2) p # lc c3
+
+
+
 
 {- |
 Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch

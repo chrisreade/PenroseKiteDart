@@ -501,8 +501,9 @@ DECOMPOSING - graphDecompose
 graphDecompose :: Tgraph -> Tgraph
 graphDecompose g = makeTgraph newFaces where
     allPhi = phiEdges g
-    findV e = lookup e (buildAssocs allPhi newVs [])
     newVs = makeNewVs (length allPhi `div` 2) (vertices g)
+    assocs = buildAssocs allPhi newVs []
+    findV e = lookup e assocs
     newFaces = foldr (processWith findV) [] $ faces g
 
 -- | given existing vertices vs, create n new vertices
@@ -512,7 +513,8 @@ makeNewVs n vs = [k+1..k+n] where k = maximum vs
 makeNewV :: [Vertex] -> Vertex
 makeNewV vs = 1+maximum vs
 
--- | build a map associating a unique vertex from vs (list of new vertices) to each edge in the list
+-- | buildAssocs edges vs assoc 
+-- build a map associating a unique vertex from vs (list of new vertices) to each edge in edges
 -- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
 buildAssocs [] vs assoc = assoc
 buildAssocs ((a,b):more) vs assoc = case lookup (a,b) assoc  of
@@ -599,28 +601,42 @@ and the recursion stops only when the new update list is empty.
 forceBD:: Boundary -> Boundary
 forceBD bd = 
     case find safeUpdate updates of
-        Just u -> forceBD (doUpdate u bd)         -- first safe update then recurse
+        Just u -> forceBD (doUpdate u)         -- first safe update then recurse
         _  -> case updates of
-                (u: _) -> forceBD (doUpdate u bd) -- first (unsafe) update then recurse
+                (u: _) -> forceBD (doUpdate u) -- first (unsafe) update then recurse
                 []     -> bd                      -- no more updates
     where updates = updatesBD bd                  -- list of all updates for bd
 
--- | an Update is a pair of
+
+
+
+
+
+
+
+
+
+-- | an Update is a triple of
 -- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
--- and a makeFace function to create the new face when given a third vertex.
+-- and a makeFace function to create the new face when given a third vertex,
+-- and a Boundary
 -- The function doUpdate applies makeFace to v for the Just v case and to a new vertex for the Nothing case
-type Update = (Maybe Vertex, Vertex -> TileFace)
+type Update = (Maybe Vertex, Vertex -> TileFace, Boundary)
 
 -- | safe updates are those which do not require a new vertex, 
 -- so have an identified existing vertex (Just v)
 safeUpdate :: Update -> Bool
-safeUpdate (Just _ , _) = True
-safeUpdate (Nothing, _) = False
+safeUpdate (Just _ , _ , _) = True
+safeUpdate (Nothing, _ , _) = False
 
 {-
 ------------------  FORCING RULES  ----------------------------
 Each rule is a function of type Boundary -> [Update] producing a list of possible updates for a boundary
 The lists for all the rules are then concatenated to form a single list of all possible updates for a boundary
+
+7 vertex types are:
+sun (k5), queen (k4d1), jack (k3d2, largeDartBase), ace (k2d1, fool),
+deuce (k2d2, largeKiteCentre), king (k2d3), star (d5)
 -}
 
 -- upDatesBD bd produces a list of all the possible single updates to bd (using the 8 forcing rules)
@@ -638,27 +654,27 @@ updatesBD bd =
 1. When a join edge is on the boundary - add the missing half tile to make a whole tile.    
 2. When a half dart has its short edge on the boundary
    add the half kite that must be on the short edge
-   (this is at k2d1 vertices but also helps with k3d2 and k2d2 vertices).  
-3. When a vertex is both a dart origin and a kite wing it must be a k4d1 or k2d3 vertex.
+   (this is at ace vertices but also helps with jack and deuce vertices).  
+3. When a vertex is both a dart origin and a kite wing it must be a queen or king vertex.
    If there is a boundary short edge of a kite half at the vertex, 
    add another kite half sharing the short edge. 
    (This converts 1 kite to 2 and 3 kites to 4 in combination with the first rule).
-4. When two half kites share a short edge their oppV vertex must be a k2d2 vertex
+4. When two half kites share a short edge their oppV vertex must be a deuce vertex
    add any missing half darts needed to complete the vertex.
    (In the gap between the other two short edges of the full kites).
-5. When a single dart wing is at a vertex which is recognised as an incomplete k3d2
+5. When a single dart wing is at a vertex which is recognised as an incomplete jack vertex
    and has a complete kite below the dart wing, 
    add a second dart half touching at the vertex (sharing the kite below).
    This is also known as a *largeDartBase* vertex (= new dart base next level up - see later)
 6. When a vertex has 3 or 4 whole kite origins (= 6 or 8 half kite origins)
-   it must be a sun centre (k5). Also if a vertex has 4 whole dart origins (= 8 half dart origins)
-   it must be a star centre (d5).
+   it must be a sun centre. Also if a vertex has 4 whole dart origins (= 8 half dart origins)
+   it must be a star centre.
    Add an appropriate half kite/dart on a boundary long edge at the vertex.
    (This will complete suns (resp. stars) along with case 1),
-7. When a dart half has its wing recognised as a k3d2 (largeDartBase) vertex
+7. When a dart half has its wing recognised as a jack (largeDartBase) vertex
    add a missing kite half on its long edge.
 8. When a vertex is a kite wing and also an origin for exactly 4 dart halves
-   it must be a k2d3 vertex.
+   it must be a king vertex.
    Add a missing dart half (on any boundary long edge of a dart at the vertex).
 -}
 
@@ -669,8 +685,8 @@ updatesBD bd =
 -- and checks that the new face is not in conflict with existing faces.
 -- Safe cases have Just v with existing vertex v as third vertex.
 -- Unsafe cases have Nothing as third vertex, so a new vertex is added.        
-doUpdate:: Update -> Boundary -> Boundary
-doUpdate (maybev, makeFace) bd = 
+doUpdate:: Update -> Boundary
+doUpdate (maybev, makeFace, bd) = 
    let v = maybe (nextVertex bd) id maybev       
 --         case maybev of Nothing -> nextVertex bd
 --                        Just v' -> v'
@@ -747,19 +763,18 @@ incompleteHalves = boundaryFilter boundaryJoin where
 
 -- | completeHalf will add a symmetric (mirror) face for a given face at a boundary join edge.
 completeHalf :: Boundary -> TileFace -> Update        
-completeHalf bd (LD(a,b,_)) = (x, makeFace) where
+completeHalf bd (LD(a,b,_)) = (x, makeFace, bd) where
         makeFace v = RD(a,v,b)
-        x = checkThirdV bd (b,a) 3 1 
--- WAS   x = findThirdV bd (b,a) (intAngle 7) (intAngle 1) 
-completeHalf bd (RD(a,_,b)) = (x, makeFace) where
+        x = findThirdV bd (b,a) 3 1 
+completeHalf bd (RD(a,_,b)) = (x, makeFace, bd) where
         makeFace v = LD(a,b,v)
-        x = checkThirdV bd (a,b) 1 3
-completeHalf bd (LK(a,_,b)) = (x, makeFace) where
+        x = findThirdV bd (a,b) 1 3
+completeHalf bd (LK(a,_,b)) = (x, makeFace, bd) where
         makeFace v = RK(a,b,v)
-        x = checkThirdV bd (a,b) 1 2
-completeHalf bd (RK(a,b,_)) = (x, makeFace) where
+        x = findThirdV bd (a,b) 1 2
+completeHalf bd (RK(a,b,_)) = (x, makeFace, bd) where
         makeFace v = LK(a,v,b)
-        x = checkThirdV bd (b,a) 2 1
+        x = findThirdV bd (b,a) 2 1
 
 
 kiteBelowDartUpdates :: Boundary -> [Update]
@@ -772,18 +787,18 @@ nonKDarts = boundaryFilter bShortDarts where
 
 -- | add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE::  Boundary -> TileFace -> Update   
-addKiteShortE bd (RD(_,b,c)) = (x, makeFace) where
+addKiteShortE bd (RD(_,b,c)) = (x, makeFace, bd) where
     makeFace v = LK(v,c,b)
-    x = checkThirdV bd (c,b) 2 2
-addKiteShortE bd (LD(_,b,c)) = (x, makeFace) where
+    x = findThirdV bd (c,b) 2 2
+addKiteShortE bd (LD(_,b,c)) = (x, makeFace, bd) where
     makeFace v = RK(v,c,b)
-    x = checkThirdV bd (c,b) 2 2
-addKiteShortE bd (LK(_,b,c)) = (x, makeFace) where
+    x = findThirdV bd (c,b) 2 2
+addKiteShortE bd (LK(_,b,c)) = (x, makeFace, bd) where
     makeFace v = RK(v,c,b)
-    x = checkThirdV bd (c,b) 2 2
-addKiteShortE bd (RK(_,b,c)) = (x, makeFace) where
+    x = findThirdV bd (c,b) 2 2
+addKiteShortE bd (RK(_,b,c)) = (x, makeFace, bd) where
     makeFace v = LK(v,c,b)
-    x = checkThirdV bd (c,b) 2 2
+    x = findThirdV bd (c,b) 2 2
 
 
 
@@ -809,12 +824,12 @@ kiteGapUpdates bd = fmap (addDartShortE bd) (kiteGaps bd)
 
 -- | add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: Boundary -> TileFace -> Update
-addDartShortE bd (RK(_,b,c)) = (x, makeFace) where
+addDartShortE bd (RK(_,b,c)) = (x, makeFace, bd) where
         makeFace v = LD(v,c,b)
-        x = checkThirdV bd (c,b) 3 1
-addDartShortE bd (LK(_,b,c)) = (x, makeFace) where
+        x = findThirdV bd (c,b) 3 1
+addDartShortE bd (LK(_,b,c)) = (x, makeFace, bd) where
         makeFace v = RD(v,c,b)
-        x = checkThirdV bd (c,b) 1 3
+        x = findThirdV bd (c,b) 1 3
 addDartShortE bd _ = error "addDartShortE applied to non-kite face"
 
 -- | kite halves with a short edge on the boundary (a,b) 
@@ -857,31 +872,31 @@ sunStarUpdates bd = fmap (completeSunStar bd) (almostSunStar bd)
 almostSunStar :: Boundary -> [TileFace]    
 almostSunStar = boundaryFilter multiples68 where
     multiples68 bd (a,b) fc =               
-        (isLD fc && longE fc == (b,a) && a `elem` occurs 8 dartOriginsAta) ||
-        (isRD fc && longE fc == (b,a) && b `elem` occurs 8 dartOriginsAtb) ||
-        (isLK fc && longE fc == (b,a) && (b `elem` occurs 6 kiteOriginsAtb || b `elem` occurs 8 kiteOriginsAtb)) ||
-        (isRK fc && longE fc == (b,a) && (a `elem` occurs 6 kiteOriginsAta || a `elem` occurs 8 kiteOriginsAta))
+        (isLD fc && longE fc == (b,a) && length dartOriginsAta ==8) ||
+        (isRD fc && longE fc == (b,a) && length dartOriginsAtb ==8) ||
+        (isLK fc && longE fc == (b,a) && (length kiteOriginsAtb ==6 || length kiteOriginsAtb ==8)) ||
+        (isRK fc && longE fc == (b,a) && (length kiteOriginsAta ==6 || length kiteOriginsAta ==8))
         where
             fcsAta = facesAtBV bd a
             fcsAtb = facesAtBV bd b
-            kiteOriginsAta = fmap originV (filter isKite fcsAta)
-            kiteOriginsAtb = fmap originV (filter isKite fcsAtb)
-            dartOriginsAta = fmap originV (filter isDart fcsAta)             
-            dartOriginsAtb = fmap originV (filter isDart fcsAtb)             
+            kiteOriginsAta = filter ((==a) . originV) (filter isKite fcsAta)
+            kiteOriginsAtb = filter ((==b) . originV) (filter isKite fcsAtb)
+            dartOriginsAta = filter ((==a) . originV) (filter isDart fcsAta)             
+            dartOriginsAtb = filter ((==b) . originV) (filter isDart fcsAtb)             
 
 completeSunStar :: Boundary -> TileFace -> Update   
-completeSunStar bd (RK(a,_,c)) = (x, makeFace) where
+completeSunStar bd (RK(a,_,c)) = (x, makeFace, bd) where
   makeFace v = LK(a,c,v)
-  x = checkThirdV bd (a,c) 1 2
-completeSunStar bd (LK(a,b,_)) = (x, makeFace) where
+  x = findThirdV bd (a,c) 1 2
+completeSunStar bd (LK(a,b,_)) = (x, makeFace, bd) where
   makeFace v = RK(a,v,b)
-  x = checkThirdV bd (b,a) 2 1
-completeSunStar bd (RD(a,b,_)) = (x, makeFace) where
+  x = findThirdV bd (b,a) 2 1
+completeSunStar bd (RD(a,b,_)) = (x, makeFace, bd) where
   makeFace v = LD(a,v,b)
-  x = checkThirdV bd (b,a) 1 1
-completeSunStar bd (LD(a,_,c)) = (x, makeFace) where
+  x = findThirdV bd (b,a) 1 1
+completeSunStar bd (LD(a,_,c)) = (x, makeFace, bd) where
   makeFace v = RD(a,c,v)
-  x = checkThirdV bd (a,c) 1 1
+  x = findThirdV bd (a,c) 1 1
 
 
 
@@ -890,12 +905,12 @@ dartKiteTopUpdates :: Boundary -> [Update]
 dartKiteTopUpdates bd = fmap (addKiteLongE bd) (noKiteTopDarts bd)
 
 addKiteLongE :: Boundary -> TileFace -> Update
-addKiteLongE bd (LD(a,_,c)) = (x, makeFace) where
+addKiteLongE bd (LD(a,_,c)) = (x, makeFace, bd) where
     makeFace v = RK(c,v,a)
-    x = checkThirdV bd (a,c) 2 1
-addKiteLongE bd (RD(a,b,_)) = (x, makeFace) where
+    x = findThirdV bd (a,c) 2 1
+addKiteLongE bd (RD(a,b,_)) = (x, makeFace, bd) where
     makeFace v = LK(b,a,v)
-    x = checkThirdV bd (b,a) 1 2
+    x = findThirdV bd (b,a) 1 2
 addKiteLongE bd _ = error "addKiteLongE: applied to kite"
 
 -- k3d2 (largeDartBase) vertices with dart long edge on boundary
@@ -913,24 +928,27 @@ thirdDartUpdates bd = fmap (addDartLongE bd) (missingThirdDarts bd)
 
 -- add a half dart on a boundary long edge of a dart
 addDartLongE:: Boundary -> TileFace -> Update
-addDartLongE bd (LD(a,_,c)) = (x, makeFace) where
+addDartLongE bd (LD(a,_,c)) = (x, makeFace, bd) where
   makeFace v = RD(a,c,v)
-  x = checkThirdV bd (a,c) 1 1
-addDartLongE bd (RD(a,b,_)) = (x, makeFace) where
+  x = findThirdV bd (a,c) 1 1
+addDartLongE bd (RD(a,b,_)) = (x, makeFace, bd) where
   makeFace v = LD(a,v,b)
-  x = checkThirdV bd (b,a) 1 1
+  x = findThirdV bd (b,a) 1 1
 addDartLongE bd _ = error "addDartLongE: applied to kite"
 
--- k2d3 nodes with 2 of the 3 darts
+-- k2d3 nodes with 2 of the 3 darts (a kite wing and 4 dart origins present)
 missingThirdDarts:: Boundary -> [TileFace]  
 missingThirdDarts = boundaryFilter pred where
-    pred bd (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && a `elem` occurs 4 (fmap originV (filter isDart fcsAta))) ||
-                       (isRD fc && longE fc == (b,a) && bHasKiteWing && b `elem` occurs 4 (fmap originV (filter isDart fcsAtb)))
-             where       
-                    fcsAta = facesAtBV bd a
-                    fcsAtb = facesAtBV bd b
-                    aHasKiteWing = a `elem` fmap wingV (filter isKite fcsAta)
-                    bHasKiteWing = b `elem` fmap wingV (filter isKite fcsAtb)
+    pred bd (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && length dartOriginsAta ==4) ||
+                       (isRD fc && longE fc == (b,a) && bHasKiteWing && length dartOriginsAtb ==4)
+        where       
+            fcsAta = facesAtBV bd a
+            fcsAtb = facesAtBV bd b
+            dartOriginsAta = filter ((==a) . originV) $ filter isDart fcsAta
+            dartOriginsAtb = filter ((==b) . originV) $ filter isDart fcsAtb
+            aHasKiteWing = a `elem` fmap wingV (filter isKite fcsAta)
+            bHasKiteWing = b `elem` fmap wingV (filter isKite fcsAtb)
+
 {-
 ------------------  END OF FORCING CASES  ----------------------------
 -}
@@ -977,23 +995,25 @@ anti  (IntAngle n) (IntAngle m) = intAngle (n+m)
 clock (IntAngle n) (IntAngle m) = intAngle (n-m)
 
 
--- | checkThirdV is a simpler interface to call findThirdV
--- checkThirdV g (a,b) n m
+-- | findThirdV is a simpler interface to searchThirdV for finding the third vertex for a new face.
+-- findThirdV bd (a,b) n m
+-- (bd is a Boundary)
 -- the two integer arguments n and m are the internal angles for the new face on the boundary edge (a,b)
 -- for a and b respectively and must both be either 1,2, or 3.
 -- It converts n and m to IntAngles
--- but subtracts n from 10 to get the antiClockwise (external) angle on the first vertex.
-checkThirdV:: Boundary -> (Vertex,Vertex) -> Int -> Int -> Maybe Vertex
-checkThirdV bd (a,b) n m = checkAngleNumbers $ findThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
+-- but subtracts n from 10 to get the antiClockwise (external) angle on the first vertex,
+-- before calling searchThirdV to return a Maybe Vertex
+findThirdV:: Boundary -> (Vertex,Vertex) -> Int -> Int -> Maybe Vertex
+findThirdV bd (a,b) n m = checkAngleNumbers $ searchThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
   where checkAngleNumbers x = if n `elem` [1,2,3] && m `elem` [1,2,3]
                               then x
-                              else error ("checkThirdV angles should be 1,2 or 3 but found "++ show(n,m))
+                              else error ("findThirdV angles should be 1,2 or 3 but found "++ show(n,m))
 
 
-{-  | findThirdV             
-The main function for constructing a new face is findThirdV
-findThirdV bd (a,b) nAnti nClock will find the third vertex of a face depending on edges found
-to form a face on the >>>RIGHT HAND SIDE <<<< of the directed edge (a,b) - which must be 
+{-  | searchThirdV             
+The main function for constructing a new face is searchThirdV
+searchThirdV bd (a,b) nAnti nClock will find the third vertex of a face depending on edges found
+to form a face on the >>> RIGHT HAND SIDE <<<< of the directed edge (a,b) - which must be 
 a boundary directed edge.
 (To add to the LHS of (a,b) then the boundary direction must be (b,a) so add to the right of (b,a))
 
@@ -1014,10 +1034,10 @@ In this case it will lead to an erroneous new vertex.
 A gap in faces around a and b can result in a *crossing boundary* error
 when it is unsafe to conclude the edges do not exist. (see also findAnti and findClock)
 -} 
-findThirdV:: Boundary -> (Vertex,Vertex) -> IntAngle -> IntAngle -> Maybe Vertex
-findThirdV bd (a,b) nAnti nClock  = 
+searchThirdV:: Boundary -> (Vertex,Vertex) -> IntAngle -> IntAngle -> Maybe Vertex
+searchThirdV bd (a,b) nAnti nClock  = 
     case (findAnti nAnti (a,b) (facesAtBV bd a), findClock nClock (b,a) (facesAtBV bd b)) of
-         (Just c, Just d ) -> if c==d then Just c else error "findThirdV: non-matching end-points"
+         (Just c, Just d ) -> if c==d then Just c else error "searchThirdV: non-matching end-points"
          (Just c, Nothing) -> Just c
          (Nothing, Just c) -> Just c
          (Nothing, Nothing)-> Nothing
@@ -1186,7 +1206,7 @@ makeChoices g = choices unks [g] where
 -- adding a second half dart face (sharing the kite below the existing half dart face at v)
 -- This assumes exactly one dart wing tip is at v, and that half dart has a full kite below it.
 forceLDB :: Vertex -> Tgraph -> Tgraph
-forceLDB v g = finalGraph $ doUpdate (addDartShortE bd k) bd where
+forceLDB v g = finalGraph $ doUpdate (addDartShortE bd k) where
     bd = makeBoundary g
     vFaces = facesAtBV bd v
     d = mustFind ((v==) . wingV) (filter isDart vFaces) $
@@ -1211,13 +1231,13 @@ forceLKC v g = finalGraph bd3 where
     vFaces0 = facesAtBV bd0 v
     d = mustFind ((v==) . wingV) (filter isDart vFaces0) $
            error ("forceLKC: no dart wing at " ++ show v)
-    bd1 = doUpdate (addDartLongE bd0 d) bd0
+    bd1 = doUpdate (addDartLongE bd0 d)
     vFaces1 = facesAtBV bd1 v
     newd = head (vFaces1 \\ vFaces0)
-    bd2 = doUpdate (addKiteShortE bd1 newd) bd1
+    bd2 = doUpdate (addKiteShortE bd1 newd)
     vFaces2 = facesAtBV bd2 v
     newk = head (vFaces2 \\ vFaces1)
-    bd3 = doUpdate (completeHalf bd2 newk) bd2
+    bd3 = doUpdate (completeHalf bd2 newk)
 
 
 
