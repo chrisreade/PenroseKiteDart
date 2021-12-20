@@ -351,29 +351,26 @@ graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
                                       ,RK (3,7,6),LD (1,6,7), LK(3,6,8)]
                             }
 
-empVsFig = padBorder $ hsep 1 $ 
+    {-
+padBorder $ hsep 1 $ 
            zipWith gEmpAlign [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
                              [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(1,2),(1,10)]]
   where
   gEmpAlign g alms = drawEmbed' alms g (emplace g)
---  gEmpAlign g alms = hsep 1 $ fmap drawVPatch $ alignments alms $ fmap makeVPatch [g, emplace g]
-
+-}
+    
+{- | vertexTypesFig is 7 vertex types single diagram as a row -}
 vertexTypesFig = padBorder $ hsep 1 $ lTypeFigs
-    -- pad 1.2 $ vsep 1 [hsep 1 $ take 3 lTypeFigs, hsep 1 $ drop 3 lTypeFigs]
  where
  lTypeFigs = zipWith labelD ["sun","star","jack","queen","king","ace","deuce"] vTypeFigs
  vTypeFigs = zipWith drawVertex [sunV, starV, jackV, queenV, kingV, aceV,  deuceV]
                                 [(1,2),(1,2), (1,2), (1,2),  (1,2), (3,6), (2,6)] -- alignments
  drawVertex g alm = showOrigin $ dashJPatch $ dropVertices $ alignXaxis alm $ makeVPatch g
-{-
- vTypeFigs = zipWith drawVertex [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
-                                [1,  1, 1,   1,  1,  3, 2] -- centres
- drawVertex g ctr = showOrigin $ dashJPatch $ dropVertices $ centerOn ctr $ makeVPatch g
--}
 
 labelD :: String -> Diagram B -> Diagram B
 labelD l d = baselineText l # fontSize (local 0.5) # fc blue <> d # moveTo (p2(0,2.2))
 
+{- graphs for the 7 vertex types sunV, starV, jackV, queenV, kingV, aceV,  deuceV -}
 jackV = makeTgraph [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
                    ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
                    ]
@@ -394,37 +391,31 @@ starV = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
                    ]
 sunV = sunGraph
 
-{- Older version of vertexTypesFig selects 7 subgraphs from sunD3 illustrating the 7 types of vertex
-vertexTypesFig = pad 1.2 $ vsep 1 [hsep 1 $ take 3 lTypeFigs, hsep 1 $ drop 3 lTypeFigs]
- where
- lTypeFigs = zipWith labelD ["sun","queen","jack","ace","deuce","king","star"] vTypeFigs
- vTypeFigs = zipWith drawVertex [sun,queen,jack,ace,deuce,king,star] -- subgraph lists
-                                [21, 49,   34,  62, 101,  14,  1] -- centered vertices
- drawVertex list ctr = showOrigin $ dashJPatch $ dropVertices $ centerOn ctr $ selectFacesVP list $ sunD3
- sunD3 = makeVPatch (sunDs!!3)
- king = [LD (14,70,106),RD (14,108,70),LD (14,69,28),RD (14,106,69),LD (14,74,108)
-        ,RD (14,32,74),LK (32,14,109),RK (32,109,75),RK (28,109,14),LK (28,66,109)
-        ]
- ace = [RD (4,102,62),LD (4,62,105),LK (18,62,102),LK (18,45,105),RK (18,102,44),RK (18,105,62)
-        ]
- deuce =[LK (17,60,101),RK (17,101,43),RK (26,101,61),LK (26,43,101),LD (13,61,101)
-        ,RD (13,101,60),RD (13,103,61),LD (13,60,24)
-        ]
- star = [LD (1,57,99),RD (1,104,57),LD (1,66,104),RD (1,109,66),LD (1,75,109)
-        ,RD (1,114,75),LD (1,84,114),RD (1,119,84),LD (1,93,119),RD (1,99,93)
-        ]
- queen =[LK (20,49,115),RK (37,115,49),LD (49,86,37),RK (20,116,49),LK (38,49,116)
-        ,RD (49,38,86),RK (20,115,80),LK (20,87,116),LK (37,85,115),RK (38,116,88)
-        ]
- jack = [LK (34,47,111),RK (34,111,79),LK (7,77,34),RD (47,34,77),RK (34,113,48)
-        ,LK (34,79,113),RK (7,34,82),LD (48,82,34),LD (47,77,33),RD (48,35,82)
-        ]
- sun =  [RK (21,117,50),LK (21,89,117),LK (21,50,118),RK (21,118,92),LK (21,92,40)
-        ,LK (21,51,120),RK (21,120,89),RK (21,121,51),LK (21,96,121),RK (21,40,96)
-        ]-}
+{- |  emplaceVFigures is a list of 7 diagrams - emplacements of 7 vertex types -}
+emplaceVFigures =
+  zipWith gEmpAlign [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
+                    [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(2,6),(10,6)]]
+--                    [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(1,2),(1,10)]]
+  where gEmpAlign g alms = drawEmbed' alms g (emplace g)
+
+{- | empVsFig shows emplacements of 7 vertex types in a row as single diagram -}
+empVsFig = padBorder $ hsep 1 emplaceVFigures
+
+{- | relatedVTypeFig lays out emplacements from emplaceVFigures plus a kite as single diagram with 3 columns -}
+relatedVTypeFig = padBorder $
+ atPoints [p2(0,15),p2(0,10),   p2(10,15),p2(10,10),p2(10,0),  p2(19,15),p2(20,10),p2(20,0) ]
+          [sunE, starE,         ace, jackE, kingE,             kite, deuceE, queenE]
+ where kite = drawGraph kiteGraph # lw thin
+       sunE = emplaceVFigures!!0
+       starE = emplaceVFigures!!1
+       jackE = emplaceVFigures!!2
+       queenE = emplaceVFigures!!3
+       kingE = emplaceVFigures!!4
+       ace = emplaceVFigures!!5
+       deuceE = emplaceVFigures!!6
 
 
-
+{-  test for bigPic without arrows -}
 bigPic0:: Diagram B
 bigPic0 = (padBorder $ position $ concat $
           [ zip pointsR1 $ rotations [] $ fmap compD [4,3,2,1,0]
@@ -440,6 +431,7 @@ bigPic0 = (padBorder $ position $ concat $
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]
     
+{- | bigPic is a diagram illustrating emplacement relationships for decomposed darts -}
 bigPic :: Diagram B
 bigPic = (padBorder $ position $ concat $
          [ zip pointsR1 $ rotations [] $ fmap compD [4,3,2,1,0]

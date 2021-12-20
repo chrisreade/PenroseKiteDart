@@ -71,6 +71,8 @@ When no more faces to be processed  (unencountered should also be empty for edge
 Second: convert original faces
 Extract the join vector and originV location for each of the graph faces from the two assoc lists
 to build a vpatch with located hybrids and convert assocV to located vertices.
+
+NEW assocE no longer used
 -}
 makeVPatch::Tgraph -> VPatch
 makeVPatch g = if nullGraph g 
@@ -80,11 +82,17 @@ makeVPatch g = if nullGraph g
                            }
     where
     (face:more) = chooseLowest (faces g)
-    (assocV,assocE) = buildVEAssocs [face] more [(originV face,origin)] (initJvec face)
+--    (assocV,_) = buildVEAssocs [face] more [(originV face,origin)] (initJvec face)
+    assocV = buildVAssocs $ chooseLowest $ faces g
     locateV (v,p) = v `at` p
+    makeLHyb fc = case (lookup (originV fc) assocV , lookup (oppV fc) assocV) of
+                  (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
+                  _ -> error ("makeVPatch: " ++ show fc)
+{-
     makeLHyb fc = case (lookup (originV fc) assocV , lookup (joinOfTile fc) assocE) of
                   (Just p, Just vec) -> fmap (dualRep vec) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
+-}
 
 {-
 makePatch uses makeVPatch first then the Hybrids are converted to Pieces
@@ -100,14 +108,15 @@ makePatch = dropVertices . makeVPatch
 -- It returns pairs of vertices that are too close 
 -- (i.e less than 0.5 where 1.0 would be the length of short edges)
 -- An empty list is returned if there is no touching vertex problem.
+-- Complexity has order of the square of the number of vertices (calculates distance between all pairs)
 touchingVertices:: Tgraph -> [(Vertex,Vertex)]
-touchingVertices g = [(v1,v2) | v1 <- vertices g, v2 <- vertices g \\[v1], tooClose v1 v2] where
-    tooClose v1 v2 = dist v1 v2 < 0.5
-    dist v1 v2 = lengthVec (locPoint v1 .-. locPoint v2)
-    lengthVec vec = sqrt $ dot vec vec
-    locPoint v = p where Just p = lookup v assocVP
-    assocVP = fmap viewLoc' $ lVertices $ makeVPatch g
-    viewLoc' x = (v,p) where (p,v) = viewLoc x
+touchingVertices g = check assocVP where
+  check [] = []
+  check ((v,p):more) = [(v,v1) | (v1,p1) <- more, tooClose p p1 ] ++ check more
+  tooClose p p1 = sqLength (p .-. p1) < 0.25
+  sqLength vec = dot vec vec
+  assocVP = fmap viewLoc' $ lVertices $ makeVPatch g
+  viewLoc' x = (v,p) where (p,v) = viewLoc x
 
 {-
 *************************************
@@ -216,22 +225,25 @@ scales _  [] = error "scales: too many scalars"
  Auxilliary definitions
 ------------------------------------------- -}
 
--- | find the face with lowest originV (and then lowest oppV) - return that face first along with other faces
--- used be makeVPatch (and hence makePatch) 
+-- | find the face with lowest originV (and then lowest oppV) 
+-- return that face first followed by remaining faces
+-- Used by makeVPatch (and hence makePatch) 
 chooseLowest fcs = face:(fcs\\[face]) where
     a = minimum (fmap originV fcs)
     aFs = filter ((a==) . originV) fcs
     b = minimum (fmap oppV aFs)
-    face = case filter (((a,b)==) . joinOfTile) aFs of
+    face = case filter (((a,b)==) . joinOfTile) aFs of  -- should be find
            (face:_) -> face
            []       -> error "chooseLowest: empty graph?"
 
+{-
 -- | initial join edge vectors (2) for starting face join on x axis - used to initialise buildVEAssocs
 initJvec::TileFace -> [((Vertex,Vertex), V2 Double)]                  
 initJvec (LD(a,b,_)) = [((a,b), unitX), ((b,a), unit_X)]
 initJvec (RD(a,_,c)) = [((a,c), unitX), ((c,a), unit_X)]
 initJvec (LK(a,_,c)) = [((a,c), phi*^unitX), ((c,a), phi*^unit_X)]
 initJvec (RK(a,b,_)) = [((a,b), phi*^unitX), ((b,a), phi*^unit_X)]
+
 
 {- | buildVEAssocs: process faces to associate vectors for each directed edge and points for each vertex.
 The first argument list of faces contains the ones being processed next in order where
@@ -251,7 +263,10 @@ processFace face assocV assocE = (assocV',assocE') where
     evecs   = completeE face assocE
     assocE' = add3E (faceDedges face) evecs assocE
     assocV' = completeV (faceVs face) evecs assocV
-
+-}
+       
+       
+{-
 -- | for a given face, find edge neighbouring faces in the supplied list of faces
 -- returns a pair - the list of the ones found followed by the supplied list with these removed
 edgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
@@ -259,6 +274,7 @@ edgeNbs fc fcOther = (fcnbs, fcOther') where
       fcnbs = filter sharedEdge fcOther
       fcOther' = fcOther \\ fcnbs
       sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
+
 
 -- | calculate points for 3 vertices given 3 edge vectors and assocV
 -- needs at least 1 already in assocV and adds new ones to assocV
@@ -280,23 +296,25 @@ completeE fc@(LD _) assocE = case find3E (faceDedges fc) assocE of
      (Just v1, _ , _)            -> (v1,        v ^-^ v1, negated v)          where v = phi*^rotate (ttangle 9) v1
      (Nothing, Just v2, _)       -> (v,         v2,       negated (v ^+^ v2)) where v = rotate (ttangle 2) v2
      (Nothing, Nothing, Just v3) -> (negated v, v ^-^ v3, v3)                 where v = (phi-1)*^rotate (ttangle 1) v3
-     _ -> error ("completeE: face not face-edge-connected: " ++ show fc)
+     _ -> error ("completeE: face not face-connected: " ++ show fc)
 completeE fc@(RD _) assocE = case find3E (faceDedges fc) assocE of
      (Just v1, _ , _)            -> (v1,        v ^-^ v1, negated v)          where v = (phi-1)*^rotate (ttangle 9) v1
      (Nothing, Just v2, _)       -> (v,         v2,       negated (v ^+^ v2)) where v = phi*^rotate (ttangle 4) v2
      (Nothing, Nothing, Just v3) -> (negated v, v ^-^ v3, v3)                 where v = phi*^rotate (ttangle 1) v3
-     _ -> error ("completeE: face not face-edge-connected: " ++ show fc) 
+     _ -> error ("completeE: face not face-connected: " ++ show fc) 
 completeE fc@(LK _) assocE = case find3E (faceDedges fc) assocE of
      (Just v1, _ , _)            -> (v1,        v ^-^ v1, negated v)          where v = rotate (ttangle 9) v1
      (Nothing, Just v2, _)       -> (v,         v2,       negated (v ^+^ v2)) where v = phi*^rotate (ttangle 3) v2
      (Nothing, Nothing, Just v3) -> (negated v, v ^-^ v3, v3)                 where v = rotate (ttangle 1) v3
-     _ -> error ("completeE: face not face-edge-connected: " ++ show fc) 
+     _ -> error ("completeE: face not face-connected: " ++ show fc) 
 completeE fc@(RK _) assocE = case find3E (faceDedges fc) assocE of  -- same as LK
      (Just v1, _ , _)            -> (v1,        v ^-^ v1, negated v)          where v = rotate (ttangle 9) v1
      (Nothing, Just v2, _)       -> (v,         v2,       negated (v ^+^ v2)) where v = phi*^rotate (ttangle 3) v2
      (Nothing, Nothing, Just v3) -> (negated v, v ^-^ v3, v3)                 where v = rotate (ttangle 1) v3
-     _ -> error ("completeE: face not face-edge-connected: " ++ show fc)
+     _ -> error ("completeE: face not face-connected: " ++ show fc)
 
+       
+       
 -- | adds a missing key/value pair, but will not change existing ones in assoc
 addPair (k,v) assoc  = case lookup k assoc of 
     Nothing -> (k,v):assoc
@@ -308,7 +326,8 @@ add3E [e1,e2,e3] (v1,v2,v3) assocE =
     foldr addPair assocE [(e1,v1),(e2,v2),(e3,v3)
                          ,(reverseE e1, negated v1),(reverseE e2, negated v2),(reverseE e3, negated v3)
                          ]
-
+-}
+       
 -- Apply a function to just the list of located hybrids in a VPatch (leaving located vertices untouched)
 withHybs:: ([Located Hybrid]->[Located Hybrid]) -> VPatch -> VPatch
 withHybs f (VPatch {lVertices = lvs,  lHybrids = lhs}) = VPatch {lVertices = lvs,  lHybrids = f lhs}

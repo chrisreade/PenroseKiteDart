@@ -4,6 +4,8 @@ import Data.List ((\\), lookup, intersect, nub, elemIndex, find)
 import Data.Maybe (mapMaybe, isNothing)
 
 import HalfTile
+import Diagrams.Prelude
+import TileLib -- necessary for New buildVAssocs and for future Located boundaries
 
 -- | Tgraph vertices
 type Vertex = Int
@@ -299,11 +301,6 @@ mustFind p ls err = case find p ls of
                      Just a  -> a
                      Nothing -> err
 
--- | occurs n vs returns a list of items in vs that occur exactly n times
-occurs :: Eq a => Int -> [a] -> [a]
-occurs n vs = nub [v | v <- vs,  length (filter (==v) vs) == n]
-
-
 {- |
 For testing  allAnglesAnti and allAnglesClock on a boundary edge
 The RHS of directed edge (a,b) should be the exterior side.
@@ -382,7 +379,8 @@ data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        } deriving Show
                        
 -- | classifyDartWings classifies all dart wing tips
--- the result is a DWClass record of largeKiteCentres, largeDartBases, unknowns and assocs where
+-- the result is a DWClass record of largeKiteCentres, largeDartBases, unknowns
+-- and an assoc list where
 -- largeKiteCentres are new kite centres, largeDartBases are new dart bases
 -- unknowns cannot be classified, and
 -- the assoc list gives faces found at each vertex in both largeKiteCentres and largeDartBases
@@ -394,6 +392,7 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
    (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],[]) (rdarts g ++ ldarts g)
 
 -- kcs = kite centres of larger kites, dbs = dart bases of larger darts, unks = unclassified dart wing tips
+-- gps is an association list of the group of faces for each dart wing tip
 processD g (kcs,dbs,unks,gps) rd@(RD(orig,w,_)) -- classify wing tip w
   = if valency g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
     if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
@@ -502,7 +501,7 @@ graphDecompose :: Tgraph -> Tgraph
 graphDecompose g = makeTgraph newFaces where
     allPhi = phiEdges g
     newVs = makeNewVs (length allPhi `div` 2) (vertices g)
-    assocs = buildAssocs allPhi newVs []
+    assocs = newVAssocs allPhi newVs []
     findV e = lookup e assocs
     newFaces = foldr (processWith findV) [] $ faces g
 
@@ -513,13 +512,13 @@ makeNewVs n vs = [k+1..k+n] where k = maximum vs
 makeNewV :: [Vertex] -> Vertex
 makeNewV vs = 1+maximum vs
 
--- | buildAssocs edges vs assoc 
+-- | newVAssocs edges vs assoc 
 -- build a map associating a unique vertex from vs (list of new vertices) to each edge in edges
 -- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
-buildAssocs [] vs assoc = assoc
-buildAssocs ((a,b):more) vs assoc = case lookup (a,b) assoc  of
-   Just _  -> buildAssocs more vs assoc
-   Nothing -> buildAssocs more (tail vs) ([((a,b),v),((b,a),v)] ++ assoc) where v = head vs
+newVAssocs [] vs assoc = assoc
+newVAssocs ((a,b):more) vs assoc = case lookup (a,b) assoc  of
+   Just _  -> newVAssocs more vs assoc
+   Nothing -> newVAssocs more (tail vs) ([((a,b),v),((b,a),v)] ++ assoc) where v = head vs
 
 -- | main function to process a face in decomposition
 -- producing new faces (accumulated in third argument). 
@@ -954,6 +953,7 @@ missingThirdDarts = boundaryFilter pred where
 -}
 
 
+
 {-------------------------------------------
 ************
 ADDING FACES
@@ -965,16 +965,23 @@ However, we do not need to go to a full conversion to vectors (which would have 
 Instead we introduce a representation of relative directions of edges at a vertex with an equality test.
 All directions are integer multiples of 1/10th turn (mod 10) so we use these integers for comparing directions.
 IntAngle n where n is 0..9
-           
+
+searchThirdV example
+                       
 e.g adding the corresponding rdart to LD(a,b,c) - we are adding to the right of the directed edge (b,a), so
 find all faces involving b, assign direction IntAngle 0 to (b,a), use this to assign directions to all edges from b (based on faces)
 going anticlockwise round b, then see if there is an edge in direction IntAngle 7
 Then assign direction IntAngle 0 to (a,b), use this to assign direction to all edges from a (based on faces)
-going clockwise round a, then see if there is an edge in direction IntAngle 1 
+going clockwise round a, then see if there is an edge in direction IntAngle 1
 If both are false, add the new vertex and 2 edges to create rdart
 If the first is false but second is true with edge (a,d), add edge (b,d) and face RD(a,d,b)
 If the first is true with edge (b,d) but second is false, add edge (a,d) and face RD(a,d,b)
 If both are true (and d node matches) we have a hole to be filled with RD(a,d,b)
+        
+Note that findThirdV just simplifies the interface for searchThirdV
+by using the 2 internal tt angles of the face being added which must both be integers 1,2 or 3
+It converts these to the appropriate IntAngle (the first is subtracted from 10 to start anticlockwise search)
+
 
 No crossing boundary property:
 Going round a vertex starting from a boundary edge and starting towards the interior, 
@@ -1175,9 +1182,6 @@ countEmplace g = (maxg, emplacements maxg !! n, n) where (maxg,n) = maxFCompose 
 Experimental: makeChoices, emplaceChoices
 ***************************************************************************
 
-There is now both forceLDB AND forceLKC so composeUasKC has been replaced by graphCompose
-However, forceLDB needs to create kite below dart when it is missing - not yet done
-Must also consider what to do for isolated dart wing case (currently excluded)
 ------------------------------------------------------------------------------}
 
 -- | a version of emplace using makeChoices at the top level.
@@ -1202,7 +1206,7 @@ makeChoices g = choices unks [g] where
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)              
 
--- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBases) by
+-- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBase) by
 -- adding a second half dart face (sharing the kite below the existing half dart face at v)
 -- This assumes exactly one dart wing tip is at v, and that half dart has a full kite below it.
 forceLDB :: Vertex -> Tgraph -> Tgraph
@@ -1213,7 +1217,7 @@ forceLDB v g = finalGraph $ doUpdate (addDartShortE bd k) where
            error ("forceLDB: no dart wing at " ++ show v)
     ks = filter ((==v) . oppV) $ filter isKite vFaces
     k = mustFind ((/= oppV d) . wingV) ks $
-           error ("forceLDB: incomplete kite below dart" ++ show d)
+           error ("forceLDB: incomplete kite below dart " ++ show d)
 
 -- | forceLKC adds 3 pieces of a larger kite at an unknown vertex. That is,
 -- For an unclassifiable dart tip v, force it to become a large kite centre (largeKiteCentres) by adding
@@ -1240,6 +1244,72 @@ forceLKC v g = finalGraph bd3 where
     bd3 = doUpdate (completeHalf bd2 newk)
 
 
+{-------------------------------------------------------------------------
+******************************************** *****************************              
+New Boundary Location checking 
+***************************************************************************
 
+------------------------------------------------------------------------------}
 
+type  AssocList a b = [(a,b)]
+
+buildVAssocs:: [TileFace] -> AssocList Vertex (Point V2 Double)
+buildVAssocs [] = []
+buildVAssocs (face:more) = build [face] more (initJoin face)
+
+-- build readyfaces notreadyfaces assocV 
+build [] [] assocV = assocV 
+build [] fcOther assocV = error ("build: Faces not face-edge connected " ++ show fcOther)
+build (fc:fcs) fcOther assocV = build (fcs++fcs') fcOther' assocV' where
+  assocV' = case thirdVertexLoc fc assocV of -- use maybe here
+             Just pr -> pr : assocV
+             Nothing -> assocV
+  (fcs', fcOther')   = edgeNbs fc fcOther
+
+-- | initJoin fc 
+-- initialises an assocV with locations for join edge of fc along x axis - used to initialise buildVAssocs
+initJoin::TileFace -> AssocList Vertex (Point V2 Double)                
+initJoin (LD(a,b,_)) = [(a,origin), (b, p2(1,0))]
+initJoin (RD(a,_,c)) = [(a,origin), (c, p2(1,0))]
+initJoin (LK(a,_,c)) = [(a,origin), (c, p2(phi,0))]
+initJoin (RK(a,b,_)) = [(a,origin), (b, p2(phi,0))]
+
+find3Locs (v1,v2,v3) assocV = (lookup v1 assocV, lookup v2 assocV, lookup v3 assocV)
+
+thirdVertexLoc:: TileFace -> AssocList Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
+thirdVertexLoc fc@(LD _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v) where v = phi*^rotate (ttangle 9) (loc2 .-. loc1)
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = rotate (ttangle 7) (loc3 .-. loc2)
+  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 1) (loc3 .-. loc1)
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+
+thirdVertexLoc fc@(RD _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 9) (loc2 .-. loc1)
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = rotate (ttangle 3) (loc2 .-. loc3)
+  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^rotate (ttangle 1) (loc3 .-. loc1)
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+ 
+thirdVertexLoc fc@(LK _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 9) (loc2 .-. loc1)
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^rotate (ttangle 8) (loc3 .-. loc2)
+  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = rotate (ttangle 1) (loc3 .-. loc1)
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+ 
+thirdVertexLoc fc@(RK _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = rotate (ttangle 9) (loc2 .-. loc1)
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^rotate (ttangle 8) (loc3 .-. loc2)
+  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 1) (loc3 .-. loc1)
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+
+-- | for a given face, find edge neighbouring faces in the supplied list of faces
+-- returns a pair - the list of the ones found followed by the supplied list with these removed
+edgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
+edgeNbs fc fcOther = (fcnbs, fcOther') where
+      fcnbs = filter sharedEdge fcOther
+      fcOther' = fcOther \\ fcnbs
+      sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
 
