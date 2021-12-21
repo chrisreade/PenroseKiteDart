@@ -14,12 +14,10 @@ import Data.Maybe (mapMaybe)
 import Diagrams.Prelude
 import Diagrams.Backend.SVG.CmdLine
 
-{-
-Important Changes to make VPatches transformable and therefore can use scale rotate translate
--}
 
--- a DualRep is essential a pair of representations - a vector and a face(= 3 vertices)
+-- a DualRep is a pair of representations - a vector and a face(= 3 vertices)
 data DualRep = DualRep {vector:: V2 Double, face::(Int,Int,Int)} deriving Show
+
 -- needed for making transformable
 type instance N DualRep = Double
 type instance V DualRep = V2
@@ -83,7 +81,7 @@ makeVPatch g = if nullGraph g
     where
     (face:more) = chooseLowest (faces g)
 --    (assocV,_) = buildVEAssocs [face] more [(originV face,origin)] (initJvec face)
-    assocV = buildVAssocs $ chooseLowest $ faces g
+    assocV = createVPoints $ chooseLowest $ faces g
     locateV (v,p) = v `at` p
     makeLHyb fc = case (lookup (originV fc) assocV , lookup (oppV fc) assocV) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap

@@ -34,3 +34,5 @@ isRK _      = False
 isDart x = isLD x || isRD x
 isKite x = isLK x || isRK x
 
+
+

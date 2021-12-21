@@ -4,8 +4,20 @@ import Data.List ((\\), lookup, intersect, nub, elemIndex, find)
 import Data.Maybe (mapMaybe, isNothing)
 
 import HalfTile
-import Diagrams.Prelude
-import TileLib -- necessary for New buildVAssocs and for future Located boundaries
+import Diagrams.Prelude      -- necessary for New createVPoints and for future Located boundaries
+import TileLib (ttangle,phi) -- necessary for New createVPoints
+
+
+{- |-------------------------------------------------------------------
+    touchCheckOn is a global variable used to switch on/off
+    checks for touching vertices when new vertices are added to a graph.
+    Used by touchCheck
+------------------------------------------------------------------------}
+touchCheckOn::Bool
+touchCheckOn = True
+
+
+
 
 -- | Tgraph vertices
 type Vertex = Int
@@ -26,9 +38,9 @@ Basic Tgraph, vertex, edge, face operations
 ********************************************
 --------------------------------------------}
 
-{-----------------------------------
-Two operations for producing Tgraphs
-------------------------------------}
+{--------------------------------------
+Basic operations for producing Tgraphs
+---------------------------------------}
                  
 -- | provided a list of faces makes sense and are face-edge-connected
 -- makeTgraph will create a Tgraph from the faces by calculating vertices
@@ -38,7 +50,28 @@ makeTgraph fcs =
            , faces = fcs
            }
 
+-- | checkTgraph creates a graph from faces but checks for edge conflicts and
+-- crossing boundaries and connectedness
+-- No crossing boundaries and connected => face-connected
+checkTgraph:: [TileFace] -> Tgraph
+checkTgraph fcs = 
+    let g = makeTgraph fcs in
+    if not (connected g)    then error ("checkTgraph: \nTgraph not connected\n" ++ show g) 
+    else if edgeConflicts g then error ("checkTgraph: \nConflicting face edges: " ++ show (conflictingDedges g) ++
+                                        "\nConflicting length edges: " ++ show (conflictingLengthEdges g) ++
+                                        "\nin\n" ++ show g
+                                       )
+    else if crossingBoundaries g 
+         then error ("checkTgraph: crossing boundaries found at " ++ show (crossingBVs g) ++
+                     "\nin\n" ++ show g
+                    )
+         else g
 
+-- | select or remove faces from a Tgraph,
+-- but check resulting graph for connectedness and no crossing boundaries
+selectFaces, removeFaces  :: [TileFace] -> Tgraph -> Tgraph
+selectFaces fcs g = checkTgraph (faces g `intersect` fcs)
+removeFaces fcs g = checkTgraph (faces g \\ fcs)
 
 {-----------------------------------------------
 Some important tests and properties for Tgraphs
@@ -85,27 +118,9 @@ connectedTo v unvisited edges = dfs [] [v] (unvisited \\[v]) where
        where nextVs = map snd $ filter ((== x) . fst) edges
              newVs = nextVs \\ (done++visited) -- assumes no self-loops
 
--- | checkTgraph creates a graph from faces but checks for edge conflicts and
--- crossing boundaries and connectedness
--- No crossing boundaries and connected => face-edge-connected
-checkTgraph:: [TileFace] -> Tgraph
-checkTgraph fcs = 
-    let g = makeTgraph fcs in
-    if not (connected g)    then error ("checkTgraph: \nTgraph not connected\n" ++ show g) 
-    else if edgeConflicts g then error ("checkTgraph: \nConflicting face edges: " ++ show (conflictingDedges g) ++
-                                        "\nConflicting length edges: " ++ show (conflictingLengthEdges g) ++
-                                        "\nin\n" ++ show g
-                                       )
-    else if crossingBoundaries g 
-         then error ("checkTgraph: crossing boundaries found at " ++ show (crossingBVs g) ++
-                     "\nin\n" ++ show g
-                    )
-         else g
 
--- | select or remove faces but check resulting graph for connected and no crossing boundaries
-selectFaces, removeFaces  :: [TileFace] -> Tgraph -> Tgraph
-selectFaces fcs g = checkTgraph (faces g `intersect` fcs)
-removeFaces fcs g = checkTgraph (faces g \\ fcs)
+
+
 
        
 {--------------------
@@ -271,9 +286,6 @@ boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
 boundaryDedges g = bothDir des \\ des where 
     des = graphDedges g
 
-{-
-The following 2 edge ops are not currently used
--}
 
 -- | boundary edges are face edges not shared by 2 faces (both directions)
 boundaryEdges :: Tgraph -> [(Vertex, Vertex)]
@@ -291,6 +303,9 @@ internalEdges g = des \\ fmap reverseE bdes where
 General Purpose tools
 *********************
 -----------------------}
+
+-- lists of pairs representing a finite partial function from a to b
+type AssocList a b = [(a,b)]
 
 {- | mustFind is used frequently to search lists
 It returns the first item in the list satisfying predicate p and returns
@@ -375,7 +390,7 @@ partCompose g = (remainder,checkTgraph newFaces)
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , largeDartBases  :: [Vertex]
                        , unknowns :: [Vertex]
-                       , vGroup :: [(Vertex,[TileFace])]
+                       , vGroup :: AssocList Vertex [TileFace]
                        } deriving Show
                        
 -- | classifyDartWings classifies all dart wing tips
@@ -391,7 +406,9 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
                               } where
    (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],[]) (rdarts g ++ ldarts g)
 
--- kcs = kite centres of larger kites, dbs = dart bases of larger darts, unks = unclassified dart wing tips
+-- kcs = kite centres of larger kites,
+-- dbs = dart bases of larger darts,
+-- unks = unclassified dart wing tips
 -- gps is an association list of the group of faces for each dart wing tip
 processD g (kcs,dbs,unks,gps) rd@(RD(orig,w,_)) -- classify wing tip w
   = if valency g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
@@ -457,8 +474,6 @@ processD g (kcs,dbs,unks,gps) ld@(LD(orig,_,w)) -- classify wing tip w
                  _ -> (kcs,dbs,w:unks,gps) -- short edge of this rk has nothing attached => unknown
 
 
-
-
 -- | find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
 -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
 findFarK :: TileFace -> [TileFace] -> Maybe TileFace
@@ -469,6 +484,14 @@ findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
                             lk <- find (matchingJoinE rk)  (filter isLK fcs)
                             return lk
 findFarK _ _ = error "findFarK: applied to non-dart face"
+
+
+
+
+{-------------
+Experimental
+--------------}
+
 
 -- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allFComps:: Tgraph -> [Tgraph]
@@ -540,80 +563,79 @@ graphDecompositions :: Tgraph -> [Tgraph]
 graphDecompositions = iterate graphDecompose
 
 
-
-
-
-
-
-
-
-
 {-
 ***************************************************************************   
-NEW FORCING with Boundaries
+NEW FORCING with Boundaries and Touching Vertex Check
 ***************************************************************************
 -}
+{- | force: calculate boundary information,
+     then call forceBoundary to do all updates, 
+     then convert back to a Tgraph
+-}
 force:: Tgraph -> Tgraph
-force = boundaryForce
-
--- | calculate boundary information, then call forceBD to do all updates, then convert back to a Tgraph
-boundaryForce:: Tgraph -> Tgraph
-boundaryForce = finalGraph . forceBD . makeBoundary 
+force = finalGraph . forceBoundary . makeBoundary
 
 {- | A Boundary records
-the boundary directed edges plus an association list of the faces incident with each boundary vertex.
+the boundary directed edges plus 
+an association list of the faces incident with each boundary vertex, plus
+an association list of position for each boundary vertex.
 It also keeps track of all the faces and vertices, 
 and the next vertex label to be used when adding a new vertex.
 Note that vFaceAssoc is initially only defined for boundary vertices,
-but the information is not removed when a vertex is no longer on the boundary
+but the information is not removed when a vertex is no longer on the boundary (after an update).
+Similarly for vPointAssoc.
 -}
-data Boundary = Boundary{ bDedges::[(Vertex,Vertex)]      -- boundary directed edges
-                        , vFaceAssoc::[(Vertex,[TileFace])] -- association list for boundary vertices
-                        , allFaces::[TileFace]
-                        , allVertices::[Vertex]
-                        , nextVertex::Vertex
-                        } deriving (Show)
+data Boundary 
+  = Boundary
+    { bDedges::[(Vertex,Vertex)]  -- boundary directed edges
+    , vFaceAssoc::AssocList Vertex [TileFace] -- faces at each boundary vertex
+    , vPointAssoc:: AssocList Vertex (Point V2 Double)  -- position of each boundary vertex
+    , allFaces::[TileFace]
+    , allVertices::[Vertex]
+    , nextVertex::Vertex
+    } deriving (Show)
 
--- | calculate Boundary information from a Tgraph
+-- | makeBoundary: calculate Boundary information from a Tgraph
 makeBoundary:: Tgraph -> Boundary
 makeBoundary g = 
-    let bdes = boundaryDedges g
-        bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
-    in
-      Boundary{ bDedges = bdes
-              , vFaceAssoc = fmap (\v -> (v, filter (isAtV v) (faces g))) bvs
-              , allFaces = faces g
-              , allVertices = vertices g
-              , nextVertex = makeNewV (vertices g)
-              }
--- | convert a Boundary back to a Tgraph
+  let bdes = boundaryDedges g
+      bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
+      bvLocs = filter ((`elem` bvs) . fst) $ createVPoints (faces g) 
+                  -- if there were no holes, could restrict to boundary faces only
+  in Boundary
+      { bDedges = bdes
+      , vFaceAssoc = fmap (\v -> (v, filter (isAtV v) (faces g))) bvs
+      , vPointAssoc = bvLocs 
+      , allFaces = faces g
+      , allVertices = vertices g
+      , nextVertex = makeNewV (vertices g)
+      }
+ 
+-- | finalGraph: convert a Boundary back to a Tgraph
 finalGraph:: Boundary -> Tgraph
 finalGraph bd = Tgraph{ faces = allFaces bd
                       , vertices = allVertices bd
                       }
 
-{- | The recursive `forceBD`selects safe updates first from the list of all possible updates of a boundary,
+{- | The recursive `forceBoundary`selects safe updates first from the list of all possible updates of a boundary,
 only doing an unsafe update if there are no safe ones. The update list is
 recalculated at each recursive call after an update
 and the recursion stops only when the new update list is empty.
 -}
-forceBD:: Boundary -> Boundary
-forceBD bd = 
+forceBoundary:: Boundary -> Boundary
+forceBoundary bd = 
     case find safeUpdate updates of
-        Just u -> forceBD (doUpdate u)         -- first safe update then recurse
-        _  -> case updates of
-                (u: _) -> forceBD (doUpdate u) -- first (unsafe) update then recurse
-                []     -> bd                      -- no more updates
-    where updates = updatesBD bd                  -- list of all updates for bd
+        Just u -> forceBoundary (doUpdate u)         -- first safe update then recurse
+        _  -> case tryUnsafes updates of
+                Just bd' -> forceBoundary bd' 
+                Nothing  -> bd                 -- no more updates
+    where updates = updatesBD bd               -- list of all updates for bd
 
-
-
-
-
-
-
-
-
+-- | tryUnsafes: When touchChecKOn is True any unsafe update producing a touching vertex returns Nothing
+tryUnsafes [] = Nothing
+tryUnsafes (u:upds) = case tryUpdate u of 
+                             Nothing -> tryUnsafes upds
+                             Just bd -> Just bd
 
 -- | an Update is a triple of
 -- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
@@ -679,30 +701,26 @@ updatesBD bd =
 
 
 
-
--- | doUpdate adds a new face by making changes to the boundary information
+-- | doSafeUpdate adds a new face by making changes to the boundary information
 -- and checks that the new face is not in conflict with existing faces.
 -- Safe cases have Just v with existing vertex v as third vertex.
--- Unsafe cases have Nothing as third vertex, so a new vertex is added.        
-doUpdate:: Update -> Boundary
-doUpdate (maybev, makeFace, bd) = 
-   let v = maybe (nextVertex bd) id maybev       
---         case maybev of Nothing -> nextVertex bd
---                        Just v' -> v'
-       newFace = makeFace v
+doSafeUpdate:: Update -> Boundary
+doSafeUpdate (Nothing, makeFace, bd) = error "doSafeUpdate: applied to non-safe update "
+doSafeUpdate (Just v, makeFace, bd) = 
+   let newFace = makeFace v
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd
        newfDedges = fDedges \\ matchedDedges
-       exempt = if isNothing maybev then [v] else []
-       nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ exempt)
+       nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace)
        result = Boundary { bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
                          , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
                          , allFaces = newFace:allFaces bd
-                         , allVertices = if isNothing maybev then v:allVertices bd else allVertices bd
-                         , nextVertex = if isNothing maybev then v+1 else nextVertex bd
+                         , vPointAssoc = vPointAssoc bd  -- no change
+                         , allVertices = allVertices bd
+                         , nextVertex = nextVertex bd
                          }
    in if noConflict newFace nbrFaces then result else
-      error ("doUpdate:(incorrect tiling)\nConflicting new face  "
+      error ("doSafeUpdate:(incorrect tiling)\nConflicting new face  "
              ++ show newFace
              ++ "\nwith neighbouring faces\n"
              ++ show nbrFaces
@@ -710,6 +728,143 @@ doUpdate (maybev, makeFace, bd) =
              ++ show result
             )
 
+
+{- | tryUpdate u, calculates the resulting boundary for an unsafe update (u) with a new vertex.
+     It checks that the new face is not in conflict with existing faces.
+     If touchCheckOn is True, it perform a touching vertex check with the new vertex
+     returning Nothing if there is a touching vertex
+     Otherwise it returns Just the resulting boundary 
+ -}
+tryUpdate:: Update -> Maybe Boundary
+tryUpdate (Just _ , makeFace, bd) = error "tryUpdate: applied to safe update "
+tryUpdate (Nothing, makeFace, bd) = 
+   let v = nextVertex bd       
+       newFace = makeFace v
+       oldVPoints = vPointAssoc bd
+       newVPoints = addVPoints [newFace] [] oldVPoints
+       Just vPosition = lookup v newVPoints
+       fDedges = faceDedges newFace
+       matchedDedges = fDedges `intersect` bDedges bd
+       newfDedges = fDedges \\ matchedDedges
+       nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
+       result = Boundary 
+                         { bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
+                         , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
+                         , vPointAssoc = newVPoints
+                         , allFaces = newFace:allFaces bd
+                         , allVertices = v:allVertices bd
+                         , nextVertex = v+1
+                         }
+   in if touchCheck vPosition oldVPoints -- always False if touchCheckOn = False
+      then Nothing -- don't proceed - v is a touching vertex
+      else if noConflict newFace nbrFaces  -- check new face does not conflict
+           then Just result 
+           else error 
+                ("tryUpdate:(incorrect tiling)\nConflicting new face  "
+                 ++ show newFace
+                 ++ "\nwith neighbouring faces\n"
+                 ++ show nbrFaces
+                 ++ "\nin boundary\n"
+                 ++ show result
+                )
+
+{-------------------------------------------------------------------------
+******************************************** *****************************              
+New Boundary Location calculation and touching vertex checking 
+***************************************************************************
+
+requires Diagrams.Prelude for points etc.  plus ttangle and phi from TileLib
+------------------------------------------------------------------------------}
+touchCheck:: (Point V2 Double) -> AssocList a (Point V2 Double) -> Bool
+touchCheck p assocV = 
+  if touchCheckOn 
+  then any (tooClose p) (fmap snd assocV) 
+  else False
+
+tooClose :: Point V2 Double  -> Point V2 Double -> Bool
+tooClose p p' = sqLength (p .-. p') < 0.25
+
+sqLength :: V2 Double  -> Double
+sqLength vec = dot vec vec
+
+{- | createVPoints: process list of faces to associate points for each vertex.
+     Faces must be face connected.
+     This is used both for 
+       touching vertex checks and also
+       to make VPatches and Patches in GraphConvert
+-}
+createVPoints:: [TileFace] -> AssocList Vertex (Point V2 Double)
+createVPoints [] = []
+createVPoints (face:more) = addVPoints [face] more (initJoin face)
+
+{- | addVPoints readyfaces fcOther assocV
+The first argument list of faces (readyfaces) contains the ones being processed next in order where
+each will have at least two known vertex points.
+The second argument list of faces (fcOther) have not yet been added and may not yet have known vertex points.
+The third argument is the association list for (vertices,points).
+-}
+addVPoints:: [TileFace] -> [TileFace] -> AssocList Vertex (Point V2 Double) -> AssocList Vertex (Point V2 Double)
+addVPoints [] [] assocV = assocV 
+addVPoints [] fcOther assocV = error ("addVPoints: Faces not face-edge connected " ++ show fcOther)
+addVPoints (fc:fcs) fcOther assocV = addVPoints (fcs++fcs') fcOther' assocV' where
+  assocV' = case thirdVertexLoc fc assocV of
+             Just pr -> pr : assocV
+             Nothing -> assocV
+  (fcs', fcOther')   = edgeNbs fc fcOther
+
+-- | initJoin fc 
+-- initialises an assocV with locations for join edge vertices of fc along x axis - used to initialise createVPoints
+initJoin::TileFace -> AssocList Vertex (Point V2 Double)                
+initJoin (LD(a,b,_)) = [(a,origin), (b, p2(1,0))]
+initJoin (RD(a,_,c)) = [(a,origin), (c, p2(1,0))]
+initJoin (LK(a,_,c)) = [(a,origin), (c, p2(phi,0))]
+initJoin (RK(a,b,_)) = [(a,origin), (b, p2(phi,0))]
+
+-- lookup 3 vertex locations
+find3Locs (v1,v2,v3) assocV = (lookup v1 assocV, lookup v2 assocV, lookup v3 assocV)
+
+{- | thirdVertexLoc fc assocV
+     looks up all 3 vertices in assocV hoping to find 2 of them, it then returns Just pr
+     where pr is an association for the third vertex.
+     If all 3 are found, returns Nothing
+     If none or one found this is an error (a non face-connected face)
+-}
+thirdVertexLoc:: TileFace -> AssocList Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
+thirdVertexLoc fc@(LD _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v) where v = phi*^rotate (ttangle 9) (loc2 .-. loc1)
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = rotate (ttangle 7) (loc3 .-. loc2)
+  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 1) (loc3 .-. loc1)
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+
+thirdVertexLoc fc@(RD _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 9) (loc2 .-. loc1)
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = rotate (ttangle 3) (loc2 .-. loc3)
+  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^rotate (ttangle 1) (loc3 .-. loc1)
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+ 
+thirdVertexLoc fc@(LK _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 9) (loc2 .-. loc1)
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^rotate (ttangle 8) (loc3 .-. loc2)
+  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = rotate (ttangle 1) (loc3 .-. loc1)
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+ 
+thirdVertexLoc fc@(RK _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = rotate (ttangle 9) (loc2 .-. loc1)
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^rotate (ttangle 8) (loc3 .-. loc2)
+  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 1) (loc3 .-. loc1)
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+
+-- | for a given face, find edge neighbouring faces in the supplied list of faces
+-- returns a pair - the list of the ones found followed by the supplied list with these removed
+edgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
+edgeNbs fc fcOther = (fcNbs, fcOther') where
+      fcNbs = filter sharedEdge fcOther
+      fcOther' = fcOther \\ fcNbs
+      sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
 
 
 -- | noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
@@ -1206,6 +1361,13 @@ makeChoices g = choices unks [g] where
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)              
 
+-- | doUpdate: do a single update (safe or unsafe)
+doUpdate:: Update -> Boundary
+doUpdate u = if safeUpdate u then doSafeUpdate u
+             else case tryUpdate u of
+               Just bd -> bd
+               Nothing -> error "doUpdate: crossing boundary (touching vertices)"
+
 -- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBase) by
 -- adding a second half dart face (sharing the kite below the existing half dart face at v)
 -- This assumes exactly one dart wing tip is at v, and that half dart has a full kite below it.
@@ -1244,72 +1406,7 @@ forceLKC v g = finalGraph bd3 where
     bd3 = doUpdate (completeHalf bd2 newk)
 
 
-{-------------------------------------------------------------------------
-******************************************** *****************************              
-New Boundary Location checking 
-***************************************************************************
 
-------------------------------------------------------------------------------}
 
-type  AssocList a b = [(a,b)]
 
-buildVAssocs:: [TileFace] -> AssocList Vertex (Point V2 Double)
-buildVAssocs [] = []
-buildVAssocs (face:more) = build [face] more (initJoin face)
-
--- build readyfaces notreadyfaces assocV 
-build [] [] assocV = assocV 
-build [] fcOther assocV = error ("build: Faces not face-edge connected " ++ show fcOther)
-build (fc:fcs) fcOther assocV = build (fcs++fcs') fcOther' assocV' where
-  assocV' = case thirdVertexLoc fc assocV of -- use maybe here
-             Just pr -> pr : assocV
-             Nothing -> assocV
-  (fcs', fcOther')   = edgeNbs fc fcOther
-
--- | initJoin fc 
--- initialises an assocV with locations for join edge of fc along x axis - used to initialise buildVAssocs
-initJoin::TileFace -> AssocList Vertex (Point V2 Double)                
-initJoin (LD(a,b,_)) = [(a,origin), (b, p2(1,0))]
-initJoin (RD(a,_,c)) = [(a,origin), (c, p2(1,0))]
-initJoin (LK(a,_,c)) = [(a,origin), (c, p2(phi,0))]
-initJoin (RK(a,b,_)) = [(a,origin), (b, p2(phi,0))]
-
-find3Locs (v1,v2,v3) assocV = (lookup v1 assocV, lookup v2 assocV, lookup v3 assocV)
-
-thirdVertexLoc:: TileFace -> AssocList Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
-thirdVertexLoc fc@(LD _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v) where v = phi*^rotate (ttangle 9) (loc2 .-. loc1)
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = rotate (ttangle 7) (loc3 .-. loc2)
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 1) (loc3 .-. loc1)
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
-
-thirdVertexLoc fc@(RD _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 9) (loc2 .-. loc1)
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = rotate (ttangle 3) (loc2 .-. loc3)
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^rotate (ttangle 1) (loc3 .-. loc1)
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
- 
-thirdVertexLoc fc@(LK _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 9) (loc2 .-. loc1)
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^rotate (ttangle 8) (loc3 .-. loc2)
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = rotate (ttangle 1) (loc3 .-. loc1)
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
- 
-thirdVertexLoc fc@(RK _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = rotate (ttangle 9) (loc2 .-. loc1)
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^rotate (ttangle 8) (loc3 .-. loc2)
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 1) (loc3 .-. loc1)
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
-
--- | for a given face, find edge neighbouring faces in the supplied list of faces
--- returns a pair - the list of the ones found followed by the supplied list with these removed
-edgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
-edgeNbs fc fcOther = (fcnbs, fcOther') where
-      fcnbs = filter sharedEdge fcOther
-      fcOther' = fcOther \\ fcnbs
-      sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
 
