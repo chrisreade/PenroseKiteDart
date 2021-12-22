@@ -569,11 +569,16 @@ NEW FORCING with Boundaries and Touching Vertex Check
 ***************************************************************************
 -}
 {- | force: calculate boundary information,
-     then call forceBoundary to do all updates, 
+     then call forceAll updatesBD to do all updates, 
      then convert back to a Tgraph
+     where updatesBD bd generates all local boundary updates for bd
 -}
 force:: Tgraph -> Tgraph
-force = finalGraph . forceBoundary . makeBoundary
+force = recoverGraph . forceAll updatesBD . makeBoundary
+
+-- completeTiles: special case of forcing only half tiles to whole tiles
+completeTiles:: Tgraph -> Tgraph
+completeTiles = recoverGraph . forceAll wholeTileUpdates . makeBoundary 
 
 {- | A Boundary records
 the boundary directed edges plus 
@@ -611,31 +616,26 @@ makeBoundary g =
       , nextVertex = makeNewV (vertices g)
       }
  
--- | finalGraph: convert a Boundary back to a Tgraph
-finalGraph:: Boundary -> Tgraph
-finalGraph bd = Tgraph{ faces = allFaces bd
-                      , vertices = allVertices bd
-                      }
+-- | recoverGraph: convert a Boundary back to a Tgraph
+recoverGraph:: Boundary -> Tgraph
+recoverGraph bd = 
+  Tgraph{ faces = allFaces bd
+        , vertices = allVertices bd
+        }
 
 {- | The recursive `forceBoundary`selects safe updates first from the list of all possible updates of a boundary,
 only doing an unsafe update if there are no safe ones. The update list is
 recalculated at each recursive call after an update
 and the recursion stops only when the new update list is empty.
 -}
-forceBoundary:: Boundary -> Boundary
-forceBoundary bd = 
-    case find safeUpdate updates of
-        Just u -> forceBoundary (doUpdate u)         -- first safe update then recurse
-        _  -> case tryUnsafes updates of
-                Just bd' -> forceBoundary bd' 
-                Nothing  -> bd                 -- no more updates
-    where updates = updatesBD bd               -- list of all updates for bd
-
--- | tryUnsafes: When touchChecKOn is True any unsafe update producing a touching vertex returns Nothing
-tryUnsafes [] = Nothing
-tryUnsafes (u:upds) = case tryUpdate u of 
-                             Nothing -> tryUnsafes upds
-                             Just bd -> Just bd
+forceAll :: (Boundary -> [Update]) -> Boundary -> Boundary
+forceAll updateGen = retry where
+  retry bd = case find safeUpdate updates of
+               Just u -> retry (doUpdate u)     -- first safe update then recurse
+               _  -> case tryUnsafes updates of
+                       Just bd' -> retry bd' 
+                       Nothing  -> bd           -- no more updates
+             where   updates = updateGen bd     -- list of generated updates for bd
 
 -- | an Update is a triple of
 -- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
@@ -649,6 +649,12 @@ type Update = (Maybe Vertex, Vertex -> TileFace, Boundary)
 safeUpdate :: Update -> Bool
 safeUpdate (Just _ , _ , _) = True
 safeUpdate (Nothing, _ , _) = False
+
+-- | tryUnsafes: When touchChecKOn is True any unsafe update producing a touching vertex returns Nothing
+tryUnsafes [] = Nothing
+tryUnsafes (u:upds) = case tryUpdate u of 
+                             Nothing -> tryUnsafes upds
+                             Just bd -> Just bd
 
 {-
 ------------------  FORCING RULES  ----------------------------
@@ -1372,7 +1378,7 @@ doUpdate u = if safeUpdate u then doSafeUpdate u
 -- adding a second half dart face (sharing the kite below the existing half dart face at v)
 -- This assumes exactly one dart wing tip is at v, and that half dart has a full kite below it.
 forceLDB :: Vertex -> Tgraph -> Tgraph
-forceLDB v g = finalGraph $ doUpdate (addDartShortE bd k) where
+forceLDB v g = recoverGraph $ doUpdate (addDartShortE bd k) where
     bd = makeBoundary g
     vFaces = facesAtBV bd v
     d = mustFind ((v==) . wingV) (filter isDart vFaces) $
@@ -1392,7 +1398,7 @@ forceLDB v g = finalGraph $ doUpdate (addDartShortE bd k) where
 -- provided the existing dart half has no kite or a full kite below.
 -- If it has only a half kite below, but the new farK exists, then v will already have crossing boundaries.
 forceLKC :: Vertex -> Tgraph -> Tgraph
-forceLKC v g = finalGraph bd3 where
+forceLKC v g = recoverGraph bd3 where
     bd0 = makeBoundary g
     vFaces0 = facesAtBV bd0 v
     d = mustFind ((v==) . wingV) (filter isDart vFaces0) $

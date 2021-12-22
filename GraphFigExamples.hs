@@ -485,8 +485,24 @@ testCrossingBoundary = makeTgraph (faces foolDminus \\ [LD(6,11,13)])
 -- testing
 checkForceFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, force dartD4]
 
+checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, completeTiles dartD4]
+
+checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
+
 -- diagram of potential touching vertex situation
 touchingProblem = padBorder $ (drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)) where
+    vpLeft = removeFacesVP deleted vp
+    vpGone = selectFacesVP deleted vp
+    vp = makeVPatch sunD2
+    sunD2 = sunDs!!2
+    deleted = filter ((==1).originV) (faces sunD2) ++
+              [LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
+
+touchingTest = padBorder $ hsep 1
+                [ drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)
+                , drawVPatch $ alignXaxis (6,32) $ makeVPatch $ force touchGraph
+                ] where    
+    touchGraph = graphFromVP vpLeft
     vpLeft = removeFacesVP deleted vp
     vpGone = selectFacesVP deleted vp
     vp = makeVPatch sunD2

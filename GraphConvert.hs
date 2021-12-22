@@ -86,11 +86,10 @@ makeVPatch g = if nullGraph g
     makeLHyb fc = case (lookup (originV fc) assocV , lookup (oppV fc) assocV) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
-{-
-    makeLHyb fc = case (lookup (originV fc) assocV , lookup (joinOfTile fc) assocE) of
-                  (Just p, Just vec) -> fmap (dualRep vec) fc `at` p -- using HalfTile functor fmap
-                  _ -> error ("makeVPatch: " ++ show fc)
--}
+
+-- | graphFromVP: an inverse to makeVPatch which checks for connected and no crossing boundaries
+graphFromVP:: VPatch -> Tgraph
+graphFromVP = checkTgraph . dropVectors
 
 {-
 makePatch uses makeVPatch first then the Hybrids are converted to Pieces
@@ -98,6 +97,7 @@ and the Located Vertex information is thrown away
 -}
 makePatch:: Tgraph -> Patch
 makePatch = dropVertices . makeVPatch
+
 
 
 -- | touchingVertices checks that no vertices are too close to each other by making a VPatch of a Tgraph.
@@ -151,13 +151,13 @@ drawVlabels locvs = position $ fmap (viewLoc . mapLoc label) locvs
 removeFacesVP :: [TileFace] -> VPatch -> VPatch
 removeFacesVP fcs vp = foldr removeFace vp fcs where
     removeFace fc = withHybs (filter (not . matchingF fc))
-    matchingF fc lhyb = dropVectors (unLoc lhyb) == fc
+    matchingF fc lhyb = asFace (unLoc lhyb) == fc
 
 selectFacesVP:: [TileFace] -> VPatch -> VPatch
 selectFacesVP fcs vp = withHybs (findAll fcs) vp where
     findAll fcs lfaces = mapMaybe (findIn lfaces) fcs 
     findIn lfaces fc = find (matchingF fc) lfaces
-    matchingF fc lhyb = dropVectors (unLoc lhyb) == fc
+    matchingF fc lhyb = asFace (unLoc lhyb) == fc
 
 -- | selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
 selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
@@ -234,105 +234,11 @@ chooseLowest fcs = face:(fcs\\[face]) where
            (face:_) -> face
            []       -> error "chooseLowest: empty graph?"
 
-{-
--- | initial join edge vectors (2) for starting face join on x axis - used to initialise buildVEAssocs
-initJvec::TileFace -> [((Vertex,Vertex), V2 Double)]                  
-initJvec (LD(a,b,_)) = [((a,b), unitX), ((b,a), unit_X)]
-initJvec (RD(a,_,c)) = [((a,c), unitX), ((c,a), unit_X)]
-initJvec (LK(a,_,c)) = [((a,c), phi*^unitX), ((c,a), phi*^unit_X)]
-initJvec (RK(a,b,_)) = [((a,b), phi*^unitX), ((b,a), phi*^unit_X)]
-
-
-{- | buildVEAssocs: process faces to associate vectors for each directed edge and points for each vertex.
-The first argument list of faces contains the ones being processed next in order where
-each will have at least one known edge vector and at least one known vertex point.
-The second argument list of faces have not yet been added and may not yet have a known edge.
-The third argument is the association list for (vertices,points).
-The fourth argument is the association list for (edges,vectors).
--}
-buildVEAssocs [] [] assocV assocE = (assocV, assocE) 
-buildVEAssocs [] fcOther assocV assocE = error ("buildVEAssocs: Faces not face-edge-connected " ++ show fcOther)
-buildVEAssocs (fc:fcs) fcOther assocV assocE = buildVEAssocs (fcs++fcs') fcOther' assocV' assocE' where
-  (assocV', assocE') = processFace fc assocV assocE
-  (fcs', fcOther')   = edgeNbs fc fcOther
-
--- | process a face to get updated association lists
-processFace face assocV assocE = (assocV',assocE') where
-    evecs   = completeE face assocE
-    assocE' = add3E (faceDedges face) evecs assocE
-    assocV' = completeV (faceVs face) evecs assocV
--}
-       
-       
-{-
--- | for a given face, find edge neighbouring faces in the supplied list of faces
--- returns a pair - the list of the ones found followed by the supplied list with these removed
-edgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
-edgeNbs fc fcOther = (fcnbs, fcOther') where
-      fcnbs = filter sharedEdge fcOther
-      fcOther' = fcOther \\ fcnbs
-      sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
-
-
--- | calculate points for 3 vertices given 3 edge vectors and assocV
--- needs at least 1 already in assocV and adds new ones to assocV
--- returning new assocV
-completeV (a,b,c) (ev1,ev2,ev3) assocV = 
-    case (lookup a assocV , lookup b assocV ,lookup c assocV) of
-        (Just p, _, _) -> addPair (b,p.+^ev1) $ addPair (c,p.-^ev3) assocV
-        (Nothing, Just p, _) -> addPair (a,p .-^ ev1) $ addPair (c,p.-^ev2) assocV
-        (Nothing, Nothing, Just p) -> addPair (a,p.+^ev3) $ addPair (b,p.-^ev2) assocV
-        _ -> error ("completeV: no locations for " ++ show (a,b,c))
-
--- | find 3 maybe edge vectors in assocE
-find3E [e1,e2,e3] assocE = (lookup e1 assocE, lookup e2 assocE, lookup e3 assocE)
-
--- | construct 3 vectors clockwise round face 
--- needs at least one already in assocE 
-completeE:: TileFace -> [((Vertex,Vertex), V2 Double)] -> (V2 Double,V2 Double,V2 Double)        
-completeE fc@(LD _) assocE = case find3E (faceDedges fc) assocE of
-     (Just v1, _ , _)            -> (v1,        v ^-^ v1, negated v)          where v = phi*^rotate (ttangle 9) v1
-     (Nothing, Just v2, _)       -> (v,         v2,       negated (v ^+^ v2)) where v = rotate (ttangle 2) v2
-     (Nothing, Nothing, Just v3) -> (negated v, v ^-^ v3, v3)                 where v = (phi-1)*^rotate (ttangle 1) v3
-     _ -> error ("completeE: face not face-connected: " ++ show fc)
-completeE fc@(RD _) assocE = case find3E (faceDedges fc) assocE of
-     (Just v1, _ , _)            -> (v1,        v ^-^ v1, negated v)          where v = (phi-1)*^rotate (ttangle 9) v1
-     (Nothing, Just v2, _)       -> (v,         v2,       negated (v ^+^ v2)) where v = phi*^rotate (ttangle 4) v2
-     (Nothing, Nothing, Just v3) -> (negated v, v ^-^ v3, v3)                 where v = phi*^rotate (ttangle 1) v3
-     _ -> error ("completeE: face not face-connected: " ++ show fc) 
-completeE fc@(LK _) assocE = case find3E (faceDedges fc) assocE of
-     (Just v1, _ , _)            -> (v1,        v ^-^ v1, negated v)          where v = rotate (ttangle 9) v1
-     (Nothing, Just v2, _)       -> (v,         v2,       negated (v ^+^ v2)) where v = phi*^rotate (ttangle 3) v2
-     (Nothing, Nothing, Just v3) -> (negated v, v ^-^ v3, v3)                 where v = rotate (ttangle 1) v3
-     _ -> error ("completeE: face not face-connected: " ++ show fc) 
-completeE fc@(RK _) assocE = case find3E (faceDedges fc) assocE of  -- same as LK
-     (Just v1, _ , _)            -> (v1,        v ^-^ v1, negated v)          where v = rotate (ttangle 9) v1
-     (Nothing, Just v2, _)       -> (v,         v2,       negated (v ^+^ v2)) where v = phi*^rotate (ttangle 3) v2
-     (Nothing, Nothing, Just v3) -> (negated v, v ^-^ v3, v3)                 where v = rotate (ttangle 1) v3
-     _ -> error ("completeE: face not face-connected: " ++ show fc)
-
-       
-       
--- | adds a missing key/value pair, but will not change existing ones in assoc
-addPair (k,v) assoc  = case lookup k assoc of 
-    Nothing -> (k,v):assoc
-    _       -> assoc
-
--- | add3E - given 3 directed edges and 3 vectors it will add
--- to assocE 6 vectors for the 3 edges using both directions - adds only missing ones
-add3E [e1,e2,e3] (v1,v2,v3) assocE = 
-    foldr addPair assocE [(e1,v1),(e2,v2),(e3,v3)
-                         ,(reverseE e1, negated v1),(reverseE e2, negated v2),(reverseE e3, negated v3)
-                         ]
--}
-       
+ 
 -- Apply a function to just the list of located hybrids in a VPatch (leaving located vertices untouched)
 withHybs:: ([Located Hybrid]->[Located Hybrid]) -> VPatch -> VPatch
 withHybs f (VPatch {lVertices = lvs,  lHybrids = lhs}) = VPatch {lVertices = lvs,  lHybrids = f lhs}
 
--- convert a Hybrid to a TileFace, dropping the vector information
-dropVectors:: Hybrid -> TileFace
-dropVectors = fmap face  -- fmap of functor HalfTile
 
 -- convert a Hybrid to a Piece, dropping the Vertex information
 asPiece:: Hybrid -> Piece
@@ -342,6 +248,13 @@ asPiece = fmap vector  -- fmap of functor HalfTile
 dropVertices:: VPatch -> Patch
 dropVertices vp = fmap (mapLoc asPiece) (lHybrids vp)
 
+-- convert a Hybrid to a Piece, dropping the Vertex information
+asFace:: Hybrid -> TileFace
+asFace = fmap face  -- fmap of functor HalfTile
+
+-- dropVertices removes vertex information from Hybrids and removes located vertex list
+dropVectors:: VPatch -> [TileFace]
+dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
    
 
 
