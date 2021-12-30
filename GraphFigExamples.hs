@@ -13,7 +13,7 @@ import TileLib
 import Tgraphs
 import GraphConvert
 
-import Data.List ((\\))
+import Data.List ((\\), nub)
 
 {- 
     **********************
@@ -213,7 +213,7 @@ badlyBrokenDart = removeFaces deleted dartD4 where
  
 -- brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
 brokenDartFig :: Diagram B
-brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawGraph [dartD4, brokenDart, badlyBrokenDart]
+brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap dashJGraph [dartD4, brokenDart, badlyBrokenDart]
 
 -- brokenDartFig2 illustrates that emplaceSimple does not fully include the starting graph
 brokenDartFig2 :: Diagram B
@@ -259,6 +259,20 @@ brokenKites = removeFaces [LD(1,14,16),LK(5,4,16),RK(5,16,14)] $ graphDecompose 
 twoKites = checkTgraph [ RK(1,2,11), LK(1,3,2)
                        , RK(1,4,3) , LK(1,5,4)
                        ]
+
+-- diagram of touching vertex situation and forced result
+touchingTestFig = 
+  padBorder $ hsep 1
+    [ drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)
+    , drawVPatch $ alignXaxis (6,32) $ makeVPatch $ force touchGraph
+    ] where    
+      touchGraph = graphFromVP vpLeft
+      vpLeft = removeFacesVP deleted vp
+      vpGone = selectFacesVP deleted vp
+      vp = makeVPatch sunD2
+      sunD2 = sunDs!!2
+      deleted = filter ((==1).originV) (faces sunD2) ++
+                [LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
 
 
 {-
@@ -415,6 +429,30 @@ relatedVTypeFig = padBorder $
        deuceE = emplaceVFigures!!6
 
 
+boundaryEmplaceGraph =  
+    checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ emplace (dartDs!!5)
+
+boundaryEmplaceGraph1 =   
+    checkTgraph $ filter ((/=995).originV) (faces boundaryEmplaceGraph)
+
+checkBdryEmplace = padBorder $ lw ultraThin $ drawVGraph boundaryEmplaceGraph
+checkBdryEmplace1 = padBorder $ lw ultraThin $ drawVGraph $ emplace boundaryEmplaceGraph1
+
+
+-- use alignXaxis (138,209) for emplace (dartDs!!3)
+boundaryEmplaceFig = padBorder $ hsep 1 $ lw ultraThin 
+                      [ dashJPatch $ dropVertices $ alignXaxis (971,1059)  $ makeVPatch $ boundaryEmplaceGraph
+                      , drawPatch  $ dropVertices $ alignXaxis (971,1059)  $ makeVPatch $ force boundaryEmplaceGraph
+                      , drawPatch  $ dropVertices $ alignXaxis (2968,3842) $ makeVPatch $ emplace boundaryEmplaceGraph
+                      ]
+
+boundaryEmplaceFig1 = padBorder $ hsep 1 $ lw ultraThin 
+                      [ dashJPatch $ dropVertices $ alignXaxis (971,1059)  $ makeVPatch $ boundaryEmplaceGraph1
+                      , drawPatch  $ dropVertices $ alignXaxis (971,1059)  $ makeVPatch $ force boundaryEmplaceGraph1
+                      , drawPatch  $ dropVertices $ alignXaxis (2972,3060)$ makeVPatch $ emplace boundaryEmplaceGraph1
+                      ]
+
+
 {-  test for bigPic without arrows -}
 bigPic0:: Diagram B
 bigPic0 = (padBorder $ position $ concat $
@@ -489,26 +527,6 @@ checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, completeTiles 
 
 checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
 
--- diagram of potential touching vertex situation
-touchingProblem = padBorder $ (drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)) where
-    vpLeft = removeFacesVP deleted vp
-    vpGone = selectFacesVP deleted vp
-    vp = makeVPatch sunD2
-    sunD2 = sunDs!!2
-    deleted = filter ((==1).originV) (faces sunD2) ++
-              [LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
-
-touchingTest = padBorder $ hsep 1
-                [ drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)
-                , drawVPatch $ alignXaxis (6,32) $ makeVPatch $ force touchGraph
-                ] where    
-    touchGraph = graphFromVP vpLeft
-    vpLeft = removeFacesVP deleted vp
-    vpGone = selectFacesVP deleted vp
-    vp = makeVPatch sunD2
-    sunD2 = sunDs!!2
-    deleted = filter ((==1).originV) (faces sunD2) ++
-              [LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
 
 -- testing selectFacesGtoVP figure testing selectFacesGtoVP
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5

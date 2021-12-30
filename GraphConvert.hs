@@ -183,10 +183,10 @@ centerOn a vp =
 alignXaxis :: (Vertex, Vertex) -> VPatch -> VPatch    
 alignXaxis (a,b) vp =  rotate angle newvp
   where newvp = centerOn a vp
-        angle = signedAngleBetweenDirs (direction unitX) (direction (locb .-. origin))
+        angle = signedAngleBetweenDirs (direction unitX) (direction (locb .-. origin)) 
         locb = case findLoc b newvp of
                 Just l -> l
-                Nothing -> error ("alignX: second alignment vertex not found (Vertex " ++ show b ++ ")")
+                Nothing -> error ("alignXaxis: second alignment vertex not found (Vertex " ++ show b ++ ")")
 
 -- | alignments takes a list of vertex pairs for respective rotations of VPatches in the second list.
 -- For a pair (a,b) the Vpatch is centered on a then b is aligned along the positive x axis. 

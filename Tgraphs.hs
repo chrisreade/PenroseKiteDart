@@ -677,6 +677,7 @@ updatesBD bd =
     ++ sunStarUpdates bd            -- (6)
     ++ dartKiteTopUpdates bd        -- (7)
     ++ thirdDartUpdates bd          -- (8)
+    ++ queenDartUpdates bd          -- (9)
 {- 
 1. When a join edge is on the boundary - add the missing half tile to make a whole tile.    
 2. When a half dart has its short edge on the boundary
@@ -703,6 +704,8 @@ updatesBD bd =
 8. When a vertex is a kite wing and also an origin for exactly 4 dart halves
    it must be a king vertex.
    Add a missing dart half (on any boundary long edge of a dart at the vertex).
+9. If there are 4 kite wings at a vertex (necessarily a queen)
+   add any missing half dart on a boundary kite long edge
 -}
 
 
@@ -1086,7 +1089,7 @@ noKiteTopDarts = boundaryFilter dartsWingDB where
 thirdDartUpdates :: Boundary -> [Update] 
 thirdDartUpdates bd = fmap (addDartLongE bd) (missingThirdDarts bd)
 
--- add a half dart on a boundary long edge of a dart
+-- add a half dart on a boundary long edge of a dart or kite
 addDartLongE:: Boundary -> TileFace -> Update
 addDartLongE bd (LD(a,_,c)) = (x, makeFace, bd) where
   makeFace v = RD(a,c,v)
@@ -1094,10 +1097,17 @@ addDartLongE bd (LD(a,_,c)) = (x, makeFace, bd) where
 addDartLongE bd (RD(a,b,_)) = (x, makeFace, bd) where
   makeFace v = LD(a,v,b)
   x = findThirdV bd (b,a) 1 1
-addDartLongE bd _ = error "addDartLongE: applied to kite"
+
+addDartLongE bd (LK(a,b,_)) = (x, makeFace, bd) where
+  makeFace v = RD(b,a,v)
+  x = findThirdV bd (b,a) 1 1
+addDartLongE bd (RK(a,_,c)) = (x, makeFace, bd) where
+  makeFace v = LD(c,v,a)
+  x = findThirdV bd (a,c) 1 1
+--addDartLongE bd _ = error "addDartLongE: applied to kite"
 
 -- k2d3 nodes with 2 of the 3 darts (a kite wing and 4 dart origins present)
-missingThirdDarts:: Boundary -> [TileFace]  
+missingThirdDarts :: Boundary -> [TileFace]  
 missingThirdDarts = boundaryFilter pred where
     pred bd (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && length dartOriginsAta ==4) ||
                        (isRD fc && longE fc == (b,a) && bHasKiteWing && length dartOriginsAtb ==4)
@@ -1109,6 +1119,17 @@ missingThirdDarts = boundaryFilter pred where
             aHasKiteWing = a `elem` fmap wingV (filter isKite fcsAta)
             bHasKiteWing = b `elem` fmap wingV (filter isKite fcsAtb)
 
+
+-- queen vertices (with 4 kite wings) -- add any missing half dart on a boundary kite long edge
+queenDartUpdates :: Boundary -> [Update] 
+queenDartUpdates bd = fmap (addDartLongE bd) (queenMissingDarts bd)
+
+queenMissingDarts :: Boundary -> [TileFace]  
+queenMissingDarts = boundaryFilter pred where
+    pred bd (a,b) fc = (isLK fc && longE fc == (b,a) && length (kiteWingsAt a) ==4) ||
+                       (isRK fc && longE fc == (b,a) && length (kiteWingsAt b) ==4)
+                        where
+                          kiteWingsAt x = filter ((==x) . wingV) $ filter isKite (facesAtBV bd x)
 {-
 ------------------  END OF FORCING CASES  ----------------------------
 -}
