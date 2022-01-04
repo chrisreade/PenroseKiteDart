@@ -111,8 +111,8 @@ touchingVertices:: Tgraph -> [(Vertex,Vertex)]
 touchingVertices g = check assocVP where
   check [] = []
   check ((v,p):more) = [(v,v1) | (v1,p1) <- more, tooClose p p1 ] ++ check more
-  tooClose p p1 = sqLength (p .-. p1) < 0.25
-  sqLength vec = dot vec vec
+  tooClose p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
+--  sqLength vec = dot vec vec
   assocVP = fmap viewLoc' $ lVertices $ makeVPatch g
   viewLoc' x = (v,p) where (p,v) = viewLoc x
 
@@ -244,17 +244,54 @@ withHybs f (VPatch {lVertices = lvs,  lHybrids = lhs}) = VPatch {lVertices = lvs
 asPiece:: Hybrid -> Piece
 asPiece = fmap vector  -- fmap of functor HalfTile
 
+-- convert a Hybrid to a TileFace, dropping the Vector information
+asFace:: Hybrid -> TileFace
+asFace = fmap face  -- fmap of functor HalfTile
+
 -- dropVertices removes vertex information from Hybrids and removes located vertex list
 dropVertices:: VPatch -> Patch
 dropVertices vp = fmap (mapLoc asPiece) (lHybrids vp)
-
--- convert a Hybrid to a Piece, dropping the Vertex information
-asFace:: Hybrid -> TileFace
-asFace = fmap face  -- fmap of functor HalfTile
 
 -- dropVertices removes vertex information from Hybrids and removes located vertex list
 dropVectors:: VPatch -> [TileFace]
 dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
    
 
+
+{- NEEDS WORK FOR TESTING -}
+-- displaying the boundary of a Tgraph in lime
+showGBoundary :: Tgraph -> Diagram B
+showGBoundary g =  (lc lime $ drawEdges assocV bd) <> drawVPatch vp where
+    vp = makeVPatch g
+    assocV = fmap viewLoc' (lVertices vp)
+    bd = boundaryDedges g
+
+drawEdges :: [(Vertex, Point V2 Double)] -> [(Vertex,Vertex)] -> Diagram B
+drawEdges assocV [] = mempty
+drawEdges assocV (e:more) = drawEdge assocV e <> drawEdges assocV more
+drawEdge assocV (a,b) = case (lookup a assocV, lookup b assocV) of
+                         (Just pa, Just pb) -> pa ~~ pb
+                         _ -> error ("showBoundary: drawEdge of "++ show(a,b))
+
+viewLoc' :: Located Vertex -> (Vertex, Point V2 Double)
+viewLoc' lp = (v,p) where (p,v) = viewLoc lp
+ 
+{- | viewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
+-- (used in conjunction with stepForce to get an intermediate Boundary)
+-- The boundary edges of a Boundary in shown in lime - using the Boundary positions of vertices
+-- The graph is converted to a vp separately (so using a fresh calculation of positions)
+-- Thus rotations are needed to match up.
+-- Use an empty list of integer rotations to see what rotations are needed to align the figures.
+-}
+viewBoundary :: [Int] -> Boundary -> Diagram B
+viewBoundary rots bd =  lc lime bdryFig <> graphFig where 
+    [bdryFig, graphFig] = fmap center $ rotations rots [drawEdges assocV bdE, center $ drawVGraph g]
+{-
+    (center $ rotate (ttangle 4) $ lc lime $ drawEdges assocV bdE)
+    <> 
+    (center $ drawVGraph g)
+-}
+    g = recoverGraph bd
+    assocV = vPointAssoc bd
+    bdE = bDedges bd
 

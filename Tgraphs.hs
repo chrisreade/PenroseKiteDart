@@ -678,6 +678,7 @@ updatesBD bd =
     ++ dartKiteTopUpdates bd        -- (7)
     ++ thirdDartUpdates bd          -- (8)
     ++ queenDartUpdates bd          -- (9)
+    ++ queenKiteUpdates bd
 {- 
 1. When a join edge is on the boundary - add the missing half tile to make a whole tile.    
 2. When a half dart has its short edge on the boundary
@@ -740,7 +741,7 @@ doSafeUpdate (Just v, makeFace, bd) =
 
 {- | tryUpdate u, calculates the resulting boundary for an unsafe update (u) with a new vertex.
      It checks that the new face is not in conflict with existing faces.
-     If touchCheckOn is True, it perform a touching vertex check with the new vertex
+     If touchCheckOn is True, it performs a touching vertex check with the new vertex
      returning Nothing if there is a touching vertex
      Otherwise it returns Just the resulting boundary 
  -}
@@ -791,7 +792,8 @@ touchCheck p assocV =
   else False
 
 tooClose :: Point V2 Double  -> Point V2 Double -> Bool
-tooClose p p' = sqLength (p .-. p') < 0.25
+tooClose p p' = quadrance (p .-. p') < 0.25 -- quadrance is square of length of a vector
+-- tooClose p p' = sqLength (p .-. p') < 0.25
 
 sqLength :: V2 Double  -> Double
 sqLength vec = dot vec vec
@@ -833,14 +835,51 @@ initJoin (RK(a,b,_)) = [(a,origin), (b, p2(phi,0))]
 find3Locs (v1,v2,v3) assocV = (lookup v1 assocV, lookup v2 assocV, lookup v3 assocV)
 
 {- | thirdVertexLoc fc assocV
-     looks up all 3 vertices in assocV hoping to find 2 of them, it then returns Just pr
+
+New Version - Assumes all edge lengths are 1 or phi
+It now uses signorm to produce vectors of length 1 rather than rely on relative lengths
+
+     thirdVertexLoc fc assocV
+     where fc is a tileface and
+     assocV associates points with vertices (positions)
+     It looks up all 3 vertices in assocV hoping to find 2 of them, it then returns Just pr
      where pr is an association for the third vertex.
      If all 3 are found, returns Nothing
      If none or one found this is an error (a non face-connected face)
 -}
 thirdVertexLoc:: TileFace -> AssocList Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
 thirdVertexLoc fc@(LD _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v) where v = phi*^rotate (ttangle 9) (loc2 .-. loc1)
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+
+thirdVertexLoc fc@(RD _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = signorm (rotate (ttangle 3) (loc2 .-. loc3))
+  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+ 
+thirdVertexLoc fc@(LK _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+ 
+thirdVertexLoc fc@(RK _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+
+{- | OLD VERSION - accuraccy errors become exaggerated in large graphs (replaced using signorm)
+thirdVertexLoc:: TileFace -> AssocList Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
+thirdVertexLoc fc@(LD _) assocV = case find3Locs (faceVs fc) assocV of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^rotate (ttangle 9) (loc2 .-. loc1)
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = rotate (ttangle 7) (loc3 .-. loc2)
   (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 1) (loc3 .-. loc1)
   (Just _ , Just _ , Just _)      -> Nothing
@@ -866,6 +905,7 @@ thirdVertexLoc fc@(RK _) assocV = case find3Locs (faceVs fc) assocV of
   (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 1) (loc3 .-. loc1)
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
+-}
 
 -- | for a given face, find edge neighbouring faces in the supplied list of faces
 -- returns a pair - the list of the ones found followed by the supplied list with these removed
@@ -964,11 +1004,11 @@ addKiteShortE bd (RK(_,b,c)) = (x, makeFace, bd) where
     x = findThirdV bd (c,b) 2 2
 
 
-
-kiteWingDartOriginUpdates :: Boundary -> [Update] -- k4d1 and k2d3 add a missing kite half
+ -- queen and king vertices add a missing kite half
+kiteWingDartOriginUpdates :: Boundary -> [Update]
 kiteWingDartOriginUpdates bd = fmap (addKiteShortE bd) (kitesWingDartOrigin bd)
 
--- kites with boundary short edge where the wing is a dart origin
+-- kites with boundary short edge where the wing is also a dart origin
 kitesWingDartOrigin:: Boundary -> [TileFace]   
 kitesWingDartOrigin = boundaryFilter kiteWDO where
    kiteWDO bd (a,b) fc = shortE fc == (b,a) 
@@ -976,8 +1016,7 @@ kitesWingDartOrigin = boundaryFilter kiteWDO where
    isDartOrigin bd v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
 
 
-
-{- | (for k2d1 vertices)
+{- | (for deuce vertices = largeKiteCentres)
 Kites whose short edge (b,a) matches a boundary edge (a,b) where their oppV (= a for LK and = b for RK)
 has 2 other kite halves sharing a shortE.
 These need a dart adding on the short edge.
@@ -1063,7 +1102,7 @@ completeSunStar bd (LD(a,_,c)) = (x, makeFace, bd) where
 
 
 
--- k3d2 (largeDartBases) vertices with dart long edge on boundary - add missing kite top
+-- jack vertices (largeDartBases) with dart long edge on boundary - add missing kite top
 dartKiteTopUpdates :: Boundary -> [Update] 
 dartKiteTopUpdates bd = fmap (addKiteLongE bd) (noKiteTopDarts bd)
 
@@ -1076,7 +1115,7 @@ addKiteLongE bd (RD(a,b,_)) = (x, makeFace, bd) where
     x = findThirdV bd (b,a) 1 2
 addKiteLongE bd _ = error "addKiteLongE: applied to kite"
 
--- k3d2 (largeDartBase) vertices with dart long edge on boundary
+-- jack vertices (largeDartBases)nwith dart long edge on boundary
 noKiteTopDarts :: Boundary -> [TileFace]
 noKiteTopDarts = boundaryFilter dartsWingDB where
     dartsWingDB bd (a,b) fc = (isLD fc && longE fc == (b,a) && mustbeLDB bd b) ||
@@ -1085,7 +1124,7 @@ noKiteTopDarts = boundaryFilter dartsWingDB where
 
 
 
--- k2d3 nodes with 2 of the 3 darts  - add another half dart on a boundary long edge of existing darts
+-- king vertices with 2 of the 3 darts  - add another half dart on a boundary long edge of existing darts
 thirdDartUpdates :: Boundary -> [Update] 
 thirdDartUpdates bd = fmap (addDartLongE bd) (missingThirdDarts bd)
 
@@ -1106,7 +1145,7 @@ addDartLongE bd (RK(a,_,c)) = (x, makeFace, bd) where
   x = findThirdV bd (a,c) 1 1
 --addDartLongE bd _ = error "addDartLongE: applied to kite"
 
--- k2d3 nodes with 2 of the 3 darts (a kite wing and 4 dart origins present)
+-- king vertices with 2 of the 3 darts (a kite wing and 4 dart origins present)
 missingThirdDarts :: Boundary -> [TileFace]  
 missingThirdDarts = boundaryFilter pred where
     pred bd (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && length dartOriginsAta ==4) ||
@@ -1130,6 +1169,21 @@ queenMissingDarts = boundaryFilter pred where
                        (isRK fc && longE fc == (b,a) && length (kiteWingsAt b) ==4)
                         where
                           kiteWingsAt x = filter ((==x) . wingV) $ filter isKite (facesAtBV bd x)
+
+
+
+-- queen vertices (with 4 kite wings) -- add any missing half dart on a boundary kite long edge
+queenKiteUpdates :: Boundary -> [Update] 
+queenKiteUpdates bd = fmap (addKiteShortE bd) (queenMissingKite bd)
+
+queenMissingKite :: Boundary -> [TileFace]  
+queenMissingKite = boundaryFilter pred where
+    pred bd (a,b) fc = (isLK fc && shortE fc == (b,a) && length (kiteWingsAt b) ==3) ||
+                       (isRK fc && shortE fc == (b,a) && length (kiteWingsAt a) ==3)
+                        where
+                          kiteWingsAt x = filter ((==x) . wingV) $ filter isKite (facesAtBV bd x)
+
+
 {-
 ------------------  END OF FORCING CASES  ----------------------------
 -}
@@ -1170,6 +1224,11 @@ Going round a vertex starting from a boundary edge and starting towards the inte
 there will be a boundary and gap after the last face encountered.
 If there is an extra gap - i.e. faces left over when no face is found attached to the last found edge, this
 indicates a crossing boundary so an error is reported as it is unsafe to assume the sought edge does not already exist.
+
+Possible Touching Vertices.
+When searchThirdV / findThirdV return Nothing, this means a new vertex needs to be created.
+This will need to have its position checked against other (boundary) vertices to avoid
+creating touching vertices/crossing boundary. (Taken care of in tryUpdate)
 ---------------------------------}
 
 
@@ -1434,6 +1493,17 @@ forceLKC v g = recoverGraph bd3 where
 
 
 
+stepForce :: Int -> Tgraph -> Boundary
+stepForce n g = stepForceAll updatesBD n (makeBoundary g)
 
+stepForceAll :: (Boundary -> [Update]) -> Int -> Boundary -> Boundary
+stepForceAll updateGen = count where
+    count 0 bd = bd
+    count n bd =  case find safeUpdate updates of
+                    Just u -> count (n-1) (doUpdate u)     -- first safe update then recurse
+                    _  -> case tryUnsafes updates of
+                            Just bd' -> count (n-1) bd' 
+                            Nothing  -> bd           -- no more updates
+                  where   updates = updateGen bd     -- list of generated updates for bd
 
 

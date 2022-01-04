@@ -23,10 +23,6 @@ import Data.List ((\\), nub)
 
 padBorder = pad 1.2 . centerXY
 
--- prograssively increase scales by phi down a list of diagrams
-phiScaling :: [Diagram B] -> [Diagram B]
-phiScaling ds = zipWith scale (iterate (*phi) 1) ds
-
 
 -- use checkEmbed first to find a common pair of vertices to align (for use with drawEmbed)
 checkEmbed :: Tgraph -> Tgraph -> Diagram B
@@ -175,6 +171,18 @@ pCompFig = padBorder $ vsep 3 $
 showEmplace :: Tgraph -> (Vertex, Vertex) -> Int -> Diagram B
 showEmplace g (a,b) n = drawEmbed (a,b) (graphDecompositions g !!n) (emplacements g !!n)
 
+{- | showForceEmplace rots g 
+     shows a graph (with dashJ) followed its forced then emplaced versions shown with draw
+     rots is a list of integer rotations (use [] first to work out what rotations are needed)
+-}
+showForceEmplace :: [Int] -> Tgraph -> Diagram B
+showForceEmplace rots g = 
+    padBorder $ hsep 1 $ fmap center $ rotations rots
+    [ dashJGraph g
+    , drawGraph $ forced
+    , drawGraph $ emplace forced
+    ] where forced = force g
+
 -- nth decomposition and its emplacement for dart,kite,fool,sun
 empDartD n = showEmplace dartGraph (1,3) n
 empKiteD n = showEmplace kiteGraph (1,2) n
@@ -199,6 +207,11 @@ empSunD5Fig = padBorder $ empSunD 5
 -}
 
 dartD4 = dartDs!!4
+
+-- prograssively increase scales by phi down a list of diagrams
+phiScaling :: [Diagram B] -> [Diagram B]
+phiScaling ds = zipWith scale (iterate (*phi) 1) ds
+
 
 -- brokenDart will now get repaired and be included in emplaceSimple
 brokenDart = removeFaces deleted dartD4 where
@@ -429,29 +442,22 @@ relatedVTypeFig = padBorder $
        deuceE = emplaceVFigures!!6
 
 
-boundaryEmplaceGraph =  
+boundaryEmplaceGraph4 =  
+    checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ emplace (dartDs!!4)
+boundaryEmplaceGraph5 =  
     checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ emplace (dartDs!!5)
 
-boundaryEmplaceGraph1 =   
-    checkTgraph $ filter ((/=995).originV) (faces boundaryEmplaceGraph)
 
-checkBdryEmplace = padBorder $ lw ultraThin $ drawVGraph boundaryEmplaceGraph
-checkBdryEmplace1 = padBorder $ lw ultraThin $ drawVGraph $ emplace boundaryEmplaceGraph1
+boundaryEmplaceGapGraph4 =   
+    checkTgraph $ filter ((/=452).originV) (faces boundaryEmplaceGraph4)
+boundaryEmplaceGapGraph5 =   
+    checkTgraph $ filter ((/=1558).originV) (faces boundaryEmplaceGraph5)
 
+bdEmplaceFig4 = lw ultraThin $ drawVGraph $ boundaryEmplaceGraph4
+bdEmplaceFig5 = lw ultraThin $ drawVGraph $ boundaryEmplaceGraph5
 
--- use alignXaxis (138,209) for emplace (dartDs!!3)
-boundaryEmplaceFig = padBorder $ hsep 1 $ lw ultraThin 
-                      [ dashJPatch $ dropVertices $ alignXaxis (971,1059)  $ makeVPatch $ boundaryEmplaceGraph
-                      , drawPatch  $ dropVertices $ alignXaxis (971,1059)  $ makeVPatch $ force boundaryEmplaceGraph
-                      , drawPatch  $ dropVertices $ alignXaxis (2968,3842) $ makeVPatch $ emplace boundaryEmplaceGraph
-                      ]
-
-boundaryEmplaceFig1 = padBorder $ hsep 1 $ lw ultraThin 
-                      [ dashJPatch $ dropVertices $ alignXaxis (971,1059)  $ makeVPatch $ boundaryEmplaceGraph1
-                      , drawPatch  $ dropVertices $ alignXaxis (971,1059)  $ makeVPatch $ force boundaryEmplaceGraph1
-                      , drawPatch  $ dropVertices $ alignXaxis (2972,3060)$ makeVPatch $ emplace boundaryEmplaceGraph1
-                      ]
-
+--boundaryEmplaceFig = lw ultraThin $ showForceEmplace [6,0,3] boundaryEmplaceGraph5
+--boundaryEmplaceGapFig = lw ultraThin $ showForceEmplace [6,0,3] boundaryEmplaceGapGraph5
 
 {-  test for bigPic without arrows -}
 bigPic0:: Diagram B
@@ -516,7 +522,34 @@ bigPic = (padBorder $ position $ concat $
   Testing functions and figures and experiments
   *************************************
 -}
-         
+          
+-- Testing newest force rule (10)
+testQueen = padBorder $ drawVGraph $ force partQueen
+partQueen = makeTgraph [LK (7,1,5),RK (3,5,1),RK (7,9,1)
+                       ,RK (7,5,6),LK (7,8,9),LK (3,4,5)
+                       ]
+
+-- BUG discovered filling in boundary of an emplacement  
+-- ok for dartDs!! 4  but touching vertices with dartDs!!5   
+testForce4 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryEmplaceGapGraph4
+-- testForce5 failed with previous version of thirdVertexLoc but works now signum is used.
+testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryEmplaceGapGraph5        
+
+-- view tha boundary after n steps of forcing (starting with boundaryEmplaceGapGraph5)
+inspectForce5 n = padBorder $ lw ultraThin $
+                viewBoundary [4] $ stepForce n $ boundaryEmplaceGapGraph5
+
+
+
+  
+testBoundary4 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryEmplaceGapGraph4 
+testBoundary5 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryEmplaceGapGraph5 
+ 
+ 
+ 
+ 
+ 
+ 
 -- testing crossing boundary detection e.g. by using force on testCrossingBoundary   
 testCrossingBoundary = makeTgraph (faces foolDminus \\ [LD(6,11,13)])
          
