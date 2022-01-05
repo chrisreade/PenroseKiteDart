@@ -37,7 +37,7 @@ drawEmbed (a,b) g1 g2 =
     vp1 = alignXaxis (a,b) $ makeVPatch g1
     vp2 = alignXaxis (a,b) $ makeVPatch g2
 
--- | drawEmbed' alms g1 g2 embeds  g1 (coloured red) onto g2, by aligning with alms
+-- | drawEmbed' alms g1 g2 embeds  g1 (coloured red) onto g2, by aligning with alignments alms - a list of 2 pairs
 drawEmbed' :: [(Vertex, Vertex)] -> Tgraph -> Tgraph -> Diagram B
 drawEmbed' alms g1 g2 = 
     (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
@@ -50,12 +50,6 @@ dashJEmbed (a,b) g1 g2 =
     vp1 = alignXaxis (a,b) $ makeVPatch g1
     vp2 = alignXaxis (a,b) $ makeVPatch g2
 
-{-
--- | alignGtoV (a,b) glist converts Tgraphs to VPatches then aligns with (a,b)
--- vertices a and b must be common to all graphs and scales should match
-alignGtoVP :: (Vertex, Vertex) -> [Tgraph] -> [VPatch]
-alignGtoVP (a,b) gs = alignAll (a,b) $ fmap makeVPatch gs
--}
 
 
 {-
@@ -78,37 +72,41 @@ foolFig = padBorder $ drawVGraph fool
 foolDs = graphDecompositions fool
 foolD = graphDecompose fool -- or foolDs!!1
 
--- foolDminus: 3 faces removed from foolD to see limits of forcing
+-- foolDminus: 3 faces removed from foolD
+foolDminus:: Tgraph
 foolDminus = removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
 
--- figures for fool...
-foolAndFoolD, forceFoolDminus :: Diagram B
+foolAndFoolD :: Diagram B
 foolAndFoolD = padBorder $ hsep 1 $ [(drawVPatch . scale phi . makeVPatch) fool, drawVGraph foolD]
-forceFoolDminus = padBorder $ hsep 1 $ fmap drawVGraph [foolDminus, force foolDminus]
 
 
 
 
 -- sun and sunDs
+sunGraph :: Tgraph
 sunGraph = checkTgraph [ RK(1,2,11), LK(1,3,2)
                        , RK(1,4,3) , LK(1,5,4)
                        , RK(1,6,5) , LK(1,7,6)
                        , RK(1,8,7) , LK(1,9,8)
                        , RK(1,10,9), LK(1,11,10)
                        ]
+sunDs :: [Tgraph]
 sunDs =  graphDecompositions sunGraph
 
 figSunD3D2,figSunD2D:: Diagram B
 figSunD3D2 = padBorder $ hsep 1 [drawVGraph $ sunDs !! 3, scale phi $ drawVGraph $ sunDs !! 2]
 figSunD2D = padBorder  $ hsep 1 [drawVGraph $ sunDs !! 2, scale phi $ drawVGraph $ sunDs !! 1]
 
-
 -- kite and kiteDs
+kiteGraph :: Tgraph
 kiteGraph = checkTgraph [ RK(1,2,4), LK(1,3,2)]
+kiteDs :: [Tgraph]
 kiteDs = graphDecompositions kiteGraph
 
 -- dart and dartDs
+dartGraph :: Tgraph
 dartGraph =  checkTgraph [ RD(1,2,3), LD(1,3,4)]
+dartDs :: [Tgraph]
 dartDs =  graphDecompositions dartGraph
 
 
@@ -127,35 +125,60 @@ checkPCompose g =
 
 {- | showPCompose g (a,b)  applies partCompose to g, then aligns and draws the composed graph with the remainder faces (in lime)
 It can cope with an empty composed graph.
-Vertices a and b must be common to composed g and remainder patch
+Vertices a and b must be common to composed g and g
 (use checkPCompose to see possible vertices)                               
 -}
 showPCompose ::  Tgraph -> (Vertex, Vertex) -> Diagram B
 showPCompose g (a,b) = case nullGraph g' of
-        True -> lc lime $ dashJPatch $ dropVertices $ selectFacesGtoVP fcs g
-        False -> (lw ultraThin $ drawPatch $ dropVertices large) <> (lc lime $ dashJPatch $ dropVertices rem) where
-                 [rem,large] = alignAll (a,b) [ selectFacesGtoVP fcs g
-                                              , scale phi $ makeVPatch g'
-                                              ]
-      where (fcs,g') = partCompose g
+    True -> lc lime $ dashJPatch $ dropVertices $ remg
+    False -> (lw ultraThin $ drawPatch $ dropVertices compg)
+             <> (lc lime $ dashJPatch $ dropVertices remainder)
+                 where [remainder,compg] = alignAll (a,b) [remg , scale phi $ makeVPatch g']
+  where (fcs,g') = partCompose g
+        remg = selectFacesGtoVP fcs g
+ 
 
-
--- checkPCompose  (emplacements dartGraph !! 3) 
+-- checkPCompose  (force $ dartDs !! 3) 
 pCompFig1 :: Diagram B
-pCompFig1 = padBorder $ showPCompose (emplacements dartGraph !! 3) (1,3)        
+pCompFig1 = padBorder $ showPCompose (force $ dartDs !! 3) (1,3)        
+-- pCompFig1 = padBorder $ showPCompose (emplacements dartGraph !! 3) (1,3)        
 -- checkPCompose (emplacements kiteGraph !! 3)
 pCompFig2 :: Diagram B
-pCompFig2 = padBorder $ showPCompose (emplacements kiteGraph !! 3) (1,2)
+pCompFig2 = padBorder $ showPCompose (force $ kiteDs !! 3) (1,2)
 
 pCompFig :: Diagram B
 pCompFig = padBorder $ vsep 3 $ 
-              [hsep 10 $ rotations [4] $ [drawGraph ek3 # lw ultraThin, showPCompose ek3 (1,2)]
-              ,hsep 10 $ rotations [3] $ [drawGraph ed3 # lw ultraThin, showPCompose ed3 (1,3)]
+              [hsep 10 $ rotations []  $ [drawGraph fk3 # lw ultraThin, showPCompose fk3 (1,2)]
+              ,hsep 10 $ rotations [1] $ [drawGraph fd3 # lw ultraThin, showPCompose fd3 (1,3)]
               ] where
-                  ek3 = emplacements kiteGraph !! 3
-                  ed3 = emplacements dartGraph !! 3
+                  fk3 = force $ kiteDs !! 3
+                  fd3 = force $ dartDs !! 3
 
 
+{-
+  *********************************
+  Forced graphs and forcing figures
+  *********************************
+-}
+              
+forceFoolDminus :: Diagram B              
+forceFoolDminus = padBorder $ hsep 1 $ fmap drawVGraph [foolDminus, force foolDminus]
+
+showForce :: Tgraph -> (Vertex, Vertex) -> Diagram B
+showForce g (a,b) = drawEmbed (a,b) g (force g)
+
+forceDartD,forceKiteD,forceSunD :: Int -> Diagram B
+forceDartD n = showForce (dartDs !! n) (1,3)
+forceKiteD n = showForce (kiteDs !! n) (1,2)
+forceSunD  n = showForce (sunDs  !! n) (1,2)
+
+forceDartD3Fig = padBorder $ forceDartD 3 
+forceDartD5Fig = padBorder $ forceDartD 5
+
+forceKiteD3Fig = padBorder $ forceKiteD 3
+forceKiteD5Fig = padBorder $ forceKiteD 5
+
+forceSunD5Fig = padBorder $ forceSunD 5
 
 {-
   *************************************
@@ -163,13 +186,13 @@ pCompFig = padBorder $ vsep 3 $
   *************************************
 -}
 
-{- | showEmplace g (a,b) n
+{- | showEmplace g n (a,b)
     g should be a TOP graph (empty composition) 
     (a,b) a pair of distinct vertices in g 
     produces emplacement diagram for nth decomposition of g               
 -}
-showEmplace :: Tgraph -> (Vertex, Vertex) -> Int -> Diagram B
-showEmplace g (a,b) n = drawEmbed (a,b) (graphDecompositions g !!n) (emplacements g !!n)
+showEmplace :: Tgraph -> Int -> (Vertex, Vertex) -> Diagram B
+showEmplace g n (a,b) = drawEmbed (a,b) (graphDecompositions g !!n) (emplacements g !!n)
 
 {- | showForceEmplace rots g 
      shows a graph (with dashJ) followed its forced then emplaced versions shown with draw
@@ -184,10 +207,10 @@ showForceEmplace rots g =
     ] where forced = force g
 
 -- nth decomposition and its emplacement for dart,kite,fool,sun
-empDartD n = showEmplace dartGraph (1,3) n
-empKiteD n = showEmplace kiteGraph (1,2) n
-empFoolD n = showEmplace fool (1,3) n
-empSunD  n = showEmplace sunGraph (1,2) n
+empDartD n = showEmplace dartGraph n (1,3)
+empKiteD n = showEmplace kiteGraph n (1,2)
+empFoolD n = showEmplace fool n (1,3)
+empSunD  n = showEmplace sunGraph n (1,2)
 
 -- example emplacement figures
 empDartD3Fig,empDartD5Fig,empKiteD3Fig,empKiteD5Fig,empSunD5Fig:: Diagram B
@@ -202,24 +225,21 @@ empSunD5Fig = padBorder $ empSunD 5
 
 {-
   *************************************
-  Forcing and Composing experiments
+  Forcing and Composing Subgraphs
   *************************************
 -}
 
 dartD4 = dartDs!!4
 
--- prograssively increase scales by phi down a list of diagrams
-phiScaling :: [Diagram B] -> [Diagram B]
-phiScaling ds = zipWith scale (iterate (*phi) 1) ds
-
-
 -- brokenDart will now get repaired and be included in emplaceSimple
+brokenDart :: Tgraph
 brokenDart = removeFaces deleted dartD4 where
   deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
 
 -- badlyBrokenDart will cause emplaceSimple to fail by producung a graph which is not face connected
 -- Tgraph {vertices = [4,6,3,1,5], faces = [LD (4,6,3),LK (1,5,3)]} - which breaks on forcing
 -- HOWEVER emplace still works and (emplaceSimple . force) gives the same result
+badlyBrokenDart :: Tgraph
 badlyBrokenDart = removeFaces deleted dartD4 where
   deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
             ++[LK(11,21,44),RK(11,44,34),LD(9,34,44),RD(9,44,35),LK(17,35,44),RK(17,44,21),RK(6,17,33)]
@@ -227,46 +247,18 @@ badlyBrokenDart = removeFaces deleted dartD4 where
 -- brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
 brokenDartFig :: Diagram B
 brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap dashJGraph [dartD4, brokenDart, badlyBrokenDart]
+-- the force of the worst case (badlyBrokenDart)
+checkBrokenDartFig  :: Diagram B
+checkBrokenDartFig = drawGraph $ force badlyBrokenDart
 
--- brokenDartFig2 illustrates that emplaceSimple does not fully include the starting graph
-brokenDartFig2 :: Diagram B
-brokenDartFig2 = padBorder $ lw ultraThin $
-                 vsep 10 [center $ hsep 1 $ rotations [] $ phiScaling row2
-                         ,center $ hsep 10 $ rotations [0,1,1] $ phiScaling (fmap dashJGraph row1)
-                         ] where
-    row2 = fmap (\g -> dashJEmbed (1,3) g (emplaceSimple g)) row1
-    row1 = allComps brokenDart
-
--- brokenDartFig2F illustrates that full emplace does include the starting graph (so repairs it)
-brokenDartFig2F :: Diagram B
-brokenDartFig2F = padBorder $ lw ultraThin $
-                  vsep 10 [center $ hsep 1 $ rotations [] $ phiScaling row2
-                          ,center $ hsep 13 $ rotations [0,1,1] $ phiScaling (fmap dashJGraph row1)
-                         ] where
-    row2 = fmap (\g -> dashJEmbed (1,3) g (emplace g)) row1
-    row1 = allFComps brokenDart
-
--- brokenDartFig3 illustrates that a single force before emplaceSimple
--- also includes the starting graph (so repairs it) for both brokenDart and badlyBrokenDart
-brokenDartFig3 :: Diagram B
-brokenDartFig3 = padBorder $ lw ultraThin $ vsep (-2) [row1,row2,row3] where
-    row1 = hsep 5 $ [drawGraph dartD4, drawEmbed (1,3) dartD4 (force dartD4)]
-    row2 = hsep 5 $ [drawGraph brokenDart, drawEmbed (1,3) brokenDart fb, rotate (ttangle 4) $ drawGraph (emplaceSimple fb)]
-    row3 = hsep 5 $ [drawGraph badlyBrokenDart, drawEmbed (1,3) badlyBrokenDart fb]
-    fb = force badlyBrokenDart -- same as force brokenDart
-
-brokenDartFig4 :: Diagram B
-brokenDartFig4 = padBorder $ vsep 1 [ hsep 1 $ phiScaling $ fmap dashJGraph $ allComps dartD4 
-                                    , hsep 1 $ phiScaling $ fmap dashJGraph $ allComps brokenDart
-                                    , hsep 1 $ phiScaling $ fmap dashJGraph $ allFComps brokenDart
-                                    ] 
-
-
--- 2 adjacent kites are decomposed. brokenKites has the top decomposed half kite removed.
+-- First 2 adjacent kites are decomposed. 
+-- Next brokenKites is the result of removing the top decomposed half kite.
+-- Next is the result of Composing (also force then compose)
+-- Lastly the emplacement of brokenKites
 -- The figure illustrates that brokenKites is included in emplace brokenKites
 -- even though the missing part is not repaired.
 brokenKitesDFig :: Diagram B
-brokenKitesDFig = padBorder $ hsep 1 $ fmap drawVPatch $ alignAll(1,3) $ scales [1,1,phi] $ fmap makeVPatch 
+brokenKitesDFig = padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPatch 
                  [graphDecompose twoKites,brokenKites, graphCompose brokenKites, emplace brokenKites]
 brokenKites = removeFaces [LD(1,14,16),LK(5,4,16),RK(5,16,14)] $ graphDecompose twoKites
 twoKites = checkTgraph [ RK(1,2,11), LK(1,3,2)
@@ -377,15 +369,12 @@ graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
                             , faces = [RK (4,7,2),LK (4,5,7),RD (1,7,5),LK (3,2,7)
                                       ,RK (3,7,6),LD (1,6,7), LK(3,6,8)]
                             }
-
-    {-
-padBorder $ hsep 1 $ 
-           zipWith gEmpAlign [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
-                             [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(1,2),(1,10)]]
-  where
-  gEmpAlign g alms = drawEmbed' alms g (emplace g)
+{-
+  ****************************
+  Figures of 7 types of vertex
+  ****************************
 -}
-    
+   
 {- | vertexTypesFig is 7 vertex types single diagram as a row -}
 vertexTypesFig = padBorder $ hsep 1 $ lTypeFigs
  where
@@ -418,46 +407,65 @@ starV = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
                    ]
 sunV = sunGraph
 
+{- |  forceVFigures is a list of 7 diagrams - force of 7 vertex types -}
+forceVFigures :: [Diagram B]
+forceVFigures =
+  zipWith showForce [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
+                    [(1,2), (1,2), (1,2), (1,2), (1,2), (3,6), (2,6)] -- alignments
+
 {- |  emplaceVFigures is a list of 7 diagrams - emplacements of 7 vertex types -}
+{-
 emplaceVFigures =
   zipWith gEmpAlign [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
                     [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(2,6),(10,6)]]
 --                    [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(1,2),(1,10)]]
   where gEmpAlign g alms = drawEmbed' alms g (emplace g)
+-}
 
-{- | empVsFig shows emplacements of 7 vertex types in a row as single diagram -}
-empVsFig = padBorder $ hsep 1 emplaceVFigures
+{- | forceVsFig shows emplacements of 7 vertex types in a row as single diagram -}
+forceVsFig :: Diagram B
+forceVsFig = padBorder $ hsep 1 forceVFigures
 
-{- | relatedVTypeFig lays out emplacements from emplaceVFigures plus a kite as single diagram with 3 columns -}
+{- | relatedVTypeFig lays out figures from forceVFigures plus a kite as single diagram with 3 columns -}
 relatedVTypeFig = padBorder $
  atPoints [p2(0,15),p2(0,10),   p2(10,15),p2(10,10),p2(10,0),  p2(19,15),p2(20,10),p2(20,0) ]
           [sunE, starE,         ace, jackE, kingE,             kite, deuceE, queenE]
  where kite = drawGraph kiteGraph # lw thin
-       sunE = emplaceVFigures!!0
-       starE = emplaceVFigures!!1
-       jackE = emplaceVFigures!!2
-       queenE = emplaceVFigures!!3
-       kingE = emplaceVFigures!!4
-       ace = emplaceVFigures!!5
-       deuceE = emplaceVFigures!!6
+       sunE = forceVFigures!!0
+       starE = forceVFigures!!1
+       jackE = forceVFigures!!2
+       queenE = forceVFigures!!3
+       kingE = forceVFigures!!4
+       ace = forceVFigures!!5
+       deuceE = forceVFigures!!6
 
+-- graphs of the boundary faces only of a forced graph
+boundaryFDart4, boundaryFDart5 :: Tgraph
+boundaryFDart4 =  
+    checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ force (dartDs!!4)
+boundaryFDart5 =  
+    checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ force (dartDs!!5)
 
-boundaryEmplaceGraph4 =  
-    checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ emplace (dartDs!!4)
-boundaryEmplaceGraph5 =  
-    checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ emplace (dartDs!!5)
+-- graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
+boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
+boundaryGapFDart4 =   
+    checkTgraph $ filter ((/=200).originV)  (faces boundaryFDart4)
+boundaryGapFDart5 =   
+    checkTgraph $ filter ((/=1410).originV) (faces boundaryFDart5)
 
+-- figures for the above boundary gap graphs
+boundaryGap4Fig, boundaryGap5Fig :: Diagram B
+boundaryGap4Fig = lw ultraThin $ drawVGraph $ boundaryGapFDart4
+boundaryGap5Fig = lw ultraThin $ drawVGraph $ boundaryGapFDart5
 
-boundaryEmplaceGapGraph4 =   
-    checkTgraph $ filter ((/=452).originV) (faces boundaryEmplaceGraph4)
-boundaryEmplaceGapGraph5 =   
-    checkTgraph $ filter ((/=1558).originV) (faces boundaryEmplaceGraph5)
+-- showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
+-- using stepForce 2200
+progressFigure :: Diagram B
+progressFigure = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
+    [ dashJGraph g
+    , drawGraph $ recoverGraph $ stepForce 2200 g
+    ] where g = boundaryGapFDart5
 
-bdEmplaceFig4 = lw ultraThin $ drawVGraph $ boundaryEmplaceGraph4
-bdEmplaceFig5 = lw ultraThin $ drawVGraph $ boundaryEmplaceGraph5
-
---boundaryEmplaceFig = lw ultraThin $ showForceEmplace [6,0,3] boundaryEmplaceGraph5
---boundaryEmplaceGapFig = lw ultraThin $ showForceEmplace [6,0,3] boundaryEmplaceGapGraph5
 
 {-  test for bigPic without arrows -}
 bigPic0:: Diagram B
@@ -518,9 +526,9 @@ bigPic = (padBorder $ position $ concat $
 
 
 {-
-  *************************************
+  *********************************************
   Testing functions and figures and experiments
-  *************************************
+  *********************************************
 -}
           
 -- Testing newest force rule (10)
@@ -529,47 +537,64 @@ partQueen = makeTgraph [LK (7,1,5),RK (3,5,1),RK (7,9,1)
                        ,RK (7,5,6),LK (7,8,9),LK (3,4,5)
                        ]
 
--- BUG discovered filling in boundary of an emplacement  
--- ok for dartDs!! 4  but touching vertices with dartDs!!5   
-testForce4 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryEmplaceGapGraph4
--- testForce5 failed with previous version of thirdVertexLoc but works now signum is used.
-testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryEmplaceGapGraph5        
+{-
+Testing newest force with 10 rules   
+BUG discovered filling in boundary of a forced graph  
+testForce4 ok but 
+testForce5 failed (introducing touching vertices) with previous version of thirdVertexLoc
+because of accumulated discrepancies in vertex position calculations.
 
--- view tha boundary after n steps of forcing (starting with boundaryEmplaceGapGraph5)
+Now works with signum introduced in thirdVertexLoc,
+dramatically improving accuracy of position calculation
+-}
+testForce4, testForce5 :: Diagram B
+testForce4 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart4
+testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart5        
+
+-- used to discover accuracy problem of older thirdVertexLoc
+-- view tha boundary after n steps of forcing (starting with boundaryGapFDart5)
+-- e.g. n = 1900
+inspectForce5 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
-                viewBoundary [4] $ stepForce n $ boundaryEmplaceGapGraph5
+                viewBoundary [] $ stepForce n $ boundaryGapFDart5
 
 
+-- figures showing boundary edges of the boundary gaps graphs  
+testBoundary4, testBoundary5 :: Diagram B
+testBoundary4 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryGapFDart4 
+testBoundary5 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryGapFDart5 
 
-  
-testBoundary4 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryEmplaceGapGraph4 
-testBoundary5 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryEmplaceGapGraph5 
- 
- 
- 
- 
- 
- 
 -- testing crossing boundary detection e.g. by using force on testCrossingBoundary   
+testCrossingBoundary :: Tgraph
 testCrossingBoundary = makeTgraph (faces foolDminus \\ [LD(6,11,13)])
          
--- testing
+-- simple force test
+checkForceFig :: Diagram B
 checkForceFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, force dartD4]
 
+-- test completeTiles (which adds missing second halves of each face)
+checkCompleteFig:: Diagram B
 checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, completeTiles dartD4]
 
+-- test graphFromVP
+checkGraphFromVP :: Diagram B
 checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
 
 
 -- testing selectFacesGtoVP figure testing selectFacesGtoVP
+dartsOnlyFig :: Diagram B
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
 
-maxAndEmplace g = scales [1,1,phi^n] $ fmap drawGraph [g,empg,maxg]
-                  where (maxg,empg,n) = countEmplace g
-
-maxEdart4Fig :: Diagram B
-maxEdart4Fig = vsep 1 $ lw ultraThin $ fmap (hsep 1 . rotations [0,4,0])
-               [maxAndEmplace dartD4, maxAndEmplace brokenDart, maxAndEmplace badlyBrokenDart]
-
-     
+{-
+Another test of new forcing
+Starting from the comma shaped gap (commaGap after 2200 steps of forcing boundaryGapFDart5)
+get the filled in gap only (gComma = difference after forcing)
+then force gComma.
+The result is not the full original force (dartDs!!5)
+-}
+commaFig :: Diagram B
+commaFig = padBorder $ lw ultraThin $ showForce gComma (3937,3936)
+           where
+              commaGap = recoverGraph $ stepForce 2200 boundaryGapFDart5    
+              gComma = removeFaces (faces commaGap) (force commaGap)

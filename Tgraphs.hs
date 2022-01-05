@@ -678,7 +678,7 @@ updatesBD bd =
     ++ dartKiteTopUpdates bd        -- (7)
     ++ thirdDartUpdates bd          -- (8)
     ++ queenDartUpdates bd          -- (9)
-    ++ queenKiteUpdates bd
+    ++ queenKiteUpdates bd          -- (10)
 {- 
 1. When a join edge is on the boundary - add the missing half tile to make a whole tile.    
 2. When a half dart has its short edge on the boundary
@@ -707,6 +707,8 @@ updatesBD bd =
    Add a missing dart half (on any boundary long edge of a dart at the vertex).
 9. If there are 4 kite wings at a vertex (necessarily a queen)
    add any missing half dart on a boundary kite long edge
+10.If there are 3 kite wings at a vertex (necessarily a queen)
+   add any missing fourth half kite on a boundary kite short edge
 -}
 
 
@@ -837,13 +839,13 @@ find3Locs (v1,v2,v3) assocV = (lookup v1 assocV, lookup v2 assocV, lookup v3 ass
 {- | thirdVertexLoc fc assocV
 
 New Version - Assumes all edge lengths are 1 or phi
-It now uses signorm to produce vectors of length 1 rather than rely on relative lengths
+It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
 
      thirdVertexLoc fc assocV
      where fc is a tileface and
      assocV associates points with vertices (positions)
      It looks up all 3 vertices in assocV hoping to find 2 of them, it then returns Just pr
-     where pr is an association for the third vertex.
+     where pr is an association pair for the third vertex.
      If all 3 are found, returns Nothing
      If none or one found this is an error (a non face-connected face)
 -}
@@ -1172,7 +1174,7 @@ queenMissingDarts = boundaryFilter pred where
 
 
 
--- queen vertices (with 4 kite wings) -- add any missing half dart on a boundary kite long edge
+-- queen vertices with 3 kite wings -- add a missing half kite on a boundary kite short edge
 queenKiteUpdates :: Boundary -> [Update] 
 queenKiteUpdates bd = fmap (addKiteShortE bd) (queenMissingKite bd)
 
@@ -1492,10 +1494,12 @@ forceLKC v g = recoverGraph bd3 where
     bd3 = doUpdate (completeHalf bd2 newk)
 
 
-
+-- | stepForce and stepForceAll are used for testing
+-- they produce intermediate Boundaries after a given number of steps (face additions)
 stepForce :: Int -> Tgraph -> Boundary
 stepForce n g = stepForceAll updatesBD n (makeBoundary g)
 
+-- | used by stepForce
 stepForceAll :: (Boundary -> [Update]) -> Int -> Boundary -> Boundary
 stepForceAll updateGen = count where
     count 0 bd = bd

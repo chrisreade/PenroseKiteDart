@@ -258,7 +258,7 @@ dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
    
 
 
-{- NEEDS WORK FOR TESTING -}
+{------------------- NEEDS WORK FOR GENERAL TESTING ---------------------------}
 -- displaying the boundary of a Tgraph in lime
 showGBoundary :: Tgraph -> Diagram B
 showGBoundary g =  (lc lime $ drawEdges assocV bd) <> drawVPatch vp where
@@ -278,19 +278,14 @@ viewLoc' lp = (v,p) where (p,v) = viewLoc lp
  
 {- | viewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
 -- (used in conjunction with stepForce to get an intermediate Boundary)
--- The boundary edges of a Boundary in shown in lime - using the Boundary positions of vertices
+-- The boundary edges of a Boundary are shown in lime - using the Boundary positions of vertices
 -- The graph is converted to a vp separately (so using a fresh calculation of positions)
--- Thus rotations are needed to match up.
+-- Thus rotations may be needed to match up.
 -- Use an empty list of integer rotations to see what rotations are needed to align the figures.
 -}
 viewBoundary :: [Int] -> Boundary -> Diagram B
 viewBoundary rots bd =  lc lime bdryFig <> graphFig where 
     [bdryFig, graphFig] = fmap center $ rotations rots [drawEdges assocV bdE, center $ drawVGraph g]
-{-
-    (center $ rotate (ttangle 4) $ lc lime $ drawEdges assocV bdE)
-    <> 
-    (center $ drawVGraph g)
--}
     g = recoverGraph bd
     assocV = vPointAssoc bd
     bdE = bDedges bd
