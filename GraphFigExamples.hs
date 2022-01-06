@@ -69,8 +69,8 @@ fool = checkTgraph [ RD(1,2,3)
 foolFig :: Diagram B
 foolFig = padBorder $ drawVGraph fool
 
-foolDs = graphDecompositions fool
-foolD = graphDecompose fool -- or foolDs!!1
+foolDs = decompositionsG fool
+foolD = decomposeG fool -- or foolDs!!1
 
 -- foolDminus: 3 faces removed from foolD
 foolDminus:: Tgraph
@@ -91,7 +91,7 @@ sunGraph = checkTgraph [ RK(1,2,11), LK(1,3,2)
                        , RK(1,10,9), LK(1,11,10)
                        ]
 sunDs :: [Tgraph]
-sunDs =  graphDecompositions sunGraph
+sunDs =  decompositionsG sunGraph
 
 figSunD3D2,figSunD2D:: Diagram B
 figSunD3D2 = padBorder $ hsep 1 [drawVGraph $ sunDs !! 3, scale phi $ drawVGraph $ sunDs !! 2]
@@ -101,13 +101,13 @@ figSunD2D = padBorder  $ hsep 1 [drawVGraph $ sunDs !! 2, scale phi $ drawVGraph
 kiteGraph :: Tgraph
 kiteGraph = checkTgraph [ RK(1,2,4), LK(1,3,2)]
 kiteDs :: [Tgraph]
-kiteDs = graphDecompositions kiteGraph
+kiteDs = decompositionsG kiteGraph
 
 -- dart and dartDs
 dartGraph :: Tgraph
 dartGraph =  checkTgraph [ RD(1,2,3), LD(1,3,4)]
 dartDs :: [Tgraph]
-dartDs =  graphDecompositions dartGraph
+dartDs =  decompositionsG dartGraph
 
 
 
@@ -192,7 +192,7 @@ forceSunD5Fig = padBorder $ forceSunD 5
     produces emplacement diagram for nth decomposition of g               
 -}
 showEmplace :: Tgraph -> Int -> (Vertex, Vertex) -> Diagram B
-showEmplace g n (a,b) = drawEmbed (a,b) (graphDecompositions g !!n) (emplacements g !!n)
+showEmplace g n (a,b) = drawEmbed (a,b) (decompositionsG g !!n) (emplacements g !!n)
 
 {- | showForceEmplace rots g 
      shows a graph (with dashJ) followed its forced then emplaced versions shown with draw
@@ -259,8 +259,8 @@ checkBrokenDartFig = drawGraph $ force badlyBrokenDart
 -- even though the missing part is not repaired.
 brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPatch 
-                 [graphDecompose twoKites,brokenKites, graphCompose brokenKites, emplace brokenKites]
-brokenKites = removeFaces [LD(1,14,16),LK(5,4,16),RK(5,16,14)] $ graphDecompose twoKites
+                 [decomposeG twoKites,brokenKites, composeG brokenKites, emplace brokenKites]
+brokenKites = removeFaces [LD(1,14,16),LK(5,4,16),RK(5,16,14)] $ decomposeG twoKites
 twoKites = checkTgraph [ RK(1,2,11), LK(1,3,2)
                        , RK(1,4,3) , LK(1,5,4)
                        ]
@@ -290,7 +290,7 @@ touchingTestFig =
 foolChoices :: Diagram B
 foolChoices = padBorder $ vsep 1 
               [hsep 1 $ fmap (redFool <>) $ fmap dashJGraph choices
-              ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (dashJGraph . graphCompose) choices
+              ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (dashJGraph . composeG) choices
               ] where choices = makeChoices fool
                       redFool = dashJGraph fool # lc red
                          
@@ -329,9 +329,9 @@ partForcedMistake =
 pfMistakeFig :: Diagram B
 pfMistakeFig  = padBorder $ hsep 1 [drawVGraph mistake, drawVGraph partForcedMistake]
 
--- graphDecompose mistake and the point at which forcing fails  with  RK (6,26,1)              
+-- decomposeG mistake and the point at which forcing fails  with  RK (6,26,1)              
 pfDecompMistakeFig :: Diagram B
-pfDecompMistakeFig = padBorder $ hsep 1 [drawVGraph (graphDecompose mistake), drawVGraph part] where
+pfDecompMistakeFig = padBorder $ hsep 1 [drawVGraph (decomposeG mistake), drawVGraph part] where
     part =  makeTgraph [RK (26,24,1),RK (5,24,25),LK (5,1,24),RK (3,23,2),LK (3,22,23)
                        ,RK (3,21,22),LK (3,15,21),LK (4,2,20),RK (4,20,19),LK (4,19,18),RK (4,18,17)
                        ,LK (4,17,16),RK (4,16,12),LD (8,12,16),RK (3,14,15),LK (3,11,14),RD (7,14,11)
@@ -348,8 +348,8 @@ partForcedfMistake1 = makeTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD
 -- decomposed mistake1 is no longer erroneous and can be forced and recomposed
 cdMistake1Fig :: Diagram B
 cdMistake1Fig = padBorder $ hsep 1 $ fmap drawVPatch $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVPatch
-               [ mistake1 , mistake1D, force mistake1D, graphCompose mistake1D]
-               where mistake1D = graphDecompose mistake1
+               [ mistake1 , mistake1D, force mistake1D, composeG mistake1D]
+               where mistake1D = decomposeG mistake1
 
 {-
   *************************
@@ -357,13 +357,13 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap drawVPatch $ scales [phi,1,1,phi] $ al
   *************************
 -}
 
--- | figure showing ordering of a decomposed kite (bottom), test with an extra LK(3,6,8),
+-- | figure showing ordering of a decomposed kite (bottom), a test graph with an extra LK(3,6,8),
 -- and forced figure at the top and composition of all 3 = kite on the right
 graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
               [cft,dcft,ft,t] = fmap drawVPatch $ scales [phi] $ alignAll (1,2) $ fmap makeVPatch 
                                 [cftest, dcftest, ftest, test]
-              dcftest = graphDecompose cftest
-              cftest = graphCompose ftest
+              dcftest = decomposeG cftest
+              cftest = composeG ftest
               ftest = force test
               test = Tgraph { vertices = [8,4,7,2,5,1,3,6] 
                             , faces = [RK (4,7,2),LK (4,5,7),RD (1,7,5),LK (3,2,7)
@@ -412,15 +412,6 @@ forceVFigures :: [Diagram B]
 forceVFigures =
   zipWith showForce [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
                     [(1,2), (1,2), (1,2), (1,2), (1,2), (3,6), (2,6)] -- alignments
-
-{- |  emplaceVFigures is a list of 7 diagrams - emplacements of 7 vertex types -}
-{-
-emplaceVFigures =
-  zipWith gEmpAlign [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
-                    [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(2,6),(10,6)]]
---                    [[(1,2),(1,2)], [(1,2),(1,22)], [(1,2),(1,21)], [(1,2),(29,41)], [(1,2),(1,78)], [(3,6),(3,6)], [(1,2),(1,10)]]
-  where gEmpAlign g alms = drawEmbed' alms g (emplace g)
--}
 
 {- | forceVsFig shows emplacements of 7 vertex types in a row as single diagram -}
 forceVsFig :: Diagram B
@@ -572,9 +563,9 @@ testCrossingBoundary = makeTgraph (faces foolDminus \\ [LD(6,11,13)])
 checkForceFig :: Diagram B
 checkForceFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, force dartD4]
 
--- test completeTiles (which adds missing second halves of each face)
+-- test wholeTiles (which adds missing second halves of each face)
 checkCompleteFig:: Diagram B
-checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, completeTiles dartD4]
+checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, wholeTiles dartD4]
 
 -- test graphFromVP
 checkGraphFromVP :: Diagram B

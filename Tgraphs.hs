@@ -332,14 +332,14 @@ testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces 
  
 {-------------------------------------------------------------------------
 ******************************************** *****************************              
-COMPOSING graphCompose and partCompose 
+COMPOSING composeG and partCompose 
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
--- | The main deterministic function for composing is graphCompose
+-- | The main deterministic function for composing is composeG
 -- which is essentially partCompose after unused faces are ignored.
-graphCompose:: Tgraph -> Tgraph
-graphCompose = snd . partCompose 
+composeG:: Tgraph -> Tgraph
+composeG = snd . partCompose 
 
 -- | partCompose produces a graph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed graph
@@ -495,12 +495,12 @@ Experimental
 
 -- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allFComps:: Tgraph -> [Tgraph]
-allFComps g = takeWhile (not . nullGraph) $ iterate (graphCompose . force) g
+allFComps g = takeWhile (not . nullGraph) $ iterate (composeG . force) g
 
 -- | allComps g produces a list of all compositions starting from g up to but excluding the empty graph
 -- This is not safe in general
 allComps:: Tgraph -> [Tgraph]
-allComps g = takeWhile (not . nullGraph) $ iterate graphCompose g
+allComps g = takeWhile (not . nullGraph) $ iterate composeG g
 
 
 -- maxCompose and maxFCompose count the number of compositions to get to a maximal graph.
@@ -515,13 +515,13 @@ maxFCompose g = (last comps, length comps - 1) where comps = allFComps g
 
 {------------------------------- 
 **************************************
-DECOMPOSING - graphDecompose
+DECOMPOSING - decomposeG
 **************************************
 ----------------------------------}
 
--- \ graphDecompose is deterministic and should never fail with a correct Tgraph
-graphDecompose :: Tgraph -> Tgraph
-graphDecompose g = makeTgraph newFaces where
+-- \ decomposeG is deterministic and should never fail with a correct Tgraph
+decomposeG :: Tgraph -> Tgraph
+decomposeG g = makeTgraph newFaces where
     allPhi = phiEdges g
     newVs = makeNewVs (length allPhi `div` 2) (vertices g)
     assocs = newVAssocs allPhi newVs []
@@ -559,8 +559,8 @@ processWith findV fc faces = case fc of
       where Just x = findV (a,c)
 
 -- infinite list of decompositions of a graph     
-graphDecompositions :: Tgraph -> [Tgraph]
-graphDecompositions = iterate graphDecompose
+decompositionsG :: Tgraph -> [Tgraph]
+decompositionsG = iterate decomposeG
 
 
 {-
@@ -576,9 +576,9 @@ NEW FORCING with Boundaries and Touching Vertex Check
 force:: Tgraph -> Tgraph
 force = recoverGraph . forceAll updatesBD . makeBoundary
 
--- completeTiles: special case of forcing only half tiles to whole tiles
-completeTiles:: Tgraph -> Tgraph
-completeTiles = recoverGraph . forceAll wholeTileUpdates . makeBoundary 
+-- wholeTiles: special case of forcing only half tiles to whole tiles
+wholeTiles:: Tgraph -> Tgraph
+wholeTiles = recoverGraph . forceAll wholeTileUpdates . makeBoundary 
 
 {- | A Boundary records
 the boundary directed edges plus 
@@ -1048,11 +1048,11 @@ kiteGaps = boundaryFilter kiteGap where
 
 
 
--- | secondTouchingDartUpdates - k3d2 vertex add a missing second dart
+-- | secondTouchingDartUpdates - jack vertex add a missing second dart
 secondTouchingDartUpdates :: Boundary -> [Update] 
 secondTouchingDartUpdates bd = fmap (addDartShortE bd) (noTouchingDarts bd)
 
--- | kite halves with a short edge on the boundary (a,b) and oppV must be a large dart base (k3d2) vertex
+-- | kite halves with a short edge on the boundary (a,b) and oppV must be a largeDartBase  vertex
 -- (oppV is a for left kite and b for right kite)
 -- function mustbeLDB determines if a vertex must be a a largeDartBase
 noTouchingDarts :: Boundary -> [TileFace]
@@ -1062,13 +1062,12 @@ noTouchingDarts = boundaryFilter farKOfDarts where
 
 
 
-{- |  sunStarUpdates is for vertices that must be either k5 or d5 
+{- |  sunStarUpdates is for vertices that must be either sun or star 
 almostSunStar finds half-kites/half-darts with a long edge on the boundary
 where their origin vertex has 8 total half-kites/half-darts respectively
 or their origin vertex has 6 total half-kites in the case of kites only
 completeSunStar will add a new face of the same type (dart/kite) 
 sharing the long edge.
-[Note that unmatched join edges will be taken care of elsewhere with completeHalf]
 -}
 sunStarUpdates :: Boundary -> [Update] 
 sunStarUpdates bd = fmap (completeSunStar bd) (almostSunStar bd)
@@ -1117,12 +1116,11 @@ addKiteLongE bd (RD(a,b,_)) = (x, makeFace, bd) where
     x = findThirdV bd (b,a) 1 2
 addKiteLongE bd _ = error "addKiteLongE: applied to kite"
 
--- jack vertices (largeDartBases)nwith dart long edge on boundary
+-- jack vertices (largeDartBases) with dart long edge on boundary
 noKiteTopDarts :: Boundary -> [TileFace]
 noKiteTopDarts = boundaryFilter dartsWingDB where
     dartsWingDB bd (a,b) fc = (isLD fc && longE fc == (b,a) && mustbeLDB bd b) ||
                               (isRD fc && longE fc == (b,a) && mustbeLDB bd a)
-
 
 
 
@@ -1161,10 +1159,12 @@ missingThirdDarts = boundaryFilter pred where
             bHasKiteWing = b `elem` fmap wingV (filter isKite fcsAtb)
 
 
+
 -- queen vertices (with 4 kite wings) -- add any missing half dart on a boundary kite long edge
 queenDartUpdates :: Boundary -> [Update] 
 queenDartUpdates bd = fmap (addDartLongE bd) (queenMissingDarts bd)
 
+-- queen vertices (with 4 kite wings) and a boundary kite long edge
 queenMissingDarts :: Boundary -> [TileFace]  
 queenMissingDarts = boundaryFilter pred where
     pred bd (a,b) fc = (isLK fc && longE fc == (b,a) && length (kiteWingsAt a) ==4) ||
@@ -1174,10 +1174,12 @@ queenMissingDarts = boundaryFilter pred where
 
 
 
--- queen vertices with 3 kite wings -- add a missing half kite on a boundary kite short edge
+
+-- queen vertices with 3 kite wings -- add missing fourth half kite on a boundary kite short edge
 queenKiteUpdates :: Boundary -> [Update] 
 queenKiteUpdates bd = fmap (addKiteShortE bd) (queenMissingKite bd)
 
+-- queen vertices with only 3 kite wings
 queenMissingKite :: Boundary -> [TileFace]  
 queenMissingKite = boundaryFilter pred where
     pred bd (a,b) fc = (isLK fc && shortE fc == (b,a) && length (kiteWingsAt b) ==3) ||
@@ -1389,15 +1391,15 @@ EMPLACEMENTS
 ********************************************
 ------------------------------}
 
--- | emplace does maximal composing with force and graphCompose, 
--- then applies graphDecompose and force repeatedly back to the starting level.
+-- | emplace does maximal composing with force and composeG, 
+-- then applies decomposeG and force repeatedly back to the starting level.
 -- It produces the 'emplacement' of influence of the argument graph.   
 emplace:: Tgraph -> Tgraph
 emplace g = if nullGraph g'
             then fg 
-            else (force . graphDecompose . emplace) g'
+            else (force . decomposeG . emplace) g'
     where fg = force g
-          g' = graphCompose fg 
+          g' = composeG fg 
             
 nullGraph:: Tgraph -> Bool
 nullGraph g = null (faces g)
@@ -1407,13 +1409,13 @@ nullGraph g = null (faces g)
 emplaceSimple :: Tgraph -> Tgraph
 emplaceSimple g = if nullGraph g'
                   then force g 
-                  else (force . graphDecompose . emplaceSimple) g'
-    where g' = graphCompose g
+                  else (force . decomposeG . emplaceSimple) g'
+    where g' = composeG g
 
 -- emplacements are best supplied with a maximally composed or near maximally composed graph
 -- It produces an infinite list of emplacements of the starting graph and its decompositions.
 emplacements :: Tgraph -> [Tgraph]
-emplacements = (iterate (force . graphDecompose)) . emplace -- was .force
+emplacements = (iterate (force . decomposeG)) . emplace -- was .force
 
 -- countEmplace g finds a maximally composed graph (maxg) for g and counts the number (n) of compsitions
 -- needed.  It retutns a triple of maxg, the nth emplacement of maxg, and n)
@@ -1432,11 +1434,11 @@ Experimental: makeChoices, emplaceChoices
 emplaceChoices:: Tgraph -> [Tgraph]
 emplaceChoices g = 
        let fg = force g
-           g' = graphCompose fg 
+           g' = composeG fg 
        in
            if nullGraph g'
            then fmap emplace $ makeChoices g
-           else fmap (force . graphDecompose) (emplaceChoices g')
+           else fmap (force . decomposeG) (emplaceChoices g')
                                  
 {- | makeChoices is a temporary tool which does not attempt to analyse choices for correctness.
 It can thus create some choices which will be incorrect.
