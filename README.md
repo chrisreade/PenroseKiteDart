@@ -19,12 +19,14 @@ For just displaying tilings plus inflate/decompose you need TileLib, HalfTile
 (and possibly TileFigExamples)
 and a version of Main that only imports what you need.
 
-Version 0.2 adds experimental Tgraphs
+Version 0.2 adds experimental Tile Graphs (Tgraphs)
+
+For more info on Tgraphs see
+https://readerunner.wordpress.com/2022/01/06/graphs-kites-and-darts/
 
 Tgraphs are for graph representations
-In HalfTile constructors are polymorphic (with previous vector based components a special case)
-GraphDecompose implemented as a Tgraph version of (vector) decompose
-Plus experimental Tgraph ops to compose/force
+decomposeG implemented as a Tgraph version of (vector) decompose
+Plus Tgraph opserations composeG/force
 
 GraphConvert for turning Tgraphs into vector representations for drawing.
 
