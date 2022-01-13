@@ -8,25 +8,23 @@ See LICENSE file
 
 ## Penrose Kites and Darts - infinite non-periodic tilings
 
-Main Operations are decompose and inflate in TileLib along with drawing tools.
-Now requires HalfTile module with half tile representation generalised
-Drawing uses half tiles (Pieces) represented with vectors.
+For just displaying tilings (Patches) plus inflate/decompose operations you need modules TileLib, HalfTile,
+and possibly TileFigExamples, and a version of Main that only imports what you need.
+TileLib contains the main drawing tools for Patches.
 
 For documentation/description of TileLib see 
 https://readerunner.wordpress.com/2021/03/20/diagrams-for-penrose-tiles/
 
-For just displaying tilings plus inflate/decompose you need TileLib, HalfTile
-(and possibly TileFigExamples)
-and a version of Main that only imports what you need.
+For more advanced use there are Tile Graphs (Tgraphs):
 
-Version 0.2 adds experimental Tile Graphs (Tgraphs)
+Tile Graphs are an experimental addition with a graph representation.
+For this you also need modules Tgraphs, and GraphConvert, and possibly GraphFigExamples.
+Tgraph has operations decomposeG (a Tgraph version of decompose)
+plus composeG and force.
+GraphConvert has tools for turning Tgraphs into Patches (and VPatches).
 
 For more info on Tgraphs see
 https://readerunner.wordpress.com/2022/01/06/graphs-kites-and-darts/
 
-Tgraphs are for graph representations
-decomposeG implemented as a Tgraph version of (vector) decompose
-Plus Tgraph opserations composeG/force
 
-GraphConvert for turning Tgraphs into vector representations for drawing.
 
