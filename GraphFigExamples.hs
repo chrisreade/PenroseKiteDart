@@ -5,7 +5,7 @@
 module GraphFigExamples where
         
 import Diagrams.Prelude
-import Diagrams.Backend.SVG.CmdLine
+import ChosenBackend (B)
 
 import HalfTile
 import TileLib

@@ -1,0 +1,60 @@
+name:                PenroseKiteDart
+version:             0.2.0.0
+github:              "githubuser/PenroseKiteDart"
+license:             BSD3
+author:              "Chris Reade"
+maintainer:          "chrisreade@mac.com"
+copyright:           "2021 Chris Reade"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/chrisreade/PenroseKiteDart#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- diagrams-lib
+- diagrams-contrib
+- diagrams-svg
+- diagrams-postscript
+
+library:
+  source-dirs: src
+  exposed-modules:  
+    - HalfTile
+    - TileLib
+    - TileFigExamples
+    - Tgraphs
+    - GraphConvert
+    - GraphFigExamples
+    - DecompExplain
+    - ChosenBackend
+executables:
+  PenroseKiteDart-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - PenroseKiteDart
+
+tests:
+  PenroseKiteDart-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - PenroseKiteDart

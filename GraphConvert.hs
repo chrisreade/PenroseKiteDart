@@ -12,8 +12,7 @@ import Data.List ((\\), lookup, find)
 import Data.Maybe (mapMaybe)
 
 import Diagrams.Prelude
-import Diagrams.Backend.SVG.CmdLine
-
+import ChosenBackend (B)
 
 -- a DualRep is a pair of representations - a vector and a face(= 3 vertices)
 data DualRep = DualRep {vector:: V2 Double, face::(Int,Int,Int)} deriving Show
@@ -46,31 +45,14 @@ instance Transformable VPatch where
     transform t (VPatch {lVertices = lvs,  lHybrids = lhs})
          =  VPatch {lVertices = fmap (\lv -> unLoc lv `at` transform t (loc lv)) lvs,  lHybrids = transform t lhs}
 
-
-{- | makeVPatch and makePatch - Converting a graph to a vpatch / patch
-First, buildVEAssocs (from faces)
-Starting with a chosen initiial face (face) and the rest (more) - give face zero offset and an orientation
-(originally just used first face and oriented join on x-axis, but
-now using face with lowest numbered origin and orienting (join edge with lowest oppV) along x-axis)
-
-buildVEAssocs:
-Create initial [face] as list of faces to be processed, with the head (face) as current face and
-       more as list of 'unencountered' faces
-       Start record of assocV and assocE (using first edge vector - both directions and offset vector for origin of face)
-     assocV is an association list of (vertex, point)
-     assocE is an association list of (directed edge, vector)
-Step: For current face (processFace face)
-    assign vectors (in each direction) for all 3 edges (not already assigned), and points for the 3 vertices (not already assigned)
-    For each edge of current face (clockwise) find other faces in 'unencountered' sharing the edge (reversed)
-    Transfer these to the end of list of faces to be processed - and removing from unencountered,
-    Remove current face from faces to be processed
-When no more faces to be processed  (unencountered should also be empty for edge connected graph) - return both the assoc lists
-
-Second: convert original faces
-Extract the join vector and originV location for each of the graph faces from the two assoc lists
-to build a vpatch with located hybrids and convert assocV to located vertices.
-
-NEW assocE no longer used
+{- | makeVPatch - Converting a graph to a vpatch
+An empty graph is a special case.
+Otherwise
+Use chooseLowest to choose a starting face (placed at front of list of faces of g)
+Then use createVPoints to form the association list (assocV)
+Then convert original faces to located hybrids using makeLHyb and assocV 
+and convert assocV to located vertices using locateV
+to form a VPatch
 -}
 makeVPatch::Tgraph -> VPatch
 makeVPatch g = if nullGraph g 

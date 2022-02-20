@@ -13,7 +13,8 @@ module TileLib where
 import HalfTile
     
 import Diagrams.Prelude
-import Diagrams.Backend.SVG.CmdLine
+--import Diagrams.Backend.SVG.CmdLine (B)
+import ChosenBackend (B) 
 
 {- | Piece type for tile halves: Left Dart, Right Dart, Left Kite, Right Kite
 with a vector from their origin along the join edge where

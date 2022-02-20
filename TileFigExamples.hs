@@ -5,7 +5,7 @@
 module TileFigExamples where
     
 import Diagrams.Prelude
-import Diagrams.Backend.SVG.CmdLine
+import ChosenBackend (B)
 
 import TileLib
 
@@ -16,9 +16,10 @@ label l p = baselineText l # fontSize (local 0.2) # fc blue # moveTo p
 {-
 Figures for the four Pieces
 -}
-
+thePieces :: [Piece]
 thePieces =  [ldart, rdart, lkite, rkite]  
 -- | drawn edges of 4 pieces in a row         
+piecesFig :: Diagram B
 piecesFig = hsep 0.5 $ fmap (showOrigin . drawJPiece) thePieces 
 -- | filled 4 pieces in a row         
 piecesFig2 = hsep 1 $ fmap (fillDK' red blue) thePieces ++ fmap drawPiece thePieces 
@@ -37,9 +38,9 @@ markedTiles = hsep 1
 -- | labelled pieces with join and origin shown
 newPiecesFig = pad 1.2 $ centerXY $
                label "RD" (p2 (negate 0.4,0.7)) <>
-               label "LD" (p2 (0.5,0.7)) <>
-               label "LK" (p2 (2.1,1.0)) <>
-               label "RK" (p2 (3.1,1.0)) <>
+               label "LD" (p2 (0.3,0.7)) <>
+               label "LK" (p2 (1.65,1.0)) <>
+               label "RK" (p2 (2.55,1.0)) <>
                hsep 0.1 (fmap (rotate (90 @@ deg) . showOrigin . dashJPiece) 
                          [rdart,ldart,lkite,rkite]
                         )
