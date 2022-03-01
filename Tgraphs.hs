@@ -1,17 +1,21 @@
 module Tgraphs where
 
 import Data.List ((\\), lookup, intersect, nub, elemIndex, find)
+import qualified Data.Map as Map (Map, lookup, insert, empty, (!))
 import Data.Maybe (mapMaybe, isNothing)
 
 import HalfTile
-import Diagrams.Prelude      -- necessary for New createVPoints and for future Located boundaries
+import Diagrams.Prelude      -- necessary for New createVPoints and for Located boundaries
 import TileLib (ttangle,phi) -- necessary for New createVPoints
 
 
 {- |-------------------------------------------------------------------
     touchCheckOn is a global variable used to switch on/off
     checks for touching vertices when new vertices are added to a graph.
-    Used by touchCheck
+    Used by touchCheck. 
+    This should be True for safety.
+    If it is switched to False, all results of forcing need to be checked
+    for touching vertices.
 ------------------------------------------------------------------------}
 touchCheckOn::Bool
 touchCheckOn = True
@@ -281,7 +285,6 @@ bothDir' [] = []
 bothDir' (e:more) = e:reverseE e:bothDir' more
 
 -- | boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
--- Used by noMultiGaps
 boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
 boundaryDedges g = bothDir des \\ des where 
     des = graphDedges g
@@ -356,7 +359,7 @@ partCompose g = (remainder,checkTgraph newFaces)
     newRDs = fmap makeRD groupRDs 
     groupRDs = mapMaybe groupRD (largeDartBases dwClass)
     makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
-    groupRD v = do  fcs <- lookup v (vGroup dwClass)
+    groupRD v = do  fcs <- Map.lookup v (vGroup dwClass)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
                     return [rd,lk]
@@ -364,7 +367,7 @@ partCompose g = (remainder,checkTgraph newFaces)
     newLDs = fmap makeLD groupLDs
     groupLDs = mapMaybe groupLD (largeDartBases dwClass) 
     makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
-    groupLD v = do  fcs <- lookup v (vGroup dwClass)
+    groupLD v = do  fcs <- Map.lookup v (vGroup dwClass)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
                     return [ld,rk]
@@ -372,7 +375,7 @@ partCompose g = (remainder,checkTgraph newFaces)
     newRKs = fmap makeRK groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwClass) 
     makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
-    groupRK v = do  fcs <- lookup v (vGroup dwClass)
+    groupRK v = do  fcs <- Map.lookup v (vGroup dwClass)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
                     rk <- find (matchingJoinE lk) fcs
@@ -381,7 +384,7 @@ partCompose g = (remainder,checkTgraph newFaces)
     newLKs = fmap makeLK groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwClass) 
     makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
-    groupLK v = do  fcs <- lookup v (vGroup dwClass)
+    groupLK v = do  fcs <- Map.lookup v (vGroup dwClass)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
                     lk <- find (matchingJoinE rk) fcs
@@ -393,7 +396,7 @@ partCompose g = (remainder,checkTgraph newFaces)
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , largeDartBases  :: [Vertex]
                        , unknowns :: [Vertex]
-                       , vGroup :: AssocList Vertex [TileFace]
+                       , vGroup :: Map.Map Vertex [TileFace] --AssocList Vertex [TileFace]
                        } deriving Show
                        
 -- | classifyDartWings classifies all dart wing tips
@@ -407,7 +410,7 @@ classifyDartWings :: Tgraph -> DWClass
 classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks
                               , vGroup = gps
                               } where
-   (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],[]) (rdarts g ++ ldarts g)
+   (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
 
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
@@ -418,7 +421,7 @@ processD g (kcs,dbs,unks,gps) rd@(RD(orig,w,_)) -- classify wing tip w
     if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
     let
          fcs = filter (isAtV w) (faces g)  -- faces at w
-         newgps = (w,fcs):gps
+         newgps = Map.insert w fcs gps -- (w,fcs):gps
     in
     if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
             -- wing is a half kite origin => largeDartBases
@@ -450,7 +453,7 @@ processD g (kcs,dbs,unks,gps) ld@(LD(orig,_,w)) -- classify wing tip w
     if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
     let 
         fcs = filter (isAtV w) (faces g) -- faces at w
-        newgps = (w,fcs):gps
+        newgps = Map.insert w fcs gps -- (w,fcs):gps
     in
     if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else
                -- wing is a half kite origin => nodeDB
@@ -500,10 +503,6 @@ DECOMPOSING - decomposeG
 **************************************
 ----------------------------------}
 
-{- Version using Data.Map 
-   need to add ‘containers’ to the build-depends and
-import Data.Map as Map (lookup, insert, empty)
-
 -- \ decomposeG is deterministic and should never fail with a correct Tgraph
 decomposeG :: Tgraph -> Tgraph
 decomposeG g = Tgraph{ vertices = newVs++vertices g
@@ -511,15 +510,15 @@ decomposeG g = Tgraph{ vertices = newVs++vertices g
                      } where
   allPhi = phiEdges g
   newVs = makeNewVs (length allPhi `div` 2) (vertices g)
-  newVFor = Map.(!) (buildMap allPhi newVs Map.empty)
+  newVFor = (Map.!) (buildMap allPhi newVs Map.empty)
   newFaces = concatMap decompFace (faces g)
 -- buildMap edges vs m 
 -- build a map associating a unique vertex from vs (list of new vertices) to each edge in edges
 -- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
   buildMap [] vs m = m
-  buildMap ((a,b):more) vs m = case lookup (a,b) m  of
+  buildMap ((a,b):more) vs m = case Map.lookup (a,b) m  of
     Just _  -> buildMap more vs m
-    Nothing -> buildMap more (tail vs) (Map.insert (a,b) v $ Map.insert (b,a) v m)
+    Nothing -> buildMap more (tail vs) (Map.insert (a,b) v (Map.insert (b,a) v m))
                where v = head vs
   -- | decompFace to process a face in decomposition
   -- producing new faces. 
@@ -535,8 +534,9 @@ decomposeG g = Tgraph{ vertices = newVs++vertices g
         where x = newVFor (a,b)
       LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
         where x = newVFor (a,c)
--}
 
+
+{- Older version using association lists
 -- \ decomposeG is deterministic and should never fail with a correct Tgraph
 decomposeG :: Tgraph -> Tgraph
 decomposeG g = Tgraph{ vertices = newVs++vertices g
@@ -570,6 +570,7 @@ decomposeG g = Tgraph{ vertices = newVs++vertices g
         where x = newVFor (a,b)
       LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
         where x = newVFor (a,c)
+-}
   
 -- | given existing vertices vs, create n new vertices
 makeNewVs :: Int -> [Vertex] -> [Vertex]

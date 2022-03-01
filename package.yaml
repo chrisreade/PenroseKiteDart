@@ -24,7 +24,8 @@ dependencies:
 - diagrams-lib
 - diagrams-contrib
 - diagrams-svg
-- diagrams-postscript
+- diagrams-postscript # added for postscript output
+- containers # added for Data.Map
 
 library:
   source-dirs: src
