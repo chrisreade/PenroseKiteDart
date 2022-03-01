@@ -24,12 +24,21 @@ piecesFig = hsep 0.5 $ fmap (showOrigin . drawJPiece) thePieces
 -- | filled 4 pieces in a row         
 piecesFig2 = hsep 1 $ fmap (fillDK' red blue) thePieces ++ fmap drawPiece thePieces 
 
+
 -- | figure showing origins and markings on tiles
 markedTiles = hsep 1  
         [ kiteDiag # showOrigin 
         , dartDiag # showOrigin 
         , kiteDiag <> (pL ~~ pR # lc red # lw thick) 
         , dartDiag <> (origin ~~ p2(1,0) # lc red # lw thick)
+        ] where kiteDiag = drawPatch [lkite `at` origin, rkite `at` origin]
+                dartDiag = drawPatch [ldart `at` origin, rdart `at` origin]
+                pL = origin .+^ phi*^rotate (ttangle 1) unitX
+                pR = origin .+^ phi*^rotate (ttangle 9) unitX
+
+markedTiles2 = hsep 1  
+        [ kiteDiag <> (pL ~~ pR # lc lime # lw thick) 
+        , dartDiag <> (origin ~~ p2(1,0) # lc lime # lw thick)
         ] where kiteDiag = drawPatch [lkite `at` origin, rkite `at` origin]
                 dartDiag = drawPatch [ldart `at` origin, rdart `at` origin]
                 pL = origin .+^ phi*^rotate (ttangle 1) unitX
@@ -44,7 +53,7 @@ newPiecesFig = pad 1.2 $ centerXY $
                hsep 0.1 (fmap (rotate (90 @@ deg) . showOrigin . dashJPiece) 
                          [rdart,ldart,lkite,rkite]
                         )
- 
+tileIntro = hsep 1 [markedTiles2, newPiecesFig]
 
 -- | 4 decompositions in a column for each piece
 fourDecomps = hsep 1 $ fmap decomps thePieces # lw thin where
@@ -108,6 +117,15 @@ threeShapesSample = lw thin $
         star4 = decompositions TileLib.star !!4
         kite5 = scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
 
+threeColourFilled = lw thin $
+    position 
+    [ (p2(0.0,0.0)  ,colourDKG (darken 0.7 darkmagenta, indigo, gold) sun4)
+    , (p2(-3.0,0.0) ,colourDKG (goldenrod, darkturquoise, saddlebrown) star4)
+    , (p2(3.2, -1.4)  ,rotate (90 @@ deg) $ colourDKG (darkblue,blend 0.9 red magenta, yellow) kite5)
+    ] where
+        sun4 = suns!!4
+        star4 = decompositions TileLib.star !!4
+        kite5 = scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
 
 
 

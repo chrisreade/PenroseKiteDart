@@ -343,6 +343,8 @@ composeG = snd . partCompose
 
 -- | partCompose produces a graph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed graph
+-- it makes use of classifyDartWings which also returns an association of faces incident with each dart wing
+-- so these do not need to be reclculated.
 partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = (remainder,checkTgraph newFaces)
   where
@@ -385,8 +387,9 @@ partCompose g = (remainder,checkTgraph newFaces)
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
-
--- DWClass is a record type for the result of classifying dart wings
+-- | DWClass is a record type for the result of classifying dart wings
+--  It now also records vGroup - an association of faces incident with each dart wing vertex
+--  to to save recalculating in partCompose
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , largeDartBases  :: [Vertex]
                        , unknowns :: [Vertex]
@@ -488,28 +491,6 @@ findFarK _ _ = error "findFarK: applied to non-dart face"
 
 
 
-{-------------
-Experimental
---------------}
-
-
--- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
-allFComps:: Tgraph -> [Tgraph]
-allFComps g = takeWhile (not . nullGraph) $ iterate (composeG . force) g
-
--- | allComps g produces a list of all compositions starting from g up to but excluding the empty graph
--- This is not safe in general
-allComps:: Tgraph -> [Tgraph]
-allComps g = takeWhile (not . nullGraph) $ iterate composeG g
-
-
--- maxCompose and maxFCompose count the number of compositions to get to a maximal graph.
--- they return a pair of the maximal graph and the count
-maxCompose, maxFCompose:: Tgraph -> (Tgraph,Int)
-maxCompose g = (last comps, length comps - 1) where comps = allComps g
-maxFCompose g = (last comps, length comps - 1) where comps = allFComps g
-
-
 
 
 
@@ -519,15 +500,77 @@ DECOMPOSING - decomposeG
 **************************************
 ----------------------------------}
 
+{- Version using Data.Map 
+   need to add ‘containers’ to the build-depends and
+import Data.Map as Map (lookup, insert, empty)
+
 -- \ decomposeG is deterministic and should never fail with a correct Tgraph
 decomposeG :: Tgraph -> Tgraph
-decomposeG g = makeTgraph newFaces where
-    allPhi = phiEdges g
-    newVs = makeNewVs (length allPhi `div` 2) (vertices g)
-    assocs = newVAssocs allPhi newVs []
-    findV e = lookup e assocs
-    newFaces = foldr (processWith findV) [] $ faces g
+decomposeG g = Tgraph{ vertices = newVs++vertices g
+                     , faces = newFaces
+                     } where
+  allPhi = phiEdges g
+  newVs = makeNewVs (length allPhi `div` 2) (vertices g)
+  newVFor = Map.(!) (buildMap allPhi newVs Map.empty)
+  newFaces = concatMap decompFace (faces g)
+-- buildMap edges vs m 
+-- build a map associating a unique vertex from vs (list of new vertices) to each edge in edges
+-- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
+  buildMap [] vs m = m
+  buildMap ((a,b):more) vs m = case lookup (a,b) m  of
+    Just _  -> buildMap more vs m
+    Nothing -> buildMap more (tail vs) (Map.insert (a,b) v $ Map.insert (b,a) v m)
+               where v = head vs
+  -- | decompFace to process a face in decomposition
+  -- producing new faces. 
+  -- It uses newVFor - a function to get the unique vertex assigned to each phi edge
+  decompFace fc = case fc of
+      RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
+        where x = newVFor (a,b)
+              y = newVFor (c,a)
+      LK(a,b,c) -> [LK(b,c,y), RK(b,y,x), LD(a,x,y)]
+        where x = newVFor (a,b)
+              y = newVFor (c,a)       
+      RD(a,b,c) -> [LK(a,x,c), RD(b,c,x)]
+        where x = newVFor (a,b)
+      LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
+        where x = newVFor (a,c)
+-}
 
+-- \ decomposeG is deterministic and should never fail with a correct Tgraph
+decomposeG :: Tgraph -> Tgraph
+decomposeG g = Tgraph{ vertices = newVs++vertices g
+                     , faces = newFaces
+                     } where
+  allPhi = phiEdges g
+  newVs = makeNewVs (length allPhi `div` 2) (vertices g)
+  assocs = makeEVAssocs allPhi newVs []
+  newVFor e = v where Just v = lookup e assocs
+  newFaces = concatMap decompFace (faces g)
+  -- | makeEVAssocs edges vs assoc 
+  -- build a map associating a unique vertex from vs (list of new vertices) to each edge in edges
+  -- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
+  makeEVAssocs [] vs assoc = assoc
+  makeEVAssocs ((a,b):more) vs assoc = case lookup (a,b) assoc  of
+     Just _  -> makeEVAssocs more vs assoc
+     Nothing -> makeEVAssocs more (tail vs) assoc'
+                 where v = head vs
+                       assoc' = [((a,b),v),((b,a),v)] ++ assoc 
+  -- | main function to process a face in decomposition
+  -- producing new faces. 
+  -- It uses argument newVFor - a function to get the unique vertex assigned to each phi edge
+  decompFace fc = case fc of
+      RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
+        where x = newVFor (a,b)
+              y = newVFor (c,a)
+      LK(a,b,c) -> [LK(b,c,y), RK(b,y,x), LD(a,x,y)]
+        where x = newVFor (a,b)
+              y = newVFor (c,a)       
+      RD(a,b,c) -> [LK(a,x,c), RD(b,c,x)]
+        where x = newVFor (a,b)
+      LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
+        where x = newVFor (a,c)
+  
 -- | given existing vertices vs, create n new vertices
 makeNewVs :: Int -> [Vertex] -> [Vertex]
 makeNewVs n vs = [k+1..k+n] where k = maximum vs
@@ -535,28 +578,6 @@ makeNewVs n vs = [k+1..k+n] where k = maximum vs
 makeNewV :: [Vertex] -> Vertex
 makeNewV vs = 1+maximum vs
 
--- | newVAssocs edges vs assoc 
--- build a map associating a unique vertex from vs (list of new vertices) to each edge in edges
--- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
-newVAssocs [] vs assoc = assoc
-newVAssocs ((a,b):more) vs assoc = case lookup (a,b) assoc  of
-   Just _  -> newVAssocs more vs assoc
-   Nothing -> newVAssocs more (tail vs) ([((a,b),v),((b,a),v)] ++ assoc) where v = head vs
-
--- | main function to process a face in decomposition
--- producing new faces (accumulated in third argument). 
--- It uses argument findV - a function to get the unique vertex assigned to each phi edge
-processWith findV fc faces = case fc of
-    RK(a,b,c) -> RK(c,x,b): LK(c,y,x): RD(a,x,y) :faces
-      where Just x = findV (a,b)
-            Just y = findV (c,a)
-    LK(a,b,c) -> LK(b,c,y): RK(b,y,x): LD(a,x,y) :faces
-      where Just x = findV (a,b)
-            Just y = findV (c,a)       
-    RD(a,b,c) -> LK(a,x,c): RD(b,c,x) :faces
-      where Just x = findV (a,b)
-    LD(a,b,c) -> RK(a,b,x): LD(c,x,b) :faces
-      where Just x = findV (a,c)
 
 -- infinite list of decompositions of a graph     
 decompositionsG :: Tgraph -> [Tgraph]
@@ -1494,6 +1515,32 @@ forceLKC v g = recoverGraph bd3 where
     vFaces2 = facesAtBV bd2 v
     newk = head (vFaces2 \\ vFaces1)
     bd3 = doUpdate (completeHalf bd2 newk)
+
+{-------------
+ Experimental
+--------------}
+
+
+-- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
+allFComps:: Tgraph -> [Tgraph]
+allFComps g = takeWhile (not . nullGraph) $ iterate (composeG . force) g
+
+-- | allComps g produces a list of all compositions starting from g up to but excluding the empty graph
+-- This is not safe in general
+allComps:: Tgraph -> [Tgraph]
+allComps g = takeWhile (not . nullGraph) $ iterate composeG g
+
+
+-- maxCompose and maxFCompose count the number of compositions to get to a maximal graph.
+-- they return a pair of the maximal graph and the count
+maxCompose, maxFCompose:: Tgraph -> (Tgraph,Int)
+maxCompose g = (last comps, length comps - 1) where comps = allComps g
+maxFCompose g = (last comps, length comps - 1) where comps = allFComps g
+
+
+{----------------
+ Testing of Force
+-----------------}
 
 
 -- | stepForce and stepForceAll are used for testing

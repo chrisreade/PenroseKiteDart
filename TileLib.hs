@@ -157,9 +157,9 @@ experiment pc = emph pc <> (drawJPiece pc # dashingN [0.002,0.002] 0 # lw ultraT
 -- | A patch is a list of Located pieces (i.e. a point associated with originV)
 type Patch = [Located Piece]
 
--- | turn a patch into a diagram using cd for drawing pieces
+-- | turn a patch into a diagram using pd for drawing pieces
 patchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
-patchWith cd patch = position $ fmap (viewLoc . mapLoc cd) patch
+patchWith pd = position . fmap (viewLoc . mapLoc pd)
 
     
 -- | special case - turn patches to diagrams with drawPiece

@@ -213,14 +213,17 @@ empFoolD n = showEmplace fool n (1,3)
 empSunD  n = showEmplace sunGraph n (1,2)
 
 -- example emplacement figures
-empDartD3Fig,empDartD5Fig,empKiteD3Fig,empKiteD5Fig,empSunD5Fig:: Diagram B
+empDartD3Fig,empDartD4Fig,empDartD5Fig,empKiteD3Fig,empKiteD5Fig,empSunD5Fig:: Diagram B
 empDartD3Fig = padBorder $ empDartD 3 
+empDartD4Fig = padBorder $ empDartD 4 
 empDartD5Fig = padBorder $ empDartD 5
 
 empKiteD3Fig = padBorder $ empKiteD 3
 empKiteD5Fig = padBorder $ empKiteD 5
 
 empSunD5Fig = padBorder $ empSunD 5
+
+newEmpFig = padBorder $ hsep 1 $ [empDartD 4, empKiteD 4]
 
 
 {-
@@ -457,6 +460,11 @@ progressFigure = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
     , drawGraph $ recoverGraph $ stepForce 2200 g
     ] where g = boundaryGapFDart5
 
+gapProgress :: Diagram B
+gapProgress = lw ultraThin $ hsep 1 $ fmap center $ rotations [4,6]
+    [ dashJGraph g
+    , drawGraph $ recoverGraph $ stepForce 600 g
+    ] where g = boundaryGapFDart4
 
 {-  test for bigPic without arrows -}
 bigPic0:: Diagram B
@@ -572,7 +580,7 @@ checkGraphFromVP :: Diagram B
 checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
 
 
--- testing selectFacesGtoVP figure testing selectFacesGtoVP
+-- figure testing selectFacesGtoVP by removing all kites
 dartsOnlyFig :: Diagram B
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
