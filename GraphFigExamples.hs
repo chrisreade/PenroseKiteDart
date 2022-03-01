@@ -436,9 +436,15 @@ relatedVTypeFig = padBorder $
 -- graphs of the boundary faces only of a forced graph
 boundaryFDart4, boundaryFDart5 :: Tgraph
 boundaryFDart4 =  
-    checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ force (dartDs!!4)
+    checkTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!4)
 boundaryFDart5 =  
-    checkTgraph $ nub $ concat $ fmap snd $ vFaceAssoc $ makeBoundary $ force (dartDs!!5)
+    checkTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!5)
+{-
+boundaryFDart4 =  
+    checkTgraph $ nub $ concat $ Map.elems $ bvFacesMap $ makeBoundary $ force (dartDs!!4)
+boundaryFDart5 =  
+    checkTgraph $ nub $ concat $ Map.elems $ bvFacesMap $ makeBoundary $ force (dartDs!!5)
+-}
 
 -- graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph

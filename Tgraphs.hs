@@ -1,7 +1,7 @@
 module Tgraphs where
 
-import Data.List ((\\), lookup, intersect, nub, elemIndex, find)
-import qualified Data.Map as Map (Map, lookup, insert, empty, (!))
+import Data.List ((\\), intersect, nub, elemIndex, find)
+import qualified Data.Map as Map (Map, lookup, insert, empty, (!), elems, toList, fromList)
 import Data.Maybe (mapMaybe, isNothing)
 
 import HalfTile
@@ -307,11 +307,12 @@ General Purpose tools
 *********************
 -----------------------}
 
--- lists of pairs representing a finite partial function from a to b
-type AssocList a b = [(a,b)]
+-- Mapping representing a finite partial function from a to b
+type Mapping a b = Map.Map a b
+--type Mapping a b = [(a,b)]
 
-{- | mustFind is used frequently to search lists
-It returns the first item in the list satisfying predicate p and returns
+{- | mustFind is used frequently to search
+It returns the first item satisfying predicate p and returns
 err arg when none found       
 -}
 mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
@@ -396,7 +397,7 @@ partCompose g = (remainder,checkTgraph newFaces)
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , largeDartBases  :: [Vertex]
                        , unknowns :: [Vertex]
-                       , vGroup :: Map.Map Vertex [TileFace] --AssocList Vertex [TileFace]
+                       , vGroup :: Map.Map Vertex [TileFace] --Mapping Vertex [TileFace]
                        } deriving Show
                        
 -- | classifyDartWings classifies all dart wing tips
@@ -534,43 +535,6 @@ decomposeG g = Tgraph{ vertices = newVs++vertices g
         where x = newVFor (a,b)
       LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
         where x = newVFor (a,c)
-
-
-{- Older version using association lists
--- \ decomposeG is deterministic and should never fail with a correct Tgraph
-decomposeG :: Tgraph -> Tgraph
-decomposeG g = Tgraph{ vertices = newVs++vertices g
-                     , faces = newFaces
-                     } where
-  allPhi = phiEdges g
-  newVs = makeNewVs (length allPhi `div` 2) (vertices g)
-  assocs = makeEVAssocs allPhi newVs []
-  newVFor e = v where Just v = lookup e assocs
-  newFaces = concatMap decompFace (faces g)
-  -- | makeEVAssocs edges vs assoc 
-  -- build a map associating a unique vertex from vs (list of new vertices) to each edge in edges
-  -- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
-  makeEVAssocs [] vs assoc = assoc
-  makeEVAssocs ((a,b):more) vs assoc = case lookup (a,b) assoc  of
-     Just _  -> makeEVAssocs more vs assoc
-     Nothing -> makeEVAssocs more (tail vs) assoc'
-                 where v = head vs
-                       assoc' = [((a,b),v),((b,a),v)] ++ assoc 
-  -- | main function to process a face in decomposition
-  -- producing new faces. 
-  -- It uses argument newVFor - a function to get the unique vertex assigned to each phi edge
-  decompFace fc = case fc of
-      RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
-        where x = newVFor (a,b)
-              y = newVFor (c,a)
-      LK(a,b,c) -> [LK(b,c,y), RK(b,y,x), LD(a,x,y)]
-        where x = newVFor (a,b)
-              y = newVFor (c,a)       
-      RD(a,b,c) -> [LK(a,x,c), RD(b,c,x)]
-        where x = newVFor (a,b)
-      LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
-        where x = newVFor (a,c)
--}
   
 -- | given existing vertices vs, create n new vertices
 makeNewVs :: Int -> [Vertex] -> [Vertex]
@@ -604,22 +568,22 @@ wholeTiles = recoverGraph . forceAll wholeTileUpdates . makeBoundary
 
 {- | A Boundary records
 the boundary directed edges plus 
-an association list of the faces incident with each boundary vertex, plus
-an association list of position for each boundary vertex.
+a mapping of boundary vertices to their incident faces, plus
+a mapping of boundary vertices to positions.
 It also keeps track of all the faces and vertices, 
 and the next vertex label to be used when adding a new vertex.
-Note that vFaceAssoc is initially only defined for boundary vertices,
+Note that bvFacesMap is initially only defined for boundary vertices,
 but the information is not removed when a vertex is no longer on the boundary (after an update).
-Similarly for vPointAssoc.
+Similarly for bvLocMap.
 -}
 data Boundary 
   = Boundary
-    { bDedges::[(Vertex,Vertex)]  -- boundary directed edges
-    , vFaceAssoc::AssocList Vertex [TileFace] -- faces at each boundary vertex
-    , vPointAssoc:: AssocList Vertex (Point V2 Double)  -- position of each boundary vertex
-    , allFaces::[TileFace]
-    , allVertices::[Vertex]
-    , nextVertex::Vertex
+    { bDedges:: [(Vertex,Vertex)]  -- boundary directed edges
+    , bvFacesMap:: Mapping Vertex [TileFace] -- faces at each boundary vertex
+    , bvLocMap:: Mapping Vertex (Point V2 Double)  -- position of each boundary vertex
+    , allFaces:: [TileFace]
+    , allVertices:: [Vertex]
+    , nextVertex::  Vertex
     } deriving (Show)
 
 -- | makeBoundary: calculate Boundary information from a Tgraph
@@ -627,12 +591,14 @@ makeBoundary:: Tgraph -> Boundary
 makeBoundary g = 
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
-      bvLocs = filter ((`elem` bvs) . fst) $ createVPoints (faces g) 
+      bvLocs = Map.fromList $ filter ((`elem` bvs) . fst) $ Map.toList $ createVPoints (faces g) 
+--      bvLocs = filter ((`elem` bvs) . fst) $ createVPoints (faces g) 
                   -- if there were no holes, could restrict to boundary faces only
   in Boundary
       { bDedges = bdes
-      , vFaceAssoc = fmap (\v -> (v, filter (isAtV v) (faces g))) bvs
-      , vPointAssoc = bvLocs 
+      , bvFacesMap = Map.fromList $ fmap (\v -> (v, filter (isAtV v) (faces g))) bvs
+--      , bvFacesMap = fmap (\v -> (v, filter (isAtV v) (faces g))) bvs
+      , bvLocMap = bvLocs 
       , allFaces = faces g
       , allVertices = vertices g
       , nextVertex = makeNewV (vertices g)
@@ -747,9 +713,9 @@ doSafeUpdate (Just v, makeFace, bd) =
        newfDedges = fDedges \\ matchedDedges
        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace)
        result = Boundary { bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
-                         , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
+                         , bvFacesMap = changeVFMap (faceVList newFace) newFace (bvFacesMap bd)
                          , allFaces = newFace:allFaces bd
-                         , vPointAssoc = vPointAssoc bd  -- no change
+                         , bvLocMap = bvLocMap bd  -- no change
                          , allVertices = allVertices bd
                          , nextVertex = nextVertex bd
                          }
@@ -774,17 +740,17 @@ tryUpdate (Just _ , makeFace, bd) = error "tryUpdate: applied to safe update "
 tryUpdate (Nothing, makeFace, bd) = 
    let v = nextVertex bd       
        newFace = makeFace v
-       oldVPoints = vPointAssoc bd
+       oldVPoints = bvLocMap bd
        newVPoints = addVPoints [newFace] [] oldVPoints
-       Just vPosition = lookup v newVPoints
+       Just vPosition = Map.lookup v newVPoints
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd
        newfDedges = fDedges \\ matchedDedges
        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
        result = Boundary 
                          { bDedges = fmap reverseE newfDedges ++ (bDedges bd \\ matchedDedges)
-                         , vFaceAssoc = changeVFAssoc (faceVList newFace) newFace (vFaceAssoc bd)
-                         , vPointAssoc = newVPoints
+                         , bvFacesMap = changeVFMap (faceVList newFace) newFace (bvFacesMap bd)
+                         , bvLocMap = newVPoints
                          , allFaces = newFace:allFaces bd
                          , allVertices = v:allVertices bd
                          , nextVertex = v+1
@@ -809,10 +775,10 @@ New Boundary Location calculation and touching vertex checking
 
 requires Diagrams.Prelude for points etc.  plus ttangle and phi from TileLib
 ------------------------------------------------------------------------------}
-touchCheck:: (Point V2 Double) -> AssocList a (Point V2 Double) -> Bool
-touchCheck p assocV = 
+touchCheck:: (Point V2 Double) -> Mapping a (Point V2 Double) -> Bool
+touchCheck p vpMap = 
   if touchCheckOn 
-  then any (tooClose p) (fmap snd assocV) 
+  then any (tooClose p) (Map.elems vpMap) -- (fmap snd vpMap) 
   else False
 
 tooClose :: Point V2 Double  -> Point V2 Double -> Bool
@@ -828,108 +794,78 @@ sqLength vec = dot vec vec
        touching vertex checks and also
        to make VPatches and Patches in GraphConvert
 -}
-createVPoints:: [TileFace] -> AssocList Vertex (Point V2 Double)
-createVPoints [] = []
+createVPoints:: [TileFace] -> Mapping Vertex (Point V2 Double)
+createVPoints [] = Map.empty
 createVPoints (face:more) = addVPoints [face] more (initJoin face)
 
-{- | addVPoints readyfaces fcOther assocV
+{- | addVPoints readyfaces fcOther vpMap
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
 each will have at least two known vertex points.
 The second argument list of faces (fcOther) have not yet been added and may not yet have known vertex points.
 The third argument is the association list for (vertices,points).
 -}
-addVPoints:: [TileFace] -> [TileFace] -> AssocList Vertex (Point V2 Double) -> AssocList Vertex (Point V2 Double)
-addVPoints [] [] assocV = assocV 
-addVPoints [] fcOther assocV = error ("addVPoints: Faces not face-edge connected " ++ show fcOther)
-addVPoints (fc:fcs) fcOther assocV = addVPoints (fcs++fcs') fcOther' assocV' where
-  assocV' = case thirdVertexLoc fc assocV of
-             Just pr -> pr : assocV
-             Nothing -> assocV
+addVPoints:: [TileFace] -> [TileFace] -> Mapping Vertex (Point V2 Double) -> Mapping Vertex (Point V2 Double)
+addVPoints [] [] vpMap = vpMap 
+addVPoints [] fcOther vpMap = error ("addVPoints: Faces not face-edge connected " ++ show fcOther)
+addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
+  vpMap' = case thirdVertexLoc fc vpMap of
+             Just (v,p) -> Map.insert v p vpMap
+             Nothing -> vpMap
   (fcs', fcOther')   = edgeNbs fc fcOther
 
 -- | initJoin fc 
--- initialises an assocV with locations for join edge vertices of fc along x axis - used to initialise createVPoints
-initJoin::TileFace -> AssocList Vertex (Point V2 Double)                
-initJoin (LD(a,b,_)) = [(a,origin), (b, p2(1,0))]
-initJoin (RD(a,_,c)) = [(a,origin), (c, p2(1,0))]
-initJoin (LK(a,_,c)) = [(a,origin), (c, p2(phi,0))]
-initJoin (RK(a,b,_)) = [(a,origin), (b, p2(phi,0))]
+-- initialises an vpMap with locations for join edge vertices of fc along x axis - used to initialise createVPoints
+initJoin::TileFace -> Mapping Vertex (Point V2 Double)                
+initJoin (LD(a,b,_)) = Map.insert a origin $ Map.insert b (p2(1,0)) Map.empty -- [(a,origin), (b, p2(1,0))]
+initJoin (RD(a,_,c)) = Map.insert a origin $ Map.insert c (p2(1,0)) Map.empty --[(a,origin), (c, p2(1,0))]
+initJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty --[(a,origin), (c, p2(phi,0))]
+initJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
 
 -- lookup 3 vertex locations
-find3Locs (v1,v2,v3) assocV = (lookup v1 assocV, lookup v2 assocV, lookup v3 assocV)
+find3Locs (v1,v2,v3) vpMap = (Map.lookup v1 vpMap, Map.lookup v2 vpMap, Map.lookup v3 vpMap)
 
-{- | thirdVertexLoc fc assocV
+{- | thirdVertexLoc fc vpMap
 
 New Version - Assumes all edge lengths are 1 or phi
 It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
 
-     thirdVertexLoc fc assocV
+     thirdVertexLoc fc vpMap
      where fc is a tileface and
-     assocV associates points with vertices (positions)
-     It looks up all 3 vertices in assocV hoping to find 2 of them, it then returns Just pr
+     vpMap associates points with vertices (positions)
+     It looks up all 3 vertices in vpMap hoping to find 2 of them, it then returns Just pr
      where pr is an association pair for the third vertex.
      If all 3 are found, returns Nothing
      If none or one found this is an error (a non face-connected face)
 -}
-thirdVertexLoc:: TileFace -> AssocList Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
-thirdVertexLoc fc@(LD _) assocV = case find3Locs (faceVs fc) assocV of
+thirdVertexLoc:: TileFace -> Mapping Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
+thirdVertexLoc fc@(LD _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
   (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
 
-thirdVertexLoc fc@(RD _) assocV = case find3Locs (faceVs fc) assocV of
+thirdVertexLoc fc@(RD _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = signorm (rotate (ttangle 3) (loc2 .-. loc3))
   (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
  
-thirdVertexLoc fc@(LK _) assocV = case find3Locs (faceVs fc) assocV of
+thirdVertexLoc fc@(LK _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
   (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
  
-thirdVertexLoc fc@(RK _) assocV = case find3Locs (faceVs fc) assocV of
+thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
   (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
 
-{- | OLD VERSION - accuraccy errors become exaggerated in large graphs (replaced using signorm)
-thirdVertexLoc:: TileFace -> AssocList Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
-thirdVertexLoc fc@(LD _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^rotate (ttangle 9) (loc2 .-. loc1)
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = rotate (ttangle 7) (loc3 .-. loc2)
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 1) (loc3 .-. loc1)
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
-
-thirdVertexLoc fc@(RD _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = (phi-1)*^rotate (ttangle 9) (loc2 .-. loc1)
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = rotate (ttangle 3) (loc2 .-. loc3)
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^rotate (ttangle 1) (loc3 .-. loc1)
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
- 
-thirdVertexLoc fc@(LK _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 9) (loc2 .-. loc1)
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^rotate (ttangle 8) (loc3 .-. loc2)
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = rotate (ttangle 1) (loc3 .-. loc1)
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
- 
-thirdVertexLoc fc@(RK _) assocV = case find3Locs (faceVs fc) assocV of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = rotate (ttangle 9) (loc2 .-. loc1)
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^rotate (ttangle 8) (loc3 .-. loc2)
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = rotate (ttangle 1) (loc3 .-. loc1)
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not face-connected?: " ++ show fc)
--}
 
 -- | for a given face, find edge neighbouring faces in the supplied list of faces
 -- returns a pair - the list of the ones found followed by the supplied list with these removed
@@ -949,18 +885,21 @@ noConflict fc fcs = null (faceDedges fc `intersect` concatMap faceDedges fcs) &&
                     null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
                     null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
 
--- | changeVFAssoc vs f assoc  - adds f to the list of faces associated with each v in vs
-changeVFAssoc:: Eq v => [v] -> f -> [(v,[f])] -> [(v,[f])]
-changeVFAssoc vs f assoc = foldl (changeV f) assoc vs
-  where changeV f assoc v = case lookup v assoc of
-                            Just fs -> (v,f:fs): assoc
-                            Nothing -> (v,[f]) : assoc
+-- | changeVFMap vs f vfmap  - adds f to the list of faces associated with each v in vs
+changeVFMap:: [Vertex] -> TileFace -> Map.Map Vertex [TileFace] -> Map.Map Vertex [TileFace]
+changeVFMap vs f vfmap = foldl (changeV f) vfmap vs
+  where changeV f vfmap v = case Map.lookup v vfmap of
+                            Just fs -> Map.insert v (f:fs) vfmap
+                            Nothing -> Map.insert v [f] vfmap
 
 -- | facesAtBV bd v - returns the faces found at v which should be a boundary vertex
 facesAtBV:: Boundary -> Vertex -> [TileFace]
-facesAtBV bd v = case lookup v (vFaceAssoc bd) of
+facesAtBV bd v = case Map.lookup v (bvFacesMap bd) of
             Just fcs -> fcs
             Nothing -> error ("facesAtBV: no faces found at boundary vertex " ++ show v)
+            
+boundaryFaces :: Boundary -> [TileFace]
+boundaryFaces = nub . concat . Map.elems . bvFacesMap
 
 {-
 boundaryFilter: requires a predicate and a Boundary

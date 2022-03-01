@@ -8,7 +8,8 @@ import HalfTile
 import TileLib
 import Tgraphs
 
-import Data.List ((\\), lookup, find)
+import Data.List ((\\), find)
+import qualified Data.Map as Map (Map, lookup, toList, fromList)
 import Data.Maybe (mapMaybe)
 
 import Diagrams.Prelude
@@ -49,23 +50,23 @@ instance Transformable VPatch where
 An empty graph is a special case.
 Otherwise
 Use chooseLowest to choose a starting face (placed at front of list of faces of g)
-Then use createVPoints to form the association list (assocV)
-Then convert original faces to located hybrids using makeLHyb and assocV 
-and convert assocV to located vertices using locateV
+Then use createVPoints to form a mapping of vertices to positions vpMap
+Then convert original faces to located hybrids using makeLHyb and vpMap 
+and convert vpMap to located vertices using locateV and Map.toList
 to form a VPatch
 -}
 makeVPatch::Tgraph -> VPatch
 makeVPatch g = if nullGraph g 
                then VPatch { lVertices = [], lHybrids = [] }
-               else VPatch { lVertices = fmap locateV assocV
+               else VPatch { lVertices = fmap locateV (Map.toList vpMap)
                            , lHybrids  = fmap makeLHyb $ faces g
                            }
     where
     (face:more) = chooseLowest (faces g)
 --    (assocV,_) = buildVEAssocs [face] more [(originV face,origin)] (initJvec face)
-    assocV = createVPoints $ chooseLowest $ faces g
+    vpMap = createVPoints $ chooseLowest $ faces g
     locateV (v,p) = v `at` p
-    makeLHyb fc = case (lookup (originV fc) assocV , lookup (oppV fc) assocV) of
+    makeLHyb fc = case (Map.lookup (originV fc) vpMap , Map.lookup (oppV fc) vpMap) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
 
@@ -243,17 +244,17 @@ dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
 {------------------- NEEDS WORK FOR GENERAL TESTING ---------------------------}
 -- displaying the boundary of a Tgraph in lime
 showGBoundary :: Tgraph -> Diagram B
-showGBoundary g =  (lc lime $ drawEdges assocV bd) <> drawVPatch vp where
+showGBoundary g =  (lc lime $ drawEdges vpMap bd) <> drawVPatch vp where
     vp = makeVPatch g
-    assocV = fmap viewLoc' (lVertices vp)
+    vpMap = Map.fromList $ fmap viewLoc' (lVertices vp)
     bd = boundaryDedges g
 
-drawEdges :: [(Vertex, Point V2 Double)] -> [(Vertex,Vertex)] -> Diagram B
-drawEdges assocV [] = mempty
-drawEdges assocV (e:more) = drawEdge assocV e <> drawEdges assocV more
-drawEdge assocV (a,b) = case (lookup a assocV, lookup b assocV) of
+drawEdges :: Mapping Vertex (Point V2 Double) -> [(Vertex,Vertex)] -> Diagram B
+drawEdges vpMap [] = mempty
+drawEdges vpMap (e:more) = drawEdge vpMap e <> drawEdges vpMap more
+drawEdge vpMap (a,b) = case (Map.lookup a vpMap, Map.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
-                         _ -> error ("showBoundary: drawEdge of "++ show(a,b))
+                         _ -> error ("drawEdge: location not found for both vertices "++ show(a,b))
 
 viewLoc' :: Located Vertex -> (Vertex, Point V2 Double)
 viewLoc' lp = (v,p) where (p,v) = viewLoc lp
@@ -267,8 +268,7 @@ viewLoc' lp = (v,p) where (p,v) = viewLoc lp
 -}
 viewBoundary :: [Int] -> Boundary -> Diagram B
 viewBoundary rots bd =  lc lime bdryFig <> graphFig where 
-    [bdryFig, graphFig] = fmap center $ rotations rots [drawEdges assocV bdE, center $ drawVGraph g]
+    [bdryFig, graphFig] = fmap center $ rotations rots [drawEdges vpMap bdE, center $ drawVGraph g]
     g = recoverGraph bd
-    assocV = vPointAssoc bd
+    vpMap = bvLocMap bd
     bdE = bDedges bd
-
