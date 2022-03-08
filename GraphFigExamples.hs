@@ -454,9 +454,9 @@ boundaryFDart5 =
 -- graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
 boundaryGapFDart4 =   
-    checkTgraph $ filter ((/=200).originV)  (faces boundaryFDart4)
+    checkTgraph $ filter ((/=250).originV)  (faces boundaryFDart4)
 boundaryGapFDart5 =   
-    checkTgraph $ filter ((/=1410).originV) (faces boundaryFDart5)
+    checkTgraph $ filter ((/=1226).originV) (faces boundaryFDart5)
 
 -- figures for the above boundary gap graphs
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
@@ -465,18 +465,18 @@ boundaryGap5Fig = lw ultraThin $ drawVGraph $ boundaryGapFDart5
 
 -- showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
 -- using stepForce 2000
-progressFigure :: Diagram B
-progressFigure = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
+gapProgress5 :: Diagram B
+gapProgress5 = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
     [ dashJGraph g
     , drawGraph $ recoverGraph $ stepForce 2000 g
     ] where g = boundaryGapFDart5
 
 -- showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
--- using stepForce 550
-gapProgress :: Diagram B
-gapProgress = lw ultraThin $ hsep 1 $ fmap center $ rotations [4,6]
+-- using stepForce 600
+gapProgress4 :: Diagram B
+gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
     [ dashJGraph g
-    , drawGraph $ recoverGraph $ stepForce 550 g
+    , drawGraph $ recoverGraph $ stepForce 600 g
     ] where g = boundaryGapFDart4
 
 {-
@@ -597,6 +597,9 @@ testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart5
 inspectForce5 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
                 viewBoundary [] $ stepForce n $ boundaryGapFDart5
+
+inspectBug n = padBorder $ lw ultraThin $
+                viewBoundary [3] $ stepForce n $ dartDs !! 3
 
 
 -- figures showing boundary edges of the boundary gaps graphs  
