@@ -142,6 +142,7 @@ connectedTo :: Eq a => a -> [a] -> [(a, a)] -> [a]
 connectedTo v unvisited edges = dfs [] [v] (unvisited \\[v]) where 
 -- depth first search arguments:  processed, visited, unvisited
   dfs done vs [] = vs++done
+  dfs done [] unvisited = done -- any unvisited not connected
   dfs done (x:visited) unvisited 
      = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
        where nextVs = map snd $ filter ((== x) . fst) edges
@@ -334,27 +335,33 @@ DECOMPOSING - decomposeG
 **************************************
 ----------------------------------}
 
+
 -- \ decomposeG is deterministic and should never fail with a correct Tgraph
 decomposeG :: Tgraph -> Tgraph
 decomposeG g = Tgraph{ vertices = newVs++vertices g
                      , faces = newFaces
                      } where
+    (newVs , newVFor) = newVPhiMap g
+    newFaces = concatMap (decompFace newVFor) (faces g)
+
+-- | newVPhiMap g produces newVs - a list of new vertices (one for each phi edge of v)
+--   and a function mapping each phi edge to its assigned vertex in newVs
+--   The map is built using buildMap and both (a,b) and (b,a) get the same v   
+newVPhiMap :: Tgraph -> ([Vertex], (Vertex, Vertex) -> Vertex)
+newVPhiMap g = (newVs, (Map.!) $ buildMap allPhi newVs Map.empty) where
   allPhi = phiEdges g
   newVs = makeNewVs (length allPhi `div` 2) (vertices g)
-  newVFor = (Map.!) (buildMap allPhi newVs Map.empty)
-  newFaces = concatMap decompFace (faces g)
--- buildMap edges vs m 
--- build a map associating a unique vertex from vs (list of new vertices) to each edge in edges
--- assumes vs is long enough, and both (a,b) and (b,a) get the same v   
   buildMap [] vs m = m
   buildMap ((a,b):more) vs m = case Map.lookup (a,b) m  of
     Just _  -> buildMap more vs m
     Nothing -> buildMap more (tail vs) (Map.insert (a,b) v (Map.insert (b,a) v m))
                where v = head vs
+
   -- | decompFace to process a face in decomposition
   -- producing new faces. 
-  -- It uses newVFor - a function to get the unique vertex assigned to each phi edge
-  decompFace fc = case fc of
+  -- It uses a newVFor - a function to get the unique vertex assigned to each phi edge
+decompFace:: ((Vertex,Vertex)->Vertex) -> TileFace -> [TileFace]
+decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
         where x = newVFor (a,b)
               y = newVFor (c,a)
@@ -365,7 +372,7 @@ decomposeG g = Tgraph{ vertices = newVs++vertices g
         where x = newVFor (a,b)
       LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
         where x = newVFor (a,c)
-  
+     
 -- | given existing vertices vs, create n new vertices
 makeNewVs :: Int -> [Vertex] -> [Vertex]
 makeNewVs n vs = [k+1..k+n] where k = maximum vs
@@ -373,17 +380,13 @@ makeNewVs n vs = [k+1..k+n] where k = maximum vs
 makeNewV :: [Vertex] -> Vertex
 makeNewV vs = 1+maximum vs
 
+            
 
 -- infinite list of decompositions of a graph     
 decompositionsG :: Tgraph -> [Tgraph]
 decompositionsG = iterate decomposeG
 
 
-
-
-
-
- 
 {-------------------------------------------------------------------------
 ******************************************** *****************************              
 COMPOSING composeG and partCompose 
@@ -563,12 +566,11 @@ NEW FORCING with
 {- |
 Changes for Incremented Update Maps
 Update Map is from directed edges to Updates
-Update finding functions take an additional directed edge predicate argument to restrict their search
+Update finding functions take an additional argument to restrict their search.
 Update returning functions pair with a directed edge to add to an update map
 Completion of updates (doSafeUpdate, tryUnsafes) return a boundary with changes information
 (type BoundaryChange)
-The BoundaryChange is used to alter the update map (updating updates) with 
-
+The BoundaryChange is used to alter the update map (updating updates) with reviseUpdates
 UpdateGenerator is the type for the functions implementing the forcing rules
 -}
 
@@ -631,13 +633,14 @@ type UpdateMap = Mapping DEdge Update
 -- | The force state records information between single face updates during forcing
 -- (a Boundary and an UpdateMap)
 data ForceState = ForceState 
-                   { boundary:: Boundary
+                   { boundaryState:: Boundary
                    , updateMap:: UpdateMap 
                    }
 
--- | UpdateGenerator is the type of functions which change the UpdateMap (given a boundary and edge predicate)
+-- | UpdateGenerator is the type of functions which change the UpdateMap (given a Boundary and focus edge list)
 -- Such functions implement the forcing rules
-type UpdateGenerator = Boundary -> (DEdge->Bool) -> UpdateMap -> UpdateMap
+type UpdateGenerator = Boundary -> [DEdge] -> UpdateMap -> UpdateMap
+-- type UpdateGenerator = Boundary -> (DEdge->Bool) -> UpdateMap -> UpdateMap  ---------------- Predicate version
 
 {- | BoundaryChange records a new boundary after an update
      plus edges which are no longer on the boundary
@@ -649,8 +652,9 @@ type UpdateGenerator = Boundary -> (DEdge->Bool) -> UpdateMap -> UpdateMap
 data BoundaryChange = BoundaryChange 
                        { newBoundary:: Boundary
                        , removedEdges:: [DEdge]
-                       , isRevisedEdge :: DEdge -> Bool
-                       } 
+                       , revisedEdges :: [DEdge] 
+--                       , isRevisedEdge :: DEdge -> Bool  ------------------------------------ Predicate version
+                       } deriving (Show)
 
 -- | The main force function using allUGenerator representing all 10 rules
 force:: Tgraph -> Tgraph
@@ -666,18 +670,18 @@ wholeTiles = forceWith wholeTileUpdates
      then gets boundary from state and converts back to a Tgraph
 -}
 forceWith:: UpdateGenerator -> Tgraph -> Tgraph
-forceWith uGen = recoverGraph . boundary . forceAll uGen . initForceState uGen
+forceWith uGen = recoverGraph . boundaryState . forceAll uGen . initForceState uGen
 
 {- | forceAll uGen recursively does updates using uGen until there are no more updates, 
 -}
 forceAll :: UpdateGenerator -> ForceState -> ForceState
 forceAll uGen = retry where
   retry fs = case findSafeUpdate (updateMap fs) of
-               Just u -> retry $ ForceState{ boundary = newBoundary bdChange, updateMap = umap}
-                          where bdChange = doSafeUpdate (boundary fs) u
+               Just u -> retry $ ForceState{ boundaryState = newBoundary bdChange, updateMap = umap}
+                          where bdChange = doSafeUpdate (boundaryState fs) u
                                 umap = reviseUpdates uGen bdChange (updateMap fs)
                _  -> case tryUnsafes fs of
-                      Just bdC -> retry $ ForceState{ boundary = newBoundary bdC, updateMap = umap}
+                      Just bdC -> retry $ ForceState{ boundaryState = newBoundary bdC, updateMap = umap}
                                   where umap = reviseUpdates uGen bdC (updateMap fs)
                       Nothing  -> fs           -- no more updates
 
@@ -685,16 +689,18 @@ forceAll uGen = retry where
      and using uGen on all boundary edges to initialise updateMap
 -}
 initForceState :: UpdateGenerator -> Tgraph -> ForceState
-initForceState uGen g = ForceState{ boundary = bd , updateMap = umap } where
+initForceState uGen g = ForceState { boundaryState = bd , updateMap = umap } where
      bd = makeBoundary g
-     umap = uGen bd (\_ -> True) Map.empty
+     umap = uGen bd (bDedges bd) Map.empty 
+--     umap = uGen bd (\_ -> True) Map.empty ------------------------------------------- Predicate version
 
 -- | reviseUpdates uGen updates the UpdateMap after a boundary change
 -- using uGen to calculate new updates
 reviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> UpdateMap
-reviseUpdates uGen bdc umap = umap'' where
-           umap' = foldr Map.delete umap (removedEdges bdc)
-           umap'' = uGen (newBoundary bdc) (isRevisedEdge bdc) umap'
+reviseUpdates uGen bdChange umap = umap'' where
+  umap' = foldr Map.delete umap (removedEdges bdChange)
+  umap'' = uGen (newBoundary bdChange) (revisedEdges bdChange) umap' 
+--           umap'' = uGen (newBoundary bdc) (isRevisedEdge bdc) umap'   ------------------- Predicate version
 
 -- | safe updates are those which do not require a new vertex, 
 -- so have an identified existing vertex (Just v)
@@ -710,7 +716,7 @@ isSafeUpdate (Nothing, _ ) = False
 -}
 tryUnsafes:: ForceState -> Maybe BoundaryChange
 tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
-    bd = boundary fs
+    bd = boundaryState fs
     tryList [] = Nothing
     tryList (u: more) = case tryUpdate bd u of
                           Nothing -> tryList more
@@ -741,7 +747,8 @@ doSafeUpdate bd (Just v, makeFace) =
        bdChange = BoundaryChange 
                    { newBoundary = resultBd
                    , removedEdges = matchedDedges
-                   , isRevisedEdge = affectedBoundary newDedges
+                   , revisedEdges = affectedBoundary resultBd newDedges
+--                   , isRevisedEdge = affectedBoundary newDedges  --------------------------- Predicate version
                    }
    in if noConflict newFace nbrFaces then bdChange else
       error ("doSafeUpdate:(incorrect tiling)\nConflicting new face  "
@@ -782,7 +789,8 @@ tryUpdate bd (Nothing, makeFace) =
        bdChange = BoundaryChange 
                     { newBoundary = resultBd
                     , removedEdges = matchedDedges
-                    , isRevisedEdge = affectedBoundary newDedges
+                    , revisedEdges = affectedBoundary resultBd newDedges
+--                    , isRevisedEdge = affectedBoundary newDedges  ------------------------------------ Predicate version
                     }
    in if touchCheck vPosition oldVPoints -- always False if touchCheckOn = False
       then Nothing -- don't proceed - v is a touching vertex
@@ -809,10 +817,16 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
      For an unsafe update this will be true of
      4 edges including the 2 new ones
 -}
-affectedBoundary :: [DEdge] -> (DEdge -> Bool)
+affectedBoundary :: Boundary -> [DEdge] -> [DEdge]
+affectedBoundary bd edges = filter incidentEdge (bDedges bd) where
+      bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
+      incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
+{-
+affectedBoundary :: [DEdge] -> (DEdge -> Bool)   ------------------------------------ Predicate version
 affectedBoundary edges = incidentEdge where
       bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
       incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
+-}
 
 
 
@@ -1038,14 +1052,15 @@ allUGenerator bd predE = link generators id where
 
 -- | UFinder (Update case finder function) produces pairs of a boundary directed edge with
 -- the tileface sharing that edge (using a particular force rule)
-type UFinder = Boundary -> (DEdge->Bool) -> [(DEdge,TileFace)]
+type UFinder = Boundary -> [DEdge] -> [(DEdge,TileFace)]
+-- type UFinder = Boundary -> (DEdge->Bool) -> [(DEdge,TileFace)]  ------------------------------------ Predicate version
 
 -- | UMaker (Update creator function) produces an Update for a boundary tile face
 -- (using a particular rule)
 type UMaker = Boundary -> TileFace -> Update
 
  {- |  boundaryFilter: This is a general purpose function used to create UFinder functions for each force rule
- It requires a face predicate and a Boundary and a focus (predicate on boundary directed edges).
+ It requires a face predicate and a Boundary and a focus (restricted list of boundary directed edges).
  The face predicate takes a boundary bd, a boundary directed edge (a,b) and a tileface at 'a' (the first vertex of the edge)
  and decides whether the face is wanted or not (True = wanted)
  This is then used to filter all the faces at the focus edges.
@@ -1054,12 +1069,21 @@ type UMaker = Boundary -> TileFace -> Update
  (eg kiteWDO in kitesWingDartOrigin) 
  -}
 boundaryFilter::  (Boundary -> DEdge -> TileFace -> Bool) -> UFinder
-boundaryFilter predFace bd focus =  
-    [ (e,fc) | e <- bDedges bd
-             , focus e
+boundaryFilter predF bd focus = 
+    [ (e,fc) | e <- focus 
+             , fc <- facesAtBV bd (fst e)
+             , predF bd e fc
+             ]
+{-
+boundaryFilter predFace bd focus =   
+    [ (e,fc) | e <- bDedges bd            ------------------------------------ Predicate version
+             , focus e                    ------------------------------------ Predicate version
              , fc <- facesAtBV bd (fst e)
              , predFace bd e fc
              ]
+-}
+
+
 {-
 ------------------  FORCING CASES  ----------------------------
 -}
@@ -1070,9 +1094,9 @@ boundaryFilter predFace bd focus =
      This is used to make all of the 10 update generators corresponding to 10 rules   
 -}
 makeGenerator :: UMaker -> UFinder -> UpdateGenerator
-makeGenerator makeU finder bd pred umap = umap' where
+makeGenerator makeU finder bd edges umap = umap' where 
     umap' = foldr insertPair umap newPairs
-    newPairs = fmap (second (makeU bd)) (finder bd pred)
+    newPairs = fmap (second (makeU bd)) (finder bd edges)
 
 
 -- | update generator for rule (1)
@@ -1621,6 +1645,20 @@ forceLKC v g = recoverGraph bd3 where
 {-------------
  Experimental
 --------------}
+data GraphSub = GraphSub{ fullGraph:: Tgraph, trackedFaces::[TileFace]}
+
+makeGS :: Tgraph -> [TileFace] -> GraphSub
+makeGS g fcs = GraphSub{ fullGraph = g, trackedFaces = fcs `intersect` faces g}
+
+trackedDecomp (GraphSub{ fullGraph = g, trackedFaces = fcs}) = makeGS g' fcs' where
+   g' = Tgraph{ vertices = newVs++vertices g
+              , faces = newFaces
+              }
+   (newVs , newVFor) = newVPhiMap g
+   newFaces = concatMap (decompFace newVFor) (faces g)
+   fcs' = concatMap (decompFace newVFor) fcs
+
+trackedForce (GraphSub{ fullGraph = g, trackedFaces = fcs}) = makeGS (force g) fcs
 
 
 -- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
@@ -1659,26 +1697,34 @@ testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces 
  Testing of Force  Awaiting Clean up and generalising
 -----------------}
 
-
-
+instance Show ForceState where
+    show fs = "ForceState{ boundaryState = ...\nbDedges = "
+               ++ show (bDedges $ boundaryState fs) 
+               ++ ",\nupdateMap = "
+               ++ show (fmap (\(e,(mv,_)) -> (e,mv)) $ Map.assocs $ updateMap fs) ++ " }\n"
 -- | stepForce and stepForceAll and stepF are used for testing
--- stepForce  produces intermediate Boundaries after a given number of steps (face additions)
-stepForce :: Int -> Tgraph -> Boundary
-stepForce n g = boundary $ stepForceAll allUGenerator n $ initForceState allUGenerator g
+-- stepForce  produces an intermediate state after a given number of steps (face additions)
+stepForce :: Int -> Tgraph -> ForceState
+stepForce n g = stepForceAll allUGenerator n $ initForceState allUGenerator g
 
 -- | used by stepForce
 stepForceAll :: UpdateGenerator -> Int -> ForceState -> ForceState
 stepForceAll updateGen = count where
   count 0 fs = fs
-  count n fs = count (n-1) (stepF updateGen fs)
+  count n fs = case oneStepWith updateGen fs of
+                Nothing -> fs
+                Just (fs',bdc) ->  count (n-1) fs'
 
-stepF :: UpdateGenerator -> ForceState -> ForceState
-stepF uGen fs = 
+oneStepWith :: UpdateGenerator -> ForceState -> Maybe (ForceState,BoundaryChange)
+oneStepWith uGen fs = 
       case findSafeUpdate (updateMap fs) of
-      Just u -> ForceState{ boundary = newBoundary bdChange, updateMap = umap}
-                where bdChange = doSafeUpdate (boundary fs) u
+      Just u -> Just (ForceState{ boundaryState = newBoundary bdChange, updateMap = umap},bdChange)
+                where bdChange = doSafeUpdate (boundaryState fs) u
                       umap = reviseUpdates uGen bdChange (updateMap fs)
       _  -> case tryUnsafes fs of
-            Just bdC -> ForceState{ boundary = newBoundary bdC, updateMap = umap}
+            Just bdC -> Just (ForceState{ boundaryState = newBoundary bdC, updateMap = umap},bdC)
                         where umap = reviseUpdates uGen bdC (updateMap fs)
-            Nothing  -> fs           -- no more updates
+            Nothing  -> Nothing           -- no more updates
+
+oneStepF :: ForceState -> Maybe (ForceState,BoundaryChange)
+oneStepF = oneStepWith allUGenerator

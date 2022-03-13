@@ -468,7 +468,7 @@ boundaryGap5Fig = lw ultraThin $ drawVGraph $ boundaryGapFDart5
 gapProgress5 :: Diagram B
 gapProgress5 = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
     [ dashJGraph g
-    , drawGraph $ recoverGraph $ stepForce 2000 g
+    , drawGraph $ recoverGraph $ boundaryState $ stepForce 2000 g
     ] where g = boundaryGapFDart5
 
 -- showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
@@ -476,7 +476,7 @@ gapProgress5 = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
 gapProgress4 :: Diagram B
 gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
     [ dashJGraph g
-    , drawGraph $ recoverGraph $ stepForce 600 g
+    , drawGraph $ recoverGraph $ boundaryState $ stepForce 600 g
     ] where g = boundaryGapFDart4
 
 {-
@@ -490,7 +490,7 @@ commaFig :: Diagram B
 commaFig = padBorder $ lw ultraThin $ showForce gComma (2561,2560)
            --checkEmbed gComma (force gComma)
            where
-              commaGap = recoverGraph $ stepForce 2200 boundaryGapFDart5    
+              commaGap = recoverGraph $ boundaryState $ stepForce 2200 boundaryGapFDart5    
               gComma = removeFaces (faces commaGap) (force commaGap)
 
 
@@ -596,10 +596,10 @@ testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart5
 -- e.g. n = 1900
 inspectForce5 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
-                viewBoundary [] $ stepForce n $ boundaryGapFDart5
+                viewBoundary [] $ boundaryState $ stepForce n $ boundaryGapFDart5
 
 inspectBug n = padBorder $ lw ultraThin $
-                viewBoundary [3] $ stepForce n $ dartDs !! 3
+                viewBoundary [3] $ boundaryState $ stepForce n $ dartDs !! 3
 
 
 -- figures showing boundary edges of the boundary gaps graphs  
@@ -629,3 +629,22 @@ dartsOnlyFig :: Diagram B
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
 
+-- testing GraphSub
+gSubExampleFig:: Diagram B
+gSubExampleFig = padBorder $ lw thin showGSub subGexample
+
+testSubExample:: Diagram B
+testSubExample = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollow, force hollow] where
+                   hollow = removeFaces (trackedFaces subGexample) (fullGraph subGexample)
+subFaceFig:: Diagram B
+subFaceFig = padBorder $  lw ultraThin $ 
+             drawPatch $ dropVertices $ removeFacesGtoVP (trackedFaces gs) (fullGraph gs) where
+                 gs = subGexample
+subGexample:: GraphSub
+subGexample = iterate (trackedForce . trackedDecomp) (makeGS fD2 (faces fD2)) !! 3
+              where fD2 = force (dartDs !!2)
+
+showGSub gs = drawPatch (dropVertices vpUntracked) <> (drawPatch (dropVertices vpTracked) # lc red)
+    where vpFull = makeVPatch (fullGraph gs)
+          vpTracked = selectFacesVP (trackedFaces gs) vpFull
+          vpUntracked = removeFacesVP (trackedFaces gs) vpFull
