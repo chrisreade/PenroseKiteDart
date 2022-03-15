@@ -3,23 +3,13 @@ module Tgraphs where
 import Data.List ((\\), intersect, nub, elemIndex, find)
 import qualified Data.Map as Map (Map, lookup, insert, empty, (!), elems, fromAscList, fromList, delete, assocs)
 import Data.Maybe (mapMaybe, isNothing)
-import Control.Arrow(second)
+import Control.Arrow(second) -- used in Forcing (makeGenerator)
 
 import HalfTile
 import Diagrams.Prelude      -- necessary for New createVPoints and for Located boundaries
 import TileLib (ttangle,phi) -- necessary for New createVPoints
 
 
-{- |-------------------------------------------------------------------
-    touchCheckOn is a global variable used to switch on/off
-    checks for touching vertices when new vertices are added to a graph.
-    Used by touchCheck. 
-    This should be True for safety.
-    If it is switched to False, all results of forcing need to be checked
-    for touching vertices.
-------------------------------------------------------------------------}
-touchCheckOn::Bool
-touchCheckOn = True
 
 
 {---------------------
@@ -29,16 +19,8 @@ General Purpose tools
 -----------------------}
 
 type Mapping = Map.Map -- imported from Data.Map
-insertPair = uncurry Map.insert
+insertPair = uncurry Map.insert -- used in Forcing makeGenerator
 
-{- | mustFind is used frequently to search
-It returns the first item satisfying predicate p and returns
-err arg when none found       
--}
-mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
-mustFind p ls err = case find p ls of
-                     Just a  -> a
-                     Nothing -> err
 
 {---------------------
 *********************
@@ -78,6 +60,10 @@ makeTgraph fcs =
     Tgraph { vertices = nub $ concatMap faceVList fcs
            , faces = fcs
            }
+
+-- | is the graph empty?
+nullGraph:: Tgraph -> Bool
+nullGraph g = null (faces g)
 
 -- | checkTgraph creates a graph from faces but checks for edge conflicts and
 -- crossing boundaries and connectedness
@@ -217,6 +203,14 @@ prevV v fc = case indexV v fc of
                     1 -> firstV fc
                     2 -> secondV fc
 
+-- | given existing vertices vs, create n new vertices
+makeNewVs :: Int -> [Vertex] -> [Vertex]
+makeNewVs n vs = [k+1..k+n] where k = maximum vs
+-- | return one new vertex
+makeNewV :: [Vertex] -> Vertex
+makeNewV vs = 1+maximum vs
+
+
 {----------------
  Edge operations
 -----------------
@@ -324,6 +318,13 @@ internalEdges g = des \\ fmap reverseE bdes where
 
 
 
+-- | splitEdgeNbs: for a given face, find edge neighbouring faces in the supplied list of faces
+-- returns a pair - the list of the ones found followed by the supplied list with these removed
+splitEdgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
+splitEdgeNbs fc fcOther = (fcNbs, fcOther') where
+      fcNbs = filter sharedEdge fcOther
+      fcOther' = fcOther \\ fcNbs
+      sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
 
 
 
@@ -373,12 +374,6 @@ decompFace newVFor fc = case fc of
       LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
         where x = newVFor (a,c)
      
--- | given existing vertices vs, create n new vertices
-makeNewVs :: Int -> [Vertex] -> [Vertex]
-makeNewVs n vs = [k+1..k+n] where k = maximum vs
--- | return one new vertex
-makeNewV :: [Vertex] -> Vertex
-makeNewV vs = 1+maximum vs
 
             
 
@@ -396,7 +391,9 @@ COMPOSING composeG and partCompose
 -- | The main deterministic function for composing is composeG
 -- which is essentially partCompose after unused faces are ignored.
 composeG:: Tgraph -> Tgraph
-composeG = snd . partCompose 
+composeG g = checkTgraph (faces g') where
+    (_, g') = partCompose g
+-- composeG = snd . partCompose 
 
 -- | partCompose produces a graph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed graph
@@ -464,86 +461,86 @@ classifyDartWings :: Tgraph -> DWClass
 classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks
                               , vGroup = gps
                               } where
-   (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
+    (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
 
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing tips
 -- gps is an association list of the group of faces for each dart wing tip
-processD g (kcs,dbs,unks,gps) rd@(RD(orig,w,_)) -- classify wing tip w
-  = if valencyD g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
-    if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
-    let
-         fcs = filter (isAtV w) (faces g)  -- faces at w
-         newgps = Map.insert w fcs gps -- (w,fcs):gps
-    in
-    if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
-            -- wing is a half kite origin => largeDartBases
-    if (w,orig) `elem` fmap longE (filter isLD fcs) then (w:kcs,dbs,unks,newgps) else 
-            -- long edge rd shared with an ld => largeKiteCentres
-    case findFarK rd fcs of
-    Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of rd
-    Just rk@(RK _)  ->  
-        case find (matchingShortE rk) fcs of
-        Just (LK _) -> (w:kcs,dbs,unks,newgps) -- short edge rk shared with an lk => largeKiteCentres
-        Just (LD _) -> (kcs,w:dbs,unks,newgps) -- short edge rk shared with an ld => largeDartBases
-        _ -> let 
-                 newfcs = filter (isAtV (wingV rk)) (faces g)   -- faces at rk wing    
-             in
-             case find (matchingLongE rk) newfcs of  -- short edge rk has nothing attached
-             Nothing -> (kcs,dbs,w:unks,gps)  -- long edge of rk has nothing attached => unknown
-             Just (LD _) -> (w:kcs,dbs,unks,newgps) -- long edge rk shared with ld => largeKiteCentres
-             Just lk@(LK _) ->               -- long edge rk shared with lk
-                  case find (matchingShortE lk) newfcs of
-                  Just (RK _) -> (w:kcs,dbs,unks,newgps)
-                          -- short edge of this lk shared with another rk => largeKiteCentres
-                  Just (RD _) -> (kcs,w:dbs,unks,newgps) 
-                          -- short edge of this lk shared with rd => largeDartBases
-                  _ -> (kcs,dbs,w:unks,gps) 
-                          -- short edge of this lk has nothing attached => unknown
+    processD g (kcs,dbs,unks,gps) rd@(RD(orig,w,_)) -- classify wing tip w
+      = if valencyD g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
+        if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
+        let
+             fcs = filter (isAtV w) (faces g)  -- faces at w
+             newgps = Map.insert w fcs gps -- (w,fcs):gps
+        in
+        if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
+                -- wing is a half kite origin => largeDartBases
+        if (w,orig) `elem` fmap longE (filter isLD fcs) then (w:kcs,dbs,unks,newgps) else 
+                -- long edge rd shared with an ld => largeKiteCentres
+        case findFarK rd fcs of
+        Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of rd
+        Just rk@(RK _)  ->  
+            case find (matchingShortE rk) fcs of
+            Just (LK _) -> (w:kcs,dbs,unks,newgps) -- short edge rk shared with an lk => largeKiteCentres
+            Just (LD _) -> (kcs,w:dbs,unks,newgps) -- short edge rk shared with an ld => largeDartBases
+            _ -> let 
+                     newfcs = filter (isAtV (wingV rk)) (faces g)   -- faces at rk wing    
+                 in
+                 case find (matchingLongE rk) newfcs of  -- short edge rk has nothing attached
+                 Nothing -> (kcs,dbs,w:unks,gps)  -- long edge of rk has nothing attached => unknown
+                 Just (LD _) -> (w:kcs,dbs,unks,newgps) -- long edge rk shared with ld => largeKiteCentres
+                 Just lk@(LK _) ->               -- long edge rk shared with lk
+                      case find (matchingShortE lk) newfcs of
+                      Just (RK _) -> (w:kcs,dbs,unks,newgps)
+                              -- short edge of this lk shared with another rk => largeKiteCentres
+                      Just (RD _) -> (kcs,w:dbs,unks,newgps) 
+                              -- short edge of this lk shared with rd => largeDartBases
+                      _ -> (kcs,dbs,w:unks,gps) 
+                              -- short edge of this lk has nothing attached => unknown
 
-processD g (kcs,dbs,unks,gps) ld@(LD(orig,_,w)) -- classify wing tip w
-  = if valencyD g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
-    if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
-    let 
-        fcs = filter (isAtV w) (faces g) -- faces at w
-        newgps = Map.insert w fcs gps -- (w,fcs):gps
-    in
-    if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else
-               -- wing is a half kite origin => nodeDB
-    if (w,orig) `elem` fmap longE (filter isRD fcs) then (w:kcs,dbs,unks,newgps) else
-               -- long edge ld shared with an rd => nodeKC
-    case findFarK ld fcs of
-    Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of ld
-    Just lk@(LK _)  ->  
-        case find (matchingShortE lk) fcs of
-        Just (RK _) -> (w:kcs,dbs,unks,newgps) -- short edge lk shared with an rk => largeKiteCentres
-        Just (RD _) -> (kcs,w:dbs,unks,newgps) -- short edge lk shared with an rd => largeDartBases
-        _ -> let 
-                 newfcs = filter (isAtV (wingV lk)) (faces g)   -- faces at lk wing  
-             in
-             case find (matchingLongE lk) newfcs of -- short edge lk has nothing attached
-             Nothing -> (kcs,dbs,w:unks,gps)  -- long edge of lk has nothing attached => unknown
-             Just (RD _) -> (w:kcs,dbs,unks,newgps) -- long edge lk shared with rd => largeKiteCentres
-             Just rk@(RK _) ->               -- long edge lk is shared with an rk
-                 case find (matchingShortE rk) newfcs of
-                 Just (LK _) -> (w:kcs,dbs,unks,newgps)
-                         -- short edge of this rk shared with another lk => largeKiteCentres
-                 Just (LD _) -> (kcs,w:dbs,unks,newgps)
-                         -- short edge of this rk shared with ld => largeDartBases
-                 _ -> (kcs,dbs,w:unks,gps) -- short edge of this rk has nothing attached => unknown
+    processD g (kcs,dbs,unks,gps) ld@(LD(orig,_,w)) -- classify wing tip w
+      = if valencyD g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
+        if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
+        let 
+            fcs = filter (isAtV w) (faces g) -- faces at w
+            newgps = Map.insert w fcs gps -- (w,fcs):gps
+        in
+        if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else
+                   -- wing is a half kite origin => nodeDB
+        if (w,orig) `elem` fmap longE (filter isRD fcs) then (w:kcs,dbs,unks,newgps) else
+                   -- long edge ld shared with an rd => nodeKC
+        case findFarK ld fcs of
+        Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of ld
+        Just lk@(LK _)  ->  
+            case find (matchingShortE lk) fcs of
+            Just (RK _) -> (w:kcs,dbs,unks,newgps) -- short edge lk shared with an rk => largeKiteCentres
+            Just (RD _) -> (kcs,w:dbs,unks,newgps) -- short edge lk shared with an rd => largeDartBases
+            _ -> let 
+                     newfcs = filter (isAtV (wingV lk)) (faces g)   -- faces at lk wing  
+                 in
+                 case find (matchingLongE lk) newfcs of -- short edge lk has nothing attached
+                 Nothing -> (kcs,dbs,w:unks,gps)  -- long edge of lk has nothing attached => unknown
+                 Just (RD _) -> (w:kcs,dbs,unks,newgps) -- long edge lk shared with rd => largeKiteCentres
+                 Just rk@(RK _) ->               -- long edge lk is shared with an rk
+                     case find (matchingShortE rk) newfcs of
+                     Just (LK _) -> (w:kcs,dbs,unks,newgps)
+                             -- short edge of this rk shared with another lk => largeKiteCentres
+                     Just (LD _) -> (kcs,w:dbs,unks,newgps)
+                             -- short edge of this rk shared with ld => largeDartBases
+                     _ -> (kcs,dbs,w:unks,gps) -- short edge of this rk has nothing attached => unknown
 
 
--- | find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
--- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
-findFarK :: TileFace -> [TileFace] -> Maybe TileFace
-findFarK rd@(RD _) fcs = do lk <- find (matchingShortE rd) (filter isLK fcs)
-                            rk <- find (matchingJoinE lk) (filter isRK fcs)
-                            return rk
-findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
-                            lk <- find (matchingJoinE rk)  (filter isLK fcs)
-                            return lk
-findFarK _ _ = error "findFarK: applied to non-dart face"
+    -- | find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
+    -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
+    findFarK :: TileFace -> [TileFace] -> Maybe TileFace
+    findFarK rd@(RD _) fcs = do lk <- find (matchingShortE rd) (filter isLK fcs)
+                                rk <- find (matchingJoinE lk) (filter isRK fcs)
+                                return rk
+    findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
+                                lk <- find (matchingJoinE rk)  (filter isLK fcs)
+                                return lk
+    findFarK _ _ = error "findFarK: applied to non-dart face"
 
 
 
@@ -563,16 +560,31 @@ NEW FORCING with
   Incremented Update Maps
 ***************************************************************************
 -}
-{- |
-Changes for Incremented Update Maps
-Update Map is from directed edges to Updates
-Update finding functions take an additional argument to restrict their search.
-Update returning functions pair with a directed edge to add to an update map
-Completion of updates (doSafeUpdate, tryUnsafes) return a boundary with changes information
-(type BoundaryChange)
-The BoundaryChange is used to alter the update map (updating updates) with reviseUpdates
-UpdateGenerator is the type for the functions implementing the forcing rules
--}
+
+{- |-------------------------------------------------------------------
+    touchCheckOn is a global variable used to switch on/off
+    checks for touching vertices when new vertices are added to a graph.
+    Used by touchCheck. 
+    This should be True for safety.
+    If it is switched to False, all results of forcing need to be checked
+    for touching vertices.
+------------------------------------------------------------------------}
+touchCheckOn::Bool
+touchCheckOn = True
+{-------------------------
+*************************             
+Touching vertex checking 
+********************************************
+requires Diagrams.Prelude for points and V2
+--------------------------------------------}
+touchCheck:: (Point V2 Double) -> Mapping a (Point V2 Double) -> Bool
+touchCheck p vpMap = 
+  if touchCheckOn 
+  then any (tooClose p) (Map.elems vpMap) -- (fmap snd vpMap) 
+  else False
+
+tooClose :: Point V2 Double  -> Point V2 Double -> Bool
+tooClose p p' = quadrance (p .-. p') < 0.25 -- quadrance is square of length of a vector
 
 
 
@@ -618,6 +630,20 @@ recoverGraph bd =
         , vertices = allVertices bd
         }
 
+-- | changeVFMap vs f vfmap  - adds f to the list of faces associated with each v in vs
+changeVFMap:: [Vertex] -> TileFace -> Mapping Vertex [TileFace] -> Mapping Vertex [TileFace]
+changeVFMap vs f vfmap = foldl (changeV f) vfmap vs
+  where changeV f vfmap v = case Map.lookup v vfmap of
+                            Just fs -> Map.insert v (f:fs) vfmap
+                            Nothing -> Map.insert v [f] vfmap
+
+-- | facesAtBV bd v - returns the faces found at v which should be a boundary vertex
+facesAtBV:: Boundary -> Vertex -> [TileFace]
+facesAtBV bd v = case Map.lookup v (bvFacesMap bd) of
+            Just fcs -> fcs
+            Nothing -> error ("facesAtBV: no faces found at boundary vertex " ++ show v)
+
+
 -- return the (set of) faces which have a boundary vertex from boundary information
 boundaryFaces :: Boundary -> [TileFace]
 boundaryFaces = nub . concat . Map.elems . bvFacesMap
@@ -626,17 +652,14 @@ boundaryFaces = nub . concat . Map.elems . bvFacesMap
 -- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
 -- and a makeFace function to create the new face when given a third vertex
 type Update = (Maybe Vertex, Vertex -> TileFace)
-
--- | partial map associating updates with (some) boundary directed edges
+-- | UpdateMap: partial map associating updates with (some) boundary directed edges
 type UpdateMap = Mapping DEdge Update
-
--- | The force state records information between single face updates during forcing
+-- | ForceState: The force state records information between single face updates during forcing
 -- (a Boundary and an UpdateMap)
 data ForceState = ForceState 
                    { boundaryState:: Boundary
                    , updateMap:: UpdateMap 
                    }
-
 -- | UpdateGenerator is the type of functions which change the UpdateMap (given a Boundary and focus edge list)
 -- Such functions implement the forcing rules
 type UpdateGenerator = Boundary -> [DEdge] -> UpdateMap -> UpdateMap
@@ -644,10 +667,8 @@ type UpdateGenerator = Boundary -> [DEdge] -> UpdateMap -> UpdateMap
 
 {- | BoundaryChange records a new boundary after an update
      plus edges which are no longer on the boundary
-     plus a predicate which is true for edges on the new boundary that have been altered by the change
-     (i.e. boundary edges that are new plus those at either end of the new boundary)
-     The predicate is used to focus where the update map needs to be recalculated
-     (see affecteBoundary)
+     plus a list of boundary edges revised  (used to focus where the update map needs to be recalculated)
+     (see affectedBoundary)
 -}
 data BoundaryChange = BoundaryChange 
                        { newBoundary:: Boundary
@@ -655,6 +676,26 @@ data BoundaryChange = BoundaryChange
                        , revisedEdges :: [DEdge] 
 --                       , isRevisedEdge :: DEdge -> Bool  ------------------------------------ Predicate version
                        } deriving (Show)
+
+{- | affectedBoundary: given a list of new boundary edges it creates a predicate
+     which is true of any edges sharing a vertex with any new edge
+     The predicate is used to focus where the update map needs to be recalculated
+     For a safe update this will be true for
+     the single new edge + edges either side on boundary
+     For an unsafe update this will be true of
+     4 edges including the 2 new ones
+-}
+affectedBoundary :: Boundary -> [DEdge] -> [DEdge]
+affectedBoundary bd edges = filter incidentEdge (bDedges bd) where
+      bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
+      incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
+{-
+affectedBoundary :: [DEdge] -> (DEdge -> Bool)   ------------------------------------ Predicate version
+affectedBoundary edges = incidentEdge where
+      bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
+      incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
+-}
+
 
 -- | The main force function using allUGenerator representing all 10 rules
 force:: Tgraph -> Tgraph
@@ -707,6 +748,50 @@ reviseUpdates uGen bdChange umap = umap'' where
 isSafeUpdate :: Update -> Bool
 isSafeUpdate (Just _ , _ ) = True
 isSafeUpdate (Nothing, _ ) = False
+
+-- | findSafeUpdate finds the first safe update - Nothing if there are none
+findSafeUpdate:: UpdateMap -> Maybe Update 
+findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
+
+
+{-----------------------
+ Testing of Force  Steps
+------------------------}
+
+instance Show ForceState where
+    show fs = "ForceState{ boundaryState = ...\nbDedges = "
+               ++ show (bDedges $ boundaryState fs) 
+               ++ ",\nupdateMap = "
+               ++ show (fmap (\(e,(mv,_)) -> (e,mv)) $ Map.assocs $ updateMap fs) ++ " }\n"
+-- | stepForce and stepForceWith and stepF are used for testing
+-- stepForce  produces an intermediate state after a given number of steps (face additions)
+stepForce :: Int -> Tgraph -> ForceState
+stepForce n g = stepForceWith allUGenerator n $ initForceState allUGenerator g
+
+-- | used by stepForce
+stepForceWith :: UpdateGenerator -> Int -> ForceState -> ForceState
+stepForceWith updateGen = count where
+  count 0 fs = fs
+  count n fs = case oneStepWith updateGen fs of
+                Nothing -> fs
+                Just (fs',bdc) ->  count (n-1) fs'
+
+oneStepWith :: UpdateGenerator -> ForceState -> Maybe (ForceState,BoundaryChange)
+oneStepWith uGen fs = 
+      case findSafeUpdate (updateMap fs) of
+      Just u -> Just (ForceState{ boundaryState = newBoundary bdChange, updateMap = umap},bdChange)
+                where bdChange = doSafeUpdate (boundaryState fs) u
+                      umap = reviseUpdates uGen bdChange (updateMap fs)
+      _  -> case tryUnsafes fs of
+            Just bdC -> Just (ForceState{ boundaryState = newBoundary bdC, updateMap = umap},bdC)
+                        where umap = reviseUpdates uGen bdC (updateMap fs)
+            Nothing  -> Nothing           -- no more updates
+
+oneStepF :: ForceState -> Maybe (ForceState,BoundaryChange)
+oneStepF = oneStepWith allUGenerator
+
+
+
 
 {- | tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap
    When touchChecKOn is True any unsafe update producing a touching vertex returns Nothing
@@ -805,66 +890,7 @@ tryUpdate bd (Nothing, makeFace) =
                  ++ show resultBd
                 )
 
--- | findSafeUpdate finds the first safe update - Nothing if there are none
-findSafeUpdate:: UpdateMap -> Maybe Update 
-findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
 
-{- | affectedBoundary: given a list of new boundary edges it creates a predicate
-     which is true of any edges sharing a vertex with any new edge
-     The predicate is used to focus where the update map needs to be recalculated
-     For a safe update this will be true for
-     the single new edge + edges either side on boundary
-     For an unsafe update this will be true of
-     4 edges including the 2 new ones
--}
-affectedBoundary :: Boundary -> [DEdge] -> [DEdge]
-affectedBoundary bd edges = filter incidentEdge (bDedges bd) where
-      bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
-      incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
-{-
-affectedBoundary :: [DEdge] -> (DEdge -> Bool)   ------------------------------------ Predicate version
-affectedBoundary edges = incidentEdge where
-      bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
-      incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
--}
-
-
-
-
-
-
--- | changeVFMap vs f vfmap  - adds f to the list of faces associated with each v in vs
-changeVFMap:: [Vertex] -> TileFace -> Mapping Vertex [TileFace] -> Mapping Vertex [TileFace]
-changeVFMap vs f vfmap = foldl (changeV f) vfmap vs
-  where changeV f vfmap v = case Map.lookup v vfmap of
-                            Just fs -> Map.insert v (f:fs) vfmap
-                            Nothing -> Map.insert v [f] vfmap
-
--- | facesAtBV bd v - returns the faces found at v which should be a boundary vertex
-facesAtBV:: Boundary -> Vertex -> [TileFace]
-facesAtBV bd v = case Map.lookup v (bvFacesMap bd) of
-            Just fcs -> fcs
-            Nothing -> error ("facesAtBV: no faces found at boundary vertex " ++ show v)
-
-
-{-------------------------------------------------------------------------
-******************************************** *****************************              
-New Boundary Location calculation and touching vertex checking 
-***************************************************************************
-requires Diagrams.Prelude for points etc.  plus ttangle and phi from TileLib
-------------------------------------------------------------------------------}
-touchCheck:: (Point V2 Double) -> Mapping a (Point V2 Double) -> Bool
-touchCheck p vpMap = 
-  if touchCheckOn 
-  then any (tooClose p) (Map.elems vpMap) -- (fmap snd vpMap) 
-  else False
-
-tooClose :: Point V2 Double  -> Point V2 Double -> Bool
-tooClose p p' = quadrance (p .-. p') < 0.25 -- quadrance is square of length of a vector
--- tooClose p p' = sqLength (p .-. p') < 0.25
-
-sqLength :: V2 Double  -> Double
-sqLength vec = dot vec vec
 
 
 
@@ -883,6 +909,8 @@ sqLength vec = dot vec vec
 ***********************************************************
 Location Calculation : createVPoints
 Uses addVPoints and thirdVertexLoc
+
+and points from Diagram.Prelude
              
 Used for Boundary Information and also in 
 GraphConvert.makeVPatch  to make VPatches and Patches
@@ -901,6 +929,7 @@ The first argument list of faces (readyfaces) contains the ones being processed 
 each will have at least two known vertex points.
 The second argument list of faces (fcOther) have not yet been added and may not yet have known vertex points.
 The third argument is the mapping of vertices to points.
+This is used in tryUpdate as well as createVPoints
 -}
 addVPoints:: [TileFace] -> [TileFace] -> Mapping Vertex (Point V2 Double) -> Mapping Vertex (Point V2 Double)
 addVPoints [] [] vpMap = vpMap 
@@ -909,7 +938,7 @@ addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
   vpMap' = case thirdVertexLoc fc vpMap of
              Just (v,p) -> Map.insert v p vpMap
              Nothing -> vpMap
-  (fcs', fcOther')   = edgeNbs fc fcOther
+  (fcs', fcOther')   = splitEdgeNbs fc fcOther
 
 -- | initJoin fc 
 -- initialises a vpMap with locations for join edge vertices of fc along x axis - used to initialise createVPoints
@@ -926,6 +955,8 @@ find3Locs (v1,v2,v3) vpMap = (Map.lookup v1 vpMap, Map.lookup v2 vpMap, Map.look
 
 New Version - Assumes all edge lengths are 1 or phi
 It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
+
+Requires ttangle and phi from TileLib
 
      thirdVertexLoc fc vpMap
      where fc is a tileface and
@@ -965,13 +996,6 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
   _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
 
 
--- | for a given face, find edge neighbouring faces in the supplied list of faces
--- returns a pair - the list of the ones found followed by the supplied list with these removed
-edgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
-edgeNbs fc fcOther = (fcNbs, fcOther') where
-      fcNbs = filter sharedEdge fcOther
-      fcOther' = fcOther \\ fcNbs
-      sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
 
 
 -- | noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
@@ -982,6 +1006,16 @@ noConflict :: TileFace -> [TileFace] -> Bool
 noConflict fc fcs = null (faceDedges fc `intersect` concatMap faceDedges fcs) &&
                     null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
                     null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1178,7 +1212,7 @@ kiteGaps :: UFinder
 kiteGaps = boundaryFilter kiteGap where
   kiteGap bd (a,b) fc = shortE fc == (b,a)
                      && (isLK fc && hasKshortKat bd a || isRK fc && hasKshortKat bd b)
-  hasKshortKat bd v = hasMatchingE $ fmap shortE $ filter isKite $ facesAtBV bd v
+  hasKshortKat bd v = hasAnyMatchingE $ fmap shortE $ filter isKite $ facesAtBV bd v
 
 -- | add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: UMaker         
@@ -1335,7 +1369,6 @@ queenMissingKite = boundaryFilter pred where
 {-
 ------------------  END OF FORCING CASES  ----------------------------
 -}
-
 
 
 {-------------------------------------------
@@ -1507,23 +1540,42 @@ faceAngles (RD _) = fmap intAngle [1,1,3]
 faceAngles _      = fmap intAngle [1,2,2] -- LK and RK
 
 
--- | mustbeLDB (large dart base / k3d2) is true of a boundary vertex if
+-- | mustbeLDB (large dart base / jack) is true of a boundary vertex if
 -- it is the wing of two darts not sharing a long edge or
 -- it is a wing of a dart and also a kite origin
 -- (false means it is either undetermined or is a large kite centre)
 mustbeLDB :: Boundary -> Vertex -> Bool
 mustbeLDB bd v =
-  (length dWings == 2 && not (hasMatchingE (fmap longE dWings))) ||
+  (length dWings == 2 && not (hasAnyMatchingE (fmap longE dWings))) ||
   (length dWings == 1 && isKiteOrigin) 
   where fcs = facesAtBV bd v
         dWings = filter ((==v) . wingV) $ filter isDart fcs
         isKiteOrigin = v `elem` fmap originV (filter isKite fcs)
 
 -- | hasMatching asks if a directed edge list has any two matching (=opposing) directed edges.
-hasMatchingE :: [DEdge] -> Bool
-hasMatchingE ((x,y):more) = (y,x) `elem` more || hasMatchingE more
-hasMatchingE [] = False
+hasAnyMatchingE :: [DEdge] -> Bool
+hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
+hasAnyMatchingE [] = False
                       
+
+{- |
+For testing  allAnglesAnti and allAnglesClock on a boundary edge
+The RHS of directed edge (a,b) should be the exterior side.
+-}
+testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces g),
+                      allAnglesClock [(intAngle 0,a)] $ filter (isAtV b) (faces g))
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1545,9 +1597,8 @@ emplace g = if nullGraph g'
     where fg = force g
           g' = composeG fg 
             
-nullGraph:: Tgraph -> Bool
-nullGraph g = null (faces g)
 
+{-
 -- emplaceSimple - version of emplace which does not force when composing, only when decomposing
 -- only safe to use on multi-decomposed maximal graphs.
 emplaceSimple :: Tgraph -> Tgraph
@@ -1555,6 +1606,7 @@ emplaceSimple g = if nullGraph g'
                   then force g 
                   else (force . decomposeG . emplaceSimple) g'
     where g' = composeG g
+-}
 
 -- emplacements are best supplied with a maximally composed or near maximally composed graph
 -- It produces an infinite list of emplacements of the starting graph and its decompositions.
@@ -1641,6 +1693,14 @@ forceLKC v g = recoverGraph bd3 where
     newk = head (vFaces2 \\ vFaces1)
     bd3 = newBoundary $ doUpdate bd2 (completeHalf bd2 newk)
 
+{- | mustFind is used to search (in forceLKC and forceLDB)
+It returns the first item satisfying predicate p and returns
+err arg when none found       
+-}
+mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
+mustFind p ls err = case find p ls of
+                     Just a  -> a
+                     Nothing -> err
 
 {-------------
  Experimental
@@ -1660,10 +1720,15 @@ trackedDecomp (GraphSub{ fullGraph = g, trackedFaces = fcs}) = makeGS g' fcs' wh
 
 trackedForce (GraphSub{ fullGraph = g, trackedFaces = fcs}) = makeGS (force g) fcs
 
-
+-- | compForce does a force then composeG but it
+-- by-passes the check on the composed graph because it is forced
+compForce:: Tgraph -> Tgraph
+compForce = snd . partCompose . force
+    
+    
 -- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allFComps:: Tgraph -> [Tgraph]
-allFComps g = takeWhile (not . nullGraph) $ iterate (composeG . force) g
+allFComps g = takeWhile (not . nullGraph) $ iterate compForce g
 
 -- | allComps g produces a list of all compositions starting from g up to but excluding the empty graph
 -- This is not safe in general
@@ -1680,51 +1745,3 @@ maxFCompose g = (last comps, length comps - 1) where comps = allFComps g
 
 
 
-
-
-{----------------
- Testing  Ops
------------------}
-
-{- |
-For testing  allAnglesAnti and allAnglesClock on a boundary edge
-The RHS of directed edge (a,b) should be the exterior side.
--}
-testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces g),
-                      allAnglesClock [(intAngle 0,a)] $ filter (isAtV b) (faces g))
-
-{----------------
- Testing of Force  Awaiting Clean up and generalising
------------------}
-
-instance Show ForceState where
-    show fs = "ForceState{ boundaryState = ...\nbDedges = "
-               ++ show (bDedges $ boundaryState fs) 
-               ++ ",\nupdateMap = "
-               ++ show (fmap (\(e,(mv,_)) -> (e,mv)) $ Map.assocs $ updateMap fs) ++ " }\n"
--- | stepForce and stepForceAll and stepF are used for testing
--- stepForce  produces an intermediate state after a given number of steps (face additions)
-stepForce :: Int -> Tgraph -> ForceState
-stepForce n g = stepForceAll allUGenerator n $ initForceState allUGenerator g
-
--- | used by stepForce
-stepForceAll :: UpdateGenerator -> Int -> ForceState -> ForceState
-stepForceAll updateGen = count where
-  count 0 fs = fs
-  count n fs = case oneStepWith updateGen fs of
-                Nothing -> fs
-                Just (fs',bdc) ->  count (n-1) fs'
-
-oneStepWith :: UpdateGenerator -> ForceState -> Maybe (ForceState,BoundaryChange)
-oneStepWith uGen fs = 
-      case findSafeUpdate (updateMap fs) of
-      Just u -> Just (ForceState{ boundaryState = newBoundary bdChange, updateMap = umap},bdChange)
-                where bdChange = doSafeUpdate (boundaryState fs) u
-                      umap = reviseUpdates uGen bdChange (updateMap fs)
-      _  -> case tryUnsafes fs of
-            Just bdC -> Just (ForceState{ boundaryState = newBoundary bdC, updateMap = umap},bdC)
-                        where umap = reviseUpdates uGen bdC (updateMap fs)
-            Nothing  -> Nothing           -- no more updates
-
-oneStepF :: ForceState -> Maybe (ForceState,BoundaryChange)
-oneStepF = oneStepWith allUGenerator

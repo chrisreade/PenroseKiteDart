@@ -247,14 +247,17 @@ newEmpFig = padBorder $ hsep 1 $ [empDartD 4, empKiteD 4]
 dartD4 :: Tgraph
 dartD4 = dartDs!!4
 
--- brokenDart will now get repaired and be included in emplaceSimple
+-- brokenDart gets repaired by forcing but can also be composed to a maximal graph
 brokenDart :: Tgraph
 brokenDart = removeFaces deleted dartD4 where
   deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
 
--- badlyBrokenDart will cause emplaceSimple to fail by producung a graph which is not face connected
--- Tgraph {vertices = [4,6,3,1,5], faces = [LD (4,6,3),LK (1,5,3)]} - which breaks on forcing
--- HOWEVER emplace still works and (emplaceSimple . force) gives the same result
+{- | badlyBrokenDart gets repaired by forcing but will fail to produce a valid graph
+     if composed twice without forcing 
+     *** Exception: checkTgraph: crossing boundaries found at [3]
+     in
+     Tgraph {vertices = [4,6,3,1,5], faces = [LD (4,6,3),LK (1,5,3)]}
+-}
 badlyBrokenDart :: Tgraph
 badlyBrokenDart = removeFaces deleted dartD4 where
   deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
@@ -631,20 +634,51 @@ dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g)
 
 -- testing GraphSub
 gSubExampleFig:: Diagram B
-gSubExampleFig = padBorder $ lw thin showGSub subGexample
+gSubExampleFig = padBorder $ lw thin drawGSub gSubExample
 
-testSubExample:: Diagram B
-testSubExample = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollow, force hollow] where
-                   hollow = removeFaces (trackedFaces subGexample) (fullGraph subGexample)
-subFaceFig:: Diagram B
-subFaceFig = padBorder $  lw ultraThin $ 
+forceHollowFig:: Diagram B
+forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGraph, force hollowGraph]
+
+-- hollowGraph happens to be a valid Tgraph after removing the tracked faces from gSubExample
+-- This is not generally the case
+hollowGraph::Tgraph
+hollowGraph = removeFaces (trackedFaces gSubExample) (fullGraph gSubExample)
+
+removeTrackedFig:: Diagram B
+removeTrackedFig = padBorder $  lw ultraThin $ 
              drawPatch $ dropVertices $ removeFacesGtoVP (trackedFaces gs) (fullGraph gs) where
-                 gs = subGexample
-subGexample:: GraphSub
-subGexample = iterate (trackedForce . trackedDecomp) (makeGS fD2 (faces fD2)) !! 3
+                 gs = gSubExample
+gSubExample:: GraphSub
+gSubExample = iterate (trackedForce . trackedDecomp) (makeGS fD2 (faces fD2)) !! 3
               where fD2 = force (dartDs !!2)
 
-showGSub gs = drawPatch (dropVertices vpUntracked) <> (drawPatch (dropVertices vpTracked) # lc red)
+drawGSub:: GraphSub -> Diagram B
+drawGSub gs = (drawPatch (dropVertices vpTracked) # lc red)  <> drawPatch (dropVertices vpUntracked)
     where vpFull = makeVPatch (fullGraph gs)
           vpTracked = selectFacesVP (trackedFaces gs) vpFull
           vpUntracked = removeFacesVP (trackedFaces gs) vpFull
+
+
+{-
+Take a forced, 4 times decomposed dart, then add a single face (RD for gs1, RK for gs2).
+Then track these faces in two GraphSubs
+-}
+twoChoices:: [GraphSub]
+twoChoices = [gs1,gs2] where
+          f = force $ dartDs !! 4
+          v = makeNewV (vertices f)
+          f' = Tgraph {vertices = v:vertices f, faces = RD(223,191,v):faces f}
+          f'' = Tgraph {vertices = v:vertices f, faces = RK(191,v,223):faces f}
+          gs1 = makeGS f' (faces f')
+          gs2 = makeGS f'' (faces f'')
+          
+-- | show the (tracked) result of forcing each of twoChoices   
+twoChoicesFig:: Diagram B
+twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGSub . trackedForce) twoChoices
+
+-- | quick look at all the compositions of the twoChoices results (not rotated or scaled)
+tempFig:: Diagram B
+tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap showAllFComps twoChoices where
+    showAllFComps gs = hsep 1 $ (fmap drawGraph) $ allComps $ fullGraph $ trackedForce gs
+
+        
