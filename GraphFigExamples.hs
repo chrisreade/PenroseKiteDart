@@ -660,6 +660,12 @@ drawGSub gs = (drawPatch (dropVertices vpTracked) # lc red)  <> drawPatch (dropV
 
 
 {-
+WARNING.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices
+They should be the (reversed) long edge of the left dart on the left of a group of 3 darts
+Middle of top edge of dartDs!!4.  Use checkChoicesEdge to view the vertex numbers
+-}
+checkChoicesEdge = padBorder $ lw ultraThin $ drawVGraph $ force $ dartDs !! 4
+{-
 Take a forced, 4 times decomposed dart, then add a single face (RD for gs1, RK for gs2).
 Then track these faces in two GraphSubs
 -}
@@ -667,8 +673,8 @@ twoChoices:: [GraphSub]
 twoChoices = [gs1,gs2] where
           f = force $ dartDs !! 4
           v = makeNewV (vertices f)
-          f' = Tgraph {vertices = v:vertices f, faces = RD(223,191,v):faces f}
-          f'' = Tgraph {vertices = v:vertices f, faces = RK(191,v,223):faces f}
+          f' = Tgraph {vertices = v:vertices f, faces = RD(233,202,v):faces f}
+          f'' = Tgraph {vertices = v:vertices f, faces = RK(202,v,233):faces f}
           gs1 = makeGS f' (faces f')
           gs2 = makeGS f'' (faces f'')
           
@@ -676,7 +682,7 @@ twoChoices = [gs1,gs2] where
 twoChoicesFig:: Diagram B
 twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGSub . trackedForce) twoChoices
 
--- | quick look at all the compositions of the twoChoices results (not rotated or scaled)
+-- quick look at all the compositions of the twoChoices results (not rotated or scaled)
 tempFig:: Diagram B
 tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap showAllFComps twoChoices where
     showAllFComps gs = hsep 1 $ (fmap drawGraph) $ allComps $ fullGraph $ trackedForce gs

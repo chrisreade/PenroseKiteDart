@@ -1,6 +1,6 @@
 module Tgraphs where
 
-import Data.List ((\\), intersect, nub, elemIndex, find)
+import Data.List ((\\), intersect, nub, elemIndex, find, partition) -- partition used in addVPoints
 import qualified Data.Map as Map (Map, lookup, insert, empty, (!), elems, fromAscList, fromList, delete, assocs)
 import Data.Maybe (mapMaybe, isNothing)
 import Control.Arrow(second) -- used in Forcing (makeGenerator)
@@ -317,14 +317,113 @@ internalEdges g = des \\ fmap reverseE bdes where
     bdes = bothDir des \\ des
 
 
+-- | two tiles faces are edge neighbours
+edgeNb::TileFace -> TileFace -> Bool
+edgeNb fc = any (`elem` edges) . faceDedges where
+      edges = fmap reverseE (faceDedges fc)
 
--- | splitEdgeNbs: for a given face, find edge neighbouring faces in the supplied list of faces
--- returns a pair - the list of the ones found followed by the supplied list with these removed
-splitEdgeNbs::TileFace -> [TileFace] -> ([TileFace],[TileFace])
-splitEdgeNbs fc fcOther = (fcNbs, fcOther') where
-      fcNbs = filter sharedEdge fcOther
-      fcOther' = fcOther \\ fcNbs
-      sharedEdge fc' = any (\e -> e `elem` fmap reverseE (faceDedges fc)) (faceDedges fc')
+
+
+
+{- |
+***********************************************************
+Location Calculation : createVPoints
+Uses addVPoints and thirdVertexLoc
+
+and points from Diagram.Prelude
+             
+Used for Boundary Information and also in 
+GraphConvert.makeVPatch  to make VPatches and Patches
+*****************************************************************
+-}
+
+{- | createVPoints: process list of faces to associate points for each vertex.
+     Faces must be face connected.
+-}
+createVPoints:: [TileFace] -> Mapping Vertex (Point V2 Double)
+createVPoints [] = Map.empty
+createVPoints (face:more) = addVPoints [face] more (initJoin face)
+
+{- | addVPoints readyfaces fcOther vpMap
+The first argument list of faces (readyfaces) contains the ones being processed next in order where
+each will have at least two known vertex points.
+The second argument list of faces (fcOther) have not yet been added and may not yet have known vertex points.
+The third argument is the mapping of vertices to points.
+This is used in tryUpdate as well as createVPoints
+-}
+addVPoints:: [TileFace] -> [TileFace] -> Mapping Vertex (Point V2 Double) -> Mapping Vertex (Point V2 Double)
+addVPoints [] [] vpMap = vpMap 
+addVPoints [] fcOther vpMap = error ("addVPoints: Faces not face-edge connected " ++ show fcOther)
+addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
+  vpMap' = case thirdVertexLoc fc vpMap of
+             Just (v,p) -> Map.insert v p vpMap
+             Nothing -> vpMap
+  (fcs', fcOther')   = partition (edgeNb fc) fcOther
+--  (fcs', fcOther')   = splitEdgeNbs fc fcOther
+
+-- | initJoin fc 
+-- initialises a vpMap with locations for join edge vertices of fc along x axis - used to initialise createVPoints
+initJoin::TileFace -> Mapping Vertex (Point V2 Double)                
+initJoin (LD(a,b,_)) = Map.insert a origin $ Map.insert b (p2(1,0)) Map.empty -- [(a,origin), (b, p2(1,0))]
+initJoin (RD(a,_,c)) = Map.insert a origin $ Map.insert c (p2(1,0)) Map.empty --[(a,origin), (c, p2(1,0))]
+initJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty --[(a,origin), (c, p2(phi,0))]
+initJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
+
+-- lookup 3 vertex locations
+find3Locs (v1,v2,v3) vpMap = (Map.lookup v1 vpMap, Map.lookup v2 vpMap, Map.lookup v3 vpMap)
+
+{- | thirdVertexLoc fc vpMap
+
+New Version - Assumes all edge lengths are 1 or phi
+It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
+
+Requires ttangle and phi from TileLib
+
+     thirdVertexLoc fc vpMap
+     where fc is a tileface and
+     vpMap associates points with vertices (positions)
+     It looks up all 3 vertices in vpMap hoping to find 2 of them, it then returns Just pr
+     where pr is an association pair for the third vertex.
+     If all 3 are found, returns Nothing
+     If none or one found this is an error (a non tile-connected face)
+-}
+thirdVertexLoc:: TileFace -> Mapping Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
+thirdVertexLoc fc@(LD _) vpMap = case find3Locs (faceVs fc) vpMap of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
+
+thirdVertexLoc fc@(RD _) vpMap = case find3Locs (faceVs fc) vpMap of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = signorm (rotate (ttangle 3) (loc2 .-. loc3))
+  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
+ 
+thirdVertexLoc fc@(LK _) vpMap = case find3Locs (faceVs fc) vpMap of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
+ 
+thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
+
+
+
+
+
+
+
+
+
 
 
 
@@ -755,7 +854,7 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
 
 
 {-----------------------
- Testing of Force  Steps
+Inspecting Force Steps
 ------------------------}
 
 instance Show ForceState where
@@ -891,113 +990,6 @@ tryUpdate bd (Nothing, makeFace) =
                 )
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{- |
-***********************************************************
-Location Calculation : createVPoints
-Uses addVPoints and thirdVertexLoc
-
-and points from Diagram.Prelude
-             
-Used for Boundary Information and also in 
-GraphConvert.makeVPatch  to make VPatches and Patches
-*****************************************************************
--}
-
-{- | createVPoints: process list of faces to associate points for each vertex.
-     Faces must be face connected.
--}
-createVPoints:: [TileFace] -> Mapping Vertex (Point V2 Double)
-createVPoints [] = Map.empty
-createVPoints (face:more) = addVPoints [face] more (initJoin face)
-
-{- | addVPoints readyfaces fcOther vpMap
-The first argument list of faces (readyfaces) contains the ones being processed next in order where
-each will have at least two known vertex points.
-The second argument list of faces (fcOther) have not yet been added and may not yet have known vertex points.
-The third argument is the mapping of vertices to points.
-This is used in tryUpdate as well as createVPoints
--}
-addVPoints:: [TileFace] -> [TileFace] -> Mapping Vertex (Point V2 Double) -> Mapping Vertex (Point V2 Double)
-addVPoints [] [] vpMap = vpMap 
-addVPoints [] fcOther vpMap = error ("addVPoints: Faces not face-edge connected " ++ show fcOther)
-addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
-  vpMap' = case thirdVertexLoc fc vpMap of
-             Just (v,p) -> Map.insert v p vpMap
-             Nothing -> vpMap
-  (fcs', fcOther')   = splitEdgeNbs fc fcOther
-
--- | initJoin fc 
--- initialises a vpMap with locations for join edge vertices of fc along x axis - used to initialise createVPoints
-initJoin::TileFace -> Mapping Vertex (Point V2 Double)                
-initJoin (LD(a,b,_)) = Map.insert a origin $ Map.insert b (p2(1,0)) Map.empty -- [(a,origin), (b, p2(1,0))]
-initJoin (RD(a,_,c)) = Map.insert a origin $ Map.insert c (p2(1,0)) Map.empty --[(a,origin), (c, p2(1,0))]
-initJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty --[(a,origin), (c, p2(phi,0))]
-initJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
-
--- lookup 3 vertex locations
-find3Locs (v1,v2,v3) vpMap = (Map.lookup v1 vpMap, Map.lookup v2 vpMap, Map.lookup v3 vpMap)
-
-{- | thirdVertexLoc fc vpMap
-
-New Version - Assumes all edge lengths are 1 or phi
-It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
-
-Requires ttangle and phi from TileLib
-
-     thirdVertexLoc fc vpMap
-     where fc is a tileface and
-     vpMap associates points with vertices (positions)
-     It looks up all 3 vertices in vpMap hoping to find 2 of them, it then returns Just pr
-     where pr is an association pair for the third vertex.
-     If all 3 are found, returns Nothing
-     If none or one found this is an error (a non tile-connected face)
--}
-thirdVertexLoc:: TileFace -> Mapping Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
-thirdVertexLoc fc@(LD _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 1) (loc3 .-. loc1))
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
-
-thirdVertexLoc fc@(RD _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = signorm (rotate (ttangle 3) (loc2 .-. loc3))
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
- 
-thirdVertexLoc fc@(LK _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
- 
-thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
-
-
-
-
 -- | noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
 -- There is no conflict if none of the new directed face edges of fc are already directed edges
 -- of neighbouring faces fcs (in the same direction)
@@ -1006,6 +998,21 @@ noConflict :: TileFace -> [TileFace] -> Bool
 noConflict fc fcs = null (faceDedges fc `intersect` concatMap faceDedges fcs) &&
                     null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
                     null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1132,6 +1139,9 @@ makeGenerator makeU finder bd edges umap = umap' where
     umap' = foldr insertPair umap newPairs
     newPairs = fmap (second (makeU bd)) (finder bd edges)
 
+{-
+--------------- Update Generators and Finders ---------------
+-}
 
 -- | update generator for rule (1)
 wholeTileUpdates:: UpdateGenerator
@@ -1142,23 +1152,6 @@ incompleteHalves :: UFinder
 incompleteHalves = boundaryFilter boundaryJoin where
     boundaryJoin bd (a,b) fc = joinE fc == (b,a)
 
--- | completeHalf will make an update to
---  add a symmetric (mirror) face for a given face at a boundary join edge.
-completeHalf :: UMaker      
-completeHalf bd (LD(a,b,_)) = (x, makeFace) where
-        makeFace v = RD(a,v,b)
-        x = findThirdV bd (b,a) 3 1 
-completeHalf bd (RD(a,_,b)) = (x, makeFace) where
-        makeFace v = LD(a,b,v)
-        x = findThirdV bd (a,b) 1 3
-completeHalf bd (LK(a,_,b)) = (x, makeFace) where
-        makeFace v = RK(a,b,v)
-        x = findThirdV bd (a,b) 1 2
-completeHalf bd (RK(a,b,_)) = (x, makeFace) where
-        makeFace v = LK(a,v,b)
-        x = findThirdV bd (b,a) 2 1
-                                     
-
 -- | update generator for rule (2)
 kiteBelowDartUpdates :: UpdateGenerator
 kiteBelowDartUpdates = makeGenerator addKiteShortE nonKDarts
@@ -1167,21 +1160,6 @@ kiteBelowDartUpdates = makeGenerator addKiteShortE nonKDarts
 nonKDarts :: UFinder            
 nonKDarts = boundaryFilter bShortDarts where
     bShortDarts bd (a,b) fc = isDart fc && shortE fc == (b,a)
-
--- | add a (missing) half kite on a (boundary) short edge of a dart or kite
-addKiteShortE :: UMaker         
-addKiteShortE bd (RD(_,b,c)) = (x, makeFace) where
-    makeFace v = LK(v,c,b)
-    x = findThirdV bd (c,b) 2 2
-addKiteShortE bd (LD(_,b,c)) = (x, makeFace) where
-    makeFace v = RK(v,c,b)
-    x = findThirdV bd (c,b) 2 2
-addKiteShortE bd (LK(_,b,c)) = (x, makeFace) where
-    makeFace v = RK(v,c,b)
-    x = findThirdV bd (c,b) 2 2
-addKiteShortE bd (RK(_,b,c)) = (x, makeFace) where
-    makeFace v = LK(v,c,b)
-    x = findThirdV bd (c,b) 2 2
 
 -- | update generator for rule (3)
  -- queen and king vertices add a missing kite half
@@ -1214,16 +1192,6 @@ kiteGaps = boundaryFilter kiteGap where
                      && (isLK fc && hasKshortKat bd a || isRK fc && hasKshortKat bd b)
   hasKshortKat bd v = hasAnyMatchingE $ fmap shortE $ filter isKite $ facesAtBV bd v
 
--- | add a half dart top to a boundary short edge of a half kite.
-addDartShortE :: UMaker         
-addDartShortE bd (RK(_,b,c)) = (x, makeFace) where
-        makeFace v = LD(v,c,b)
-        x = findThirdV bd (c,b) 3 1
-addDartShortE bd (LK(_,b,c)) = (x, makeFace) where
-        makeFace v = RD(v,c,b)
-        x = findThirdV bd (c,b) 1 3
-addDartShortE bd _ = error "addDartShortE applied to non-kite face"
-
 
 -- | secondTouchingDartUpdates - jack vertex add a missing second dart
 secondTouchingDartUpdates :: UpdateGenerator-- | update generator for rule (5)
@@ -1237,8 +1205,25 @@ noTouchingDarts = boundaryFilter farKOfDarts where
    farKOfDarts bd (a,b) fc  = shortE fc == (b,a)
                               && (isRK fc && mustbeLDB bd b || isLK fc && mustbeLDB bd a)
 
+-- | mustbeLDB (large dart base / jack) is true of a boundary vertex if
+-- it is the wing of two darts not sharing a long edge or
+-- it is a wing of a dart and also a kite origin
+-- (false means it is either undetermined or is a large kite centre)
+mustbeLDB :: Boundary -> Vertex -> Bool
+mustbeLDB bd v =
+  (length dWings == 2 && not (hasAnyMatchingE (fmap longE dWings))) ||
+  (length dWings == 1 && isKiteOrigin) 
+  where fcs = facesAtBV bd v
+        dWings = filter ((==v) . wingV) $ filter isDart fcs
+        isKiteOrigin = v `elem` fmap originV (filter isKite fcs)
+
+-- | hasMatching asks if a directed edge list has any two matching (=opposing) directed edges.
+hasAnyMatchingE :: [DEdge] -> Bool
+hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
+hasAnyMatchingE [] = False
 
 
+ 
 {- | update generator for rule (6)
 sunStarUpdates is for vertices that must be either sun or star 
 almostSunStar finds half-kites/half-darts with a long edge on the boundary
@@ -1250,13 +1235,16 @@ sharing the long edge.
 sunStarUpdates :: UpdateGenerator
 sunStarUpdates = makeGenerator completeSunStar almostSunStar
 
+-- | find a boundary long edge of either
+-- a dart where there are at least 7 dart origins, or
+-- a kite where there are at least 6 kite origins
 almostSunStar :: UFinder                  
-almostSunStar = boundaryFilter multiples68 where
-    multiples68 bd (a,b) fc =               
+almostSunStar = boundaryFilter multiples57 where
+    multiples57 bd (a,b) fc =               
         (isLD fc && longE fc == (b,a) && (length dartOriginsAta >=7)) ||
         (isRD fc && longE fc == (b,a) && (length dartOriginsAtb >=7)) ||
-        (isLK fc && longE fc == (b,a) && (length kiteOriginsAtb >=6)) ||
-        (isRK fc && longE fc == (b,a) && (length kiteOriginsAta >=6))
+        (isLK fc && longE fc == (b,a) && (length kiteOriginsAtb >=5)) ||
+        (isRK fc && longE fc == (b,a) && (length kiteOriginsAta >=5))
         where
             fcsAta = facesAtBV bd a
             fcsAtb = facesAtBV bd b
@@ -1265,42 +1253,16 @@ almostSunStar = boundaryFilter multiples68 where
             dartOriginsAta = filter ((==a) . originV) (filter isDart fcsAta)             
             dartOriginsAtb = filter ((==b) . originV) (filter isDart fcsAtb)             
 
-completeSunStar :: UMaker            
-completeSunStar bd (RK(a,_,c)) = (x, makeFace) where
-  makeFace v = LK(a,c,v)
-  x = findThirdV bd (a,c) 1 2
-completeSunStar bd (LK(a,b,_)) = (x, makeFace) where
-  makeFace v = RK(a,v,b)
-  x = findThirdV bd (b,a) 2 1
-completeSunStar bd (RD(a,b,_)) = (x, makeFace) where
-  makeFace v = LD(a,v,b)
-  x = findThirdV bd (b,a) 1 1
-completeSunStar bd (LD(a,_,c)) = (x, makeFace) where
-  makeFace v = RD(a,c,v)
-  x = findThirdV bd (a,c) 1 1
-
-
 -- | update generator for rule (7)
 -- jack vertices (largeDartBases) with dart long edge on boundary - add missing kite top
 dartKiteTopUpdates :: UpdateGenerator
 dartKiteTopUpdates = makeGenerator addKiteLongE noKiteTopDarts
 
--- jack vertices (largeDartBases) with dart long edge on boundary
+-- | jack vertices (largeDartBases) with dart long edge on boundary
 noKiteTopDarts :: UFinder                  
 noKiteTopDarts = boundaryFilter dartsWingDB where
     dartsWingDB bd (a,b) fc = (isLD fc && longE fc == (b,a) && mustbeLDB bd b) ||
                               (isRD fc && longE fc == (b,a) && mustbeLDB bd a)
-
-addKiteLongE :: UMaker            
-addKiteLongE bd (LD(a,_,c)) = (x, makeFace) where
-    makeFace v = RK(c,v,a)
-    x = findThirdV bd (a,c) 2 1
-addKiteLongE bd (RD(a,b,_)) = (x, makeFace) where
-    makeFace v = LK(b,a,v)
-    x = findThirdV bd (b,a) 1 2
-addKiteLongE bd _ = error "addKiteLongE: applied to kite"
-
-
 
 -- | update generator for rule (8)
 -- king vertices with 2 of the 3 darts  - add another half dart on a boundary long edge of existing darts
@@ -1321,21 +1283,6 @@ missingThirdDarts = boundaryFilter pred where
             aHasKiteWing = a `elem` fmap wingV (filter isKite fcsAta)
             bHasKiteWing = b `elem` fmap wingV (filter isKite fcsAtb)
 
--- add a half dart on a boundary long edge of a dart or kite
-addDartLongE :: UMaker            
-addDartLongE bd (LD(a,_,c)) = (x, makeFace) where
-  makeFace v = RD(a,c,v)
-  x = findThirdV bd (a,c) 1 1
-addDartLongE bd (RD(a,b,_)) = (x, makeFace) where
-  makeFace v = LD(a,v,b)
-  x = findThirdV bd (b,a) 1 1
-
-addDartLongE bd (LK(a,b,_)) = (x, makeFace) where
-  makeFace v = RD(b,a,v)
-  x = findThirdV bd (b,a) 1 1
-addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
-  makeFace v = LD(c,v,a)
-  x = findThirdV bd (a,c) 1 1
 
 -- | update generator for rule (9)
 -- queen vertices (with 4 kite wings) -- add any missing half dart on a boundary kite long edge
@@ -1365,6 +1312,87 @@ queenMissingKite = boundaryFilter pred where
                           kiteWingsAt x = filter ((==x) . wingV) $ filter isKite (facesAtBV bd x)
 
 
+{-
+------------------ Update Makers ------------------------
+-}
+
+-- | completeHalf will make an update to
+--  add a symmetric (mirror) face for a given face at a boundary join edge.
+completeHalf :: UMaker      
+completeHalf bd (LD(a,b,_)) = (x, makeFace) where
+        makeFace v = RD(a,v,b)
+        x = findThirdV bd (b,a) 3 1 
+completeHalf bd (RD(a,_,b)) = (x, makeFace) where
+        makeFace v = LD(a,b,v)
+        x = findThirdV bd (a,b) 1 3
+completeHalf bd (LK(a,_,b)) = (x, makeFace) where
+        makeFace v = RK(a,b,v)
+        x = findThirdV bd (a,b) 1 2
+completeHalf bd (RK(a,b,_)) = (x, makeFace) where
+        makeFace v = LK(a,v,b)
+        x = findThirdV bd (b,a) 2 1
+
+-- | add a (missing) half kite on a (boundary) short edge of a dart or kite
+addKiteShortE :: UMaker         
+addKiteShortE bd (RD(_,b,c)) = (x, makeFace) where
+    makeFace v = LK(v,c,b)
+    x = findThirdV bd (c,b) 2 2
+addKiteShortE bd (LD(_,b,c)) = (x, makeFace) where
+    makeFace v = RK(v,c,b)
+    x = findThirdV bd (c,b) 2 2
+addKiteShortE bd (LK(_,b,c)) = (x, makeFace) where
+    makeFace v = RK(v,c,b)
+    x = findThirdV bd (c,b) 2 2
+addKiteShortE bd (RK(_,b,c)) = (x, makeFace) where
+    makeFace v = LK(v,c,b)
+    x = findThirdV bd (c,b) 2 2
+
+-- | add a half dart top to a boundary short edge of a half kite.
+addDartShortE :: UMaker         
+addDartShortE bd (RK(_,b,c)) = (x, makeFace) where
+        makeFace v = LD(v,c,b)
+        x = findThirdV bd (c,b) 3 1
+addDartShortE bd (LK(_,b,c)) = (x, makeFace) where
+        makeFace v = RD(v,c,b)
+        x = findThirdV bd (c,b) 1 3
+addDartShortE bd _ = error "addDartShortE applied to non-kite face"
+
+-- | add a kite half to a kite long edge or dart half to a dart long edge
+completeSunStar :: UMaker
+completeSunStar bd fc = if isKite fc 
+                        then addKiteLongE bd fc
+                        else addDartLongE bd fc
+
+-- | add a kite to a long edge of a dart or kite
+addKiteLongE :: UMaker            
+addKiteLongE bd (LD(a,_,c)) = (x, makeFace) where
+    makeFace v = RK(c,v,a)
+    x = findThirdV bd (a,c) 2 1
+addKiteLongE bd (RD(a,b,_)) = (x, makeFace) where
+    makeFace v = LK(b,a,v)
+    x = findThirdV bd (b,a) 1 2
+addKiteLongE bd (RK(a,_,c)) = (x, makeFace) where
+  makeFace v = LK(a,c,v)
+  x = findThirdV bd (a,c) 1 2
+addKiteLongE bd (LK(a,b,_)) = (x, makeFace) where
+  makeFace v = RK(a,v,b)
+  x = findThirdV bd (b,a) 2 1
+
+-- add a half dart on a boundary long edge of a dart or kite
+addDartLongE :: UMaker            
+addDartLongE bd (LD(a,_,c)) = (x, makeFace) where
+  makeFace v = RD(a,c,v)
+  x = findThirdV bd (a,c) 1 1
+addDartLongE bd (RD(a,b,_)) = (x, makeFace) where
+  makeFace v = LD(a,v,b)
+  x = findThirdV bd (b,a) 1 1
+
+addDartLongE bd (LK(a,b,_)) = (x, makeFace) where
+  makeFace v = RD(b,a,v)
+  x = findThirdV bd (b,a) 1 1
+addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
+  makeFace v = LD(c,v,a)
+  x = findThirdV bd (a,c) 1 1
 
 {-
 ------------------  END OF FORCING CASES  ----------------------------
@@ -1540,23 +1568,8 @@ faceAngles (RD _) = fmap intAngle [1,1,3]
 faceAngles _      = fmap intAngle [1,2,2] -- LK and RK
 
 
--- | mustbeLDB (large dart base / jack) is true of a boundary vertex if
--- it is the wing of two darts not sharing a long edge or
--- it is a wing of a dart and also a kite origin
--- (false means it is either undetermined or is a large kite centre)
-mustbeLDB :: Boundary -> Vertex -> Bool
-mustbeLDB bd v =
-  (length dWings == 2 && not (hasAnyMatchingE (fmap longE dWings))) ||
-  (length dWings == 1 && isKiteOrigin) 
-  where fcs = facesAtBV bd v
-        dWings = filter ((==v) . wingV) $ filter isDart fcs
-        isKiteOrigin = v `elem` fmap originV (filter isKite fcs)
 
--- | hasMatching asks if a directed edge list has any two matching (=opposing) directed edges.
-hasAnyMatchingE :: [DEdge] -> Bool
-hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
-hasAnyMatchingE [] = False
-                      
+                     
 
 {- |
 For testing  allAnglesAnti and allAnglesClock on a boundary edge
