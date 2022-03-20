@@ -301,6 +301,7 @@ bothDir' [] = []
 bothDir' (e:more) = e:reverseE e:bothDir' more
 
 -- | boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
+-- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge
 boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
 boundaryDedges g = bothDir des \\ des where 
     des = graphDedges g
@@ -688,7 +689,8 @@ tooClose p p' = quadrance (p .-. p') < 0.25 -- quadrance is square of length of 
 
 
 {- | A Boundary records
-the boundary directed edges plus 
+the boundary directed edges (directed so that faces are on LHS and exterior is on RHS)
+plus 
 a mapping of boundary vertices to their incident faces, plus
 a mapping of boundary vertices to positions.
 It also keeps track of all the faces and vertices, 
@@ -699,7 +701,7 @@ Similarly for bvLocMap.
 -}
 data Boundary 
   = Boundary
-    { bDedges:: [DEdge]  -- boundary directed edges
+    { bDedges:: [DEdge]  -- boundary directed edges (face on LHS, exterior on RHS)
     , bvFacesMap:: Mapping Vertex [TileFace] -- faces at each boundary vertex
     , bvLocMap:: Mapping Vertex (Point V2 Double)  -- position of each boundary vertex
     , allFaces:: [TileFace]
@@ -989,6 +991,13 @@ tryUpdate bd (Nothing, makeFace) =
                  ++ show resultBd
                 )
 
+
+-- | doUpdate: do a single update (safe or unsafe)
+doUpdate:: Boundary -> Update -> BoundaryChange
+doUpdate bd u = if isSafeUpdate u then doSafeUpdate bd u
+                else case tryUpdate bd u of
+                 Just bdC -> bdC
+                 Nothing -> error "doUpdate: crossing boundary (touching vertices)"
 
 -- | noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
 -- There is no conflict if none of the new directed face edges of fc are already directed edges
@@ -1567,12 +1576,42 @@ faceAngles (LD _) = fmap intAngle [1,3,1]
 faceAngles (RD _) = fmap intAngle [1,1,3]
 faceAngles _      = fmap intAngle [1,2,2] -- LK and RK
 
+-- | addKite and addDart are not efficient but used to tinker with a graph
+-- e.g. to see how it affects forcing.
 
-
-                     
+-- adding by hand a single half kite
+-- must be to a boundary edge but direction is automatically calculated
+-- TO BE TESTED
+addKite :: Tgraph -> DEdge -> Tgraph
+addKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
+  bd = makeBoundary g
+  de = case [e, reverseE e] `intersect` bDedges bd of
+         [de] -> de
+         _ -> error ("addKite:  on non-boundary edge " ++ show e)
+  [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
+  u = if longE fc == reverseE de then addKiteLongE bd fc
+      else if shortE fc == reverseE de then addKiteShortE bd fc
+      else if joinE fc == reverseE de then completeHalf bd fc
+      else error "addKite: impossible ??"
+      
+-- adding by hand a single half dart or half kite
+-- must be to a boundary edge but direction is automatically calculated
+-- Will fail if edge is a dart short edge.
+-- TO BE TESTED
+addDart :: Tgraph -> DEdge -> Tgraph
+addDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
+  bd = makeBoundary g
+  de = case [e, reverseE e] `intersect` bDedges bd of
+         [de] -> de
+         _ -> error ("addDart:  on non-boundary edge " ++ show e)
+  [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
+  u = if longE fc == reverseE de then addDartLongE bd fc
+      else if shortE fc == reverseE de && isKite fc then addDartShortE bd fc
+      else if joinE fc == reverseE de then completeHalf bd fc
+      else error "addDart: not possible - adding dart to short edge of dart??"                     
 
 {- |
-For testing  allAnglesAnti and allAnglesClock on a boundary edge
+For testing  allAnglesAnti and allAnglesClock on a boundary directed edge
 The RHS of directed edge (a,b) should be the exterior side.
 -}
 testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces g),
@@ -1662,12 +1701,6 @@ makeChoices g = choices unks [g] where
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)              
 
--- | doUpdate: do a single update (safe or unsafe)
-doUpdate:: Boundary -> Update -> BoundaryChange
-doUpdate bd u = if isSafeUpdate u then doSafeUpdate bd u
-                else case tryUpdate bd u of
-                 Just bdC -> bdC
-                 Nothing -> error "doUpdate: crossing boundary (touching vertices)"
 
 -- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBase) by
 -- adding a second half dart face (sharing the kite below the existing half dart face at v)

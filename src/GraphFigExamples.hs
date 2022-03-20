@@ -631,6 +631,29 @@ checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
 dartsOnlyFig :: Diagram B
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
+-- trying to construct an extension to a sun such that
+-- it is disconnected or creates a crossing boundary when composed.
+problemG :: Tgraph
+problemG = checkTgraph ([ RK(1,2,11), LK(1,3,2)
+                        , RK(1,4,3) , LK(1,5,4)
+                        , RK(1,6,5) , LK(1,7,6)
+                        , RK(1,8,7) , LK(1,9,8)
+                        , RK(1,10,9), LK(1,11,10)
+                        ] ++
+                        [ LD(12,11,2), RD(12,10,11)
+                        , LD(13,5,6), RD(13,4,5)
+--                        , RK(6,14,13), LK(10,12,15)
+--                        , RD(13,6,14)
+                        ])
+problemGFig = padBorder $ hsep 1 $ fmap drawVGraph [problemG, force problemG, composeG (force problemG)]
+
+
+
+
+
+
+
+
 
 -- testing GraphSub
 gSubExampleFig:: Diagram B
@@ -673,8 +696,10 @@ twoChoices:: [GraphSub]
 twoChoices = [gs1,gs2] where
           f = force $ dartDs !! 4
           v = makeNewV (vertices f)
-          f' = Tgraph {vertices = v:vertices f, faces = RD(233,202,v):faces f}
-          f'' = Tgraph {vertices = v:vertices f, faces = RK(202,v,233):faces f}
+          f' = addDart f (233,202)
+          f'' = addKite f (233,202)
+--          f' = Tgraph {vertices = v:vertices f, faces = RD(233,202,v):faces f}
+--          f'' = Tgraph {vertices = v:vertices f, faces = RK(202,v,233):faces f}
           gs1 = makeGS f' (faces f')
           gs2 = makeGS f'' (faces f'')
           
