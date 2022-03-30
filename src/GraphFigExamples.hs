@@ -5,11 +5,10 @@
 module GraphFigExamples where
         
 import Diagrams.Prelude
-import ChosenBackend (B)
 
+import ChosenBackend (B)
 import HalfTile
 import TileLib
-
 import Tgraphs
 import GraphConvert
 
@@ -483,18 +482,20 @@ gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
     ] where g = boundaryGapFDart4
 
 {-
+
 Another test of new forcing
 Starting from the comma shaped gap (commaGap after 2200 steps of forcing boundaryGapFDart5)
 get the filled in gap only (gComma = difference after forcing)
 then force gComma.
 The result is not the full original force (dartDs!!5)
--}
+
 commaFig :: Diagram B
 commaFig = padBorder $ lw ultraThin $ showForce gComma (2561,2560)
            --checkEmbed gComma (force gComma)
            where
               commaGap = recoverGraph $ boundaryState $ stepForce 2200 boundaryGapFDart5    
               gComma = removeFaces (faces commaGap) (force commaGap)
+-}
 
 
 {-  test for bigPic without arrows -}

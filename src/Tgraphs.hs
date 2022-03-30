@@ -5,8 +5,9 @@ import qualified Data.Map as Map (Map, lookup, insert, empty, (!), elems, fromAs
 import Data.Maybe (mapMaybe, isNothing)
 import Control.Arrow(second) -- used in Forcing (makeGenerator)
 
-import HalfTile
 import Diagrams.Prelude      -- necessary for New createVPoints and for Located boundaries
+
+import HalfTile
 import TileLib (ttangle,phi) -- necessary for New createVPoints
 
 
@@ -133,6 +134,11 @@ connectedTo v unvisited edges = dfs [] [v] (unvisited \\[v]) where
      = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
        where nextVs = map snd $ filter ((== x) . fst) edges
              newVs = nextVs \\ (done++visited) -- assumes no self-loops
+
+
+
+
+
 
        
 {--------------------
@@ -547,7 +553,7 @@ partCompose g = (remainder,checkTgraph newFaces)
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , largeDartBases  :: [Vertex]
                        , unknowns :: [Vertex]
-                       , vGroup :: Map.Map Vertex [TileFace] --Mapping Vertex [TileFace]
+                       , vGroup :: Mapping Vertex [TileFace]
                        } deriving Show
                        
 -- | classifyDartWings classifies all dart wing tips
@@ -641,6 +647,18 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
                                 lk <- find (matchingJoinE rk)  (filter isLK fcs)
                                 return lk
     findFarK _ _ = error "findFarK: applied to non-dart face"
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -999,6 +1017,7 @@ doUpdate bd u = if isSafeUpdate u then doSafeUpdate bd u
                  Just bdC -> bdC
                  Nothing -> error "doUpdate: crossing boundary (touching vertices)"
 
+
 -- | noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
 -- There is no conflict if none of the new directed face edges of fc are already directed edges
 -- of neighbouring faces fcs (in the same direction)
@@ -1007,31 +1026,6 @@ noConflict :: TileFace -> [TileFace] -> Bool
 noConflict fc fcs = null (faceDedges fc `intersect` concatMap faceDedges fcs) &&
                     null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
                     null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1408,34 +1402,119 @@ addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
 -}
 
 
-{-------------------------------------------
-************
-ADDING FACES
-************
+{-
+************************************
+Other Force Related Functions
 
+addKite, addDart, forceLDB, forceLKC
+************************************
+-}
+
+
+-- | addKite and addDart are not efficient but used to tinker with a graph by adding a single half tile
+-- e.g. to see how it affects forcing. They use the update makers (UMaker)
+
+-- adding by hand a single half kite
+-- must be to a boundary edge but direction is automatically calculated
+-- Will fail if edge is a dart join
+addKite :: Tgraph -> DEdge -> Tgraph
+addKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
+  bd = makeBoundary g
+  de = case [e, reverseE e] `intersect` bDedges bd of
+         [de] -> de
+         _ -> error ("addKite:  on non-boundary edge " ++ show e)
+  [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
+  u = if longE fc == reverseE de then addKiteLongE bd fc
+      else if shortE fc == reverseE de then addKiteShortE bd fc
+      else if joinE fc == reverseE de && isKite fc then completeHalf bd fc
+      else error "addKite: applied to dart join (not possible)"
+      
+-- adding by hand a single half dart
+-- must be to a boundary edge but direction is automatically calculated
+-- Will fail if edge is a dart short edge or kite join.
+addDart :: Tgraph -> DEdge -> Tgraph
+addDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
+  bd = makeBoundary g
+  de = case [e, reverseE e] `intersect` bDedges bd of
+         [de] -> de
+         _ -> error ("addDart:  on non-boundary edge " ++ show e)
+  [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
+  u = if longE fc == reverseE de then addDartLongE bd fc
+      else if shortE fc == reverseE de && isKite fc then addDartShortE bd fc
+      else if joinE fc == reverseE de && isDart fc then completeHalf bd fc
+      else error "addDart: applied to short edge of dart or to kite join (not possible)"                     
+
+
+
+-- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBase) by
+-- adding a second half dart face (sharing the kite below the existing half dart face at v)
+-- This assumes exactly one dart wing tip is at v, and that half dart has a full kite below it.
+forceLDB :: Vertex -> Tgraph -> Tgraph
+forceLDB v g = recoverGraph $ newBoundary $ doUpdate bd (addDartShortE bd k) where
+    bd = makeBoundary g
+    vFaces = facesAtBV bd v
+    d = mustFind ((v==) . wingV) (filter isDart vFaces) $
+           error ("forceLDB: no dart wing at " ++ show v)
+    ks = filter ((==v) . oppV) $ filter isKite vFaces
+    k = mustFind ((/= oppV d) . wingV) ks $
+           error ("forceLDB: incomplete kite below dart " ++ show d)
+
+-- | forceLKC adds 3 pieces of a larger kite at an unknown vertex. That is,
+-- For an unclassifiable dart tip v, force it to become a large kite centre (largeKiteCentres) by adding
+-- 3 faces - a second half dart face sharing the long edge of the existing half dart face at v,
+-- and then completing the kite on the new half dart short edge.
+-- This assumes exactly one dart wing tip is at v.
+-- It is safe to add the 3 parts because v being unknown ensures the
+-- existing dart has a boundary long edge and 
+-- the new farK does not already exist (attached to existing dart farK),
+-- provided the existing dart half has no kite or a full kite below.
+-- If it has only a half kite below, but the new farK exists, then v will already have crossing boundaries.
+forceLKC :: Vertex -> Tgraph -> Tgraph
+forceLKC v g = recoverGraph bd3 where
+    bd0 = makeBoundary g
+    vFaces0 = facesAtBV bd0 v
+    d = mustFind ((v==) . wingV) (filter isDart vFaces0) $
+           error ("forceLKC: no dart wing at " ++ show v)
+    bd1 = newBoundary $ doUpdate bd0 (addDartLongE bd0 d)
+    vFaces1 = facesAtBV bd1 v
+    newd = head (vFaces1 \\ vFaces0)
+    bd2 = newBoundary $ doUpdate bd1 (addKiteShortE bd1 newd)
+    vFaces2 = facesAtBV bd2 v
+    newk = head (vFaces2 \\ vFaces1)
+    bd3 = newBoundary $ doUpdate bd2 (completeHalf bd2 newk)
+
+{- | mustFind is used to search (in forceLKC and forceLDB)
+It returns the first item satisfying predicate p and returns
+err arg when none found       
+-}
+mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
+mustFind p ls err = case find p ls of
+                     Just a  -> a
+                     Nothing -> err
+
+
+
+
+
+
+
+
+
+
+
+
+
+{-------------------------------------------
+****************************
+ADDING FACES with findThirdV
+****************************
+  
 The difficulty is determining if any edges of a new face already exist.
 This goes beyond a simple graph operation and requires use of the geometry of the faces.
 However, we do not need to go to a full conversion to vectors (which would have equality test problems anyway).
 Instead we introduce a representation of relative directions of edges at a vertex with an equality test.
 All directions are integer multiples of 1/10th turn (mod 10) so we use these integers for comparing directions.
 IntAngle n where n is 0..9
-
-searchThirdV example
-                       
-e.g adding the corresponding rdart to LD(a,b,c) - we are adding to the right of the directed edge (b,a), so
-find all faces involving b, assign direction IntAngle 0 to (b,a), use this to assign directions to all edges from b (based on faces)
-going anticlockwise round b, then see if there is an edge in direction IntAngle 7
-Then assign direction IntAngle 0 to (a,b), use this to assign direction to all edges from a (based on faces)
-going clockwise round a, then see if there is an edge in direction IntAngle 1
-If both are false, add the new vertex and 2 edges to create rdart
-If the first is false but second is true with edge (a,d), add edge (b,d) and face RD(a,d,b)
-If the first is true with edge (b,d) but second is false, add edge (a,d) and face RD(a,d,b)
-If both are true (and d node matches) we have a hole to be filled with RD(a,d,b)
-        
-Note that findThirdV just simplifies the interface for searchThirdV
-by using the 2 internal tt angles of the face being added which must both be integers 1,2 or 3
-It converts these to the appropriate IntAngle (the first is subtracted from 10 to start anticlockwise search)
-
 
 No crossing boundary property:
 Going round a vertex starting from a boundary edge and starting towards the interior, 
@@ -1449,22 +1528,11 @@ This will need to have its position checked against other (boundary) vertices to
 creating touching vertices/crossing boundary. (Taken care of in tryUpdate)
 ---------------------------------}
 
-
--- | IntAngles are Ints mod 10
-newtype IntAngle = IntAngle Int deriving(Eq,Show)
-
-intAngle :: Int -> IntAngle
-intAngle n = IntAngle (n `mod` 10)
--- | from IntAngle n, turn clockwise/anticlockwise by IntAngle m to get a new IntAngle
-anti,clock:: IntAngle -> IntAngle -> IntAngle
-anti  (IntAngle n) (IntAngle m) = intAngle (n+m)
-clock (IntAngle n) (IntAngle m) = intAngle (n-m)
-
-
--- | findThirdV is a simpler interface to searchThirdV for finding the third vertex for a new face.
+-- | findThirdV is the main exported interface to find a third vertex for a face added to a boundary edge.
+-- It is a simpler interface to searchThirdV which it uses.
 -- findThirdV bd (a,b) n m
 -- (bd is a Boundary)
--- the two integer arguments n and m are the internal angles for the new face on the boundary edge (a,b)
+-- the two integer arguments n and m are the INTERNAL angles for the new face on the boundary edge (a,b)
 -- for a and b respectively and must both be either 1,2, or 3.
 -- It converts n and m to IntAngles
 -- but subtracts n from 10 to get the antiClockwise (external) angle on the first vertex,
@@ -1475,6 +1543,17 @@ findThirdV bd (a,b) n m = checkAngleNumbers $ searchThirdV bd (a,b) (IntAngle (1
                               then x
                               else error ("findThirdV angles should be 1,2 or 3 but found "++ show(n,m))
 
+
+
+-- | IntAngles are Ints mod 10
+newtype IntAngle = IntAngle Int deriving(Eq,Show)
+
+intAngle :: Int -> IntAngle
+intAngle n = IntAngle (n `mod` 10)
+-- | from IntAngle n, turn clockwise/anticlockwise by IntAngle m to get a new IntAngle
+anti,clock:: IntAngle -> IntAngle -> IntAngle
+anti  (IntAngle n) (IntAngle m) = intAngle (n+m)
+clock (IntAngle n) (IntAngle m) = intAngle (n-m)
 
 {-  | searchThirdV             
 The main function for constructing a new face is searchThirdV
@@ -1576,39 +1655,6 @@ faceAngles (LD _) = fmap intAngle [1,3,1]
 faceAngles (RD _) = fmap intAngle [1,1,3]
 faceAngles _      = fmap intAngle [1,2,2] -- LK and RK
 
--- | addKite and addDart are not efficient but used to tinker with a graph
--- e.g. to see how it affects forcing.
-
--- adding by hand a single half kite
--- must be to a boundary edge but direction is automatically calculated
--- TO BE TESTED
-addKite :: Tgraph -> DEdge -> Tgraph
-addKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
-  bd = makeBoundary g
-  de = case [e, reverseE e] `intersect` bDedges bd of
-         [de] -> de
-         _ -> error ("addKite:  on non-boundary edge " ++ show e)
-  [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
-  u = if longE fc == reverseE de then addKiteLongE bd fc
-      else if shortE fc == reverseE de then addKiteShortE bd fc
-      else if joinE fc == reverseE de then completeHalf bd fc
-      else error "addKite: impossible ??"
-      
--- adding by hand a single half dart or half kite
--- must be to a boundary edge but direction is automatically calculated
--- Will fail if edge is a dart short edge.
--- TO BE TESTED
-addDart :: Tgraph -> DEdge -> Tgraph
-addDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
-  bd = makeBoundary g
-  de = case [e, reverseE e] `intersect` bDedges bd of
-         [de] -> de
-         _ -> error ("addDart:  on non-boundary edge " ++ show e)
-  [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
-  u = if longE fc == reverseE de then addDartLongE bd fc
-      else if shortE fc == reverseE de && isKite fc then addDartShortE bd fc
-      else if joinE fc == reverseE de then completeHalf bd fc
-      else error "addDart: not possible - adding dart to short edge of dart??"                     
 
 {- |
 For testing  allAnglesAnti and allAnglesClock on a boundary directed edge
@@ -1701,52 +1747,6 @@ makeChoices g = choices unks [g] where
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)              
 
-
--- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBase) by
--- adding a second half dart face (sharing the kite below the existing half dart face at v)
--- This assumes exactly one dart wing tip is at v, and that half dart has a full kite below it.
-forceLDB :: Vertex -> Tgraph -> Tgraph
-forceLDB v g = recoverGraph $ newBoundary $ doUpdate bd (addDartShortE bd k) where
-    bd = makeBoundary g
-    vFaces = facesAtBV bd v
-    d = mustFind ((v==) . wingV) (filter isDart vFaces) $
-           error ("forceLDB: no dart wing at " ++ show v)
-    ks = filter ((==v) . oppV) $ filter isKite vFaces
-    k = mustFind ((/= oppV d) . wingV) ks $
-           error ("forceLDB: incomplete kite below dart " ++ show d)
-
--- | forceLKC adds 3 pieces of a larger kite at an unknown vertex. That is,
--- For an unclassifiable dart tip v, force it to become a large kite centre (largeKiteCentres) by adding
--- 3 faces - a second half dart face sharing the long edge of the existing half dart face at v,
--- and then completing the kite on the new half dart short edge.
--- This assumes exactly one dart wing tip is at v.
--- It is safe to add the 3 parts because v being unknown ensures the
--- existing dart has a boundary long edge and 
--- the new farK does not already exist (attached to existing dart farK),
--- provided the existing dart half has no kite or a full kite below.
--- If it has only a half kite below, but the new farK exists, then v will already have crossing boundaries.
-forceLKC :: Vertex -> Tgraph -> Tgraph
-forceLKC v g = recoverGraph bd3 where
-    bd0 = makeBoundary g
-    vFaces0 = facesAtBV bd0 v
-    d = mustFind ((v==) . wingV) (filter isDart vFaces0) $
-           error ("forceLKC: no dart wing at " ++ show v)
-    bd1 = newBoundary $ doUpdate bd0 (addDartLongE bd0 d)
-    vFaces1 = facesAtBV bd1 v
-    newd = head (vFaces1 \\ vFaces0)
-    bd2 = newBoundary $ doUpdate bd1 (addKiteShortE bd1 newd)
-    vFaces2 = facesAtBV bd2 v
-    newk = head (vFaces2 \\ vFaces1)
-    bd3 = newBoundary $ doUpdate bd2 (completeHalf bd2 newk)
-
-{- | mustFind is used to search (in forceLKC and forceLDB)
-It returns the first item satisfying predicate p and returns
-err arg when none found       
--}
-mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
-mustFind p ls err = case find p ls of
-                     Just a  -> a
-                     Nothing -> err
 
 {-------------
  Experimental

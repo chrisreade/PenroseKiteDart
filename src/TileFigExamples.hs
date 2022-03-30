@@ -5,8 +5,8 @@
 module TileFigExamples where
     
 import Diagrams.Prelude
-import ChosenBackend (B)
 
+import ChosenBackend (B)
 import TileLib
 
 -- Used for adding text at a point
@@ -137,7 +137,7 @@ threeColourFilled = lw thin $
   ********************
   
 A swatch is a list of triples of colours which are used to fill sun5s (dart, kite, grout)
-showSwatch n swproduces a diagram from a swatch sw where n is used to indicate how many samples in a row
+showSwatch n sw produces a diagram from a swatch sw where n is used to indicate how many samples in a row
 display at 800
 -}
 showSwatch n swatch = vsep 0.25 $ fmap (hsep 0.25 . fmap sample) $ group n swatch where
