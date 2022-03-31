@@ -20,13 +20,13 @@ import GraphFigExamples
 
 -- imported for testing / debugging only
 import TileLib
-import HalfTile
+--import HalfTile
 import Tgraphs
-import GraphConvert
+import Tgraph.Convert
 
                 
 fig::Diagram B
-fig = twoChoicesFig
+fig = bigPic
 
 
 main = mainWith fig

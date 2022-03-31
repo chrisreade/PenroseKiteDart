@@ -3,16 +3,15 @@
 --{-# LANGUAGE TypeFamilies              #-}
 
 module GraphFigExamples where
-        
+
+import Data.List ((\\), nub)      
 import Diagrams.Prelude
 
 import ChosenBackend (B)
-import HalfTile
 import TileLib
 import Tgraphs
-import GraphConvert
+import Tgraph.Convert
 
-import Data.List ((\\), nub)
 
 {- 
     **********************

@@ -1,17 +1,35 @@
 # Revision history for PenroseKiteDart
 
 
+## 0.3.0.0 -- 2022-03-31
+
+Restructured modules: 
+    src/
+      HalfTile.hs              -- used by TileLib and Tgraph.Prelude
+      ChosenBackend.hs         -- switch between e.g. SVG or PostScript
+      TileLib.hs               -- Drawing of Patches
+      TileFigExamples.hs
+      Tgraphs.hs               -- Main Graph Ops (imports and reexports all modules in Tgraph except Tgraph.Convert)
+      Tgraph/
+         Tgraph.Prelude.hs     -- (imports and reexports HalfTile)
+         Tgraph.Decompose.hs
+         Tgraph.Compose.hs
+         Tgraph.Force.hs
+         Tgraph.Convert.hs     -- Converting Tgraphs to Patches and VPatches
+      GraphFigExamples.hs
+
+Graphs and Graph ops are collected in Tgraphs.hs
+Converting functions (and VPatch definition) are in Tgraph.Convert.hs
+Graph example figures are in GraphFigExamples.hs
+Tile Patch drawing figures, swatches, etc are in TileFigExamples.hs
+
+Original underlying Tile ops and tile drawing are in TileLib.hs
+
+
 ## 0.2.0.0 -- 2021-06-18
 
-New Graph representations and operations on graphs (graphDecompose, graphCompose, force, and more)
+New Graph representations and operations on graphs (decomposeG, composeG, force, and more)
 Tools to convert to Patches for drawing etc and also intermediate VPatches, to display Vertex information.
-
-Graphs and Graph ops are in Tgraphs.hs
-Converting functions (and VPatch definition) are in GraphConvert.hs
-Graph example figures are in GraphFigExamples.hs
-Tile Drawing figures, swatches, etc are in TileFigExamples.hs
-
-Original underlying Tile ops and tile drawing are in TileLib.hs (now using HalfTile.hs)
 
 Key changes to original TileLib.hs : 
 

@@ -1,6 +1,6 @@
 name:                PenroseKiteDart
 version:             0.2.0.0
-github:              "githubuser/PenroseKiteDart"
+github:              "chrisreade/PenroseKiteDart"
 license:             BSD3
 author:              "Chris Reade"
 maintainer:          "chrisreade@mac.com"
@@ -26,7 +26,6 @@ dependencies:
 - diagrams-svg
 - diagrams-postscript # added for postscript output
 - containers # added for Data.Map
-
 library:
   source-dirs: src
   exposed-modules:  
@@ -34,7 +33,11 @@ library:
     - TileLib
     - TileFigExamples
     - Tgraphs
-    - GraphConvert
+    - Tgraph.Prelude
+    - Tgraph.Decompose
+    - Tgraph.Compose
+    - Tgraph.Force
+    - Tgraph.Convert
     - GraphFigExamples
     - DecompExplain
     - ChosenBackend
@@ -46,8 +49,11 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    dependencies:
+    dependencies: 
     - PenroseKiteDart
+    when:        
+    - condition: false        
+      other-modules: Paths_PenroseKiteDart
 
 tests:
   PenroseKiteDart-test:

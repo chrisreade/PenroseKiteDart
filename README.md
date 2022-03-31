@@ -18,10 +18,10 @@ https://readerunner.wordpress.com/2021/03/20/diagrams-for-penrose-tiles/
 For more advanced use there are Tile Graphs (Tgraphs):
 
 Tile Graphs are an experimental addition with a graph representation.
-For this you also need modules Tgraphs, and GraphConvert, and possibly GraphFigExamples.
-Tgraph has operations decomposeG (a Tgraph version of decompose)
+For this you also need modules Tgraphs, and Tgraph.Convert, and possibly GraphFigExamples.
+Tgraphs has operations decomposeG (a Tgraph version of decompose)
 plus composeG and force.
-GraphConvert has tools for turning Tgraphs into Patches (and VPatches).
+Tgraph.Convert has tools for turning Tgraphs into Patches (and VPatches).
 
 For more info on Tgraphs see
 https://readerunner.wordpress.com/2022/01/06/graphs-kites-and-darts/

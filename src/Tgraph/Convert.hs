@@ -2,11 +2,11 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 
-module GraphConvert where
+module Tgraph.Convert where
 
-import HalfTile
 import TileLib
-import Tgraphs
+import Tgraph.Prelude
+import Tgraph.Force(Boundary, recoverGraph, bvLocMap, bDedges)  -- needed for viewBoundary
 
 import Data.List ((\\), find)
 import qualified Data.Map as Map (Map, lookup, toList, fromList)
@@ -254,7 +254,7 @@ drawEdges vpMap [] = mempty
 drawEdges vpMap (e:more) = drawEdge vpMap e <> drawEdges vpMap more
 drawEdge vpMap (a,b) = case (Map.lookup a vpMap, Map.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
-                         _ -> error ("drawEdge: location not found for both vertices "++ show(a,b))
+                         _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
 
 viewLoc' :: Located Vertex -> (Vertex, Point V2 Double)
 viewLoc' lp = (v,p) where (p,v) = viewLoc lp

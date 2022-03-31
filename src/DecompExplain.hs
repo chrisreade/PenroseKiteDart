@@ -5,9 +5,9 @@
 module DecompExplain (decompExplainFig) where
     
 import Diagrams.Prelude hiding (dart)
-import Diagrams.Backend.SVG.CmdLine
 import Diagrams.TwoD.Vector (e)
 
+import ChosenBackend (B)  --import Diagrams.Backend.SVG.CmdLine
 import TileLib
 
 rkiteAt p = mconcat [dotAt p blue
