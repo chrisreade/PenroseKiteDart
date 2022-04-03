@@ -260,6 +260,10 @@ longE (RD(a,b,_)) = (a,b)
 longE (LK(a,b,_)) = (a,b) 
 longE (RK(a,_,c)) = (c,a)
 
+-- | The directed join edge of a face but origin first (not clockwise for RD and LK)
+joinOfTile fc = (originV fc, oppV fc)
+
+facePhiEdges, faceNonPhiEdges::  TileFace -> [DEdge]
 facePhiEdges fc@(RD _) = [e, reverseE e] where e = longE fc
 facePhiEdges fc@(LD _) = [e, reverseE e] where e = longE fc
 facePhiEdges fc        = [e, reverseE e, j, reverseE j] 
@@ -268,8 +272,6 @@ facePhiEdges fc        = [e, reverseE e, j, reverseE j]
 
 faceNonPhiEdges fc = bothDir' (faceDedges fc) \\ facePhiEdges fc
 
--- | The directed join edge of a face but origin first (not clockwise for RD and LK)
-joinOfTile fc = (originV fc, oppV fc)
 
 -- | matchingE etype fc is a predicate on tile faces 
 -- where etype finds a particular type of edge of a face
@@ -347,7 +349,7 @@ GraphConvert.makeVPatch  to make VPatches and Patches
 -}
 
 {- | createVPoints: process list of faces to associate points for each vertex.
-     Faces must be face connected.
+     Faces must be tile-connected.
 -}
 createVPoints:: [TileFace] -> Mapping Vertex (Point V2 Double)
 createVPoints [] = Map.empty
@@ -362,13 +364,12 @@ This is used in tryUpdate as well as createVPoints
 -}
 addVPoints:: [TileFace] -> [TileFace] -> Mapping Vertex (Point V2 Double) -> Mapping Vertex (Point V2 Double)
 addVPoints [] [] vpMap = vpMap 
-addVPoints [] fcOther vpMap = error ("addVPoints: Faces not face-edge connected " ++ show fcOther)
+addVPoints [] fcOther vpMap = error ("addVPoints: Faces not tile-connected " ++ show fcOther)
 addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
   vpMap' = case thirdVertexLoc fc vpMap of
              Just (v,p) -> Map.insert v p vpMap
              Nothing -> vpMap
   (fcs', fcOther')   = partition (edgeNb fc) fcOther
---  (fcs', fcOther')   = splitEdgeNbs fc fcOther
 
 -- | initJoin fc 
 -- initialises a vpMap with locations for join edge vertices of fc along x axis - used to initialise createVPoints
@@ -424,9 +425,6 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
-
-
-
 
 
 

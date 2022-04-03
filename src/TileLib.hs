@@ -25,37 +25,11 @@ type Piece = HalfTile (V2 Double)
 getJVec:: Piece -> V2 Double
 getJVec = tileRep
 
-{-****************
-Important change
-*******************
-
-scalePiece, rotatePiece and scalePatch, rotatePatch, and translatePatch are no longer needed.
-They are replaced by scale, rotate, translate accordingly
-courtesy of HalfTile instances for V N and Transformable
-
--- | scale a piece
-scalePiece:: Double -> Piece -> Piece
-scalePiece = fmap . scale 
-
--- | rotate a piece
-rotatePiece :: Angle Double -> Piece -> Piece
-rotatePiece = fmap . rotate 
-
--- | scale a patch by a real number
-scalePatch :: Double -> Patch -> Patch
-scalePatch r = fmap (\(v,c) -> (scale r v, scale r c))
---scalePatch r = fmap (\(v,c) -> (scale r v, scalePiece r c))
-
--- | rotate a patch by an angle
-rotatePatch :: Angle Double -> Patch -> Patch
-rotatePatch a = fmap (\(v,c) -> (rotate a v, rotate a c))
--- rotatePatch a = fmap (\(v,c) -> (rotate a v, rotatePiece a c))
-
--- | move a patch by a vector
-translatePatch:: V2 Double -> Patch -> Patch
-translatePatch v0 = fmap (\(v,c) -> (v0 ^+^ v, c))
+{- | 
+******************************************************
+Making HalfTiles (and therefore Pieces) transformable
+*****************************************************
 -}
-
 type instance N (HalfTile a) = N a
 type instance V (HalfTile a) = V a
 instance Transformable a => Transformable (HalfTile a) where

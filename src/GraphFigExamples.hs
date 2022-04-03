@@ -319,12 +319,11 @@ emplaceFoolDChoices = padBorder $ hsep 1 $
         (d1:rest) = alignments [(1,6),(1,6),(1,6),(1,6),(34,6)] (fmap makeVPatch (g:emplaceChoices g))
         g = foolDs !! 1
 
-
 {- 
     *****************************************
     Incorrect graphs and other problem graphs
     *****************************************
- -}
+-}
   
 
 --- faces removed from foolD to illustrate crossing boundary and non-face-connected VPatches
@@ -652,12 +651,41 @@ problemGFig = padBorder $ hsep 1 $ fmap drawVGraph [problemG, force problemG, co
 
 
 
+{-
+    ********************
+    Drawing of GraphSubs
+    ********************
+    To draw a GraphSub, we need a list of functions turning patches into diagrams
+    The first function is applied to a patch for untracked faces
+    Subsequent functions are applied to the respective tracked subsets
+-}
+drawGSub:: [Patch -> Diagram B] -> GraphSub -> Diagram B
+drawGSub drawList gs = drawAll drawList (pUntracked:pTrackedList) where
+          vpFull = makeVPatch (fullGraph gs)
+          pTrackedList = fmap (dropVertices . (\fcs -> selectFacesVP fcs vpFull)) (trackedSubsets gs)
+          pUntracked = dropVertices $ removeFacesVP (concat (trackedSubsets gs)) vpFull
+          drawAll [] _ = mempty
+          drawAll _ [] = mempty
+          drawAll (f:fmore)(p:pmore) = f p <> drawAll fmore pmore
+
+drawGSub2, drawGSub3 :: GraphSub -> Diagram B
+-- | special case of drawGSub using 2 patchdrawing functions:
+-- normal (black), then red
+drawGSub2 = drawGSub [drawPatch,(lc red . drawPatch)]
+-- | special case of drawGSub using 3 patchdrawing functions:
+-- normal (black), then red, then filled black
+drawGSub3 = drawGSub [drawPatch,(lc red . drawPatch), patchWith (fillDK black black)]
 
 
 
 -- testing GraphSub
+gSubExample:: GraphSub
+gSubExample = iterate (trackedForce . trackedDecomp) (makeGS fD2 [faces fD2]) !! 3
+              where fD2 = force (dartDs !!2)
+
+
 gSubExampleFig:: Diagram B
-gSubExampleFig = padBorder $ lw thin drawGSub gSubExample
+gSubExampleFig = padBorder $ lw thin drawGSub2 gSubExample
 
 forceHollowFig:: Diagram B
 forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGraph, force hollowGraph]
@@ -665,21 +693,12 @@ forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGrap
 -- hollowGraph happens to be a valid Tgraph after removing the tracked faces from gSubExample
 -- This is not generally the case
 hollowGraph::Tgraph
-hollowGraph = removeFaces (trackedFaces gSubExample) (fullGraph gSubExample)
+hollowGraph = removeFaces (concat (trackedSubsets gSubExample)) (fullGraph gSubExample)
 
 removeTrackedFig:: Diagram B
 removeTrackedFig = padBorder $  lw ultraThin $ 
-             drawPatch $ dropVertices $ removeFacesGtoVP (trackedFaces gs) (fullGraph gs) where
-                 gs = gSubExample
-gSubExample:: GraphSub
-gSubExample = iterate (trackedForce . trackedDecomp) (makeGS fD2 (faces fD2)) !! 3
-              where fD2 = force (dartDs !!2)
-
-drawGSub:: GraphSub -> Diagram B
-drawGSub gs = (drawPatch (dropVertices vpTracked) # lc red)  <> drawPatch (dropVertices vpUntracked)
-    where vpFull = makeVPatch (fullGraph gs)
-          vpTracked = selectFacesVP (trackedFaces gs) vpFull
-          vpUntracked = removeFacesVP (trackedFaces gs) vpFull
+  drawPatch $ dropVertices $ removeFacesGtoVP (concat (trackedSubsets gs)) (fullGraph gs) where
+    gs = gSubExample
 
 
 {-
@@ -695,21 +714,19 @@ Then track these faces in two GraphSubs
 twoChoices:: [GraphSub]
 twoChoices = [gs1,gs2] where
           f = force $ dartDs !! 4
-          v = makeNewV (vertices f)
           f' = addDart f (233,202)
           f'' = addKite f (233,202)
---          f' = Tgraph {vertices = v:vertices f, faces = RD(233,202,v):faces f}
---          f'' = Tgraph {vertices = v:vertices f, faces = RK(202,v,233):faces f}
-          gs1 = makeGS f' (faces f')
-          gs2 = makeGS f'' (faces f'')
+          gs1 = makeGS f' [faces f', faces f' \\ faces f]
+          gs2 = makeGS f'' [faces f'', faces f'' \\ faces f]
           
 -- | show the (tracked) result of forcing each of twoChoices   
 twoChoicesFig:: Diagram B
-twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGSub . trackedForce) twoChoices
+twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGSub3 . trackedForce) twoChoices
 
--- quick look at all the compositions of the twoChoices results (not rotated or scaled)
+-- quick look at all the compositions of the twoChoices results (not rotated)
 tempFig:: Diagram B
-tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap showAllFComps twoChoices where
-    showAllFComps gs = hsep 1 $ (fmap drawGraph) $ allComps $ fullGraph $ trackedForce gs
+tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1 . phiScales . showAllFComps) twoChoices where
+    showAllFComps gs =  fmap drawGraph $ allComps $ fullGraph $ trackedForce gs
+
 
         

@@ -12,11 +12,14 @@ import Tgraph.Decompose
 import Tgraph.Compose
 import Tgraph.Force
 
-
 {----------------------------
 ********************************************
-EMPLACEMENTS
+EXPERIMENTAL BITS
 ********************************************
+------------------------------}
+
+{----------------------------
+EMPLACEMENTS
 ------------------------------}
 
 -- | emplace does maximal composing with force and composeG, 
@@ -53,10 +56,7 @@ countEmplace g = (maxg, emplacements maxg !! n, n) where (maxg,n) = maxFCompose 
 
 
 {-------------------------------------------------------------------------
-******************************************** *****************************              
-Experimental: makeChoices, emplaceChoices
-***************************************************************************
-
+ makeChoices, emplaceChoices
 ------------------------------------------------------------------------------}
 
 -- | a version of emplace using makeChoices at the top level.
@@ -82,23 +82,35 @@ makeChoices g = choices unks [g] where
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)              
 
 
-{-------------
- Experimental
---------------}
-data GraphSub = GraphSub{ fullGraph:: Tgraph, trackedFaces::[TileFace]}
+{-------------------------------------------------------------------------
+ GraphSub - introduced to allow tracking of subsets of faces
+ in both force and decompose oerations
+ A GraphSub has a main Tgraph (fullgraph) and a list of subsets of faces.
+ The list allows for tracking different subsets of faces at the same time
+------------------------------------------------------------------------------}
 
-makeGS :: Tgraph -> [TileFace] -> GraphSub
-makeGS g fcs = GraphSub{ fullGraph = g, trackedFaces = fcs `intersect` faces g}
 
-trackedDecomp (GraphSub{ fullGraph = g, trackedFaces = fcs}) = makeGS g' fcs' where
+data GraphSub = GraphSub{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
+
+makeGS :: Tgraph -> [[TileFace]] -> GraphSub
+makeGS g trackedlist = GraphSub{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
+
+trackedDecomp (GraphSub{ fullGraph = g, trackedSubsets = tlist}) = makeGS g' tlist' where
    g' = Tgraph{ vertices = newVs++vertices g
               , faces = newFaces
               }
    (newVs , newVFor) = newVPhiMap g
    newFaces = concatMap (decompFace newVFor) (faces g)
-   fcs' = concatMap (decompFace newVFor) fcs
+   tlist' = fmap (concatMap (decompFace newVFor)) tlist
 
-trackedForce (GraphSub{ fullGraph = g, trackedFaces = fcs}) = makeGS (force g) fcs
+trackedForce (GraphSub{ fullGraph = g, trackedSubsets = tlist}) = makeGS (force g) tlist
+
+
+
+
+{-------------------------------------------------------------------------
+ compForce, allFComps, allComps, maxCompose, maxFCompose
+------------------------------------------------------------------------------}
 
 -- | compForce does a force then composeG but it
 -- by-passes the check on the composed graph because it is forced

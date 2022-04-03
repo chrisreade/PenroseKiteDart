@@ -202,6 +202,12 @@ scales (s:ss) (d:ds) = scale s d: scales ss ds
 scales [] ds = ds
 scales _  [] = error "scales: too many scalars"
 
+-- | increasing scales by phi along a list
+phiScales:: (Transformable a, V a ~ V2, N a ~ Double) => [a] -> [a]
+phiScales = scaling 1 where
+   scaling s [] = []
+   scaling s (d:more) = scale s d: scaling (phi*s) more
+
 {- ----------------------------------------
  Auxilliary definitions
 ------------------------------------------- -}
@@ -238,6 +244,7 @@ dropVertices vp = fmap (mapLoc asPiece) (lHybrids vp)
 -- dropVertices removes vertex information from Hybrids and removes located vertex list
 dropVectors:: VPatch -> [TileFace]
 dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
+
    
 
 
