@@ -297,8 +297,8 @@ doSafeUpdate bd (Just v, makeFace) =
              ++ show newFace
              ++ "\nwith neighbouring faces\n"
              ++ show nbrFaces
-             ++ "\nin boundary\n"
-             ++ show resultBd
+             ++ "\nIn graph:\n"
+             ++ show (recoverGraph resultBd)
             )
 
 
@@ -343,8 +343,8 @@ tryUpdate bd (Nothing, makeFace) =
                  ++ show newFace
                  ++ "\nwith neighbouring faces\n"
                  ++ show nbrFaces
-                 ++ "\nin boundary\n"
-                 ++ show resultBd
+                 ++ "\nIn graph:\n"
+                 ++ show (recoverGraph resultBd)
                 )
 
 
@@ -910,23 +910,22 @@ If existing edges are found in the specified directions
 they are used and the associated vertex is returned (Just v). 
 If nothing is found, Nothing is returned - indicating the a new vertex is needed
 
-Unsafe: touching vertex problem
-There is a pathalogical case where the vertex already exists but neither of the edges is found. 
-In this case it will lead to an erroneous new vertex.
-
 A gap in faces around a and b can result in a *crossing boundary* error
-when it is unsafe to conclude the edges do not exist. (see also findAnti and findClock)
+when it is unsafe to conclude the edges do not exist. 
+The functions findAntiAt and findClockAt should detect the found edge NOT on the boundary.
+They are passed the Boundary information purely in order to include this in error reporting.
+Note findAntiAt is passed the directed boundary edge, but findClockAt is passed the reverse directed edge.
 -} 
 searchThirdV:: Boundary -> DEdge -> IntAngle -> IntAngle -> Maybe Vertex
 searchThirdV bd (a,b) nAnti nClock  = 
-    case (findAnti nAnti (a,b) (facesAtBV bd a), findClock nClock (b,a) (facesAtBV bd b)) of
+    case (findAntiAt bd nAnti (a,b) (facesAtBV bd a), findClockAt bd nClock (b,a) (facesAtBV bd b)) of
          (Just c, Just d ) -> if c==d then Just c else error "searchThirdV: non-matching end-points"
          (Just c, Nothing) -> Just c
          (Nothing, Just c) -> Just c
          (Nothing, Nothing)-> Nothing
-  
 
-{- | findClock, findAnti
+{- OLDER VERSIONS did not have good error reporting
+ findClock, findAnti
 For a boundary directed edge (a,b) 
 findAnti n (a,b) fcs will look at directed edges from a of fcs going anti-clockwise round a with their direction
 starting with (a,b) in direction 0. fcs must be the faces at a. It then returns Just c if (a,c) is found in direction n.
@@ -934,7 +933,7 @@ It will return Nothing if no such edge (a,c) is found BUT an error if there are 
 when a match fails - this indicates a *crossing boundary*).
 It also produces an error if the last angle found is beyond the one searched for.
 Similarly findClock in the clockwise direction but fcs must be faces at b.
--}
+
 findClock, findAnti :: IntAngle -> (Vertex, Vertex) -> [TileFace] -> Maybe Vertex
 findClock n (a,b) fcs = checkClockFor n $ allAnglesClock [(intAngle 0,b)] $ fcs
 findAnti  n (a,b) fcs = checkAntiFor n $ allAnglesAnti [(intAngle 0,b)] $ fcs
@@ -944,18 +943,61 @@ findAnti  n (a,b) fcs = checkAntiFor n $ allAnglesAnti [(intAngle 0,b)] $ fcs
 -- there is something wrong - so error called.
 checkAntiFor,checkClockFor::IntAngle -> [(IntAngle,Vertex)] -> Maybe Vertex
 checkAntiFor n [] = Nothing
-checkAntiFor n ms@((m,a):_) = if m==n then Just a  else
-                              if m `smallerAngle` n  then Nothing else
-                              error ("checkAntiFor angle "++ show n ++" but found "++ show ms)
+checkAntiFor n ms@((m,a):_)
+  = if m==n then Just a  else
+    if m `smallerAngle` n  then Nothing else
+    error ("checkAntiFor:  Found incorrect graph conflict:\nChecking (anticlockwise) for angle "
+            ++ show n ++" but found "++ show ms)
 checkClockFor n [] = Nothing
-checkClockFor n ms@((m,a):_) = if m==n then Just a  else
-                          if n `smallerAngle` m  then Nothing else
-                          error ("checkClockFor angle "++ show n ++" but found "++ show ms)
+checkClockFor n ms@((m,a):_) 
+  = if m==n then Just a  else
+    if n `smallerAngle` m  then Nothing else
+    error ("checkClockFor:  Found incorrect graph conflict:\nChecking (clockwise) for angle "
+            ++ show n ++" but found "++ show ms)
+-}
+
+
+
+{- | findClockAt, findAntiAt
+For a boundary bd and boundary directed edge (a,b) 
+findAntiAt bd n (a,b) fcs will look at directed edges from a of fcs going anti-clockwise round a with their direction
+starting with (a,b) in direction 0. fcs must be the faces at a. It then returns Just c if (a,c) is found in direction n.
+It will return Nothing if no such edge (a,c) is found BUT a *crossing boundary* error if there are faces left over
+when a match fails.
+It also produces an error if the last angle found is beyond the one searched for.
+This indicates an incorrect graph, and the boundary argument is used just for reporting the error in such cases.
+Similarly findClockAt in the clockwise direction but called with the reverse directed edge, so fcs must be faces at b.
+-}
+findClockAt, findAntiAt :: Boundary -> IntAngle -> (Vertex, Vertex) -> [TileFace] -> Maybe Vertex
+findClockAt bd n (a,b) fcs = errorCheckClock bd a n $ allAnglesClock [(intAngle 0,b)] $ fcs
+findAntiAt  bd n (a,b) fcs = errorCheckAnti bd a n $ allAnglesAnti [(intAngle 0,b)] $ fcs
+
+-- | errorCheckAnti bd n and errorCheckClock bd n are used instead of just lookup n, 
+-- because the search for n should find it in the front pair on the resulting list or not at all.
+-- However if the first angle is smaller than n for checkClockFor or bigger than n for checkAntiFor,
+-- there is an incorrect graph.  The first 2 arguments are passed only to report such errors
+errorCheckAnti,errorCheckClock::Boundary -> Vertex -> IntAngle -> [(IntAngle,Vertex)] -> Maybe Vertex
+errorCheckAnti bd v n [] = Nothing
+errorCheckAnti bd v n ms@((m,a):_)
+  = if m==n then Just a  else
+    if m `smallerAngle` n  then Nothing else
+    error ("errorcheckAnti:  Found incorrect graph\nConflict at vertex: " ++ show v ++
+           "\nChecking (anticlockwise) for angle " ++ show n ++" but found "++ show ms ++
+           "\n In graph:\n" ++ show (recoverGraph bd)
+          )
+errorCheckClock bd v n [] = Nothing
+errorCheckClock bd v n ms@((m,a):_) 
+  = if m==n then Just a  else
+    if n `smallerAngle` m  then Nothing else
+    error ("errorcheckClock:  Found incorrect graph\nConflict at vertex: " ++ show v ++
+           "\nChecking (clockwise) for angle " ++ show n ++" but found "++ show ms ++
+           "\n In graph:\n" ++ show (recoverGraph bd)
+          )
 
 (IntAngle m) `smallerAngle`  (IntAngle n) = m<n-- only valid up to n==9
 
 
-{- | allAnglesClock and allAnglesAnti are used by findClock and findAnti
+{- | allAnglesClock and allAnglesAnti are used by findClockAt and findAntiAt
 The second argument is the unprocessed list of faces attached to a common vertex a
 The first argument is the accumulated list of directions found so far with last one at the front of the list
 e.g (n,last) means the last edge found was (a,last) at angle n.
