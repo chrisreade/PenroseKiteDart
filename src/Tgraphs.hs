@@ -83,19 +83,19 @@ makeChoices g = choices unks [g] where
 
 
 {-------------------------------------------------------------------------
- GraphSub - introduced to allow tracking of subsets of faces
+ SubTgraph - introduced to allow tracking of subsets of faces
  in both force and decompose oerations
- A GraphSub has a main Tgraph (fullgraph) and a list of subsets of faces.
+ A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces.
  The list allows for tracking different subsets of faces at the same time
 ------------------------------------------------------------------------------}
 
 
-data GraphSub = GraphSub{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
+data SubTgraph = SubTgraph{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
 
-makeGS :: Tgraph -> [[TileFace]] -> GraphSub
-makeGS g trackedlist = GraphSub{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
+makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
+makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
 
-trackedDecomp (GraphSub{ fullGraph = g, trackedSubsets = tlist}) = makeGS g' tlist' where
+decomposeSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph g' tlist' where
    g' = Tgraph{ vertices = newVs++vertices g
               , faces = newFaces
               }
@@ -103,7 +103,7 @@ trackedDecomp (GraphSub{ fullGraph = g, trackedSubsets = tlist}) = makeGS g' tli
    newFaces = concatMap (decompFace newVFor) (faces g)
    tlist' = fmap (concatMap (decompFace newVFor)) tlist
 
-trackedForce (GraphSub{ fullGraph = g, trackedSubsets = tlist}) = makeGS (force g) tlist
+forceSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph (force g) tlist
 
 
 

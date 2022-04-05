@@ -26,7 +26,6 @@ import Tgraph.Convert
 
                 
 fig::Diagram B
-fig = bigPic     
-
+fig = twoChoicesFig
 
 main = mainWith fig

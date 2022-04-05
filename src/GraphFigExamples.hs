@@ -29,25 +29,11 @@ checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
 
 -- | drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
 -- vertices a and b must be common to g1 and g2 and scales should match for length of (a,b)
-drawEmbed :: (Vertex, Vertex) -> Tgraph -> Tgraph -> Diagram B
-drawEmbed (a,b) g1 g2 = 
+drawEmbed ::  Tgraph -> Tgraph -> (Vertex, Vertex) -> Diagram B
+drawEmbed g1 g2 (a,b) = 
     (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
     vp1 = alignXaxis (a,b) $ makeVPatch g1
     vp2 = alignXaxis (a,b) $ makeVPatch g2
-
--- | drawEmbed' alms g1 g2 embeds  g1 (coloured red) onto g2, by aligning with alignments alms - a list of 2 pairs
-drawEmbed' :: [(Vertex, Vertex)] -> Tgraph -> Tgraph -> Diagram B
-drawEmbed' alms g1 g2 = 
-    (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
-    [vp1,vp2] = alignments alms $ fmap makeVPatch [g1, g2]
-
--- | dashJEmbed (a,b) g1 g2 same as drawEmbed (a,b) g1 g2 but dashJ for g1
-dashJEmbed:: (Vertex, Vertex) -> Tgraph -> Tgraph -> Diagram B
-dashJEmbed (a,b) g1 g2 = 
-    (lc red $ lw thin $ dashJPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
-    vp1 = alignXaxis (a,b) $ makeVPatch g1
-    vp2 = alignXaxis (a,b) $ makeVPatch g2
-
 
 
 {-
@@ -126,7 +112,7 @@ checkPCompose g =
 {- | showPCompose g (a,b)  applies partCompose to g, then aligns and draws the composed graph with the remainder faces (in lime)
 It can cope with an empty composed graph.
 Vertices a and b must be common to composed g and g
-(use checkPCompose to see possible vertices)                               
+(use checkPCompose to choose vertices)                               
 -}
 showPCompose ::  Tgraph -> (Vertex, Vertex) -> Diagram B
 showPCompose g (a,b) = case nullGraph g' of
@@ -138,25 +124,6 @@ showPCompose g (a,b) = case nullGraph g' of
         remg = selectFacesGtoVP fcs g
  
 
-{-
--- checkPCompose  (force $ dartDs !! 3) 
-pCompFig1 :: Diagram B
-pCompFig1 = padBorder $ showPCompose (force $ dartDs !! 3) (1,3)        
--- pCompFig1 = padBorder $ showPCompose (emplacements dartGraph !! 3) (1,3)        
--- checkPCompose (emplacements kiteGraph !! 3)
-pCompFig2 :: Diagram B
-pCompFig2 = padBorder $ showPCompose (force $ kiteDs !! 3) (1,2)
--}
-{-
-pCompFig :: Diagram B
-pCompFig = padBorder $ vsep 3 $ 
-              [hsep 10 $ rotations []  $ [drawGraph fk3 # lw ultraThin, showPCompose fk3 (1,2)]
-              ,hsep 10 $ rotations [1] $ [drawGraph fd3 # lw ultraThin, showPCompose fd3 (1,3)]
-              ] where
-                  fk3 = force $ kiteDs !! 3
-                  fd3 = force $ dartDs !! 3
--}
-
 pCompFig1,pCompFig2,pCompFig:: Diagram B
 pCompFig1 = hsep 5 $ rotations [1] $ [drawGraph fd3 # lw ultraThin, showPCompose fd3 (1,3)]
             where fd3 = force $ dartDs !! 3
@@ -166,81 +133,69 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 
 {-
-  *********************************
-  Forced graphs and forcing figures
-  *********************************
+  ********************
+  Forced graph figures
+  ********************
 -}
               
 forceFoolDminus :: Diagram B              
 forceFoolDminus = padBorder $ hsep 1 $ fmap drawVGraph [foolDminus, force foolDminus]
 
-showForce :: Tgraph -> (Vertex, Vertex) -> Diagram B
-showForce g (a,b) = drawEmbed (a,b) g (force g)
+-- new version of showForce using subTgraphs instead of alignments
+showForce:: Tgraph -> Diagram B
+showForce g = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ]
+               $ forceSub $ makeSubTgraph g [faces g]
 
-forceDartD,forceKiteD,forceSunD :: Int -> Diagram B
-forceDartD n = showForce (dartDs !! n) (1,3)
-forceKiteD n = showForce (kiteDs !! n) (1,2)
-forceSunD  n = showForce (sunDs  !! n) (1,2)
+forceDartD3Fig,forceDartD5Fig,forceKiteD3Fig,forceKiteD5Fig,forceSunD5Fig,forceFig:: Diagram B
+forceDartD3Fig = padBorder $ rotate (ttangle 1) $ showForce $ dartDs !! 3
+forceDartD5Fig = padBorder $ showForce $ dartDs !! 5
+forceKiteD3Fig = padBorder $ showForce $ kiteDs !! 3
+forceKiteD5Fig = padBorder $ rotate (ttangle 9) $ showForce $ kiteDs !! 5
+forceSunD5Fig =  padBorder $ showForce $ sunDs  !! 5
 
-forceDartD3Fig = padBorder $ forceDartD 3 
-forceDartD5Fig = padBorder $ forceDartD 5
-
-forceKiteD3Fig = padBorder $ forceKiteD 3
-forceKiteD5Fig = padBorder $ forceKiteD 5
-
-forceSunD5Fig = padBorder $ forceSunD 5
-
+forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 {-
   *************************************
   Emplacements and emplacement figures
   *************************************
 -}
 
-{- | showEmplace g n (a,b)
-    g should be a TOP graph (empty composition) 
-    (a,b) a pair of distinct vertices in g 
-    produces emplacement diagram for nth decomposition of g               
+{- | showEmplace g n
+    Should produce the same as showForce (decompositionsG g !!n)
+    but does not assume force and emplace are equivalent
+    Produces emplacement diagram for nth decomposition of g  with
+    nth decomposition of g in red and its surrounding emplacement in black           
 -}
-showEmplace :: Tgraph -> Int -> (Vertex, Vertex) -> Diagram B
-showEmplace g n (a,b) = drawEmbed (a,b) (decompositionsG g !!n) (emplacements g !!n)
+showEmplace :: Tgraph -> Int -> Diagram B
+showEmplace g n = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ] $
+                    (emplacementSubs g) !! n
 
-{- | showForceEmplace rots g 
-     shows a graph (with dashJ) followed its forced then emplaced versions shown with draw
-     rots is a list of integer rotations (use [] first to work out what rotations are needed)
+-- | an infinite list of emplacements of a graph as SubTgraphs
+emplacementSubs:: Tgraph -> [SubTgraph]
+emplacementSubs g = iterate (forceSub . decomposeSub) $ makeSubTgraph (emplace g) [faces g]
+
+
+{- | showForceEmplace g n
+     shows the forced above the emplaced versions of g decomposed n times
 -}
-showForceEmplace :: [Int] -> Tgraph -> Diagram B
-showForceEmplace rots g = 
-    padBorder $ hsep 1 $ fmap center $ rotations rots
-    [ dashJGraph g
-    , drawGraph $ forced
-    , drawGraph $ emplace forced
-    ] where forced = force g
+showForceEmplace :: Tgraph -> Int -> Diagram B
+showForceEmplace g n = vsep 1 $ [showForce $ decompositionsG g !!n, showEmplace g n]
 
--- nth decomposition and its emplacement for dart,kite,fool,sun
-empDartD, empKiteD, empFoolD, empSunD :: Int -> Diagram B
-empDartD n = showEmplace dartGraph n (1,3)
-empKiteD n = showEmplace kiteGraph n (1,2)
-empFoolD n = showEmplace fool n (1,3)
-empSunD  n = showEmplace sunGraph n (1,2)
 
--- example emplacement figures
-empDartD3Fig,empDartD4Fig,empDartD5Fig,empKiteD3Fig,empKiteD5Fig,empSunD5Fig:: Diagram B
-empDartD3Fig = padBorder $ empDartD 3 
-empDartD4Fig = padBorder $ empDartD 4 
-empDartD5Fig = padBorder $ empDartD 5
+-- example nth emplacement figures
+empDartD5Fig,empKiteD5Fig,empSunD5Fig:: Diagram B
+empDartD5Fig = padBorder $ rotate (ttangle 2) $ showEmplace dartGraph 5
+empKiteD5Fig = padBorder $ rotate (ttangle 3) $ showEmplace kiteGraph 5
+empSunD5Fig  = padBorder $ showEmplace sunGraph 5
 
-empKiteD3Fig = padBorder $ empKiteD 3
-empKiteD5Fig = padBorder $ empKiteD 5
-
-empSunD5Fig = padBorder $ empSunD 5
-
-newEmpFig = padBorder $ hsep 1 $ [empDartD 4, empKiteD 4]
+newEmpFig:: Diagram B
+newEmpFig = padBorder $ hsep 1 $ rotations [2,4] [showEmplace dartGraph 4, showEmplace kiteGraph 4]
 
 
 {-
-  *************************************
-  Forcing and Composing Subgraphs
-  *************************************
+  ************************************************
+  Forcing and Composing Tgraphs with removed faces
+  ************************************************
 -}
 dartD4 :: Tgraph
 dartD4 = dartDs!!4
@@ -283,6 +238,7 @@ twoKites = checkTgraph [ RK(1,2,11), LK(1,3,2)
                        ]
 
 -- diagram of touching vertex situation and forced result
+touchingTestFig::  Diagram B
 touchingTestFig = 
   padBorder $ hsep 1
     [ drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)
@@ -311,14 +267,15 @@ foolChoices = padBorder $ vsep 1
               ] where choices = makeChoices fool
                       redFool = dashJGraph fool # lc red
                          
-
--- emplacement choices for foolD
+-- | emplacement choices for foolD 
+--  WARNING: relies on numbering which can change with changes to forcing
+--  Vertex 1 is not present in the final choice (hense 29)
 emplaceFoolDChoices :: Diagram B
 emplaceFoolDChoices = padBorder $ hsep 1 $
-        fmap (((lc red . dashJPatch . dropVertices) d1 <>) . lw ultraThin . drawPatch . dropVertices) rest where
-        (d1:rest) = alignments [(1,6),(1,6),(1,6),(1,6),(34,6)] (fmap makeVPatch (g:emplaceChoices g))
-        g = foolDs !! 1
-
+        fmap (addFoolD . lw ultraThin . drawPatch . dropVertices) vpChoices where
+        (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(29,6)] 
+                                         (fmap makeVPatch (foolD:emplaceChoices foolD))
+        addFoolD fig = (lc red . dashJPatch . dropVertices) vpFoolD <> fig
 {- 
     *****************************************
     Incorrect graphs and other problem graphs
@@ -336,20 +293,17 @@ crossingBdryFig = padBorder $ hsep 1 [d1,d2]
 mistake:: Tgraph
 mistake = checkTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1), LD(3,5,7), RD(4,8,6)]
 
--- | partially forced mistake (at the point of error)
-partForcedMistake:: Tgraph
-partForcedMistake = 
-    makeTgraph [RK (9,1,11),LK (9,10,7),RK (9,7,5),LK (9,5,1),RK (1,2,4)
-               ,LK (1,3,2),RD (3,1,5),LD (4,6,1),LD (3,5,7),RD (4,8,6)
-               ]
-
 -- mistake and the point at which forcing fails                
 pfMistakeFig :: Diagram B
-pfMistakeFig  = padBorder $ hsep 1 [drawVGraph mistake, drawVGraph partForcedMistake]
-
+pfMistakeFig  = padBorder $ hsep 1 [drawVGraph mistake, drawVGraph partForcedMistake] where
+   partForcedMistake = 
+       makeTgraph [RK (9,1,11),LK (9,10,7),RK (9,7,5),LK (9,5,1),RK (1,2,4)
+                  ,LK (1,3,2),RD (3,1,5),LD (4,6,1),LD (3,5,7),RD (4,8,6)
+                  ]
+   
 -- decomposeG mistake and the point at which forcing fails  with  RK (6,26,1)              
-pfDecompMistakeFig :: Diagram B
-pfDecompMistakeFig = padBorder $ hsep 1 [drawVGraph (decomposeG mistake), drawVGraph part] where
+forcingDmistakeFig :: Diagram B
+forcingDmistakeFig = padBorder $ hsep 1 [drawVGraph (decomposeG mistake), drawVGraph part] where
     part =  makeTgraph [RK (26,24,1),RK (5,24,25),LK (5,1,24),RK (3,23,2),LK (3,22,23)
                        ,RK (3,21,22),LK (3,15,21),LK (4,2,20),RK (4,20,19),LK (4,19,18),RK (4,18,17)
                        ,LK (4,17,16),RK (4,16,12),LD (8,12,16),RK (3,14,15),LK (3,11,14),RD (7,14,11)
@@ -358,11 +312,44 @@ pfDecompMistakeFig = padBorder $ hsep 1 [drawVGraph (decomposeG mistake), drawVG
                        ,LK (4,12,6),RD (8,6,12)
                        ]
 
+{- |  forcingD2mistakeFig
+    Figure showing a stuck graph with error at vertex 35 
+    This is the result of twice decomposed mistake which fails when forced
+    *** Exception: errorcheckClock:  Found incorrect graph
+    Conflict at vertex: 35
+    forcingD2mistake is the graph when the error is discovered.
+-}
+forcingD2mistakeFig :: Diagram B
+forcingD2mistakeFig = padBorder $ drawVGraph partF where
+  partF = makeTgraph [LK (78,46,35),LK (78,47,45),RK (78,45,46),LK (7,77,73),RK (7,76,77),LK (7,75,76),RK (7,74,75)
+                     ,LK (7,47,74),RK (7,73,43),LD (44,43,73),RK (8,72,67),LK (8,71,72),RK (8,70,71),LK (8,69,70)
+                     ,RK (8,68,69),LK (8,42,68),RD (49,68,42),RK (62,40,67),LK (8,67,40),RD (66,35,39),LD (66,39,38)
+                     ,RD (66,38,65),LK (63,65,38),LD (37,64,63),RD (37,62,64),RK (63,38,37),LK (62,41,40),LK (62,37,36)
+                     ,RK (62,36,41),LK (30,61,59),RK (30,60,61),LK (30,58,60),LK (48,4,59),RK (30,59,4),RD (58,30,34)
+                     ,LD (58,34,33),RD (58,33,57),LK (55,57,33),LD (32,56,55),RD (32,54,56),RK (55,33,32),LK (54,53,52)
+                     ,LK (54,32,31),RK (54,31,53),LD (3,53,31),RD (3,52,53),RK (50,52,51),LD (3,51,52),RD (3,29,51)
+                     ,LK (50,51,29),RK (50,29,44),LD (49,42,12),RK (12,48,49),LK (12,23,48),RD (4,48,23),RK (7,45,47)
+                     ,LD (5,46,45),RD (5,35,46),LK (7,22,45),RD (5,45,22),LK (11,44,29),RD (44,11,43),LK (7,43,11)
+                     ,RK (8,12,42),LD (6,41,36),RD (6,40,41),RK (8,40,24),LD (6,24,40),LK (1,39,35),RK (1,38,39)
+                     ,LK (1,37,38),RK (1,36,37),RD (6,36,20),LK (1,20,36),RK (1,35,19),LD (5,19,35),LK (2,34,30)
+                     ,RK (2,33,34),LK (2,32,33),RK (2,31,32),RD (3,31,17),LK (2,17,31),RK (2,30,14),LD (4,14,30)
+                     ,RK (11,29,21),LD (3,21,29),RK (2,25,13),LK (2,14,25),RD (4,25,14),LK (9,13,25),RK (9,25,15)
+                     ,LD (4,15,25),LK (1,16,9),RD (13,9,16),LK (2,13,26),RK (2,26,17),LD (3,17,26),RK (10,26,13)
+                     ,LK (10,18,26),RD (3,26,18),RK (1,10,16),LD (13,16,10),LK (10,5,27),RK (10,27,18),LD (3,18,27)
+                     ,LK (1,19,10),RD (5,10,19),RK (9,28,6),LK (9,15,28),RD (4,28,15),RK (1,9,20),LD (6,20,9)
+                     ,RK (11,27,5),LK (11,21,27),RD (3,27,21),RK (7,11,22),LD (5,22,11),LK (12,6,28),RK (12,28,23)
+                     ,LD (4,23,28),LK (8,24,12),RD (6,12,24)
+                     ]
+
+
 -- | mistake1 is a kite bordered by 2 half kites (subgraph of mistake and still erroneous)
-mistake1, partForcedfMistake1:: Tgraph
+mistake1:: Tgraph
 mistake1 = checkTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1)]
--- | partially forced mistake1 (at the point of error)
-partForcedfMistake1 = makeTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD (3,1,5),LD (4,6,1)]
+
+-- | partially forced mistake1 (at the point of discovery of incorrect graph
+partFMistake1Fig:: Diagram B
+partFMistake1Fig = padBorder $ drawVGraph partF where
+  partF = makeTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD (3,1,5),LD (4,6,1)]
 
 -- decomposed mistake1 is no longer erroneous and can be forced and recomposed
 cdMistake1Fig :: Diagram B
@@ -380,39 +367,40 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap drawVPatch $ scales [phi,1,1,phi] $ al
 vertexTypesFig = padBorder $ hsep 1 $ lTypeFigs
  where
  lTypeFigs = zipWith labelD ["sun","star","jack","queen","king","ace","deuce"] vTypeFigs
- vTypeFigs = zipWith drawVertex [sunV, starV, jackV, queenV, kingV, aceV,  deuceV]
-                                [(1,2),(1,2), (1,2), (1,2),  (1,2), (3,6), (2,6)] -- alignments
- drawVertex g alm = showOrigin $ dashJPatch $ dropVertices $ alignXaxis alm $ makeVPatch g
+ vTypeFigs = zipWith drawVertex 
+               [sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph,  deuceGraph]
+               [(1,2),    (1,2),     (1,2),     (1,2),      (1,2),     (3,6),     (2,6)] -- alignments
+ drawVertex g alm = lw thin $ showOrigin $ dashJPatch $ dropVertices $ alignXaxis alm $ makeVPatch g
 
 labelD :: String -> Diagram B -> Diagram B
 labelD l d = baselineText l # fontSize (local 0.5) # fc blue <> d # moveTo (p2(0,2.2))
 
-{- graphs for the 7 vertex types sunV, starV, jackV, queenV, kingV, aceV,  deuceV -}
-jackV = makeTgraph [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
-                   ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
-                   ]
-kingV = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,4,5),RD (1,3,4),LD (1,10,11)
-                   ,RD (1,9,10),LK (9,1,7),RK (9,7,8),RK (5,7,1),LK (5,6,7)
-                   ]
-queenV = makeTgraph [LK (7,1,5),RK (3,5,1),LD (1,2,3),RK (7,9,1),LK (11,1,9)
-                    ,RD (1,11,2),RK (7,5,6),LK (7,8,9),LK (3,4,5),RK (11,9,10)
-                    ]
+{- graphs for the 7 vertex types sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph,  deuceGraph -}
+jackGraph = makeTgraph [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
+                       ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
+                       ]
+kingGraph = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,4,5),RD (1,3,4),LD (1,10,11)
+                       ,RD (1,9,10),LK (9,1,7),RK (9,7,8),RK (5,7,1),LK (5,6,7)
+                       ]
+queenGraph = makeTgraph [LK (7,1,5),RK (3,5,1),LD (1,2,3),RK (7,9,1),LK (11,1,9)
+                        ,RD (1,11,2),RK (7,5,6),LK (7,8,9),LK (3,4,5),RK (11,9,10)
+                        ]
 
-aceV = fool -- centre 3
-deuceV = makeTgraph [LK (7,8,2),RK (7,2,6),RK (5,2,4),LK (5,6,2),LD (1,4,2)
-                    ,RD (1,2,8),RD (1,3,4),LD (1,8,9)
-                    ] -- centre 2
+aceGraph = fool -- centre 3
+deuceGraph = makeTgraph [LK (7,8,2),RK (7,2,6),RK (5,2,4),LK (5,6,2),LD (1,4,2)
+                        ,RD (1,2,8),RD (1,3,4),LD (1,8,9)
+                        ] -- centre 2
 
-starV = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
-                   ,RD (1,7,8),LD (1,6,7),RD (1,5,6),LD (1,4,5),RD (1,3,4)
-                   ]
-sunV = sunGraph
+starGraph = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
+                       ,RD (1,7,8),LD (1,6,7),RD (1,5,6),LD (1,4,5),RD (1,3,4)
+                       ]
+
 
 {- |  forceVFigures is a list of 7 diagrams - force of 7 vertex types -}
 forceVFigures :: [Diagram B]
-forceVFigures =
-  zipWith showForce [sunV,starV,jackV,queenV,kingV,aceV,deuceV]
-                    [(1,2), (1,2), (1,2), (1,2), (1,2), (3,6), (2,6)] -- alignments
+forceVFigures = rotations [0,0,9,5,0,0,1] $
+                fmap showForce [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
+
 
 {- | forceVsFig shows emplacements of 7 vertex types in a row as single diagram -}
 forceVsFig :: Diagram B
@@ -420,16 +408,16 @@ forceVsFig = padBorder $ hsep 1 forceVFigures
 
 {- | relatedVTypeFig lays out figures from forceVFigures plus a kite as single diagram with 3 columns -}
 relatedVTypeFig = padBorder $
- atPoints [p2(0,15),p2(0,10),   p2(10,15),p2(10,10),p2(10,0),  p2(19,15),p2(20,10),p2(20,0) ]
-          [sunE, starE,         ace, jackE, kingE,             kite, deuceE, queenE]
+ atPoints [p2(0,15),p2(0,10),   p2(8,15),p2(10,10),p2(10,0),  p2(19,15),p2(19,10),p2(22,0) ]
+          [sunF,    starF,      aceF,    jackF,    kingF,     kite,     deuceF,   queenF]
  where kite = drawGraph kiteGraph # lw thin
-       sunE = forceVFigures!!0
-       starE = forceVFigures!!1
-       jackE = forceVFigures!!2
-       queenE = forceVFigures!!3
-       kingE = forceVFigures!!4
-       ace = forceVFigures!!5
-       deuceE = forceVFigures!!6
+       sunF = forceVFigures!!0
+       starF = forceVFigures!!1
+       jackF = forceVFigures!!2
+       queenF = forceVFigures!!3
+       kingF = forceVFigures!!4
+       aceF = forceVFigures!!5
+       deuceF = forceVFigures!!6
 
 {-
   *************************
@@ -438,18 +426,13 @@ relatedVTypeFig = padBorder $
 -}
 
 
--- graphs of the boundary faces only of a forced graph
+-- graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
 boundaryFDart4 =  
     checkTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!4)
 boundaryFDart5 =  
     checkTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!5)
-{-
-boundaryFDart4 =  
-    checkTgraph $ nub $ concat $ Map.elems $ bvFacesMap $ makeBoundary $ force (dartDs!!4)
-boundaryFDart5 =  
-    checkTgraph $ nub $ concat $ Map.elems $ bvFacesMap $ makeBoundary $ force (dartDs!!5)
--}
+
 
 -- graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
@@ -458,7 +441,7 @@ boundaryGapFDart4 =
 boundaryGapFDart5 =   
     checkTgraph $ filter ((/=1226).originV) (faces boundaryFDart5)
 
--- figures for the above boundary gap graphs
+-- figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
 boundaryGap4Fig = lw ultraThin $ drawVGraph $ boundaryGapFDart4
 boundaryGap5Fig = lw ultraThin $ drawVGraph $ boundaryGapFDart5
@@ -479,44 +462,29 @@ gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
     , drawGraph $ recoverGraph $ boundaryState $ stepForce 600 g
     ] where g = boundaryGapFDart4
 
-{-
-
-Another test of new forcing
-Starting from the comma shaped gap (commaGap after 2200 steps of forcing boundaryGapFDart5)
-get the filled in gap only (gComma = difference after forcing)
-then force gComma.
-The result is not the full original force (dartDs!!5)
-
-commaFig :: Diagram B
-commaFig = padBorder $ lw ultraThin $ showForce gComma (2561,2560)
-           --checkEmbed gComma (force gComma)
-           where
-              commaGap = recoverGraph $ boundaryState $ stepForce 2200 boundaryGapFDart5    
-              gComma = removeFaces (faces commaGap) (force commaGap)
--}
 
 
 {-  test for bigPic without arrows -}
 bigPic0:: Diagram B
 bigPic0 = (padBorder $ position $ concat $
           [ zip pointsR1 $ rotations [] $ fmap compD [4,3,2,1,0]
-          , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [] (fmap empD [3,2,1,0]))
+          , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [1,1] (fmap empD [3,2,1,0]))
           , zip pointsR3 $ zipWith named ["d4", "d3","d2","d1","d0"] (dots : rotations [1,1] (fmap drts [3,2,1,0]))
           ])
           where
               compD n = lw thin $ scale (phi ^ (4-n)) $ showPCompose (emplacements dartGraph !! n) (1,5)
-              empD n = center $ scale (phi ^ (4-n)) $ empDartD n
+              empD n = center $ scale (phi ^ (4-n)) $ showForce (dartDs !! n)
               drts n = center . lw thin . scale (phi ^ (4-n)) $ dashJGraph $ dartDs !! n
               dots = center $ hsep 1 $ take 4 $ repeat $ ((circle 0.5) # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]
-    
+   
 {- | bigPic is a diagram illustrating force/emplacement relationships for decomposed darts -}
 bigPic :: Diagram B
 bigPic = (padBorder $ position $ concat $
          [ zip pointsR1 $ rotations [] $ fmap compD [4,3,2,1,0]
-         , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [] (fmap empD [3,2,1,0]))
+         , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [1,1] (fmap empD [3,2,1,0]))
          , zip pointsR3 $ zipWith named ["d4", "d3","d2","d1","d0"] (dots : rotations [1,1] (fmap drts [3,2,1,0]))
          ])  # connectPerim' arrowStyleG "e3" "e2" (1/10 @@ turn) (4/10 @@ turn)
              # connectPerim' arrowStyleG "e2" "e1" (1/10 @@ turn) (4/10 @@ turn)
@@ -540,7 +508,7 @@ bigPic = (padBorder $ position $ concat $
              # connectPerim' arrowStyleG "d1" "d0" (1/10 @@ turn) (4/10 @@ turn)
              
         where compD n = lw thin $ scale (phi ^ (4-n)) $ showPCompose (emplacements dartGraph !! n) (1,3)
-              empD n = center $ scale (phi ^ (4-n)) $ empDartD n
+              empD n = center $ scale (phi ^ (4-n)) $  showForce (dartDs !! n) -- empDartD n
               drts n = center . lw thin . scale (phi ^ (4-n)) $ dashJGraph $ dartDs !! n
               dots = center $ hsep 1 $ take 4 $ repeat $ ((circle 0.5) # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
@@ -573,12 +541,6 @@ graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
   *********************************************
 -}
           
--- Testing newest force rule (10)
-testQueen = padBorder $ drawVGraph $ force partQueen
-partQueen = makeTgraph [LK (7,1,5),RK (3,5,1),RK (7,9,1)
-                       ,RK (7,5,6),LK (7,8,9),LK (3,4,5)
-                       ]
-
 {-
 Testing newest force with 10 rules   
 BUG discovered filling in boundary of a forced graph  
@@ -612,14 +574,10 @@ testBoundary5 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryGapFDart5
 -- testing crossing boundary detection e.g. by using force on testCrossingBoundary   
 testCrossingBoundary :: Tgraph
 testCrossingBoundary = makeTgraph (faces foolDminus \\ [LD(6,11,13)])
-         
--- simple force test
-checkForceFig :: Diagram B
-checkForceFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, force dartD4]
 
 -- test wholeTiles (which adds missing second halves of each face)
 checkCompleteFig:: Diagram B
-checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [dartD4, wholeTiles dartD4]
+checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [sunD4, wholeTiles sunD4] where sunD4 = sunDs !! 4
 
 -- test graphFromVP
 checkGraphFromVP :: Diagram B
@@ -644,93 +602,62 @@ problemG = checkTgraph ([ RK(1,2,11), LK(1,3,2)
 --                        , RK(6,14,13), LK(10,12,15)
 --                        , RD(13,6,14)
                         ])
+
+problemGFig :: Diagram B
 problemGFig = padBorder $ hsep 1 $ fmap drawVGraph [problemG, force problemG, composeG (force problemG)]
 
-{- |  Figure showing a stuck graph with error at vertex 35 
-
-    This is the result of twice decomposed mistake which fails when forced
-    *** Exception: errorcheckClock:  Found incorrect graph
-    Conflict at vertex: 35
-    forcingD2mistake is the graph when the error is discovered.
--}
-{-
--}
-forcingD2mistakeFig = padBorder $ drawVGraph forcingD2mistake where
-  forcingD2mistake =
-    Tgraph { vertices = [78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52
-                        ,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,14,15,16,17
-                        ,18,19,20,21,22,23,24,25,26,27,28,9,10,11,12,13,1,2,4,3,5,6,7,8
-                        ]
-           , faces = [LK (78,46,35),LK (78,47,45),RK (78,45,46),LK (7,77,73),RK (7,76,77),LK (7,75,76),RK (7,74,75)
-                     ,LK (7,47,74),RK (7,73,43),LD (44,43,73),RK (8,72,67),LK (8,71,72),RK (8,70,71),LK (8,69,70)
-                     ,RK (8,68,69),LK (8,42,68),RD (49,68,42),RK (62,40,67),LK (8,67,40),RD (66,35,39),LD (66,39,38)
-                     ,RD (66,38,65),LK (63,65,38),LD (37,64,63),RD (37,62,64),RK (63,38,37),LK (62,41,40),LK (62,37,36)
-                     ,RK (62,36,41),LK (30,61,59),RK (30,60,61),LK (30,58,60),LK (48,4,59),RK (30,59,4),RD (58,30,34)
-                     ,LD (58,34,33),RD (58,33,57),LK (55,57,33),LD (32,56,55),RD (32,54,56),RK (55,33,32),LK (54,53,52)
-                     ,LK (54,32,31),RK (54,31,53),LD (3,53,31),RD (3,52,53),RK (50,52,51),LD (3,51,52),RD (3,29,51)
-                     ,LK (50,51,29),RK (50,29,44),LD (49,42,12),RK (12,48,49),LK (12,23,48),RD (4,48,23),RK (7,45,47)
-                     ,LD (5,46,45),RD (5,35,46),LK (7,22,45),RD (5,45,22),LK (11,44,29),RD (44,11,43),LK (7,43,11)
-                     ,RK (8,12,42),LD (6,41,36),RD (6,40,41),RK (8,40,24),LD (6,24,40),LK (1,39,35),RK (1,38,39)
-                     ,LK (1,37,38),RK (1,36,37),RD (6,36,20),LK (1,20,36),RK (1,35,19),LD (5,19,35),LK (2,34,30)
-                     ,RK (2,33,34),LK (2,32,33),RK (2,31,32),RD (3,31,17),LK (2,17,31),RK (2,30,14),LD (4,14,30)
-                     ,RK (11,29,21),LD (3,21,29),RK (2,25,13),LK (2,14,25),RD (4,25,14),LK (9,13,25),RK (9,25,15)
-                     ,LD (4,15,25),LK (1,16,9),RD (13,9,16),LK (2,13,26),RK (2,26,17),LD (3,17,26),RK (10,26,13)
-                     ,LK (10,18,26),RD (3,26,18),RK (1,10,16),LD (13,16,10),LK (10,5,27),RK (10,27,18),LD (3,18,27)
-                     ,LK (1,19,10),RD (5,10,19),RK (9,28,6),LK (9,15,28),RD (4,28,15),RK (1,9,20),LD (6,20,9)
-                     ,RK (11,27,5),LK (11,21,27),RD (3,27,21),RK (7,11,22),LD (5,22,11),LK (12,6,28),RK (12,28,23)
-                     ,LD (4,23,28),LK (8,24,12),RD (6,12,24)
-                     ]
-           }
 
 
 {-
-    ********************
-    Drawing of GraphSubs
-    ********************
-    To draw a GraphSub, we need a list of functions turning patches into diagrams
+    *********************
+    Drawing of SubTgraphs
+    *********************
+    To draw a SubTgraph, we need a list of functions turning patches into diagrams
     The first function is applied to a patch for untracked faces
     Subsequent functions are applied to the respective tracked subsets
+    (The last patch is atop earlier ones, so the untracked patch is at the bottom)
 -}
-drawGSub:: [Patch -> Diagram B] -> GraphSub -> Diagram B
-drawGSub drawList gs = drawAll drawList (pUntracked:pTrackedList) where
-          vpFull = makeVPatch (fullGraph gs)
-          pTrackedList = fmap (dropVertices . (\fcs -> selectFacesVP fcs vpFull)) (trackedSubsets gs)
-          pUntracked = dropVertices $ removeFacesVP (concat (trackedSubsets gs)) vpFull
+drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
+drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
+          vpFull = makeVPatch (fullGraph sub)
+          pTrackedList = fmap (dropVertices . (\fcs -> selectFacesVP fcs vpFull)) (trackedSubsets sub)
+          pUntracked = dropVertices $ removeFacesVP (concat (trackedSubsets sub)) vpFull
           drawAll [] _ = mempty
           drawAll _ [] = mempty
-          drawAll (f:fmore)(p:pmore) = f p <> drawAll fmore pmore
+          drawAll (f:fmore)(p:pmore) =  drawAll fmore pmore <> f p
 
-drawGSub2, drawGSub3 :: GraphSub -> Diagram B
--- | special case of drawGSub using 2 patchdrawing functions:
+-- | special case of drawSubTgraph using 2 patchdrawing functions:
 -- normal (black), then red
-drawGSub2 = drawGSub [drawPatch,(lc red . drawPatch)]
--- | special case of drawGSub using 3 patchdrawing functions:
+drawSubTgraph2 :: SubTgraph -> Diagram B
+drawSubTgraph2 = drawSubTgraph [drawPatch,(lc red . drawPatch)]
+-- | special case of drawSubTgraph using 3 patchdrawing functions:
 -- normal (black), then red, then filled black
-drawGSub3 = drawGSub [drawPatch,(lc red . drawPatch), patchWith (fillDK black black)]
+drawSubTgraph3 :: SubTgraph -> Diagram B
+drawSubTgraph3 = drawSubTgraph [drawPatch,(lc red . drawPatch), patchWith (fillDK black black)]
 
 
 
--- testing GraphSub
-gSubExample:: GraphSub
-gSubExample = iterate (trackedForce . trackedDecomp) (makeGS fD2 [faces fD2]) !! 3
+-- testing SubTgraph
+subExample:: SubTgraph
+subExample = iterate (forceSub . decomposeSub) (makeSubTgraph fD2 [faces fD2]) !! 3
               where fD2 = force (dartDs !!2)
 
 
-gSubExampleFig:: Diagram B
-gSubExampleFig = padBorder $ lw thin drawGSub2 gSubExample
+subExampleFig:: Diagram B
+subExampleFig = padBorder $ lw thin drawSubTgraph2 subExample
 
 forceHollowFig:: Diagram B
 forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGraph, force hollowGraph]
 
--- hollowGraph happens to be a valid Tgraph after removing the tracked faces from gSubExample
+-- hollowGraph happens to be a valid Tgraph after removing the tracked faces from subExample
 -- This is not generally the case
 hollowGraph::Tgraph
-hollowGraph = removeFaces (concat (trackedSubsets gSubExample)) (fullGraph gSubExample)
+hollowGraph = removeFaces (concat (trackedSubsets subExample)) (fullGraph subExample)
 
 removeTrackedFig:: Diagram B
 removeTrackedFig = padBorder $  lw ultraThin $ 
-  drawPatch $ dropVertices $ removeFacesGtoVP (concat (trackedSubsets gs)) (fullGraph gs) where
-    gs = gSubExample
+  drawPatch $ dropVertices $ removeFacesGtoVP (concat (trackedSubsets sub)) (fullGraph sub) where
+    sub = subExample
 
 
 {-
@@ -740,25 +667,25 @@ Middle of top edge of dartDs!!4.  Use checkChoicesEdge to view the vertex number
 -}
 checkChoicesEdge = padBorder $ lw ultraThin $ drawVGraph $ force $ dartDs !! 4
 {-
-Take a forced, 4 times decomposed dart, then add a single face (RD for gs1, RK for gs2).
-Then track these faces in two GraphSubs
+Take a forced, 4 times decomposed dart, then add a single face (RD for sub1, RK for sub2).
+Then track these faces in two SubTgraphs
 -}
-twoChoices:: [GraphSub]
-twoChoices = [gs1,gs2] where
+twoChoices:: [SubTgraph]
+twoChoices = [sub1,sub2] where
           f = force $ dartDs !! 4
           f' = addDart f (233,202)
           f'' = addKite f (233,202)
-          gs1 = makeGS f' [faces f', faces f' \\ faces f]
-          gs2 = makeGS f'' [faces f'', faces f'' \\ faces f]
+          sub1 = makeSubTgraph f' [faces f', faces f' \\ faces f]
+          sub2 = makeSubTgraph f'' [faces f'', faces f'' \\ faces f]
           
 -- | show the (tracked) result of forcing each of twoChoices   
 twoChoicesFig:: Diagram B
-twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGSub3 . trackedForce) twoChoices
+twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawSubTgraph3 . forceSub) twoChoices
 
 -- quick look at all the compositions of the twoChoices results (not rotated)
 tempFig:: Diagram B
 tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1 . phiScales . showAllFComps) twoChoices where
-    showAllFComps gs =  fmap drawGraph $ allComps $ fullGraph $ trackedForce gs
+    showAllFComps sub =  fmap drawGraph $ allComps $ fullGraph $ forceSub sub
 
 
         
