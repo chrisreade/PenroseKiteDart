@@ -20,12 +20,11 @@ import GraphFigExamples
 
 -- imported for testing / debugging only
 import TileLib
---import HalfTile
 import Tgraphs
 import Tgraph.Convert
 
                 
 fig::Diagram B
-fig = twoChoicesFig
+fig = inspectForce5 2000
 
 main = mainWith fig

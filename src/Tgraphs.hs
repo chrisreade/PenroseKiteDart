@@ -82,31 +82,6 @@ makeChoices g = choices unks [g] where
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)              
 
 
-{-------------------------------------------------------------------------
- SubTgraph - introduced to allow tracking of subsets of faces
- in both force and decompose oerations
- A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces.
- The list allows for tracking different subsets of faces at the same time
-------------------------------------------------------------------------------}
-
-
-data SubTgraph = SubTgraph{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
-
-makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
-makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
-
-decomposeSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph g' tlist' where
-   g' = Tgraph{ vertices = newVs++vertices g
-              , faces = newFaces
-              }
-   (newVs , newVFor) = newVPhiMap g
-   newFaces = concatMap (decompFace newVFor) (faces g)
-   tlist' = fmap (concatMap (decompFace newVFor)) tlist
-
-forceSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph (force g) tlist
-
-
-
 
 {-------------------------------------------------------------------------
  compForce, allFComps, allComps, maxCompose, maxFCompose

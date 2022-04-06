@@ -740,6 +740,11 @@ addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
 -}
 
 
+-- | force applied to a SubTgraph
+forceSub :: SubTgraph -> SubTgraph
+forceSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph (force g) tlist
+
+
 {-
 ************************************
 Other Force Related Functions

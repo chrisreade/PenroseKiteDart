@@ -57,3 +57,14 @@ decompFace newVFor fc = case fc of
 decompositionsG :: Tgraph -> [Tgraph]
 decompositionsG = iterate decomposeG
 
+-- | decompose a SubTgraph
+decomposeSub :: SubTgraph -> SubTgraph
+decomposeSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph g' tlist' where
+   g' = Tgraph{ vertices = newVs++vertices g
+              , faces = newFaces
+              }
+   (newVs , newVFor) = newVPhiMap g
+   newFaces = concatMap (decompFace newVFor) (faces g)
+   tlist' = fmap (concatMap (decompFace newVFor)) tlist
+
+

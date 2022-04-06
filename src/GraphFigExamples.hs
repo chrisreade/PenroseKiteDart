@@ -408,7 +408,7 @@ forceVsFig = padBorder $ hsep 1 forceVFigures
 
 {- | relatedVTypeFig lays out figures from forceVFigures plus a kite as single diagram with 3 columns -}
 relatedVTypeFig = padBorder $
- atPoints [p2(0,15),p2(0,10),   p2(8,15),p2(10,10),p2(10,0),  p2(19,15),p2(19,10),p2(22,0) ]
+ atPoints [p2(0,15),p2(0,10),   p2(8,15),p2(9,10),p2(9,1),  p2(18,15),p2(18,10),p2(20,1) ]
           [sunF,    starF,      aceF,    jackF,    kingF,     kite,     deuceF,   queenF]
  where kite = drawGraph kiteGraph # lw thin
        sunF = forceVFigures!!0
@@ -437,9 +437,9 @@ boundaryFDart5 =
 -- graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
 boundaryGapFDart4 =   
-    checkTgraph $ filter ((/=250).originV)  (faces boundaryFDart4)
+    checkTgraph $ filter ((/=332).originV)  (faces boundaryFDart4)
 boundaryGapFDart5 =   
-    checkTgraph $ filter ((/=1226).originV) (faces boundaryFDart5)
+    checkTgraph $ filter ((/=1287).originV) (faces boundaryFDart5)
 
 -- figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
@@ -463,30 +463,27 @@ gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
     ] where g = boundaryGapFDart4
 
 
-
-{-  test for bigPic without arrows -}
-bigPic0:: Diagram B
+{- | bigPic is a diagram illustrating force/emplacement relationships for decomposed darts
+     bigPic0 is main diagram for bigPic without the arrows
+-}
+bigPic0,bigPic :: Diagram B
 bigPic0 = (padBorder $ position $ concat $
-          [ zip pointsR1 $ rotations [] $ fmap compD [4,3,2,1,0]
-          , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [1,1] (fmap empD [3,2,1,0]))
-          , zip pointsR3 $ zipWith named ["d4", "d3","d2","d1","d0"] (dots : rotations [1,1] (fmap drts [3,2,1,0]))
+          [ zip pointsR1 $ partComps
+          , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [1,1] forceDs)
+          , zip pointsR3 $ zipWith named ["d4", "d3","d2","d1","d0"] (dots : rotations [1,1] drts)
           ])
           where
-              compD n = lw thin $ scale (phi ^ (4-n)) $ showPCompose (emplacements dartGraph !! n) (1,5)
-              empD n = center $ scale (phi ^ (4-n)) $ showForce (dartDs !! n)
-              drts n = center . lw thin . scale (phi ^ (4-n)) $ dashJGraph $ dartDs !! n
+              partComps = phiScales $ reverse $ take 5 $ fmap pCompAlign (emplacements dartGraph)
+              pCompAlign g = showPCompose g (1,3)
+              forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap showForce dartDs
+              drts  = fmap (center . lw thin) $ phiScaling phi $ reverse $ take 4 $ fmap dashJGraph dartDs
               dots = center $ hsep 1 $ take 4 $ repeat $ ((circle 0.5) # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]
    
-{- | bigPic is a diagram illustrating force/emplacement relationships for decomposed darts -}
-bigPic :: Diagram B
-bigPic = (padBorder $ position $ concat $
-         [ zip pointsR1 $ rotations [] $ fmap compD [4,3,2,1,0]
-         , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [1,1] (fmap empD [3,2,1,0]))
-         , zip pointsR3 $ zipWith named ["d4", "d3","d2","d1","d0"] (dots : rotations [1,1] (fmap drts [3,2,1,0]))
-         ])  # connectPerim' arrowStyleG "e3" "e2" (1/10 @@ turn) (4/10 @@ turn)
+bigPic = 
+    bigPic0  # connectPerim' arrowStyleG "e3" "e2" (1/10 @@ turn) (4/10 @@ turn)
              # connectPerim' arrowStyleG "e2" "e1" (1/10 @@ turn) (4/10 @@ turn)
              # connectPerim' arrowStyleG "e1" "e0" (1/10 @@ turn) (4/10 @@ turn)
              # connectPerim' arrowStyleG "e4" "e3" (1/10 @@ turn) (4/10 @@ turn)
@@ -507,19 +504,13 @@ bigPic = (padBorder $ position $ concat $
              # connectPerim' arrowStyleG "d2" "d1" (1/10 @@ turn) (4/10 @@ turn)
              # connectPerim' arrowStyleG "d1" "d0" (1/10 @@ turn) (4/10 @@ turn)
              
-        where compD n = lw thin $ scale (phi ^ (4-n)) $ showPCompose (emplacements dartGraph !! n) (1,3)
-              empD n = center $ scale (phi ^ (4-n)) $  showForce (dartDs !! n) -- empDartD n
-              drts n = center . lw thin . scale (phi ^ (4-n)) $ dashJGraph $ dartDs !! n
-              dots = center $ hsep 1 $ take 4 $ repeat $ ((circle 0.5) # fc gray # lw none)
-              pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
-              pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
-              pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]
+        where
               arrowStyleG = (with  & arrowShaft .~ shaft & headLength .~ verySmall & headStyle %~ fc green & shaftStyle %~ lc green & headGap .~ large & tailGap .~ large)
               arrowStyleB1 = (with  & headLength .~ verySmall & headStyle %~ fc blue & shaftStyle %~ lc blue & headGap .~ small & tailGap .~ small)
               arrowStyleB2 = (with  & headLength .~ verySmall & headStyle %~ fc blue  & shaftStyle %~ dashingG [1.5, 1.5] 0  & shaftStyle %~ lc blue & headGap .~ large & tailGap .~ large)
               arrowStyleE = (with & headLength .~ verySmall  & headGap .~ small & tailGap .~ large)
               shaft = arc xDir (-1/10 @@ turn)
- 
+
 
 -- | figure showing ordering of a decomposed kite (bottom), a test graph with an extra LK(3,6,8),
 -- and forced figure at the top and composition of all 3 = kite on the right
@@ -555,21 +546,36 @@ testForce4, testForce5 :: Diagram B
 testForce4 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart4
 testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart5        
 
+
+{- | testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
+-- (used in conjunction with stepForce to get an intermediate Boundary)
+-- The boundary edges of a Boundary are shown in lime - using the Boundary positions of vertices
+-- The graph is converted to a vp separately (so using a fresh calculation of positions)
+-- Thus rotations may be needed to match up.
+-- Use an empty list of integer rotations to see what rotations are needed to align the figures.
+-}
+testViewBoundary :: [Int] -> Boundary -> Diagram B
+testViewBoundary rots bd =  lc lime bdryFig <> graphFig where 
+    [bdryFig, graphFig] = fmap center $ rotations rots [drawEdges vpMap bdE,  drawVGraph g]
+    g = recoverGraph bd
+    vpMap = bvLocMap bd
+    bdE = bDedges bd
+
 -- used to discover accuracy problem of older thirdVertexLoc
 -- view tha boundary after n steps of forcing (starting with boundaryGapFDart5)
 -- e.g. n = 1900
 inspectForce5 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
-                viewBoundary [] $ boundaryState $ stepForce n $ boundaryGapFDart5
+                  testViewBoundary [5] $ boundaryState $ stepForce n $ boundaryGapFDart5
 
-inspectBug n = padBorder $ lw ultraThin $
-                viewBoundary [3] $ boundaryState $ stepForce n $ dartDs !! 3
+inspectForce3 n = padBorder $ lw ultraThin $
+                  testViewBoundary [3] $ boundaryState $ stepForce n $ dartDs !! 3
 
 
 -- figures showing boundary edges of the boundary gaps graphs  
 testBoundary4, testBoundary5 :: Diagram B
-testBoundary4 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryGapFDart4 
-testBoundary5 =  padBorder $ lw ultraThin $ showGBoundary $ boundaryGapFDart5 
+testBoundary4 =  padBorder $ lw ultraThin $ drawGBoundary $ boundaryGapFDart4 
+testBoundary5 =  padBorder $ lw ultraThin $ drawGBoundary $ boundaryGapFDart5 
 
 -- testing crossing boundary detection e.g. by using force on testCrossingBoundary   
 testCrossingBoundary :: Tgraph
@@ -608,36 +614,10 @@ problemGFig = padBorder $ hsep 1 $ fmap drawVGraph [problemG, force problemG, co
 
 
 
-{-
-    *********************
-    Drawing of SubTgraphs
-    *********************
-    To draw a SubTgraph, we need a list of functions turning patches into diagrams
-    The first function is applied to a patch for untracked faces
-    Subsequent functions are applied to the respective tracked subsets
-    (The last patch is atop earlier ones, so the untracked patch is at the bottom)
+{- *******************
+   testing SubTgraphs
+  ********************
 -}
-drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
-drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
-          vpFull = makeVPatch (fullGraph sub)
-          pTrackedList = fmap (dropVertices . (\fcs -> selectFacesVP fcs vpFull)) (trackedSubsets sub)
-          pUntracked = dropVertices $ removeFacesVP (concat (trackedSubsets sub)) vpFull
-          drawAll [] _ = mempty
-          drawAll _ [] = mempty
-          drawAll (f:fmore)(p:pmore) =  drawAll fmore pmore <> f p
-
--- | special case of drawSubTgraph using 2 patchdrawing functions:
--- normal (black), then red
-drawSubTgraph2 :: SubTgraph -> Diagram B
-drawSubTgraph2 = drawSubTgraph [drawPatch,(lc red . drawPatch)]
--- | special case of drawSubTgraph using 3 patchdrawing functions:
--- normal (black), then red, then filled black
-drawSubTgraph3 :: SubTgraph -> Diagram B
-drawSubTgraph3 = drawSubTgraph [drawPatch,(lc red . drawPatch), patchWith (fillDK black black)]
-
-
-
--- testing SubTgraph
 subExample:: SubTgraph
 subExample = iterate (forceSub . decomposeSub) (makeSubTgraph fD2 [faces fD2]) !! 3
               where fD2 = force (dartDs !!2)
@@ -646,41 +626,71 @@ subExample = iterate (forceSub . decomposeSub) (makeSubTgraph fD2 [faces fD2]) !
 subExampleFig:: Diagram B
 subExampleFig = padBorder $ lw thin drawSubTgraph2 subExample
 
-forceHollowFig:: Diagram B
-forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGraph, force hollowGraph]
-
 -- hollowGraph happens to be a valid Tgraph after removing the tracked faces from subExample
 -- This is not generally the case
 hollowGraph::Tgraph
 hollowGraph = removeFaces (concat (trackedSubsets subExample)) (fullGraph subExample)
 
+-- figure showing hollowGraph and result of forcing
+forceHollowFig:: Diagram B
+forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGraph, force hollowGraph]
+
+-- | drawing non tracked faces in general
+drawWithoutTracked:: SubTgraph -> Diagram B
+drawWithoutTracked sub = 
+  drawPatch $ dropVertices $ removeFacesGtoVP (concat (trackedSubsets sub)) (fullGraph sub) 
+
+-- | example using drawWithoutTracked  
 removeTrackedFig:: Diagram B
-removeTrackedFig = padBorder $  lw ultraThin $ 
-  drawPatch $ dropVertices $ removeFacesGtoVP (concat (trackedSubsets sub)) (fullGraph sub) where
-    sub = subExample
+removeTrackedFig = padBorder $  lw ultraThin $ drawWithoutTracked subExample
 
+
+{- **************************************
+   Viewing choice results with SubTgraphs
+  ***************************************
+-}
 
 {-
-WARNING.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices
+WARNING.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices...
 They should be the (reversed) long edge of the left dart on the left of a group of 3 darts
-Middle of top edge of dartDs!!4.  Use checkChoicesEdge to view the vertex numbers
+Middle of top edge of dartDs!!4.  Use e.g
+checkChoiceEdge (force $ dartDs !!4)
+to view the vertex numbers
 -}
-checkChoicesEdge = padBorder $ lw ultraThin $ drawVGraph $ force $ dartDs !! 4
-{-
-Take a forced, 4 times decomposed dart, then add a single face (RD for sub1, RK for sub2).
-Then track these faces in two SubTgraphs
--}
+checkChoiceEdge g = padBorder $ lw ultraThin $ drawVGraph $ force g
+
+-- given a boundary directed edge of a forced graph (either direction)
+-- construct two SubTgraphs with dart/kite addition on the edge respectively
+-- track the resulting faces and also the singleton new face, then force both SubTgraphs
+trackTwoChoices:: Tgraph -> DEdge -> [SubTgraph]
+trackTwoChoices g de = fmap forceSub [sub1,sub2] where
+          g' = addDart g de
+          g'' = addKite g de
+          sub1 = makeSubTgraph g' [faces g', faces g' \\ faces g]
+          sub2 = makeSubTgraph g'' [faces g'', faces g'' \\ faces g]
+
+
+-- | Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [SubTgraph]
-twoChoices = [sub1,sub2] where
-          f = force $ dartDs !! 4
-          f' = addDart f (233,202)
-          f'' = addKite f (233,202)
-          sub1 = makeSubTgraph f' [faces f', faces f' \\ faces f]
-          sub2 = makeSubTgraph f'' [faces f'', faces f'' \\ faces f]
-          
--- | show the (tracked) result of forcing each of twoChoices   
+twoChoices = trackTwoChoices (force $ dartDs !!4) (233,202)
+         
+-- | show the (tracked) twoChoices with drawSubTgraph3 (tracked faces in red, new face filled black)  
 twoChoicesFig:: Diagram B
-twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawSubTgraph3 . forceSub) twoChoices
+twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph3 twoChoices
+
+-- | track two further choices with the first of twoChoices (fullgraph)  
+moreChoices0:: [SubTgraph]
+moreChoices0 = trackTwoChoices (fullGraph $ twoChoices !! 0) (178,219)
+
+-- | track two further choices with the second of twoChoices (fullgraph)  
+moreChoices1:: [SubTgraph]
+moreChoices1 = trackTwoChoices (fullGraph $ twoChoices !! 1) (178,219)
+
+-- | figures for 4 further choices
+moreChoicesFig0,moreChoicesFig1,moreChoicesFig:: Diagram B
+moreChoicesFig =  vsep 1 [moreChoicesFig0,moreChoicesFig1]  
+moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSubTgraph3 moreChoices0
+moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph3 moreChoices1
 
 -- quick look at all the compositions of the twoChoices results (not rotated)
 tempFig:: Diagram B

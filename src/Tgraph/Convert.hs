@@ -6,7 +6,6 @@ module Tgraph.Convert where
 
 import TileLib
 import Tgraph.Prelude
-import Tgraph.Force(Boundary, recoverGraph, bvLocMap, bDedges)  -- needed for viewBoundary
 
 import Data.List ((\\), find)
 import qualified Data.Map as Map (Map, lookup, toList, fromList)
@@ -96,8 +95,11 @@ touchingVertices g = check assocVP where
   check ((v,p):more) = [(v,v1) | (v1,p1) <- more, tooClose p p1 ] ++ check more
   tooClose p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
 --  sqLength vec = dot vec vec
-  assocVP = fmap viewLoc' $ lVertices $ makeVPatch g
-  viewLoc' x = (v,p) where (p,v) = viewLoc x
+  assocVP = vertexLocs $ makeVPatch g
+
+-- | makes an association list of vertex to location from a VPatch
+vertexLocs :: VPatch -> [(Vertex, Point V2 Double)]
+vertexLocs = fmap ((\(p,v)->(v,p)) . viewLoc) . lVertices
 
 {-
 *************************************
@@ -204,9 +206,11 @@ scales _  [] = error "scales: too many scalars"
 
 -- | increasing scales by phi along a list
 phiScales:: (Transformable a, V a ~ V2, N a ~ Double) => [a] -> [a]
-phiScales = scaling 1 where
-   scaling s [] = []
-   scaling s (d:more) = scale s d: scaling (phi*s) more
+phiScales = phiScaling 1
+
+phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
+phiScaling s [] = []
+phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
 
 {- ----------------------------------------
  Auxilliary definitions
@@ -245,37 +249,56 @@ dropVertices vp = fmap (mapLoc asPiece) (lHybrids vp)
 dropVectors:: VPatch -> [TileFace]
 dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
 
-   
 
-
-{------------------- NEEDS WORK FOR GENERAL TESTING ---------------------------}
--- displaying the boundary of a Tgraph in lime
-showGBoundary :: Tgraph -> Diagram B
-showGBoundary g =  (lc lime $ drawEdges vpMap bd) <> drawVPatch vp where
+{- | ******************************************  
+   displaying the boundary of a Tgraph in lime
+   ********************************************
+-}
+drawGBoundary :: Tgraph -> Diagram B
+drawGBoundary g =  (lc lime $ drawEdges vpMap bd) <> drawVPatch vp where
     vp = makeVPatch g
-    vpMap = Map.fromList $ fmap viewLoc' (lVertices vp)
+    vpMap = Map.fromList $ vertexLocs vp
     bd = boundaryDedges g
 
 drawEdges :: Mapping Vertex (Point V2 Double) -> [(Vertex,Vertex)] -> Diagram B
-drawEdges vpMap [] = mempty
-drawEdges vpMap (e:more) = drawEdge vpMap e <> drawEdges vpMap more
+drawEdges vpMap = foldMap (drawEdge vpMap)
+
+drawEdge :: Mapping Vertex (Point V2 Double) -> (Vertex,Vertex) -> Diagram B
 drawEdge vpMap (a,b) = case (Map.lookup a vpMap, Map.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
-
-viewLoc' :: Located Vertex -> (Vertex, Point V2 Double)
-viewLoc' lp = (v,p) where (p,v) = viewLoc lp
- 
-{- | viewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
--- (used in conjunction with stepForce to get an intermediate Boundary)
--- The boundary edges of a Boundary are shown in lime - using the Boundary positions of vertices
--- The graph is converted to a vp separately (so using a fresh calculation of positions)
--- Thus rotations may be needed to match up.
--- Use an empty list of integer rotations to see what rotations are needed to align the figures.
+   
+{- |
+    *********************
+    Drawing of SubTgraphs
+    *********************
+    To draw a SubTgraph, we need a list of functions turning patches into diagrams
+    The first function is applied to a patch for untracked faces
+    Subsequent functions are applied to the respective tracked subsets
+    (The last patch is atop earlier ones, so the untracked patch is at the bottom)
 -}
-viewBoundary :: [Int] -> Boundary -> Diagram B
-viewBoundary rots bd =  lc lime bdryFig <> graphFig where 
-    [bdryFig, graphFig] = fmap center $ rotations rots [drawEdges vpMap bdE, center $ drawVGraph g]
-    g = recoverGraph bd
-    vpMap = bvLocMap bd
-    bdE = bDedges bd
+drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
+drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
+          vpFull = makeVPatch (fullGraph sub)
+          pTrackedList = fmap (dropVertices . (\fcs -> selectFacesVP fcs vpFull)) (trackedSubsets sub)
+          pUntracked = dropVertices $ removeFacesVP (concat (trackedSubsets sub)) vpFull
+          drawAll [] _ = mempty
+          drawAll _ [] = mempty
+          drawAll (f:fmore)(p:pmore) =  drawAll fmore pmore <> f p
+
+-- | special case of drawSubTgraph using 2 patchdrawing functions:
+-- normal (black), then red
+drawSubTgraph2 :: SubTgraph -> Diagram B
+drawSubTgraph2 = drawSubTgraph [drawPatch,(lc red . drawPatch)]
+-- | special case of drawSubTgraph using 3 patchdrawing functions:
+-- normal (black), then red, then filled black
+drawSubTgraph3 :: SubTgraph -> Diagram B
+drawSubTgraph3 = drawSubTgraph [drawPatch,(lc red . drawPatch), patchWith (fillDK black black)]
+
+
+
+
+
+
+ 
+

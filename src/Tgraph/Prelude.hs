@@ -380,6 +380,8 @@ initJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty 
 initJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
 
 -- lookup 3 vertex locations
+find3Locs::(Vertex,Vertex,Vertex) -> Mapping Vertex (Point V2 Double)
+             -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))              
 find3Locs (v1,v2,v3) vpMap = (Map.lookup v1 vpMap, Map.lookup v2 vpMap, Map.lookup v3 vpMap)
 
 {- | thirdVertexLoc fc vpMap
@@ -426,5 +428,20 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
 
+
+
+
+
+
+{-------------------------------------------------------------------------
+ SubTgraph - introduced to allow tracking of subsets of faces
+ in both force and decompose oerations
+ A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces.
+ The list allows for tracking different subsets of faces at the same time
+------------------------------------------------------------------------------}
+data SubTgraph = SubTgraph{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
+
+makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
+makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
 
 
