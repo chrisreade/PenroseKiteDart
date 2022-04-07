@@ -13,27 +13,13 @@ import Tgraphs
 import Tgraph.Convert
 
 
-{- 
-    **********************
-    Some display functions
-    **********************
--}
-
+-- | used for most diagrams
 padBorder = pad 1.2 . centerXY
 
 
--- use checkEmbed first to find a common pair of vertices to align (for use with drawEmbed)
-checkEmbed :: Tgraph -> Tgraph -> Diagram B
-checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
-                   fmap drawVGraph [g1, g2]
 
--- | drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
--- vertices a and b must be common to g1 and g2 and scales should match for length of (a,b)
-drawEmbed ::  Tgraph -> Tgraph -> (Vertex, Vertex) -> Diagram B
-drawEmbed g1 g2 (a,b) = 
-    (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
-    vp1 = alignXaxis (a,b) $ makeVPatch g1
-    vp2 = alignXaxis (a,b) $ makeVPatch g2
+
+
 
 
 {-
@@ -154,6 +140,8 @@ forceKiteD5Fig = padBorder $ rotate (ttangle 9) $ showForce $ kiteDs !! 5
 forceSunD5Fig =  padBorder $ showForce $ sunDs  !! 5
 
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
+
+
 {-
   *************************************
   Emplacements and emplacement figures
@@ -190,6 +178,33 @@ empSunD5Fig  = padBorder $ showEmplace sunGraph 5
 
 newEmpFig:: Diagram B
 newEmpFig = padBorder $ hsep 1 $ rotations [2,4] [showEmplace dartGraph 4, showEmplace kiteGraph 4]
+
+
+
+{-
+  *************************
+  Multi emplace and choices
+  *************************
+-}
+
+-- four choices for composing fool
+foolChoices :: Diagram B
+foolChoices = padBorder $ vsep 1 
+              [hsep 1 $ fmap (redFool <>) $ fmap dashJGraph choices
+              ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (dashJGraph . composeG) choices
+              ] where choices = makeChoices fool
+                      redFool = dashJGraph fool # lc red
+                         
+-- | emplacement choices for foolD 
+--  WARNING: relies on numbering which can change with changes to forcing
+--  Vertex 1 is not present in the final choice (hense 29)
+emplaceFoolDChoices :: Diagram B
+emplaceFoolDChoices = padBorder $ hsep 1 $
+        fmap (addFoolD . lw ultraThin . drawPatch . dropVertices) vpChoices where
+        (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(29,6)] 
+                                         (fmap makeVPatch (foolD:emplaceChoices foolD))
+        addFoolD fig = (lc red . dashJPatch . dropVertices) vpFoolD <> fig
+
 
 
 {-
@@ -253,29 +268,6 @@ touchingTestFig =
                 [LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
 
 
-{-
-  *************************
-  Multi emplace and choices
-  *************************
--}
-
--- four choices for composing fool
-foolChoices :: Diagram B
-foolChoices = padBorder $ vsep 1 
-              [hsep 1 $ fmap (redFool <>) $ fmap dashJGraph choices
-              ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (dashJGraph . composeG) choices
-              ] where choices = makeChoices fool
-                      redFool = dashJGraph fool # lc red
-                         
--- | emplacement choices for foolD 
---  WARNING: relies on numbering which can change with changes to forcing
---  Vertex 1 is not present in the final choice (hense 29)
-emplaceFoolDChoices :: Diagram B
-emplaceFoolDChoices = padBorder $ hsep 1 $
-        fmap (addFoolD . lw ultraThin . drawPatch . dropVertices) vpChoices where
-        (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(29,6)] 
-                                         (fmap makeVPatch (foolD:emplaceChoices foolD))
-        addFoolD fig = (lc red . dashJPatch . dropVertices) vpFoolD <> fig
 {- 
     *****************************************
     Incorrect graphs and other problem graphs
@@ -624,7 +616,7 @@ subExample = iterate (forceSub . decomposeSub) (makeSubTgraph fD2 [faces fD2]) !
 
 
 subExampleFig:: Diagram B
-subExampleFig = padBorder $ lw thin drawSubTgraph2 subExample
+subExampleFig = padBorder $ lw thin drawSubTgraph1 subExample
 
 -- hollowGraph happens to be a valid Tgraph after removing the tracked faces from subExample
 -- This is not generally the case
@@ -668,15 +660,15 @@ trackTwoChoices g de = fmap forceSub [sub1,sub2] where
           g'' = addKite g de
           sub1 = makeSubTgraph g' [faces g', faces g' \\ faces g]
           sub2 = makeSubTgraph g'' [faces g'', faces g'' \\ faces g]
-
+          
 
 -- | Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [SubTgraph]
 twoChoices = trackTwoChoices (force $ dartDs !!4) (233,202)
          
--- | show the (tracked) twoChoices with drawSubTgraph3 (tracked faces in red, new face filled black)  
+-- | show the (tracked) twoChoices with drawSubTgraph2 (tracked faces in red, new face filled black)  
 twoChoicesFig:: Diagram B
-twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph3 twoChoices
+twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 twoChoices
 
 -- | track two further choices with the first of twoChoices (fullgraph)  
 moreChoices0:: [SubTgraph]
@@ -689,13 +681,41 @@ moreChoices1 = trackTwoChoices (fullGraph $ twoChoices !! 1) (178,219)
 -- | figures for 4 further choices
 moreChoicesFig0,moreChoicesFig1,moreChoicesFig:: Diagram B
 moreChoicesFig =  vsep 1 [moreChoicesFig0,moreChoicesFig1]  
-moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSubTgraph3 moreChoices0
-moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph3 moreChoices1
+moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSubTgraph2 moreChoices0
+moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 moreChoices1
 
 -- quick look at all the compositions of the twoChoices results (not rotated)
 tempFig:: Diagram B
 tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1 . phiScales . showAllFComps) twoChoices where
     showAllFComps sub =  fmap drawGraph $ allComps $ fullGraph $ forceSub sub
+
+
+
+
+
+          
+          
+          
+          
+{- 
+    drawEmbed largely superceded by use of SubTgraphs
+    (SubTgraphs avoid need for alignment vertices)
+    But may still be useful where SubTgraphs cannot be used
+-}
+-- use checkEmbed first to find a common pair of vertices to align (for use with drawEmbed)
+checkEmbed :: Tgraph -> Tgraph -> Diagram B
+checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
+                   fmap drawVGraph [g1, g2]
+
+-- | drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
+-- vertices a and b must be common to g1 and g2 and scales should match for length of (a,b)
+drawEmbed ::  Tgraph -> Tgraph -> (Vertex, Vertex) -> Diagram B
+drawEmbed g1 g2 (a,b) = 
+    (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
+    vp1 = alignXaxis (a,b) $ makeVPatch g1
+    vp2 = alignXaxis (a,b) $ makeVPatch g2
+
+
 
 
         

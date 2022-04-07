@@ -25,6 +25,6 @@ import Tgraph.Convert
 
                 
 fig::Diagram B
-fig = inspectForce5 2000
+fig = emplaceFoolDChoices
 
 main = mainWith fig

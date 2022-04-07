@@ -62,44 +62,36 @@ makeVPatch g = if nullGraph g
                            }
     where
     (face:more) = chooseLowest (faces g)
---    (assocV,_) = buildVEAssocs [face] more [(originV face,origin)] (initJvec face)
     vpMap = createVPoints $ chooseLowest $ faces g
     locateV (v,p) = v `at` p
     makeLHyb fc = case (Map.lookup (originV fc) vpMap , Map.lookup (oppV fc) vpMap) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
 
--- | graphFromVP: an inverse to makeVPatch which checks for connected and no crossing boundaries
-graphFromVP:: VPatch -> Tgraph
-graphFromVP = checkTgraph . dropVectors
+-- | for Non-empty list of tile faces
+-- find the face with lowest originV (and then lowest oppV) 
+-- Move the face to the front of the returned list
+-- Used by makeVPatch (and hence makePatch) for Non-empty graph
+chooseLowest:: [TileFace] -> [TileFace]
+chooseLowest fcs = face:(fcs\\[face]) where
+    a = minimum (fmap originV fcs)
+    aFs = filter ((a==) . originV) fcs
+    b = minimum (fmap oppV aFs)
+    face = case filter (((a,b)==) . joinOfTile) aFs of  -- should be find
+           (face:_) -> face
+           []       -> error "chooseLowest: empty graph?"
+
 
 {-
 makePatch uses makeVPatch first then the Hybrids are converted to Pieces
-and the Located Vertex information is thrown away
+and the Located Vertex information is dropped
 -}
 makePatch:: Tgraph -> Patch
 makePatch = dropVertices . makeVPatch
 
-
-
--- | touchingVertices checks that no vertices are too close to each other by making a VPatch of a Tgraph.
--- If vertices are too close that indicates we may have the same point with two different vertex numbers
--- arising from the touching vertex problem. 
--- It returns pairs of vertices that are too close 
--- (i.e less than 0.5 where 1.0 would be the length of short edges)
--- An empty list is returned if there is no touching vertex problem.
--- Complexity has order of the square of the number of vertices (calculates distance between all pairs)
-touchingVertices:: Tgraph -> [(Vertex,Vertex)]
-touchingVertices g = check assocVP where
-  check [] = []
-  check ((v,p):more) = [(v,v1) | (v1,p1) <- more, tooClose p p1 ] ++ check more
-  tooClose p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
---  sqLength vec = dot vec vec
-  assocVP = vertexLocs $ makeVPatch g
-
--- | makes an association list of vertex to location from a VPatch
-vertexLocs :: VPatch -> [(Vertex, Point V2 Double)]
-vertexLocs = fmap ((\(p,v)->(v,p)) . viewLoc) . lVertices
+-- | graphFromVP: an inverse to makeVPatch which checks for connected and no crossing boundaries
+graphFromVP:: VPatch -> Tgraph
+graphFromVP = checkTgraph . dropVectors
 
 {-
 *************************************
@@ -152,9 +144,12 @@ selectFacesGtoVP fcs g = selectFacesVP fcs (makeVPatch g)
 removeFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
 removeFacesGtoVP fcs g = removeFacesVP fcs (makeVPatch g)
 
-findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
-findLoc v vp = fmap loc $ find matchingV (lVertices vp) -- fmap for Functor Maybe
-               where matchingV lv = unLoc lv==v
+{- 
+----------------------------------------
+ Alignment with vertices
+-------------------------------------------
+-}
+
 
 -- | center a VPatch on a particular vertex
 centerOn :: Vertex -> VPatch -> VPatch
@@ -180,6 +175,8 @@ alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]
 alignments [] vps = vps
 alignments prs [] = error "alignments: Too many alignment pairs"  -- prs non-null
 alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
+--alignments = zipWith alignXaxis -- doesn't allow for shorter alignment list
+
 
 -- | alignAll (a,b) vpList
 -- provided both vertices a and b exist in each Vpatch in vpList, the VPatches are all aligned
@@ -188,13 +185,19 @@ alignAll :: (Vertex, Vertex) -> [VPatch] -> [VPatch]
 alignAll (a,b) = fmap (alignXaxis (a,b))
     -- alignments ablist vps where ablist = take (length vps) (repeat (a,b))
 
+{- 
+----------------------------------------
+ Rotating and Scaling lists
+-------------------------------------------
+-}
+
 -- rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
 -- This includes Diagrams, Patches, VPatches
 -- The integer list can be shorter than the list of items - the remaining items are left unrotated.
 rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
 rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
 rotations [] ds = ds
-rotations _  [] = error "rotations: too many integers"
+rotations _  [] = error "rotations: too many rotation integers"
 
 -- scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
 -- This includes Diagrams, Patches, VPatches
@@ -204,10 +207,11 @@ scales (s:ss) (d:ds) = scale s d: scales ss ds
 scales [] ds = ds
 scales _  [] = error "scales: too many scalars"
 
--- | increasing scales by phi along a list
+-- | increasing scales by phi along a list starting with 1
 phiScales:: (Transformable a, V a ~ V2, N a ~ Double) => [a] -> [a]
 phiScales = phiScaling 1
 
+-- | increasing scales by phi along a list starting with given argument s
 phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
 phiScaling s [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
@@ -216,17 +220,13 @@ phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
  Auxilliary definitions
 ------------------------------------------- -}
 
--- | find the face with lowest originV (and then lowest oppV) 
--- return that face first followed by remaining faces
--- Used by makeVPatch (and hence makePatch) 
-chooseLowest fcs = face:(fcs\\[face]) where
-    a = minimum (fmap originV fcs)
-    aFs = filter ((a==) . originV) fcs
-    b = minimum (fmap oppV aFs)
-    face = case filter (((a,b)==) . joinOfTile) aFs of  -- should be find
-           (face:_) -> face
-           []       -> error "chooseLowest: empty graph?"
+-- | makes an association list of vertex to location from a VPatch
+vertexLocs :: VPatch -> [(Vertex, Point V2 Double)]
+vertexLocs = fmap ((\(p,v)->(v,p)) . viewLoc) . lVertices
 
+-- | find the location of a specific vertex in a VPatch
+findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
+findLoc v vp = lookup v (vertexLocs vp)
  
 -- Apply a function to just the list of located hybrids in a VPatch (leaving located vertices untouched)
 withHybs:: ([Located Hybrid]->[Located Hybrid]) -> VPatch -> VPatch
@@ -286,16 +286,39 @@ drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
           drawAll _ [] = mempty
           drawAll (f:fmore)(p:pmore) =  drawAll fmore pmore <> f p
 
--- | special case of drawSubTgraph using 2 patchdrawing functions:
+-- | special case of drawSubTgraph using 1 subset (and 2 patchdrawing functions):
 -- normal (black), then red
-drawSubTgraph2 :: SubTgraph -> Diagram B
-drawSubTgraph2 = drawSubTgraph [drawPatch,(lc red . drawPatch)]
--- | special case of drawSubTgraph using 3 patchdrawing functions:
+drawSubTgraph1 :: SubTgraph -> Diagram B
+drawSubTgraph1 = drawSubTgraph [drawPatch
+                               ,(lc red . drawPatch)
+                               ]
+-- | special case of drawSubTgraph using 2 subsets (and 3 patchdrawing functions):
 -- normal (black), then red, then filled black
-drawSubTgraph3 :: SubTgraph -> Diagram B
-drawSubTgraph3 = drawSubTgraph [drawPatch,(lc red . drawPatch), patchWith (fillDK black black)]
+drawSubTgraph2 :: SubTgraph -> Diagram B
+drawSubTgraph2 = drawSubTgraph [drawPatch
+                               ,(lc red . drawPatch)
+                               , patchWith (fillDK black black)
+                               ]
 
 
+{- | TESTING function touchingVertices
+For use if Touching vertex chack is switched off in forcing.  This is a reptrospective check.
+
+touchingVertices checks that no vertices are too close to each other by making a VPatch of a Tgraph.
+If vertices are too close that indicates we may have the same point with two different vertex numbers
+arising from the touching vertex problem. 
+It returns pairs of vertices that are too close 
+(i.e less than 0.5 where 1.0 would be the length of short edges)
+An empty list is returned if there is no touching vertex problem.
+Complexity has order of the square of the number of vertices (calculates distance between all pairs)
+-}
+touchingVertices:: Tgraph -> [(Vertex,Vertex)]
+touchingVertices g = check $ vertexLocs $ makeVPatch g where
+  check [] = []
+  check ((v,p):more) = [(v,v1) | (v1,p1) <- more, tooClose p p1 ] ++ check more
+  tooClose p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
+--  sqLength vec = dot vec vec
+--  assocVP = vertexLocs $ makeVPatch g
 
 
 
