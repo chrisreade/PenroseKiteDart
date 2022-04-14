@@ -46,7 +46,7 @@ emplaceSimple g = if nullGraph g'
 -- emplacements are best supplied with a maximally composed or near maximally composed graph
 -- It produces an infinite list of emplacements of the starting graph and its decompositions.
 emplacements :: Tgraph -> [Tgraph]
-emplacements = (iterate (force . decomposeG)) . emplace -- was .force
+emplacements = iterate (force . decomposeG) . emplace -- was .force
 
 -- countEmplace g finds a maximally composed graph (maxg) for g and counts the number (n) of compsitions
 -- needed.  It retutns a triple of maxg, the nth emplacement of maxg, and n)
@@ -67,8 +67,8 @@ emplaceChoices g =
            g' = composeG fg 
        in
            if nullGraph g'
-           then fmap emplace $ makeChoices g
-           else fmap (force . decomposeG) (emplaceChoices g')
+           then emplace <$> makeChoices g
+           else force . decomposeG <$> emplaceChoices g'
                                  
 {- | makeChoices is a temporary tool which does not attempt to analyse choices for correctness.
 It can thus create some choices which will be incorrect.

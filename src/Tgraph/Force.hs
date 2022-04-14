@@ -33,11 +33,8 @@ Touching vertex checking
 ********************************************
 requires Diagrams.Prelude for points and V2
 --------------------------------------------}
-touchCheck:: (Point V2 Double) -> Mapping a (Point V2 Double) -> Bool
-touchCheck p vpMap = 
-  if touchCheckOn 
-  then any (tooClose p) (Map.elems vpMap) -- (fmap snd vpMap) 
-  else False
+touchCheck:: Point V2 Double -> Mapping a (Point V2 Double) -> Bool
+touchCheck p vpMap = touchCheckOn && any (tooClose p) (Map.elems vpMap)
 
 tooClose :: Point V2 Double  -> Point V2 Double -> Bool
 tooClose p p' = quadrance (p .-. p') < 0.25 -- quadrance is square of length of a vector
@@ -740,7 +737,7 @@ addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
 -}
 
 
--- | force applied to a SubTgraph
+-- | force applied to a SubTgraph - has no effect on tracked subsets
 forceSub :: SubTgraph -> SubTgraph
 forceSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph (force g) tlist
 
@@ -767,10 +764,10 @@ addKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
          [de] -> de
          _ -> error ("addKite:  on non-boundary edge " ++ show e)
   [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
-  u = if longE fc == reverseE de then addKiteLongE bd fc
-      else if shortE fc == reverseE de then addKiteShortE bd fc
-      else if joinE fc == reverseE de && isKite fc then completeHalf bd fc
-      else error "addKite: applied to dart join (not possible)"
+  u | longE fc == reverseE de = addKiteLongE bd fc
+    | shortE fc == reverseE de = addKiteShortE bd fc
+    | joinE fc == reverseE de && isKite fc = completeHalf bd fc
+    | otherwise = error "addKite: applied to dart join (not possible)"
       
 -- adding by hand a single half dart
 -- must be to a boundary edge but direction is automatically calculated
@@ -782,11 +779,11 @@ addDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
          [de] -> de
          _ -> error ("addDart:  on non-boundary edge " ++ show e)
   [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
-  u = if longE fc == reverseE de then addDartLongE bd fc
-      else if shortE fc == reverseE de && isKite fc then addDartShortE bd fc
-      else if joinE fc == reverseE de && isDart fc then completeHalf bd fc
-      else error "addDart: applied to short edge of dart or to kite join (not possible)"                     
-
+  u | longE fc == reverseE de = addDartLongE bd fc
+    | shortE fc == reverseE de && isKite fc = addDartShortE bd fc
+    | joinE fc == reverseE de && isDart fc = completeHalf bd fc
+    | otherwise
+    = error "addDart: applied to short edge of dart or to kite join (not possible)"
 
 
 -- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBase) by
@@ -974,8 +971,8 @@ This indicates an incorrect graph, and the boundary argument is used just for re
 Similarly findClockAt in the clockwise direction but called with the reverse directed edge, so fcs must be faces at b.
 -}
 findClockAt, findAntiAt :: Boundary -> IntAngle -> (Vertex, Vertex) -> [TileFace] -> Maybe Vertex
-findClockAt bd n (a,b) fcs = errorCheckClock bd a n $ allAnglesClock [(intAngle 0,b)] $ fcs
-findAntiAt  bd n (a,b) fcs = errorCheckAnti bd a n $ allAnglesAnti [(intAngle 0,b)] $ fcs
+findClockAt bd n (a,b) fcs = errorCheckClock bd a n $ allAnglesClock [(intAngle 0,b)] fcs
+findAntiAt  bd n (a,b) fcs = errorCheckAnti bd a n  $ allAnglesAnti  [(intAngle 0,b)] fcs
 
 -- | errorCheckAnti bd n and errorCheckClock bd n are used instead of just lookup n, 
 -- because the search for n should find it in the front pair on the resulting list or not at all.
@@ -983,6 +980,20 @@ findAntiAt  bd n (a,b) fcs = errorCheckAnti bd a n $ allAnglesAnti [(intAngle 0,
 -- there is an incorrect graph.  The first 2 arguments are passed only to report such errors
 errorCheckAnti,errorCheckClock::Boundary -> Vertex -> IntAngle -> [(IntAngle,Vertex)] -> Maybe Vertex
 errorCheckAnti bd v n [] = Nothing
+errorCheckAnti bd v n ms@((m, a) : _)
+  | m == n = Just a
+  | m `smallerAngle` n = Nothing
+  | otherwise
+    = error ("errorcheckAnti:  Found incorrect graph\nConflict at vertex: "
+            ++ show v
+            ++ "\nChecking (anticlockwise) for angle "
+            ++ show n
+            ++ " but found "
+            ++ show ms
+            ++ "\n In graph:\n"
+            ++ show (recoverGraph bd))
+{-
+
 errorCheckAnti bd v n ms@((m,a):_)
   = if m==n then Just a  else
     if m `smallerAngle` n  then Nothing else
@@ -990,7 +1001,21 @@ errorCheckAnti bd v n ms@((m,a):_)
            "\nChecking (anticlockwise) for angle " ++ show n ++" but found "++ show ms ++
            "\n In graph:\n" ++ show (recoverGraph bd)
           )
+-}
 errorCheckClock bd v n [] = Nothing
+errorCheckClock bd v n ms@((m, a) : _)
+    | m == n = Just a
+    | n `smallerAngle` m = Nothing
+    | otherwise
+    = error ("errorcheckClock:  Found incorrect graph\nConflict at vertex: "
+            ++ show v
+            ++ "\nChecking (clockwise) for angle "
+            ++ show n
+            ++ " but found "
+            ++ show ms
+            ++ "\n In graph:\n"
+            ++ show (recoverGraph bd))
+{-
 errorCheckClock bd v n ms@((m,a):_) 
   = if m==n then Just a  else
     if n `smallerAngle` m  then Nothing else
@@ -998,6 +1023,7 @@ errorCheckClock bd v n ms@((m,a):_)
            "\nChecking (clockwise) for angle " ++ show n ++" but found "++ show ms ++
            "\n In graph:\n" ++ show (recoverGraph bd)
           )
+-}
 
 (IntAngle m) `smallerAngle`  (IntAngle n) = m<n-- only valid up to n==9
 
@@ -1016,13 +1042,13 @@ Faces left over indicate a crossing boundary at the vertex and therefore an erro
 allAnglesClock:: [(IntAngle,Vertex)] -> [TileFace] -> [(IntAngle,Vertex)]
 allAnglesClock la@((n,last):_) fcs = case filter (isAtV last) fcs of  
     [fc] ->  allAnglesClock ((clock n (intAngleAt (prevV last fc) fc), nextV last fc) :la)  $ fcs\\[fc]
-    []   -> if fcs==[] then la else error ("allAnglesClock: crossing boundaries?\nGap after "++ show last ++ " before " ++ show fcs)
+    []   -> if null fcs then la else error ("allAnglesClock: crossing boundaries?\nGap after "++ show last ++ " before " ++ show fcs)
     other    -> error ("allAnglesClock: Conflicting faces found: " ++ show other)
 
 allAnglesAnti:: [(IntAngle,Vertex)] -> [TileFace] -> [(IntAngle,Vertex)]
 allAnglesAnti la@((n,last):_) fcs = case filter (isAtV last) fcs of  
     [fc] ->  allAnglesAnti ((anti n (intAngleAt (nextV last fc) fc), prevV last fc) :la)  $ fcs\\[fc]
-    []    -> if fcs==[] then la else error ("allAnglesAnti: crossing boundaries?\nGap after "++ show last ++ " before " ++ show fcs)
+    []    -> if null fcs then la else error ("allAnglesAnti: crossing boundaries?\nGap after "++ show last ++ " before " ++ show fcs)
     other    -> error ("allAnglesAnti: Conflicting faces found: " ++ show other)
 
 -- | intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)

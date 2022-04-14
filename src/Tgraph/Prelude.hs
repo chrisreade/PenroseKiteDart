@@ -112,15 +112,13 @@ edgeConflicts g = not $ null $ conflictingDedges g ++ conflictingLengthEdges g
 -- (which should be empty).               
 crossingBVs :: Tgraph -> [Vertex]
 crossingBVs g = bVerts \\ nub bVerts  -- leaves any duplicates
-     where bVerts = fmap fst $ boundaryDedges g -- snd could replace fst here
+     where bVerts = fst <$> boundaryDedges g -- snd could replace fst here
 
 crossingBoundaries :: Tgraph -> Bool
 crossingBoundaries g = not $ null $ crossingBVs g
 
 connected :: Tgraph -> Bool
-connected g = if nullGraph g 
-              then True
-              else null (vs \\ connectedTo (head vs) vs (graphEdges g))
+connected g =   nullGraph g || null (vs \\ connectedTo (head vs) vs (graphEdges g))
                    where vs = vertices g
 
 connectedTo :: Eq a => a -> [a] -> [(a, a)] -> [a]

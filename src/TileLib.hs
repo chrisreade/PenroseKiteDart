@@ -33,7 +33,7 @@ Making HalfTiles (and therefore Pieces) transformable
 type instance N (HalfTile a) = N a
 type instance V (HalfTile a) = V a
 instance Transformable a => Transformable (HalfTile a) where
-    transform t ht = fmap (transform t) ht
+    transform t = fmap (transform t)
 
 -- | These are the only 4 pieces (oriented along x axis)
 ldart,rdart,lkite,rkite:: Piece
@@ -51,7 +51,7 @@ phi = (1.0 + sqrt 5.0) / 2.0
 -- | All angles used are multiples of tt -  tau/10 rad = 1/10 turn = 36 deg
 -- angles are from positive x axis anticlockwise
 ttangle:: Int -> Angle Double
-ttangle n = (fromIntegral (n `mod` 10))*^tt
+ttangle n = fromIntegral (n `mod` 10) *^tt
              where tt = 1/10 @@ turn
 
 {- |  The two outer tile edges of a piece.
@@ -83,8 +83,8 @@ drawPiece = strokeLine . fromOffsets . pieceEdges
 -- Uses only left pieces to identify whole tile, ignoring right pieces
 fillDK':: Colour Double -> Colour Double -> Piece -> Diagram B
 fillDK' dcol kcol pc =
-     case pc of (LD _) -> (strokeLoop $ glueLine $ fromOffsets $ tileEdges pc)  # fc dcol
-                (LK _) -> (strokeLoop $ glueLine $ fromOffsets $ tileEdges pc)  # fc kcol
+     case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ tileEdges pc)  # fc dcol
+                (LK _) -> strokeLoop (glueLine $ fromOffsets $ tileEdges pc)  # fc kcol
                 _      -> mempty
 
 -- | drawPiece with added join edge (also fillable as a loop)
@@ -104,7 +104,7 @@ fillDK dcol kcol piece = drawPiece piece <> (drawJPiece piece # fc col # lc col)
 
 -- | join edge added as dashed-line
 dashJPiece:: Piece -> Diagram B
-dashJPiece piece = drawPiece piece <> (drawJ piece # dashingO [1,1] 0 # lw ultraThin)
+dashJPiece piece = drawPiece piece <> (drawJ piece # dashingO [1,1] 0) -- # lw ultraThin)
 -- dashJPiece piece = drawPiece piece <> (drawJ piece # dashingN [0.002,0.002] 0 # lw ultraThin)
 
 -- | draw join only 
@@ -162,11 +162,11 @@ decompPiece lp = case viewLoc lp of
   (p, RD vd)-> [ LK vd  `at` p
                , RD vd' `at` (p .+^ v')
                ] where v'  = phi*^rotate (ttangle 1) vd
-                       vd' = (2-phi) *^ (negated v') -- (2-phi) = 1/phi^2
+                       vd' = (2-phi) *^ negated v' -- (2-phi) = 1/phi^2
   (p, LD vd)-> [ RK vd `at` p
                , LD vd' `at` (p .+^ v')
                ]  where v'  = phi*^rotate (ttangle 9) vd
-                        vd' = (2-phi) *^ (negated v')  -- (2-phi) = 1/phi^2
+                        vd' = (2-phi) *^ negated v'  -- (2-phi) = 1/phi^2
   (p, RK vk)-> [ RD vd' `at` p
                , LK vk' `at` (p .+^ v')
                , RK vk' `at` (p .+^ v')

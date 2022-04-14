@@ -58,7 +58,7 @@ makeVPatch::Tgraph -> VPatch
 makeVPatch g = if nullGraph g 
                then VPatch { lVertices = [], lHybrids = [] }
                else VPatch { lVertices = fmap locateV (Map.toList vpMap)
-                           , lHybrids  = fmap makeLHyb $ faces g
+                           , lHybrids  = makeLHyb <$> faces g
                            }
     where
     (face:more) = chooseLowest (faces g)
@@ -131,7 +131,7 @@ removeFacesVP fcs vp = foldr removeFace vp fcs where
     matchingF fc lhyb = asFace (unLoc lhyb) == fc
 
 selectFacesVP:: [TileFace] -> VPatch -> VPatch
-selectFacesVP fcs vp = withHybs (findAll fcs) vp where
+selectFacesVP fcs = withHybs (findAll fcs) where
     findAll fcs lfaces = mapMaybe (findIn lfaces) fcs 
     findIn lfaces fc = find (matchingF fc) lfaces
     matchingF fc lhyb = asFace (unLoc lhyb) == fc
@@ -255,7 +255,7 @@ dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
    ********************************************
 -}
 drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (lc lime $ drawEdges vpMap bd) <> drawVPatch vp where
+drawGBoundary g =  lc lime (drawEdges vpMap bd) <> drawVPatch vp where
     vp = makeVPatch g
     vpMap = Map.fromList $ vertexLocs vp
     bd = boundaryDedges g
@@ -280,7 +280,7 @@ drawEdge vpMap (a,b) = case (Map.lookup a vpMap, Map.lookup b vpMap) of
 drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
 drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
           vpFull = makeVPatch (fullGraph sub)
-          pTrackedList = fmap (dropVertices . (\fcs -> selectFacesVP fcs vpFull)) (trackedSubsets sub)
+          pTrackedList = fmap (dropVertices . (`selectFacesVP` vpFull)) (trackedSubsets sub)
           pUntracked = dropVertices $ removeFacesVP (concat (trackedSubsets sub)) vpFull
           drawAll [] _ = mempty
           drawAll _ [] = mempty
@@ -289,14 +289,14 @@ drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
 -- | special case of drawSubTgraph using 1 subset (and 2 patchdrawing functions):
 -- normal (black), then red
 drawSubTgraph1 :: SubTgraph -> Diagram B
-drawSubTgraph1 = drawSubTgraph [drawPatch
-                               ,(lc red . drawPatch)
+drawSubTgraph1 = drawSubTgraph [ drawPatch
+                               , lc red . drawPatch
                                ]
 -- | special case of drawSubTgraph using 2 subsets (and 3 patchdrawing functions):
 -- normal (black), then red, then filled black
 drawSubTgraph2 :: SubTgraph -> Diagram B
-drawSubTgraph2 = drawSubTgraph [drawPatch
-                               ,(lc red . drawPatch)
+drawSubTgraph2 = drawSubTgraph [ drawPatch
+                               , lc red . drawPatch
                                , patchWith (fillDK black black)
                                ]
 

@@ -72,7 +72,7 @@ fiveInflate = hsep 1 $ fmap drawPatch [[ld,lk'], decompositions [lk'] !! 5] wher
        lk' = inflate ld' !!1
 
 -- | example of first  5 alternatives of 4-fold inflations of lp (located piece)
-inflatefig lp = hsep 1 $ fmap drawPatch $ fmap (:[lp]) $ take 5 $ inflations 4 lp
+inflatefig lp = hsep 1 $ fmap (drawPatch . (:[lp])) $ take 5 $ inflations 4 lp
 fiveAlternatives = inflatefig (rdart `at` origin)
 
 -- | Decomposed suns
@@ -140,7 +140,7 @@ A swatch is a list of triples of colours which are used to fill sun5s (dart, kit
 showSwatch n sw produces a diagram from a swatch sw where n is used to indicate how many samples in a row
 display at 800
 -}
-showSwatch n swatch = vsep 0.25 $ fmap (hsep 0.25 . fmap sample) $ group n swatch where
+showSwatch n swatch = vsep 0.25 (hsep 0.25 . fmap sample <$> group n swatch) where
                      group n l = if length l <= n then [l] else take n l: group n (drop n l)
                      sample (c1,c2,c3) = colourDKG (c1,c2,c3) sun5 # lw ultraThin
 --                     sample (c1,c2,c3) = patchWith (fillDK c1 c2) sun5 # lw ultraThin # lc c3

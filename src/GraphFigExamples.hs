@@ -49,7 +49,7 @@ foolFig :: Diagram B
 foolFig = padBorder $ drawVGraph fool
 
 foolAndFoolD :: Diagram B
-foolAndFoolD = padBorder $ hsep 1 $ [(drawVPatch . scale phi . makeVPatch) fool, drawVGraph foolD]
+foolAndFoolD = padBorder $ hsep 1 [(drawVPatch . scale phi . makeVPatch) fool, drawVGraph foolD]
 
 
 
@@ -92,7 +92,7 @@ dartDs =  decompositionsG dartGraph
 -- | Shows labelled vertices For checking partCompose to get alignment vertices
 checkPCompose :: Tgraph -> Diagram B
 checkPCompose g = 
-        padBorder $ hsep 1 $ [drawVPatch $ selectFacesGtoVP fcs g, scale phi $ drawVGraph g'] where
+        padBorder $ hsep 1 [drawVPatch $ selectFacesGtoVP fcs g, scale phi $ drawVGraph g'] where
         (fcs,g') = partCompose g
 
 {- | showPCompose g (a,b)  applies partCompose to g, then aligns and draws the composed graph with the remainder faces (in lime)
@@ -102,18 +102,18 @@ Vertices a and b must be common to composed g and g
 -}
 showPCompose ::  Tgraph -> (Vertex, Vertex) -> Diagram B
 showPCompose g (a,b) = case nullGraph g' of
-    True -> lc lime $ dashJPatch $ dropVertices $ remg
-    False -> (lw ultraThin $ drawPatch $ dropVertices compg)
-             <> (lc lime $ dashJPatch $ dropVertices remainder)
+    True -> lc lime $ dashJPatch $ dropVertices remg
+    False -> lw ultraThin (drawPatch $ dropVertices compg)
+             <> lc lime (dashJPatch $ dropVertices remainder)
                  where [remainder,compg] = alignAll (a,b) [remg , scale phi $ makeVPatch g']
   where (fcs,g') = partCompose g
         remg = selectFacesGtoVP fcs g
  
 
 pCompFig1,pCompFig2,pCompFig:: Diagram B
-pCompFig1 = hsep 5 $ rotations [1] $ [drawGraph fd3 # lw ultraThin, showPCompose fd3 (1,3)]
+pCompFig1 = hsep 5 $ rotations [1] [drawGraph fd3 # lw ultraThin, showPCompose fd3 (1,3)]
             where fd3 = force $ dartDs !! 3
-pCompFig2 = hsep 5 $ rotations []  $ [drawGraph fk3 # lw ultraThin, showPCompose fk3 (1,2)]
+pCompFig2 = hsep 5 $ rotations [] [drawGraph fk3 # lw ultraThin, showPCompose fk3 (1,2)]
             where fk3 = force $ kiteDs !! 3
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
@@ -156,7 +156,7 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 -}
 showEmplace :: Tgraph -> Int -> Diagram B
 showEmplace g n = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ] $
-                    (emplacementSubs g) !! n
+                    emplacementSubs g !! n
 
 -- | an infinite list of emplacements of a graph as SubTgraphs
 emplacementSubs:: Tgraph -> [SubTgraph]
@@ -167,7 +167,7 @@ emplacementSubs g = iterate (forceSub . decomposeSub) $ makeSubTgraph (emplace g
      shows the forced above the emplaced versions of g decomposed n times
 -}
 showForceEmplace :: Tgraph -> Int -> Diagram B
-showForceEmplace g n = vsep 1 $ [showForce $ decompositionsG g !!n, showEmplace g n]
+showForceEmplace g n = vsep 1 [showForce $ decompositionsG g !!n, showEmplace g n]
 
 
 -- example nth emplacement figures
@@ -190,7 +190,7 @@ newEmpFig = padBorder $ hsep 1 $ rotations [2,4] [showEmplace dartGraph 4, showE
 -- four choices for composing fool
 foolChoices :: Diagram B
 foolChoices = padBorder $ vsep 1 
-              [hsep 1 $ fmap (redFool <>) $ fmap dashJGraph choices
+              [hsep 1 $ fmap ((redFool <>) . dashJGraph) choices
               ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (dashJGraph . composeG) choices
               ] where choices = makeChoices fool
                       redFool = dashJGraph fool # lc red
@@ -356,7 +356,7 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap drawVPatch $ scales [phi,1,1,phi] $ al
 -}
    
 {- | vertexTypesFig is 7 vertex types single diagram as a row -}
-vertexTypesFig = padBorder $ hsep 1 $ lTypeFigs
+vertexTypesFig = padBorder $ hsep 1 lTypeFigs
  where
  lTypeFigs = zipWith labelD ["sun","star","jack","queen","king","ace","deuce"] vTypeFigs
  vTypeFigs = zipWith drawVertex 
@@ -435,8 +435,8 @@ boundaryGapFDart5 =
 
 -- figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
-boundaryGap4Fig = lw ultraThin $ drawVGraph $ boundaryGapFDart4
-boundaryGap5Fig = lw ultraThin $ drawVGraph $ boundaryGapFDart5
+boundaryGap4Fig = lw ultraThin $ drawVGraph boundaryGapFDart4
+boundaryGap5Fig = lw ultraThin $ drawVGraph boundaryGapFDart5
 
 -- showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
 -- using stepForce 2000
@@ -459,17 +459,17 @@ gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
      bigPic0 is main diagram for bigPic without the arrows
 -}
 bigPic0,bigPic :: Diagram B
-bigPic0 = (padBorder $ position $ concat $
-          [ zip pointsR1 $ partComps
+bigPic0 = padBorder $ position $ concat
+          [ zip pointsR1 partComps
           , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [1,1] forceDs)
           , zip pointsR3 $ zipWith named ["d4", "d3","d2","d1","d0"] (dots : rotations [1,1] drts)
-          ])
+          ]
           where
               partComps = phiScales $ reverse $ take 5 $ fmap pCompAlign (emplacements dartGraph)
               pCompAlign g = showPCompose g (1,3)
               forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap showForce dartDs
               drts  = fmap (center . lw thin) $ phiScaling phi $ reverse $ take 4 $ fmap dashJGraph dartDs
-              dots = center $ hsep 1 $ take 4 $ repeat $ ((circle 0.5) # fc gray # lw none)
+              dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]
@@ -497,10 +497,17 @@ bigPic =
              # connectPerim' arrowStyleG "d1" "d0" (1/10 @@ turn) (4/10 @@ turn)
              
         where
-              arrowStyleG = (with  & arrowShaft .~ shaft & headLength .~ verySmall & headStyle %~ fc green & shaftStyle %~ lc green & headGap .~ large & tailGap .~ large)
-              arrowStyleB1 = (with  & headLength .~ verySmall & headStyle %~ fc blue & shaftStyle %~ lc blue & headGap .~ small & tailGap .~ small)
-              arrowStyleB2 = (with  & headLength .~ verySmall & headStyle %~ fc blue  & shaftStyle %~ dashingG [1.5, 1.5] 0  & shaftStyle %~ lc blue & headGap .~ large & tailGap .~ large)
-              arrowStyleE = (with & headLength .~ verySmall  & headGap .~ small & tailGap .~ large)
+              arrowStyleG = with & arrowShaft .~ shaft & headLength .~ verySmall 
+                                 & headStyle %~ fc green & shaftStyle %~ lc green 
+                                 & headGap .~ large & tailGap .~ large
+              arrowStyleB1 = with & headLength .~ verySmall & headStyle %~ fc blue 
+                                  & shaftStyle %~ lc blue 
+                                  & headGap .~ small & tailGap .~ small
+              arrowStyleB2 = with & headLength .~ verySmall & headStyle %~ fc blue  
+                                  & shaftStyle %~ dashingG [1.5, 1.5] 0  
+                                  & shaftStyle %~ lc blue & headGap .~ large & tailGap .~ large
+              arrowStyleE = with & headLength .~ verySmall 
+                                 & headGap .~ small & tailGap .~ large
               shaft = arc xDir (-1/10 @@ turn)
 
 
@@ -548,7 +555,7 @@ testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart5
 -}
 testViewBoundary :: [Int] -> Boundary -> Diagram B
 testViewBoundary rots bd =  lc lime bdryFig <> graphFig where 
-    [bdryFig, graphFig] = fmap center $ rotations rots [drawEdges vpMap bdE,  drawVGraph g]
+    [bdryFig, graphFig] = center <$> rotations rots [drawEdges vpMap bdE,  drawVGraph g]
     g = recoverGraph bd
     vpMap = bvLocMap bd
     bdE = bDedges bd
@@ -558,7 +565,7 @@ testViewBoundary rots bd =  lc lime bdryFig <> graphFig where
 -- e.g. n = 1900
 inspectForce5 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
-                  testViewBoundary [5] $ boundaryState $ stepForce n $ boundaryGapFDart5
+                  testViewBoundary [5] $ boundaryState $ stepForce n boundaryGapFDart5
 
 inspectForce3 n = padBorder $ lw ultraThin $
                   testViewBoundary [3] $ boundaryState $ stepForce n $ dartDs !! 3
@@ -566,8 +573,8 @@ inspectForce3 n = padBorder $ lw ultraThin $
 
 -- figures showing boundary edges of the boundary gaps graphs  
 testBoundary4, testBoundary5 :: Diagram B
-testBoundary4 =  padBorder $ lw ultraThin $ drawGBoundary $ boundaryGapFDart4 
-testBoundary5 =  padBorder $ lw ultraThin $ drawGBoundary $ boundaryGapFDart5 
+testBoundary4 =  padBorder $ lw ultraThin $ drawGBoundary boundaryGapFDart4 
+testBoundary5 =  padBorder $ lw ultraThin $ drawGBoundary boundaryGapFDart5 
 
 -- testing crossing boundary detection e.g. by using force on testCrossingBoundary   
 testCrossingBoundary :: Tgraph
@@ -643,7 +650,7 @@ removeTrackedFig = padBorder $  lw ultraThin $ drawWithoutTracked subExample
 -}
 
 {-
-WARNING.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices...
+N.B.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices...
 They should be the (reversed) long edge of the left dart on the left of a group of 3 darts
 Middle of top edge of dartDs!!4.  Use e.g
 checkChoiceEdge (force $ dartDs !!4)
@@ -686,17 +693,31 @@ moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 moreC
 
 -- quick look at all the compositions of the twoChoices results (not rotated)
 tempFig:: Diagram B
-tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1 . phiScales . showAllFComps) twoChoices where
-    showAllFComps sub =  fmap drawGraph $ allComps $ fullGraph $ forceSub sub
+tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1 . phiScales . show5FComps) twoChoices where
+    show5FComps sub =  fmap drawGraph $ take 5 $ allComps $ fullGraph $ forceSub sub
 
 
+dartPlusHD = checkTgraph [ RD(1,2,3), LD(1,3,4), LD(1,5,2)]
 
+dartPlusHK = checkTgraph [ RD(1,2,3), LD(1,3,4), LK(2,1,5)]
 
+dartPlusDart = checkTgraph [ RD(1,2,3), LD(1,3,4), LD(1,5,2),RD(1,6,5)]
 
+dartPlusKite = checkTgraph [ RD(1,2,3), LD(1,3,4), LK(2,1,5),RK(2,5,6)]         
+
+halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 gs, drop 2 gs]
+  where                        
+    gs = [redEmbed dd fdd, redEmbed dk fdk, redEmbed dhd fdhd, redEmbed dhk fdhk]
+    redEmbed g1 g2 = lc red (lw medium $ dashJPatch $ dropVertices g1) <> lw ultraThin (drawPatch $ dropVertices g2)
+    [fdd,fdk,fdhd,fdhk] = alignAll (1,3) $ fmap (makeVPatch . force . decomp4) [dartPlusDart, dartPlusKite, dartPlusHD, dartPlusHK]
+    decomp4 g = decompositionsG g !! 4
+    dd  = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusDart    
+    dk  = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusKite    
+    dhd = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusHD    
+    dhk = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusHK    
           
-          
-          
-          
+checkEmp = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGraph . emplace . decomp4) [dartPlusHD,dartPlusHK] where
+           decomp4 g = decompositionsG g !! 4
 {- 
     drawEmbed largely superceded by use of SubTgraphs
     (SubTgraphs avoid need for alignment vertices)
@@ -711,7 +732,7 @@ checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
 -- vertices a and b must be common to g1 and g2 and scales should match for length of (a,b)
 drawEmbed ::  Tgraph -> Tgraph -> (Vertex, Vertex) -> Diagram B
 drawEmbed g1 g2 (a,b) = 
-    (lc red $ lw thin $ drawPatch $ dropVertices vp1) <> (lw ultraThin $ drawPatch $ dropVertices vp2)  where
+    lc red (lw thin $ drawPatch $ dropVertices vp1) <> lw ultraThin (drawPatch $ dropVertices vp2)  where
     vp1 = alignXaxis (a,b) $ makeVPatch g1
     vp2 = alignXaxis (a,b) $ makeVPatch g2
 

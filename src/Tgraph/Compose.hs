@@ -86,19 +86,20 @@ classifyDartWings :: Tgraph -> DWClass
 classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks
                               , vGroup = gps
                               } where
-    (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
+  (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
 
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing tips
 -- gps is an association list of the group of faces for each dart wing tip
-    processD g (kcs,dbs,unks,gps) rd@(RD(orig,w,_)) -- classify wing tip w
-      = if valencyD g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
-        if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
-        let
-             fcs = filter (isAtV w) (faces g)  -- faces at w
-             newgps = Map.insert w fcs gps -- (w,fcs):gps
-        in
+  processD g (kcs, dbs, unks, gps) rd@(RD (orig, w, _))-- classify wing tip w
+    | valencyD g w == 2 = (kcs, dbs, w : unks, gps) -- lone dart wing => unknown
+    | w `elem` kcs || w `elem` dbs = (kcs, dbs, unks, gps) -- already classified
+    | otherwise
+    = let
+        fcs = filter (isAtV w) (faces g)  -- faces at w
+        newgps = Map.insert w fcs gps -- (w,fcs):gps
+      in
         if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
                 -- wing is a half kite origin => largeDartBases
         if (w,orig) `elem` fmap longE (filter isLD fcs) then (w:kcs,dbs,unks,newgps) else 
@@ -124,20 +125,21 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
                       _ -> (kcs,dbs,w:unks,gps) 
                               -- short edge of this lk has nothing attached => unknown
 
-    processD g (kcs,dbs,unks,gps) ld@(LD(orig,_,w)) -- classify wing tip w
-      = if valencyD g w ==2 then (kcs,dbs,w:unks,gps) else -- lone dart wing => unknown
-        if w `elem` kcs || w `elem` dbs then (kcs,dbs,unks,gps) else -- already classified
-        let 
-            fcs = filter (isAtV w) (faces g) -- faces at w
-            newgps = Map.insert w fcs gps -- (w,fcs):gps
-        in
+  processD g (kcs, dbs, unks, gps) ld@(LD (orig, _, w))-- classify wing tip w
+    | valencyD g w == 2 = (kcs, dbs, w : unks, gps) -- lone dart wing => unknown
+    | w `elem` kcs || w `elem` dbs = (kcs, dbs, unks, gps) -- already classified
+    | otherwise
+    = let
+        fcs = filter (isAtV w) (faces g) -- faces at w
+        newgps = Map.insert w fcs gps -- (w,fcs):gps
+      in
         if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else
                    -- wing is a half kite origin => nodeDB
         if (w,orig) `elem` fmap longE (filter isRD fcs) then (w:kcs,dbs,unks,newgps) else
                    -- long edge ld shared with an rd => nodeKC
         case findFarK ld fcs of
-        Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of ld
-        Just lk@(LK _)  ->  
+          Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of ld
+          Just lk@(LK _)  ->  
             case find (matchingShortE lk) fcs of
             Just (RK _) -> (w:kcs,dbs,unks,newgps) -- short edge lk shared with an rk => largeKiteCentres
             Just (RD _) -> (kcs,w:dbs,unks,newgps) -- short edge lk shared with an rd => largeDartBases
@@ -158,14 +160,12 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
 
     -- | find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
     -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
-    findFarK :: TileFace -> [TileFace] -> Maybe TileFace
-    findFarK rd@(RD _) fcs = do lk <- find (matchingShortE rd) (filter isLK fcs)
-                                rk <- find (matchingJoinE lk) (filter isRK fcs)
-                                return rk
-    findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
-                                lk <- find (matchingJoinE rk)  (filter isLK fcs)
-                                return lk
-    findFarK _ _ = error "findFarK: applied to non-dart face"
+  findFarK :: TileFace -> [TileFace] -> Maybe TileFace
+  findFarK rd@(RD _) fcs = do lk <- find (matchingShortE rd) (filter isLK fcs)
+                              find (matchingJoinE lk) (filter isRK fcs)
+  findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
+                              find (matchingJoinE rk)  (filter isLK fcs)
+  findFarK _ _ = error "findFarK: applied to non-dart face"
 
 
 

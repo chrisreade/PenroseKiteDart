@@ -25,6 +25,6 @@ import Tgraph.Convert
 
                 
 fig::Diagram B
-fig = emplaceFoolDChoices
+fig = halfWholeFig
 
 main = mainWith fig

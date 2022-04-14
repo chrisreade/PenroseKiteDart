@@ -57,7 +57,7 @@ decompFace newVFor fc = case fc of
 decompositionsG :: Tgraph -> [Tgraph]
 decompositionsG = iterate decomposeG
 
--- | decompose a SubTgraph
+-- | decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full graph
 decomposeSub :: SubTgraph -> SubTgraph
 decomposeSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph g' tlist' where
    g' = Tgraph{ vertices = newVs++vertices g
