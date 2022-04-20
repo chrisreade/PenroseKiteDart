@@ -127,17 +127,17 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 forceFoolDminus :: Diagram B              
 forceFoolDminus = padBorder $ hsep 1 $ fmap drawVGraph [foolDminus, force foolDminus]
 
--- new version of showForce using subTgraphs instead of alignments
-showForce:: Tgraph -> Diagram B
-showForce g = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ]
+-- new version of drawForce using subTgraphs instead of alignments
+drawForce:: Tgraph -> Diagram B
+drawForce g = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ]
                $ forceSub $ makeSubTgraph g [faces g]
 
 forceDartD3Fig,forceDartD5Fig,forceKiteD3Fig,forceKiteD5Fig,forceSunD5Fig,forceFig:: Diagram B
-forceDartD3Fig = padBorder $ rotate (ttangle 1) $ showForce $ dartDs !! 3
-forceDartD5Fig = padBorder $ showForce $ dartDs !! 5
-forceKiteD3Fig = padBorder $ showForce $ kiteDs !! 3
-forceKiteD5Fig = padBorder $ rotate (ttangle 9) $ showForce $ kiteDs !! 5
-forceSunD5Fig =  padBorder $ showForce $ sunDs  !! 5
+forceDartD3Fig = padBorder $ rotate (ttangle 1) $ drawForce $ dartDs !! 3
+forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
+forceKiteD3Fig = padBorder $ drawForce $ kiteDs !! 3
+forceKiteD5Fig = padBorder $ rotate (ttangle 9) $ drawForce $ kiteDs !! 5
+forceSunD5Fig =  padBorder $ drawForce $ sunDs  !! 5
 
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
@@ -148,36 +148,57 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
   *************************************
 -}
 
-{- | showEmplace g n
-    Should produce the same as showForce (decompositionsG g !!n)
-    but does not assume force and emplace are equivalent
-    Produces emplacement diagram for nth decomposition of g  with
-    nth decomposition of g in red and its surrounding emplacement in black           
+-- | returns the join edge with lowest origin (and lowest oppV of faces with that origin)
+lowestJoin:: Tgraph -> (Vertex,Vertex)
+lowestJoin = joinOfTile . head . chooseLowest . faces
+{-
+drawMaxEmplace produces the emplacement of g overlaid with the maximal (forced) omposition of g
 -}
-showEmplace :: Tgraph -> Int -> Diagram B
-showEmplace g n = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ] $
-                    emplacementSubs g !! n
+drawMaxEmplace :: Tgraph -> Diagram B
+drawMaxEmplace g = (lc red $ lw thin $ drawPatch $ dropVertices $ scale (phi^n) vp) 
+                    <> (lw ultraThin $ drawPatch $ dropVertices vpEmp) where
+               fcomps = allFComps g
+               n = length fcomps -1
+               maxg = last fcomps
+               (a,b) = lowestJoin maxg
+               emp = emplacements maxg !! n
+               [vpEmp,vp] = alignAll (a,b) $ fmap makeVPatch [emp,maxg]
 
--- | an infinite list of emplacements of a graph as SubTgraphs
-emplacementSubs:: Tgraph -> [SubTgraph]
-emplacementSubs g = iterate (forceSub . decomposeSub) $ makeSubTgraph (emplace g) [faces g]
 
+{-
+{- | drawEmplace g n (a,b)
+    (a,b) a pair of distinct vertices in g and in the emplacement used to align
+    produces emplacement diagram for nth decomposition of g               
 
-{- | showForceEmplace g n
-     shows the forced above the emplaced versions of g decomposed n times
+drawEmplace :: Tgraph -> Int -> (Vertex, Vertex) -> Diagram B
+drawEmplace g n = drawEmbed (decompositionsG g !!n) (emplacements g !!n)
 -}
-showForceEmplace :: Tgraph -> Int -> Diagram B
-showForceEmplace g n = vsep 1 [showForce $ decompositionsG g !!n, showEmplace g n]
+
+-- NEEDS DEBUG  TO CORRECT FOR incomplete half tiles
+drawFEmplace :: Tgraph -> Int -> Diagram B
+drawFEmplace g n = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ] $
+                    empForceSubs g !! n
+
+-- | empForceSubs g shows an infinite list of emplacements of a graph as SubTgraphs with 2 assumptions
+-- (1) It assumes force g = emplace g
+--     This assumption allows us to use SubTgraphs to avoid finding alignment vertices as in drawEmplace
+-- (2) it could give incorrect results if g is not wholeTile complete, so g is made wholetile complete.
+empForceSubs:: Tgraph -> [SubTgraph]
+empForceSubs g = 
+  iterate (forceSub . decomposeSub) $ forceSub $ makeSubTgraph g [faces g]
+
 
 
 -- example nth emplacement figures
+{-
 empDartD5Fig,empKiteD5Fig,empSunD5Fig:: Diagram B
 empDartD5Fig = padBorder $ rotate (ttangle 2) $ showEmplace dartGraph 5
 empKiteD5Fig = padBorder $ rotate (ttangle 3) $ showEmplace kiteGraph 5
 empSunD5Fig  = padBorder $ showEmplace sunGraph 5
+-}
 
-newEmpFig:: Diagram B
-newEmpFig = padBorder $ hsep 1 $ rotations [2,4] [showEmplace dartGraph 4, showEmplace kiteGraph 4]
+newDartPlusD5 = padBorder $ drawFEmplace dartHalfDart 5
+-}
 
 
 
@@ -391,7 +412,7 @@ starGraph = makeTgraph [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,
 {- |  forceVFigures is a list of 7 diagrams - force of 7 vertex types -}
 forceVFigures :: [Diagram B]
 forceVFigures = rotations [0,0,9,5,0,0,1] $
-                fmap showForce [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
+                fmap drawForce [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
 
 
 {- | forceVsFig shows emplacements of 7 vertex types in a row as single diagram -}
@@ -467,7 +488,7 @@ bigPic0 = padBorder $ position $ concat
           where
               partComps = phiScales $ reverse $ take 5 $ fmap pCompAlign (emplacements dartGraph)
               pCompAlign g = showPCompose g (1,3)
-              forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap showForce dartDs
+              forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce dartDs
               drts  = fmap (center . lw thin) $ phiScaling phi $ reverse $ take 4 $ fmap dashJGraph dartDs
               dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
@@ -593,6 +614,7 @@ checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
 dartsOnlyFig :: Diagram B
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
+{-
 -- trying to construct an extension to a sun such that
 -- it is disconnected or creates a crossing boundary when composed.
 problemG :: Tgraph
@@ -608,20 +630,23 @@ problemG = checkTgraph ([ RK(1,2,11), LK(1,3,2)
 --                        , RD(13,6,14)
                         ])
 
+
 problemGFig :: Diagram B
 problemGFig = padBorder $ hsep 1 $ fmap drawVGraph [problemG, force problemG, composeG (force problemG)]
 
-
+-}
 
 {- *******************
    testing SubTgraphs
   ********************
 -}
+-- | subExample is a SubTgraph of a forced 5 times decomposed dart with
+-- tracked faces from a forced 2 times decomposed dart
 subExample:: SubTgraph
 subExample = iterate (forceSub . decomposeSub) (makeSubTgraph fD2 [faces fD2]) !! 3
               where fD2 = force (dartDs !!2)
 
-
+-- | subExampleFig draws subExample with the tracked faces in red
 subExampleFig:: Diagram B
 subExampleFig = padBorder $ lw thin drawSubTgraph1 subExample
 
@@ -691,33 +716,32 @@ moreChoicesFig =  vsep 1 [moreChoicesFig0,moreChoicesFig1]
 moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSubTgraph2 moreChoices0
 moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 moreChoices1
 
--- quick look at all the compositions of the twoChoices results (not rotated)
-tempFig:: Diagram B
-tempFig = padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1 . phiScales . show5FComps) twoChoices where
-    show5FComps sub =  fmap drawGraph $ take 5 $ allComps $ fullGraph $ forceSub sub
-
-
-dartPlusHD = checkTgraph [ RD(1,2,3), LD(1,3,4), LD(1,5,2)]
-
-dartPlusHK = checkTgraph [ RD(1,2,3), LD(1,3,4), LK(2,1,5)]
-
+-- | Trying to find which extensions to the starting dart correspond to the twoChoicesFig
+dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite :: Tgraph
+dartHalfDart = checkTgraph [ RD(1,2,3), LD(1,3,4), LD(1,5,2)]
+dartHalfKite = checkTgraph [ RD(1,2,3), LD(1,3,4), LK(2,1,5)]
 dartPlusDart = checkTgraph [ RD(1,2,3), LD(1,3,4), LD(1,5,2),RD(1,6,5)]
-
 dartPlusKite = checkTgraph [ RD(1,2,3), LD(1,3,4), LK(2,1,5),RK(2,5,6)]         
 
+-- | halfWholeFig shows that a whole dart/kite needs to be added to get the same result as twoChoicesFig
+-- Adding a half tile has no effect on the forced decomposition
+halfWholeFig:: Diagram B
 halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 gs, drop 2 gs]
   where                        
     gs = [redEmbed dd fdd, redEmbed dk fdk, redEmbed dhd fdhd, redEmbed dhk fdhk]
     redEmbed g1 g2 = lc red (lw medium $ dashJPatch $ dropVertices g1) <> lw ultraThin (drawPatch $ dropVertices g2)
-    [fdd,fdk,fdhd,fdhk] = alignAll (1,3) $ fmap (makeVPatch . force . decomp4) [dartPlusDart, dartPlusKite, dartPlusHD, dartPlusHK]
+    [fdd,fdk,fdhd,fdhk] = alignAll (1,3) $ fmap (makeVPatch . force . decomp4) [dartPlusDart, dartPlusKite, dartHalfDart, dartHalfKite]
     decomp4 g = decompositionsG g !! 4
     dd  = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusDart    
     dk  = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusKite    
-    dhd = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusHD    
-    dhk = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusHK    
+    dhd = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartHalfDart    
+    dhk = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartHalfKite    
           
-checkEmp = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGraph . emplace . decomp4) [dartPlusHD,dartPlusHK] where
+checkEmp = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGraph . emplace . decomp4) [dartHalfDart,dartHalfKite] where
            decomp4 g = decompositionsG g !! 4
+
+
+
 {- 
     drawEmbed largely superceded by use of SubTgraphs
     (SubTgraphs avoid need for alignment vertices)

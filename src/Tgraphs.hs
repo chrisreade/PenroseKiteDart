@@ -4,6 +4,7 @@ module Tgraphs ( module Tgraphs
                , module Tgraph.Compose
                , module Tgraph.Force
                ) where
+-- exports all the Tgraph Modules
 
 import Data.List (intersect)
 
@@ -32,26 +33,17 @@ emplace g = if nullGraph g'
     where fg = force g
           g' = composeG fg 
             
-
-{-
--- emplaceSimple - version of emplace which does not force when composing, only when decomposing
--- only safe to use on multi-decomposed maximal graphs.
-emplaceSimple :: Tgraph -> Tgraph
-emplaceSimple g = if nullGraph g'
-                  then force g 
-                  else (force . decomposeG . emplaceSimple) g'
-    where g' = composeG g
--}
-
--- emplacements are best supplied with a maximally composed or near maximally composed graph
+-- emplacements is best supplied with a maximally composed or near maximally composed graph
 -- It produces an infinite list of emplacements of the starting graph and its decompositions.
 emplacements :: Tgraph -> [Tgraph]
 emplacements = iterate (force . decomposeG) . emplace -- was .force
 
+{-
 -- countEmplace g finds a maximally composed graph (maxg) for g and counts the number (n) of compsitions
--- needed.  It retutns a triple of maxg, the nth emplacement of maxg, and n)
+-- needed.  It returns a triple of maxg, the nth emplacement of maxg, and n)
 countEmplace :: Tgraph -> (Tgraph,Tgraph,Int)
 countEmplace g = (maxg, emplacements maxg !! n, n) where (maxg,n) = maxFCompose g
+-}
 
 
 
@@ -103,11 +95,17 @@ allComps:: Tgraph -> [Tgraph]
 allComps g = takeWhile (not . nullGraph) $ iterate composeG g
 
 
--- maxCompose and maxFCompose count the number of compositions to get to a maximal graph.
--- they return a pair of the maximal graph and the count
-maxCompose, maxFCompose:: Tgraph -> (Tgraph,Int)
-maxCompose g = (last comps, length comps - 1) where comps = allComps g
-maxFCompose g = (last comps, length comps - 1) where comps = allFComps g
+-- maxCompose and maxFCompose produce a maximal graph.
+maxCompose, maxFCompose:: Tgraph -> Tgraph
+maxCompose g = last $ allComps g
+maxFCompose g = last $ allFComps g
+
+-- | remove haftile faces that do not have their matching half tile
+removeIncompleteTiles:: Tgraph -> Tgraph
+removeIncompleteTiles g = removeFaces halfTiles g
+       where bdry = makeBoundary g
+             halfTiles = fmap snd $ incompleteHalves bdry $ bDedges bdry
+ 
 
 
 
