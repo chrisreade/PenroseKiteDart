@@ -228,8 +228,10 @@ stepForceWith updateGen = count where
   count 0 fs = fs
   count n fs = case oneStepWith updateGen fs of
                 Nothing -> fs
-                Just (fs',bdc) ->  count (n-1) fs'
+                Just (fs', _) ->  count (n-1) fs'
 
+-- | oneStepWith uGen fs uses uGen to find updates and does one force step.
+-- It returns a (maybe) new force sate but paired with the boundary change for debugging purposes
 oneStepWith :: UpdateGenerator -> ForceState -> Maybe (ForceState,BoundaryChange)
 oneStepWith uGen fs = 
       case findSafeUpdate (updateMap fs) of
@@ -241,6 +243,7 @@ oneStepWith uGen fs =
                         where umap = reviseUpdates uGen bdC (updateMap fs)
             Nothing  -> Nothing           -- no more updates
 
+-- | oneStepF is a special case of oneStepWith only used for debugging
 oneStepF :: ForceState -> Maybe (ForceState,BoundaryChange)
 oneStepF = oneStepWith allUGenerator
 
@@ -470,15 +473,23 @@ boundaryFilter predFace bd focus =
 
 {- | makeGenerator combines an update creator (UMaker) with its corresponding update case finder (UFinder)
      to create an update generator function.
-     This is used to make all of the 10 update generators corresponding to 10 rules   
+     This is used to make all of the 10 update generators corresponding to 10 rules 
+    
+    When given a boundary, list of focus edges and and updatemap,
+    the finder produces a list of new pairs of dEdge and face,
+    the maker is used to convert the face in each pair to an update,
+    the new (dedge,update) pairs are added to the final update map
 -}
 makeGenerator :: UMaker -> UFinder -> UpdateGenerator
-makeGenerator makeU finder bd edges umap = umap' where 
+makeGenerator maker finder bd edges umap = umap' where 
     umap' = foldr insertPair umap newPairs
-    newPairs = fmap (second (makeU bd)) (finder bd edges)
+    newPairs = fmap (second (maker bd)) (finder bd edges)
     insertPair = uncurry Map.insert
-{-
---------------- Update Generators and Finders ---------------
+
+{- 
+***********************************
+------ 10 Update Generators with their corresponding Finders ---------------
+**************************************
 -}
 
 -- | update generator for rule (1)
@@ -651,7 +662,9 @@ queenMissingKite = boundaryFilter pred where
 
 
 {-
------------------- Update Makers ------------------------
+************************************
+----- Six Update Makers ------------------------
+************************************
 -}
 
 -- | completeHalf will make an update to
@@ -757,33 +770,33 @@ addKite, addDart, forceLDB, forceLKC
 -- adding by hand a single half kite
 -- must be to a boundary edge but direction is automatically calculated
 -- Will fail if edge is a dart join
-addKite :: Tgraph -> DEdge -> Tgraph
-addKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
+addHalfKite :: Tgraph -> DEdge -> Tgraph
+addHalfKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
   bd = makeBoundary g
   de = case [e, reverseE e] `intersect` bDedges bd of
          [de] -> de
-         _ -> error ("addKite:  on non-boundary edge " ++ show e)
+         _ -> error ("addHalfKite:  on non-boundary edge " ++ show e)
   [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
   u | longE fc == reverseE de = addKiteLongE bd fc
     | shortE fc == reverseE de = addKiteShortE bd fc
     | joinE fc == reverseE de && isKite fc = completeHalf bd fc
-    | otherwise = error "addKite: applied to dart join (not possible)"
+    | otherwise = error "addHalfKite: applied to dart join (not possible)"
       
 -- adding by hand a single half dart
 -- must be to a boundary edge but direction is automatically calculated
 -- Will fail if edge is a dart short edge or kite join.
-addDart :: Tgraph -> DEdge -> Tgraph
-addDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
+addHalfDart :: Tgraph -> DEdge -> Tgraph
+addHalfDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
   bd = makeBoundary g
   de = case [e, reverseE e] `intersect` bDedges bd of
          [de] -> de
-         _ -> error ("addDart:  on non-boundary edge " ++ show e)
+         _ -> error ("addHalfDart:  on non-boundary edge " ++ show e)
   [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
   u | longE fc == reverseE de = addDartLongE bd fc
     | shortE fc == reverseE de && isKite fc = addDartShortE bd fc
     | joinE fc == reverseE de && isDart fc = completeHalf bd fc
     | otherwise
-    = error "addDart: applied to short edge of dart or to kite join (not possible)"
+    = error "addHalfDart: applied to short edge of dart or to kite join (not possible)"
 
 
 -- | For an unclassifiable dart tip v, force it to become a large dart base (largeDartBase) by

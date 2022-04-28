@@ -138,7 +138,6 @@ forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
 forceKiteD3Fig = padBorder $ drawForce $ kiteDs !! 3
 forceKiteD5Fig = padBorder $ rotate (ttangle 9) $ drawForce $ kiteDs !! 5
 forceSunD5Fig =  padBorder $ drawForce $ sunDs  !! 5
-
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 
@@ -148,57 +147,58 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
   *************************************
 -}
 
+-- | drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
+-- vertices a and b must be common to g1 and g2 and scales are the same
+drawEmbed ::  Tgraph -> Tgraph -> (Vertex, Vertex) -> Diagram B
+drawEmbed g1 g2 = drawEmbedVP (makeVPatch g1) (makeVPatch g2)
+
+-- | drawEmbedVP (a,b) vp1 vp2 embeds  vp1 (coloured red) onto vp2, after aligning with (a,b)
+-- vertices a and b must be common to vp1 and vp2
+drawEmbedVP ::  VPatch -> VPatch -> (Vertex, Vertex) -> Diagram B
+drawEmbedVP vp1 vp2 (a,b) = 
+    lc red (lw thin $ drawPatch $ dropVertices $ alignXaxis (a,b) vp1) 
+    <>      lw ultraThin (drawPatch $ dropVertices $ alignXaxis (a,b) vp2)
+
+-- use checkEmbed to find a common pair of vertices to align (for use with drawEmbed)
+checkEmbed :: Tgraph -> Tgraph -> Diagram B
+checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
+                   fmap drawVGraph [g1, g2]
+
+
+ 
 -- | returns the join edge with lowest origin (and lowest oppV of faces with that origin)
 lowestJoin:: Tgraph -> (Vertex,Vertex)
 lowestJoin = joinOfTile . head . chooseLowest . faces
 {-
-drawMaxEmplace produces the emplacement of g overlaid with the maximal (forced) omposition of g
+drawMaxEmplace g produces the emplacement of g overlaid with the maximal (forced) omposition of g
 -}
 drawMaxEmplace :: Tgraph -> Diagram B
-drawMaxEmplace g = (lc red $ lw thin $ drawPatch $ dropVertices $ scale (phi^n) vp) 
-                    <> (lw ultraThin $ drawPatch $ dropVertices vpEmp) where
-               fcomps = allFComps g
-               n = length fcomps -1
-               maxg = last fcomps
-               (a,b) = lowestJoin maxg
-               emp = emplacements maxg !! n
-               [vpEmp,vp] = alignAll (a,b) $ fmap makeVPatch [emp,maxg]
-
+drawMaxEmplace g =  drawEmbedVP overlay emp (lowestJoin maxg) where
+    fcomps = allFComps g
+    n = length fcomps -1
+    maxg = last fcomps
+    overlay = scale (phi^n) $ makeVPatch $ maxg
+    emp = makeVPatch $ emplacements maxg !! n
+    
+maxEmplaceFig :: Diagram B
+maxEmplaceFig = padBorder $ drawMaxEmplace $ decompositionsG dartPlusDart !! 4
 
 {-
-{- | drawEmplace g n (a,b)
-    (a,b) a pair of distinct vertices in g and in the emplacement used to align
-    produces emplacement diagram for nth decomposition of g               
-
-drawEmplace :: Tgraph -> Int -> (Vertex, Vertex) -> Diagram B
-drawEmplace g n = drawEmbed (decompositionsG g !!n) (emplacements g !!n)
--}
-
--- NEEDS DEBUG  TO CORRECT FOR incomplete half tiles
-drawFEmplace :: Tgraph -> Int -> Diagram B
-drawFEmplace g n = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ] $
-                    empForceSubs g !! n
-
+    EXPERIMENTAL
 -- | empForceSubs g shows an infinite list of emplacements of a graph as SubTgraphs with 2 assumptions
--- (1) It assumes force g = emplace g
---     This assumption allows us to use SubTgraphs to avoid finding alignment vertices as in drawEmplace
--- (2) it could give incorrect results if g is not wholeTile complete, so g is made wholetile complete.
+-- (1) It assumes force g = emplace g  (which is NOT always true)
+--     This assumption allows us to use SubTgraphs to avoid finding alignment vertices
+-- (2) it could give incorrect results if g is not wholeTile complete so incomplete tiles are removed first.
 empForceSubs:: Tgraph -> [SubTgraph]
 empForceSubs g = 
-  iterate (forceSub . decomposeSub) $ forceSub $ makeSubTgraph g [faces g]
+  iterate (forceSub . decomposeSub) $ forceSub $ makeSubTgraph g' [faces g'] where
+      g' = removeIncompleteTiles g
 
+newDartPlusFig = padBorder $ vsep 1 $ rotations [2,4] $ fmap (lw ultraThin . drawSubTgraph1)
+    [ empForceSubs dartHalfDart !! 5, empForceSubs dartPlusDart !! 5]
 
-
--- example nth emplacement figures
-{-
-empDartD5Fig,empKiteD5Fig,empSunD5Fig:: Diagram B
-empDartD5Fig = padBorder $ rotate (ttangle 2) $ showEmplace dartGraph 5
-empKiteD5Fig = padBorder $ rotate (ttangle 3) $ showEmplace kiteGraph 5
-empSunD5Fig  = padBorder $ showEmplace sunGraph 5
 -}
 
-newDartPlusD5 = padBorder $ drawFEmplace dartHalfDart 5
--}
 
 
 
@@ -614,27 +614,6 @@ checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
 dartsOnlyFig :: Diagram B
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
-{-
--- trying to construct an extension to a sun such that
--- it is disconnected or creates a crossing boundary when composed.
-problemG :: Tgraph
-problemG = checkTgraph ([ RK(1,2,11), LK(1,3,2)
-                        , RK(1,4,3) , LK(1,5,4)
-                        , RK(1,6,5) , LK(1,7,6)
-                        , RK(1,8,7) , LK(1,9,8)
-                        , RK(1,10,9), LK(1,11,10)
-                        ] ++
-                        [ LD(12,11,2), RD(12,10,11)
-                        , LD(13,5,6), RD(13,4,5)
---                        , RK(6,14,13), LK(10,12,15)
---                        , RD(13,6,14)
-                        ])
-
-
-problemGFig :: Diagram B
-problemGFig = padBorder $ hsep 1 $ fmap drawVGraph [problemG, force problemG, composeG (force problemG)]
-
--}
 
 {- *******************
    testing SubTgraphs
@@ -688,8 +667,8 @@ checkChoiceEdge g = padBorder $ lw ultraThin $ drawVGraph $ force g
 -- track the resulting faces and also the singleton new face, then force both SubTgraphs
 trackTwoChoices:: Tgraph -> DEdge -> [SubTgraph]
 trackTwoChoices g de = fmap forceSub [sub1,sub2] where
-          g' = addDart g de
-          g'' = addKite g de
+          g' = addHalfDart g de
+          g'' = addHalfKite g de
           sub1 = makeSubTgraph g' [faces g', faces g' \\ faces g]
           sub2 = makeSubTgraph g'' [faces g'', faces g'' \\ faces g]
           
@@ -718,10 +697,29 @@ moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 moreC
 
 -- | Trying to find which extensions to the starting dart correspond to the twoChoicesFig
 dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite :: Tgraph
-dartHalfDart = checkTgraph [ RD(1,2,3), LD(1,3,4), LD(1,5,2)]
-dartHalfKite = checkTgraph [ RD(1,2,3), LD(1,3,4), LK(2,1,5)]
-dartPlusDart = checkTgraph [ RD(1,2,3), LD(1,3,4), LD(1,5,2),RD(1,6,5)]
-dartPlusKite = checkTgraph [ RD(1,2,3), LD(1,3,4), LK(2,1,5),RK(2,5,6)]         
+-- | a dart with another half dart on a long edge
+dartHalfDart = addHalfDart dartGraph (1,2)
+-- | a dart with a half kite on a long edge
+dartHalfKite = addHalfKite dartGraph (1,2)
+-- | two darts sharing a long edge
+dartPlusDart = addHalfDart dartHalfDart (1,5)
+-- | a dart and a kite sharing a long edge
+dartPlusKite = addHalfKite dartHalfKite (2,5)
+-- | two kites sharing a long edge
+kitePlusKite = addHalfKite (addHalfKite kiteGraph (1,3)) (1,5)
+
+-- | A sun with a single complete dart on the boundary
+sunPlusDart = addHalfDart (addHalfDart sunGraph (2,3)) (3,4)
+-- | A sun with 2 darts adjacent on the boundary
+sunPlus2Dart = addHalfDart (addHalfDart sunPlusDart (4,5)) (5,6)
+-- | A sun with 2 darts NOT adjacent on the boundary
+sunPlus2Dart' = addHalfDart (addHalfDart sunPlusDart (6,7)) (7,8)
+-- | A sun with 3 darts adjacent on the boundary
+sunPlus3Dart = addHalfDart (addHalfDart sunPlus2Dart (6,7)) (7,8)
+-- | A sun with 3 darts on the boundary NOT all adjacent
+-- This example has an emplacement that does not include the original but is still a correct Tgraph
+-- View with forceEmpTest
+sunPlus3Dart' = addHalfDart (addHalfDart sunPlus2Dart (8,9)) (9,10)
 
 -- | halfWholeFig shows that a whole dart/kite needs to be added to get the same result as twoChoicesFig
 -- Adding a half tile has no effect on the forced decomposition
@@ -737,30 +735,15 @@ halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 gs, dr
     dhd = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartHalfDart    
     dhk = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartHalfKite    
           
-checkEmp = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawGraph . emplace . decomp4) [dartHalfDart,dartHalfKite] where
-           decomp4 g = decompositionsG g !! 4
 
+kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $ 
+            fmap drawGraph  [kk, kkD, kkD2] where
+              kk = kitePlusKite
+              kkD = force $ decomposeG kk
+              kkD2 = force $ decomposeG kkD
+             
+maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 
-
-{- 
-    drawEmbed largely superceded by use of SubTgraphs
-    (SubTgraphs avoid need for alignment vertices)
-    But may still be useful where SubTgraphs cannot be used
--}
--- use checkEmbed first to find a common pair of vertices to align (for use with drawEmbed)
-checkEmbed :: Tgraph -> Tgraph -> Diagram B
-checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
-                   fmap drawVGraph [g1, g2]
-
--- | drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
--- vertices a and b must be common to g1 and g2 and scales should match for length of (a,b)
-drawEmbed ::  Tgraph -> Tgraph -> (Vertex, Vertex) -> Diagram B
-drawEmbed g1 g2 (a,b) = 
-    lc red (lw thin $ drawPatch $ dropVertices vp1) <> lw ultraThin (drawPatch $ dropVertices vp2)  where
-    vp1 = alignXaxis (a,b) $ makeVPatch g1
-    vp2 = alignXaxis (a,b) $ makeVPatch g2
-
-
-
-
-        
+drawForceEmplace g = padBorder $ hsep 1 $ fmap drawVGraph [g, force g, emplace g]
+tester g = padBorder $ hsep 1 $ fmap drawVGraph [g, force g, maxFCompose g]
+       

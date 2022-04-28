@@ -25,6 +25,6 @@ import Tgraph.Convert
 
                 
 fig::Diagram B
-fig = halfWholeFig
+fig = halfWholeFig --drawForceEmplace sunPlus3Dart' --maxShapesFig -- newDartPlusFig -- maxEmplaceFig --halfWholeFig
 
 main = mainWith fig
