@@ -76,7 +76,7 @@ makeChoices g = choices unks [g] where
 
 
 {-------------------------------------------------------------------------
- compForce, allFComps, allComps, maxCompose, maxFCompose
+ compForce, allCompFs, allComps, maxCompose, maxFCompose
 ------------------------------------------------------------------------------}
 
 -- | compForce does a force then composeG but it
@@ -85,9 +85,9 @@ compForce:: Tgraph -> Tgraph
 compForce = snd . partCompose . force
     
     
--- allFComps g produces a list of all forced compositions starting from g up to but excluding the empty graph
-allFComps:: Tgraph -> [Tgraph]
-allFComps g = takeWhile (not . nullGraph) $ iterate compForce g
+-- allCompFs g produces a list of all forced compositions starting from g up to but excluding the empty graph
+allCompFs:: Tgraph -> [Tgraph]
+allCompFs g = takeWhile (not . nullGraph) $ iterate compForce g
 
 -- | allComps g produces a list of all compositions starting from g up to but excluding the empty graph
 -- This is not safe in general
@@ -98,7 +98,7 @@ allComps g = takeWhile (not . nullGraph) $ iterate composeG g
 -- maxCompose and maxFCompose produce a maximal graph.
 maxCompose, maxFCompose:: Tgraph -> Tgraph
 maxCompose g = last $ allComps g
-maxFCompose g = last $ allFComps g
+maxFCompose g = force $ last $ allCompFs g
 
 -- | remove haftile faces that do not have their matching half tile
 removeIncompleteTiles:: Tgraph -> Tgraph

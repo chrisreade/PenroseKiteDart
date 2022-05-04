@@ -1,6 +1,6 @@
---{-# LANGUAGE NoMonomorphismRestriction #-}
---{-# LANGUAGE FlexibleContexts          #-}
---{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE TypeFamilies              #-}
 
 module GraphFigExamples where
 
@@ -170,16 +170,17 @@ checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
 lowestJoin:: Tgraph -> (Vertex,Vertex)
 lowestJoin = joinOfTile . head . chooseLowest . faces
 {-
-drawMaxEmplace g produces the emplacement of g overlaid with the maximal (forced) omposition of g
+drawMaxEmplace g produces the emplacement of g overlaid with the maximal (forced) composition of g
 -}
 drawMaxEmplace :: Tgraph -> Diagram B
 drawMaxEmplace g =  drawEmbedVP overlay emp (lowestJoin maxg) where
-    fcomps = allFComps g
-    n = length fcomps -1
-    maxg = last fcomps
-    overlay = scale (phi^n) $ makeVPatch $ maxg
+    compfs = allCompFs g
+    n = length compfs -1
+    maxg = last compfs
+    overlay = scale (phi^n) $ makeVPatch maxg
     emp = makeVPatch $ emplacements maxg !! n
-    
+
+-- | an example showing the maximum composition (a kite) over 4 times decomposed pair of darts 
 maxEmplaceFig :: Diagram B
 maxEmplaceFig = padBorder $ drawMaxEmplace $ decompositionsG dartPlusDart !! 4
 
@@ -218,7 +219,7 @@ foolChoices = padBorder $ vsep 1
                          
 -- | emplacement choices for foolD 
 --  WARNING: relies on numbering which can change with changes to forcing
---  Vertex 1 is not present in the final choice (hense 29)
+--  Vertex 1 is not present in the final choice (hence 29)
 emplaceFoolDChoices :: Diagram B
 emplaceFoolDChoices = padBorder $ hsep 1 $
         fmap (addFoolD . lw ultraThin . drawPatch . dropVertices) vpChoices where
@@ -259,19 +260,20 @@ brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap dashJGraph [dartD4, brokenDa
 checkBrokenDartFig  :: Diagram B
 checkBrokenDartFig = drawGraph $ force badlyBrokenDart
 
--- First 2 adjacent kites are decomposed. 
--- Next brokenKites is the result of removing the top decomposed half kite.
--- Next is the result of Composing (also force then compose)
--- Lastly the emplacement of brokenKites
--- The figure illustrates that brokenKites is included in emplace brokenKites
--- even though the missing part is not repaired.
+
+{- |
+Showing the decomposed pair of adjacent kites, followed by
+brokenKites (3 faces removed from decomposed pair of kites), followed by
+compositon of brokenKites (a kite) which is also composition of forced brokenkites, followed by
+the emplacement of brokenKites
+The figure illustrates that brokenKites is included in emplace brokenKites
+even though the missing part is not repaired.
+-}
 brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPatch 
-                 [decomposeG twoKites,brokenKites, composeG brokenKites, emplace brokenKites]
-brokenKites = removeFaces [LD(1,14,16),LK(5,4,16),RK(5,16,14)] $ decomposeG twoKites
-twoKites = checkTgraph [ RK(1,2,11), LK(1,3,2)
-                       , RK(1,4,3) , LK(1,5,4)
-                       ]
+                  [decomposeG kitePlusKite, brokenKites, composeG brokenKites, emplace brokenKites]
+-- | 2 adjacent kites decomposed then the top half kite components removed (3 of them)
+brokenKites = removeFaces [LD(1,7,10),LK(6,5,10),RK(6,10,7)] $  decomposeG kitePlusKite
 
 -- diagram of touching vertex situation and forced result
 touchingTestFig::  Diagram B
@@ -330,7 +332,7 @@ forcingDmistakeFig = padBorder $ hsep 1 [drawVGraph (decomposeG mistake), drawVG
     This is the result of twice decomposed mistake which fails when forced
     *** Exception: errorcheckClock:  Found incorrect graph
     Conflict at vertex: 35
-    forcingD2mistake is the graph when the error is discovered.
+    forcingD2mistakeFig shows the graph when the error is discovered.
 -}
 forcingD2mistakeFig :: Diagram B
 forcingD2mistakeFig = padBorder $ drawVGraph partF where
@@ -482,8 +484,8 @@ gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
 bigPic0,bigPic :: Diagram B
 bigPic0 = padBorder $ position $ concat
           [ zip pointsR1 partComps
-          , zip pointsR2 $ zipWith named ["e4", "e3","e2","e1","e0"] (dots : rotations [1,1] forceDs)
-          , zip pointsR3 $ zipWith named ["d4", "d3","d2","d1","d0"] (dots : rotations [1,1] drts)
+          , zip pointsR2 $ zipWith named ["a4", "a3","a2","a1","a0"] (dots : rotations [1,1] forceDs)
+          , zip pointsR3 $ zipWith named ["b4", "b3","b2","b1","b0"] (dots : rotations [1,1] drts)
           ]
           where
               partComps = phiScales $ reverse $ take 5 $ fmap pCompAlign (emplacements dartGraph)
@@ -496,41 +498,106 @@ bigPic0 = padBorder $ position $ concat
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]
    
 bigPic = 
-    bigPic0  # connectPerim' arrowStyleG "e3" "e2" (1/10 @@ turn) (4/10 @@ turn)
-             # connectPerim' arrowStyleG "e2" "e1" (1/10 @@ turn) (4/10 @@ turn)
-             # connectPerim' arrowStyleG "e1" "e0" (1/10 @@ turn) (4/10 @@ turn)
-             # connectPerim' arrowStyleG "e4" "e3" (1/10 @@ turn) (4/10 @@ turn)
-             # connectOutside' arrowStyleB2 "d3" "d4"
-             # connectOutside' arrowStyleB2 "d2" "d3"
-             # connectOutside' arrowStyleB2 "d1" "d2"
-             # connectOutside' arrowStyleB2 "d0" "d1"
-             # connectOutside' arrowStyleB1 "e3" "e4"
-             # connectOutside' arrowStyleB1 "e2" "e3"
-             # connectOutside' arrowStyleB1 "e1" "e2"
-             # connectOutside' arrowStyleB1 "e0" "e1"
-             # connectOutside' arrowStyleE "d0" "e0"
-             # connectOutside' arrowStyleE "d1" "e1"
-             # connectOutside' arrowStyleE "d2" "e2"
-             # connectOutside' arrowStyleE "d3" "e3"
-             # connectPerim' arrowStyleG "d4" "d3" (1/10 @@ turn) (4/10 @@ turn)
-             # connectPerim' arrowStyleG "d3" "d2" (1/10 @@ turn) (4/10 @@ turn)
-             # connectPerim' arrowStyleG "d2" "d1" (1/10 @@ turn) (4/10 @@ turn)
-             # connectPerim' arrowStyleG "d1" "d0" (1/10 @@ turn) (4/10 @@ turn)
-             
-        where
-              arrowStyleG = with & arrowShaft .~ shaft & headLength .~ verySmall 
-                                 & headStyle %~ fc green & shaftStyle %~ lc green 
-                                 & headGap .~ large & tailGap .~ large
-              arrowStyleB1 = with & headLength .~ verySmall & headStyle %~ fc blue 
-                                  & shaftStyle %~ lc blue 
-                                  & headGap .~ small & tailGap .~ small
-              arrowStyleB2 = with & headLength .~ verySmall & headStyle %~ fc blue  
-                                  & shaftStyle %~ dashingG [1.5, 1.5] 0  
-                                  & shaftStyle %~ lc blue & headGap .~ large & tailGap .~ large
-              arrowStyleE = with & headLength .~ verySmall 
-                                 & headGap .~ small & tailGap .~ large
-              shaft = arc xDir (-1/10 @@ turn)
+    bigPic0  # composeArc "a3" "a2"
+             # composeArc "a2" "a1"
+             # composeArc "a1" "a0"
+             # composeArc "a4" "a3"
+             # composeArc "b4" "b3"
+             # composeArc "b3" "b2"
+             # composeArc "b2" "b1"
+             # composeArc "b1" "b0"
+             # decompArrow "b3" "b4"
+             # decompArrow "b2" "b3"
+             # decompArrow "b1" "b2"
+             # decompArrow "b0" "b1"
+             # forceDecArrow "a3" "a4"
+             # forceDecArrow "a2" "a3"
+             # forceDecArrow "a1" "a2"
+             # forceDecArrow "a0" "a1"
+             # forceArrow "b0" "a0"
+             # forceArrow "b1" "a1"
+             # forceArrow "b2" "a2"
+             # forceArrow "b3" "a3"
 
+
+forceArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+forceArrow = connectOutside' arrowStyleF where
+  arrowStyleF = with & headLength .~ verySmall 
+                     & headGap .~ small & tailGap .~ large
+
+forceDecArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+forceDecArrow = connectOutside' arrowStyleFD where
+  arrowStyleFD = with & headLength .~ verySmall & headStyle %~ fc blue 
+                      & shaftStyle %~ lc blue 
+                      & headGap .~ small & tailGap .~ small
+               
+decompArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+decompArrow = connectOutside' arrowStyleD where
+  arrowStyleD  = with & headLength .~ verySmall & headStyle %~ fc blue  
+                      & shaftStyle %~ dashingG [1.5, 1.5] 0  
+                      & shaftStyle %~ lc blue & headGap .~ large & tailGap .~ large
+
+composeArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+composeArrow = connectOutside' arrowStyleC where
+  arrowStyleC = with & headLength .~ verySmall 
+                      & headStyle %~ fc green & shaftStyle %~ lc green 
+                      & headGap .~ large & tailGap .~ large
+
+composeArc :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+composeArc a b = connectPerim' arrowStyleC a b (1/10 @@ turn) (4/10 @@ turn) where
+  arrowStyleC = with & arrowShaft .~ arc xDir (-1/10 @@ turn) & headLength .~ verySmall 
+                     & headStyle %~ fc green & shaftStyle %~ lc green 
+                     & headGap .~ large & tailGap .~ large
+    
+
+{- | curioPic is a diagram illustrating where compose looses information not recovered by force
+  with sunPlus3Dart' third item in bottom row, (curioPic0 is diagram without arrows)
+-}
+curioPic0 :: Diagram B
+curioPic0 = padBorder $ position $ concat
+  [ zip pointsRa $ zipWith named ["a4","a3","a2","a1","a0"] (dots : fmap (center . lw thin) forceDs)
+  , zip pointsRb $ zipWith named ["b4", "b3","b2","b1"] (dots : fmap center forceXDs)
+  , zip pointsRc $ zipWith named ["c4", "c3","c2","c1","c0"] (dots : fmap (center . lw thin) xDs)
+  ] where
+    forceDs  = lw ultraThin <$> rotations [1,1]  $ phiScaling phi $ reverse $ take 4 $ fmap (drawGraph . force) dartDs
+    forceXDs = rotations [7,7,8]  $ phiScaling phi $ reverse $ take 3 $ fmap drawForce xDGraphs
+    xDGraphs = decompositionsG sunPlus3Dart'
+    xDs  = lw ultraThin <$> rotations [7,7,8] $  phiScaling phi $ reverse $
+           drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red # lw thin): 
+           (take 2 $ drop 1 $ fmap drawGraph xDGraphs)
+    dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
+    pointsRa = map p2 [ (0, 80), (42, 80), (95, 80), (150, 80), (200, 80)]
+    pointsRb = map p2 [ (0, 40), (42, 40), (95, 40), (150, 40)]
+    pointsRc = map p2 [ (0, 0),  (42, 0),  (95, 0),  (150, 0), (200, 0)]
+
+curioPic :: Diagram B
+curioPic = 
+  curioPic0  # composeArc "a3" "a2"
+             # composeArc "a2" "a1"
+             # composeArc "a1" "a0"
+             # composeArc "a4" "a3"
+             # composeArc "b3" "b2"
+             # composeArc "b2" "b1"
+             # composeArc "b4" "b3"
+             # composeArrow "b1" "a0"
+             # forceDecArrow "a3" "a4"
+             # forceDecArrow "a2" "a3"
+             # forceDecArrow "a1" "a2"
+             # forceDecArrow "a0" "a1"
+             # forceDecArrow "b3" "b4"
+             # forceDecArrow "b2" "b3"
+             # forceDecArrow "b1" "b2"
+             # decompArrow "c3" "c4"
+             # decompArrow "c2" "c3"
+             # decompArrow "c1" "c2"
+             # forceArrow "c1" "b1"
+             # forceArrow "c2" "b2"
+             # forceArrow "c3" "b3"
+             # forceArrow "c0" "a0"
+             # composeArc "c4" "c3"
+             # composeArc "c3" "c2"
+             # composeArc "c2" "c1"
+             # composeArc "c1" "c0"
 
 -- | figure showing ordering of a decomposed kite (bottom), a test graph with an extra LK(3,6,8),
 -- and forced figure at the top and composition of all 3 = kite on the right
@@ -655,7 +722,7 @@ removeTrackedFig = padBorder $  lw ultraThin $ drawWithoutTracked subExample
 
 {-
 N.B.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices...
-They should be the (reversed) long edge of the left dart on the left of a group of 3 darts
+They should be the long edge of the left dart on the left of a group of 3 darts
 Middle of top edge of dartDs!!4.  Use e.g
 checkChoiceEdge (force $ dartDs !!4)
 to view the vertex numbers
@@ -663,7 +730,7 @@ to view the vertex numbers
 checkChoiceEdge g = padBorder $ lw ultraThin $ drawVGraph $ force g
 
 -- given a boundary directed edge of a forced graph (either direction)
--- construct two SubTgraphs with dart/kite addition on the edge respectively
+-- construct two SubTgraphs with half dart/kite addition on the edge respectively
 -- track the resulting faces and also the singleton new face, then force both SubTgraphs
 trackTwoChoices:: Tgraph -> DEdge -> [SubTgraph]
 trackTwoChoices g de = fmap forceSub [sub1,sub2] where
@@ -672,7 +739,6 @@ trackTwoChoices g de = fmap forceSub [sub1,sub2] where
           sub1 = makeSubTgraph g' [faces g', faces g' \\ faces g]
           sub2 = makeSubTgraph g'' [faces g'', faces g'' \\ faces g]
           
-
 -- | Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [SubTgraph]
 twoChoices = trackTwoChoices (force $ dartDs !!4) (233,202)
@@ -708,6 +774,7 @@ dartPlusKite = addHalfKite dartHalfKite (2,5)
 -- | two kites sharing a long edge
 kitePlusKite = addHalfKite (addHalfKite kiteGraph (1,3)) (1,5)
 
+sunPlusDart,sunPlus2Dart,sunPlus2Dart',sunPlus3Dart,sunPlus3Dart' :: Tgraph
 -- | A sun with a single complete dart on the boundary
 sunPlusDart = addHalfDart (addHalfDart sunGraph (2,3)) (3,4)
 -- | A sun with 2 darts adjacent on the boundary
@@ -718,23 +785,20 @@ sunPlus2Dart' = addHalfDart (addHalfDart sunPlusDart (6,7)) (7,8)
 sunPlus3Dart = addHalfDart (addHalfDart sunPlus2Dart (6,7)) (7,8)
 -- | A sun with 3 darts on the boundary NOT all adjacent
 -- This example has an emplacement that does not include the original but is still a correct Tgraph
--- View with forceEmpTest
 sunPlus3Dart' = addHalfDart (addHalfDart sunPlus2Dart (8,9)) (9,10)
+
 
 -- | halfWholeFig shows that a whole dart/kite needs to be added to get the same result as twoChoicesFig
 -- Adding a half tile has no effect on the forced decomposition
 halfWholeFig:: Diagram B
-halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 gs, drop 2 gs]
+halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 figs, drop 2 figs]
   where                        
-    gs = [redEmbed dd fdd, redEmbed dk fdk, redEmbed dhd fdhd, redEmbed dhk fdhk]
-    redEmbed g1 g2 = lc red (lw medium $ dashJPatch $ dropVertices g1) <> lw ultraThin (drawPatch $ dropVertices g2)
-    [fdd,fdk,fdhd,fdhk] = alignAll (1,3) $ fmap (makeVPatch . force . decomp4) [dartPlusDart, dartPlusKite, dartHalfDart, dartHalfKite]
+    figs = zipWith redEmbed scaledCases forcedD4Cases
+    cases = [dartPlusDart, dartPlusKite, dartHalfDart, dartHalfKite]
+    scaledCases = alignAll (1,3) $ fmap (scale (phi^4) . makeVPatch) cases
+    forcedD4Cases = alignAll (1,3) $ fmap (makeVPatch . force . decomp4) cases
     decomp4 g = decompositionsG g !! 4
-    dd  = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusDart    
-    dk  = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartPlusKite    
-    dhd = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartHalfDart    
-    dhk = alignXaxis (1,3) $ scale (phi^4) $ makeVPatch dartHalfKite    
-          
+    redEmbed g1 g2 = lc red (lw medium $ dashJPatch $ dropVertices g1) <> lw ultraThin (drawPatch $ dropVertices g2)
 
 kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $ 
             fmap drawGraph  [kk, kkD, kkD2] where
@@ -744,6 +808,16 @@ kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $
              
 maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 
-drawForceEmplace g = padBorder $ hsep 1 $ fmap drawVGraph [g, force g, emplace g]
+drawForceEmplace g = padBorder $ hsep 1 $ fmap drawVGraph
+                     [g, force g, emplace g]
+
 tester g = padBorder $ hsep 1 $ fmap drawVGraph [g, force g, maxFCompose g]
+testD = padBorder $ drawVGraph $ force $ decomposeG sunPlus3Dart'
+testD' = padBorder $ drawVGraph $ force $ addHalfDart (force $ decomposeG sunPlus3Dart') (37,38)
+-- | sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
+-- This example has an emplacement that does not include the original but is still a correct Tgraph
+-- figure shows the force and emplace difference
+emplaceProblemFig = drawForceEmplace sunPlus3Dart'
+
+   
        
