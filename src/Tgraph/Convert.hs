@@ -14,10 +14,10 @@ import Data.Maybe (mapMaybe)
 import Diagrams.Prelude
 import ChosenBackend (B)
 
--- a DualRep is a pair of representations - a vector and a face(= 3 vertices)
+-- | a DualRep is a pair of representations - a vector and a face(= 3 vertices)
 data DualRep = DualRep {vector:: V2 Double, face::(Int,Int,Int)} deriving Show
 
--- needed for making transformable
+-- | needed for making transformable
 type instance N DualRep = Double
 type instance V DualRep = V2
 
@@ -27,7 +27,7 @@ type instance V Vertex = V2
 instance Transformable DualRep where 
     transform t (DualRep {vector = v, face = vs}) = DualRep {vector = transform t v, face = vs}
 
--- construct a dualRep from a vector and a vertex triple
+-- | construct a dualRep from a vector and a vertex triple
 dualRep :: V2 Double -> (Vertex, Vertex, Vertex) -> DualRep
 dualRep vec vs = DualRep{vector = vec, face = vs}
 
@@ -191,7 +191,7 @@ alignAll (a,b) = fmap (alignXaxis (a,b))
 -------------------------------------------
 -}
 
--- rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
+-- | rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
 -- This includes Diagrams, Patches, VPatches
 -- The integer list can be shorter than the list of items - the remaining items are left unrotated.
 rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
@@ -199,7 +199,7 @@ rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
 rotations [] ds = ds
 rotations _  [] = error "rotations: too many rotation integers"
 
--- scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
+-- | scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
 -- This includes Diagrams, Patches, VPatches
 -- The list of doubles can be shorter than the list of items - the remaining items are left unscaled.
 scales :: (Transformable a, V a ~ V2, N a ~ Double) => [Double] -> [a] -> [a]
@@ -216,9 +216,11 @@ phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
 phiScaling s [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
 
-{- ----------------------------------------
+{-
+----------------------------------------
  Auxilliary definitions
-------------------------------------------- -}
+-------------------------------------------
+-}
 
 -- | makes an association list of vertex to location from a VPatch
 vertexLocs :: VPatch -> [(Vertex, Point V2 Double)]
@@ -228,24 +230,24 @@ vertexLocs = fmap ((\(p,v)->(v,p)) . viewLoc) . lVertices
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
 findLoc v vp = lookup v (vertexLocs vp)
  
--- Apply a function to just the list of located hybrids in a VPatch (leaving located vertices untouched)
+-- | Apply a function to just the list of located hybrids in a VPatch (leaving located vertices untouched)
 withHybs:: ([Located Hybrid]->[Located Hybrid]) -> VPatch -> VPatch
 withHybs f (VPatch {lVertices = lvs,  lHybrids = lhs}) = VPatch {lVertices = lvs,  lHybrids = f lhs}
 
 
--- convert a Hybrid to a Piece, dropping the Vertex information
+-- | convert a Hybrid to a Piece, dropping the Vertex information
 asPiece:: Hybrid -> Piece
 asPiece = fmap vector  -- fmap of functor HalfTile
 
--- convert a Hybrid to a TileFace, dropping the Vector information
+-- | convert a Hybrid to a TileFace, dropping the Vector information
 asFace:: Hybrid -> TileFace
 asFace = fmap face  -- fmap of functor HalfTile
 
--- dropVertices removes vertex information from Hybrids and removes located vertex list
+-- | dropVertices removes vertex information from Hybrids and removes located vertex list
 dropVertices:: VPatch -> Patch
 dropVertices vp = fmap (mapLoc asPiece) (lHybrids vp)
 
--- dropVertices removes vertex information from Hybrids and removes located vertex list
+-- | dropVectors removes vector information from Hybrids and removes located vertex list
 dropVectors:: VPatch -> [TileFace]
 dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
 

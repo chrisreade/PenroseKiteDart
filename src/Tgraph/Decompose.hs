@@ -13,7 +13,7 @@ DECOMPOSING - decomposeG
 ----------------------------------}
 
 
--- \ decomposeG is deterministic and should never fail with a correct Tgraph
+-- | decomposeG is deterministic and should never fail with a correct Tgraph
 decomposeG :: Tgraph -> Tgraph
 decomposeG g = Tgraph{ vertices = newVs++vertices g
                      , faces = newFaces
@@ -34,9 +34,9 @@ newVPhiMap g = (newVs, (Map.!) $ buildMap allPhi newVs Map.empty) where
     Nothing -> buildMap more (tail vs) (Map.insert (a,b) v (Map.insert (b,a) v m))
                where v = head vs
 
-  -- | decompFace to process a face in decomposition
-  -- producing new faces. 
-  -- It uses a newVFor - a function to get the unique vertex assigned to each phi edge
+-- | decompFace to process a face in decomposition
+-- producing new faces. 
+-- It uses a newVFor - a function to get the unique vertex assigned to each phi edge
 decompFace:: ((Vertex,Vertex)->Vertex) -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
@@ -51,9 +51,9 @@ decompFace newVFor fc = case fc of
         where x = newVFor (a,c)
      
 
-            
+           
 
--- infinite list of decompositions of a graph     
+-- | infinite list of decompositions of a graph     
 decompositionsG :: Tgraph -> [Tgraph]
 decompositionsG = iterate decomposeG
 

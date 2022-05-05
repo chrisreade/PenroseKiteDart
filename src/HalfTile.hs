@@ -1,5 +1,5 @@
 module HalfTile where
-{-
+{- |
 Representing Half Tile Pieces Polymorphicly
 Common code for both graphs and vector representations of tiling 
 For vectors - rep is V2 Double
@@ -17,11 +17,14 @@ instance Functor HalfTile where
     fmap f (LK rep) = LK (f rep)
     fmap f (RK rep) = RK (f rep)
 
+-- | return the representation of a half-tile
+tileRep:: HalfTile rep -> rep
 tileRep (LD r) = r
 tileRep (RD r) = r
 tileRep (LK r) = r
 tileRep (RK r) = r
 
+-- | half-tile predicates
 isLD,isRD,isLK,isRK,isDart,isKite :: HalfTile rep -> Bool
 isLD (LD _) = True
 isLD _      = False

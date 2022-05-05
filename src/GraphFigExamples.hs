@@ -28,7 +28,7 @@ padBorder = pad 1.2 . centerXY
     *************************
 -}
 fool, foolD, foolDminus:: Tgraph
--- fool: fool's kite - a decomposed left and right kite back-to-back (i.e. not sharing join edge)
+-- | fool: fool's kite - a decomposed left and right kite back-to-back (i.e. not sharing join edge)
 fool = checkTgraph [ RD(1,2,3)
                    , LD(1,3,4)
                    , RK(6,2,5)
@@ -42,7 +42,7 @@ foolD = decomposeG fool -- or foolDs!!1
 foolDs :: [Tgraph]
 foolDs = decompositionsG fool
 
--- foolDminus: 3 faces removed from foolD
+-- | foolDminus: 3 faces removed from foolD
 foolDminus = removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
 
 foolFig :: Diagram B
@@ -54,7 +54,7 @@ foolAndFoolD = padBorder $ hsep 1 [(drawVPatch . scale phi . makeVPatch) fool, d
 
 
 
--- sun and sunDs
+-- | sun and sunDs
 sunGraph :: Tgraph
 sunGraph = checkTgraph [ RK(1,2,11), LK(1,3,2)
                        , RK(1,4,3) , LK(1,5,4)
@@ -69,13 +69,13 @@ figSunD3D2,figSunD2D:: Diagram B
 figSunD3D2 = padBorder $ hsep 1 [drawVGraph $ sunDs !! 3, scale phi $ drawVGraph $ sunDs !! 2]
 figSunD2D = padBorder  $ hsep 1 [drawVGraph $ sunDs !! 2, scale phi $ drawVGraph $ sunDs !! 1]
 
--- kite and kiteDs
+-- | kite and kiteDs
 kiteGraph :: Tgraph
 kiteGraph = checkTgraph [ RK(1,2,4), LK(1,3,2)]
 kiteDs :: [Tgraph]
 kiteDs = decompositionsG kiteGraph
 
--- dart and dartDs
+-- | dart and dartDs
 dartGraph :: Tgraph
 dartGraph =  checkTgraph [ RD(1,2,3), LD(1,3,4)]
 dartDs :: [Tgraph]
@@ -127,7 +127,7 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 forceFoolDminus :: Diagram B              
 forceFoolDminus = padBorder $ hsep 1 $ fmap drawVGraph [foolDminus, force foolDminus]
 
--- new version of drawForce using subTgraphs instead of alignments
+-- | new version of drawForce using subTgraphs instead of alignments
 drawForce:: Tgraph -> Diagram B
 drawForce g = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ]
                $ forceSub $ makeSubTgraph g [faces g]
@@ -159,7 +159,7 @@ drawEmbedVP vp1 vp2 (a,b) =
     lc red (lw thin $ drawPatch $ dropVertices $ alignXaxis (a,b) vp1) 
     <>      lw ultraThin (drawPatch $ dropVertices $ alignXaxis (a,b) vp2)
 
--- use checkEmbed to find a common pair of vertices to align (for use with drawEmbed)
+-- | use checkEmbed to find a common pair of vertices to align (for use with drawEmbed)
 checkEmbed :: Tgraph -> Tgraph -> Diagram B
 checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
                    fmap drawVGraph [g1, g2]
@@ -209,7 +209,7 @@ newDartPlusFig = padBorder $ vsep 1 $ rotations [2,4] $ fmap (lw ultraThin . dra
   *************************
 -}
 
--- four choices for composing fool
+-- | four choices for composing fool
 foolChoices :: Diagram B
 foolChoices = padBorder $ vsep 1 
               [hsep 1 $ fmap ((redFool <>) . dashJGraph) choices
@@ -237,7 +237,7 @@ emplaceFoolDChoices = padBorder $ hsep 1 $
 dartD4 :: Tgraph
 dartD4 = dartDs!!4
 
--- brokenDart gets repaired by forcing but can also be composed to a maximal graph
+-- | brokenDart gets repaired by forcing but can also be composed to a maximal graph
 brokenDart :: Tgraph
 brokenDart = removeFaces deleted dartD4 where
   deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
@@ -253,10 +253,10 @@ badlyBrokenDart = removeFaces deleted dartD4 where
   deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
             ++[LK(11,21,44),RK(11,44,34),LD(9,34,44),RD(9,44,35),LK(17,35,44),RK(17,44,21),RK(6,17,33)]
  
--- brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
+-- | brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
 brokenDartFig :: Diagram B
 brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap dashJGraph [dartD4, brokenDart, badlyBrokenDart]
--- the force of the worst case (badlyBrokenDart)
+-- | the force of the worst case (badlyBrokenDart)
 checkBrokenDartFig  :: Diagram B
 checkBrokenDartFig = drawGraph $ force badlyBrokenDart
 
@@ -275,7 +275,7 @@ brokenKitesDFig = padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,3) $ scales
 -- | 2 adjacent kites decomposed then the top half kite components removed (3 of them)
 brokenKites = removeFaces [LD(1,7,10),LK(6,5,10),RK(6,10,7)] $  decomposeG kitePlusKite
 
--- diagram of touching vertex situation and forced result
+-- | diagram of touching vertex situation and forced result
 touchingTestFig::  Diagram B
 touchingTestFig = 
   padBorder $ hsep 1
@@ -298,7 +298,7 @@ touchingTestFig =
 -}
   
 
---- faces removed from foolD to illustrate crossing boundary and non-face-connected VPatches
+-- | faces removed from foolD to illustrate crossing boundary and non-face-connected VPatches
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
        where d1 = drawVPatch $ removeFacesGtoVP [LK(3,11,14), RK(3,14,4), RK(3,13,11)] foolD
@@ -308,7 +308,7 @@ crossingBdryFig = padBorder $ hsep 1 [d1,d2]
 mistake:: Tgraph
 mistake = checkTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1), LD(3,5,7), RD(4,8,6)]
 
--- mistake and the point at which forcing fails                
+-- | mistake and the point at which forcing fails                
 pfMistakeFig :: Diagram B
 pfMistakeFig  = padBorder $ hsep 1 [drawVGraph mistake, drawVGraph partForcedMistake] where
    partForcedMistake = 
@@ -316,7 +316,7 @@ pfMistakeFig  = padBorder $ hsep 1 [drawVGraph mistake, drawVGraph partForcedMis
                   ,LK (1,3,2),RD (3,1,5),LD (4,6,1),LD (3,5,7),RD (4,8,6)
                   ]
    
--- decomposeG mistake and the point at which forcing fails  with  RK (6,26,1)              
+-- | decomposeG mistake and the point at which forcing fails  with  RK (6,26,1)              
 forcingDmistakeFig :: Diagram B
 forcingDmistakeFig = padBorder $ hsep 1 [drawVGraph (decomposeG mistake), drawVGraph part] where
     part =  makeTgraph [RK (26,24,1),RK (5,24,25),LK (5,1,24),RK (3,23,2),LK (3,22,23)
@@ -366,7 +366,7 @@ partFMistake1Fig:: Diagram B
 partFMistake1Fig = padBorder $ drawVGraph partF where
   partF = makeTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD (3,1,5),LD (4,6,1)]
 
--- decomposed mistake1 is no longer erroneous and can be forced and recomposed
+-- | decomposed mistake1 is no longer erroneous and can be forced and recomposed
 cdMistake1Fig :: Diagram B
 cdMistake1Fig = padBorder $ hsep 1 $ fmap drawVPatch $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVPatch
                [ mistake1 , mistake1D, force mistake1D, composeG mistake1D]
@@ -441,7 +441,7 @@ relatedVTypeFig = padBorder $
 -}
 
 
--- graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
+-- | graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
 boundaryFDart4 =  
     checkTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!4)
@@ -449,19 +449,19 @@ boundaryFDart5 =
     checkTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!5)
 
 
--- graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
+-- | graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
 boundaryGapFDart4 =   
     checkTgraph $ filter ((/=332).originV)  (faces boundaryFDart4)
 boundaryGapFDart5 =   
     checkTgraph $ filter ((/=1287).originV) (faces boundaryFDart5)
 
--- figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
+-- | figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
 boundaryGap4Fig = lw ultraThin $ drawVGraph boundaryGapFDart4
 boundaryGap5Fig = lw ultraThin $ drawVGraph boundaryGapFDart5
 
--- showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
+-- | showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
 -- using stepForce 2000
 gapProgress5 :: Diagram B
 gapProgress5 = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
@@ -469,7 +469,7 @@ gapProgress5 = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
     , drawGraph $ recoverGraph $ boundaryState $ stepForce 2000 g
     ] where g = boundaryGapFDart5
 
--- showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
+-- | showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
 -- using stepForce 600
 gapProgress4 :: Diagram B
 gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
@@ -648,7 +648,7 @@ testViewBoundary rots bd =  lc lime bdryFig <> graphFig where
     vpMap = bvLocMap bd
     bdE = bDedges bd
 
--- used to discover accuracy problem of older thirdVertexLoc
+-- | used to discover accuracy problem of older thirdVertexLoc
 -- view tha boundary after n steps of forcing (starting with boundaryGapFDart5)
 -- e.g. n = 1900
 inspectForce5 :: Int -> Diagram B
@@ -659,25 +659,25 @@ inspectForce3 n = padBorder $ lw ultraThin $
                   testViewBoundary [3] $ boundaryState $ stepForce n $ dartDs !! 3
 
 
--- figures showing boundary edges of the boundary gaps graphs  
+-- | figures showing boundary edges of the boundary gaps graphs  
 testBoundary4, testBoundary5 :: Diagram B
 testBoundary4 =  padBorder $ lw ultraThin $ drawGBoundary boundaryGapFDart4 
 testBoundary5 =  padBorder $ lw ultraThin $ drawGBoundary boundaryGapFDart5 
 
--- testing crossing boundary detection e.g. by using force on testCrossingBoundary   
+-- | testing crossing boundary detection e.g. by using force on testCrossingBoundary   
 testCrossingBoundary :: Tgraph
 testCrossingBoundary = makeTgraph (faces foolDminus \\ [LD(6,11,13)])
 
--- test wholeTiles (which adds missing second halves of each face)
+-- | test wholeTiles (which adds missing second halves of each face)
 checkCompleteFig:: Diagram B
 checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [sunD4, wholeTiles sunD4] where sunD4 = sunDs !! 4
 
--- test graphFromVP
+-- | test graphFromVP
 checkGraphFromVP :: Diagram B
 checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
 
 
--- figure testing selectFacesGtoVP by removing all kites
+-- | figure testing selectFacesGtoVP by removing all kites
 dartsOnlyFig :: Diagram B
 dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
 
@@ -696,12 +696,12 @@ subExample = iterate (forceSub . decomposeSub) (makeSubTgraph fD2 [faces fD2]) !
 subExampleFig:: Diagram B
 subExampleFig = padBorder $ lw thin drawSubTgraph1 subExample
 
--- hollowGraph happens to be a valid Tgraph after removing the tracked faces from subExample
+-- | hollowGraph happens to be a valid Tgraph after removing the tracked faces from subExample
 -- This is not generally the case
 hollowGraph::Tgraph
 hollowGraph = removeFaces (concat (trackedSubsets subExample)) (fullGraph subExample)
 
--- figure showing hollowGraph and result of forcing
+-- | figure showing hollowGraph and result of forcing
 forceHollowFig:: Diagram B
 forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGraph, force hollowGraph]
 
@@ -729,7 +729,7 @@ to view the vertex numbers
 -}
 checkChoiceEdge g = padBorder $ lw ultraThin $ drawVGraph $ force g
 
--- given a boundary directed edge of a forced graph (either direction)
+-- | given a boundary directed edge of a forced graph (either direction)
 -- construct two SubTgraphs with half dart/kite addition on the edge respectively
 -- track the resulting faces and also the singleton new face, then force both SubTgraphs
 trackTwoChoices:: Tgraph -> DEdge -> [SubTgraph]

@@ -98,7 +98,7 @@ facesAtBV bd v = case Map.lookup v (bvFacesMap bd) of
             Nothing -> error ("facesAtBV: no faces found at boundary vertex " ++ show v)
 
 
--- return the (set of) faces which have a boundary vertex from boundary information
+-- | return the (set of) faces which have a boundary vertex from boundary information
 boundaryFaces :: Boundary -> [TileFace]
 boundaryFaces = nub . concat . Map.elems . bvFacesMap
 
@@ -400,7 +400,7 @@ allUGenerator bd predE = link generators id where
                  , queenDartUpdates          -- (9)
                  , queenKiteUpdates          -- (10)
                  ]
-{- 
+{- |
 1. When a join edge is on the boundary - add the missing half tile to make a whole tile.    
 2. When a half dart has its short edge on the boundary
    add the half kite that must be on the short edge
@@ -441,7 +441,7 @@ type UFinder = Boundary -> [DEdge] -> [(DEdge,TileFace)]
 -- (using a particular rule)
 type UMaker = Boundary -> TileFace -> Update
 
- {- |  boundaryFilter: This is a general purpose function used to create UFinder functions for each force rule
+{- |  boundaryFilter: This is a general purpose function used to create UFinder functions for each force rule
  It requires a face predicate and a Boundary and a focus (restricted list of boundary directed edges).
  The face predicate takes a boundary bd, a boundary directed edge (a,b) and a tileface at 'a' (the first vertex of the edge)
  and decides whether the face is wanted or not (True = wanted)
@@ -449,7 +449,7 @@ type UMaker = Boundary -> TileFace -> Update
  For some predicates the boundary argument is not needed (eg boundaryJoin in incompleteHalves), 
  but for others it is used to look at all the faces at b or at other faces at a besides the supplied fc 
  (eg kiteWDO in kitesWingDartOrigin) 
- -}
+-}
 boundaryFilter::  (Boundary -> DEdge -> TileFace -> Bool) -> UFinder
 boundaryFilter predF bd focus = 
     [ (e,fc) | e <- focus 
@@ -505,7 +505,7 @@ incompleteHalves = boundaryFilter boundaryJoin where
 kiteBelowDartUpdates :: UpdateGenerator
 kiteBelowDartUpdates = makeGenerator addKiteShortE nonKDarts
 
--- nonKDarts finds half darts with boundary short edge
+-- | nonKDarts finds half darts with boundary short edge
 nonKDarts :: UFinder            
 nonKDarts = boundaryFilter bShortDarts where
     bShortDarts bd (a,b) fc = isDart fc && shortE fc == (b,a)
@@ -515,7 +515,7 @@ nonKDarts = boundaryFilter bShortDarts where
 kiteWingDartOriginUpdates :: UpdateGenerator
 kiteWingDartOriginUpdates = makeGenerator addKiteShortE kitesWingDartOrigin
 
--- kites with boundary short edge where the wing is also a dart origin
+-- | kites with boundary short edge where the wing is also a dart origin
 kitesWingDartOrigin :: UFinder              
 kitesWingDartOrigin = boundaryFilter kiteWDO where
    kiteWDO bd (a,b) fc = shortE fc == (b,a) 
@@ -619,7 +619,7 @@ thirdDartUpdates :: UpdateGenerator
 thirdDartUpdates = makeGenerator addDartLongE missingThirdDarts
 
 
--- king vertices with 2 of the 3 darts (a kite wing and 4 dart origins present)
+-- | king vertices with 2 of the 3 darts (a kite wing and 4 dart origins present)
 missingThirdDarts :: UFinder                    
 missingThirdDarts = boundaryFilter pred where
     pred bd (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && length dartOriginsAta ==4) ||
@@ -638,7 +638,7 @@ missingThirdDarts = boundaryFilter pred where
 queenDartUpdates :: UpdateGenerator
 queenDartUpdates = makeGenerator addDartLongE queenMissingDarts
 
--- queen vertices (with 4 kite wings) and a boundary kite long edge
+-- | queen vertices (with 4 kite wings) and a boundary kite long edge
 queenMissingDarts :: UFinder                      
 queenMissingDarts = boundaryFilter pred where
     pred bd (a,b) fc = (isLK fc && longE fc == (b,a) && length (kiteWingsAt a) ==4) ||
@@ -652,7 +652,7 @@ queenMissingDarts = boundaryFilter pred where
 queenKiteUpdates :: UpdateGenerator
 queenKiteUpdates = makeGenerator addKiteShortE queenMissingKite
 
--- queen vertices with only 3 kite wings
+-- | queen vertices with only 3 kite wings
 queenMissingKite :: UFinder                        
 queenMissingKite = boundaryFilter pred where
     pred bd (a,b) fc = (isLK fc && shortE fc == (b,a) && length (kiteWingsAt b) ==3) ||
@@ -729,7 +729,7 @@ addKiteLongE bd (LK(a,b,_)) = (x, makeFace) where
   makeFace v = RK(a,v,b)
   x = findThirdV bd (b,a) 2 1
 
--- add a half dart on a boundary long edge of a dart or kite
+-- | add a half dart on a boundary long edge of a dart or kite
 addDartLongE :: UMaker            
 addDartLongE bd (LD(a,_,c)) = (x, makeFace) where
   makeFace v = RD(a,c,v)
@@ -764,7 +764,7 @@ addKite, addDart, forceLDB, forceLKC
 -}
 
 
--- | addKite and addDart are not efficient but used to tinker with a graph by adding a single half tile
+-- | addHalfKite and addHalfDart are not efficient but used to tinker with a graph by adding a single half tile
 -- e.g. to see how it affects forcing. They use the update makers (UMaker)
 
 -- adding by hand a single half kite
@@ -782,7 +782,7 @@ addHalfKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
     | joinE fc == reverseE de && isKite fc = completeHalf bd fc
     | otherwise = error "addHalfKite: applied to dart join (not possible)"
       
--- adding by hand a single half dart
+-- | adding by hand a single half dart
 -- must be to a boundary edge but direction is automatically calculated
 -- Will fail if edge is a dart short edge or kite join.
 addHalfDart :: Tgraph -> DEdge -> Tgraph

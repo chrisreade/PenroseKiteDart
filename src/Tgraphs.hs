@@ -33,19 +33,10 @@ emplace g = if nullGraph g'
     where fg = force g
           g' = composeG fg 
             
--- emplacements is best supplied with a maximally composed or near maximally composed graph
+-- | emplacements is best supplied with a maximally composed or near maximally composed graph
 -- It produces an infinite list of emplacements of the starting graph and its decompositions.
 emplacements :: Tgraph -> [Tgraph]
 emplacements = iterate (force . decomposeG) . emplace -- was .force
-
-{-
--- countEmplace g finds a maximally composed graph (maxg) for g and counts the number (n) of compsitions
--- needed.  It returns a triple of maxg, the nth emplacement of maxg, and n)
-countEmplace :: Tgraph -> (Tgraph,Tgraph,Int)
-countEmplace g = (maxg, emplacements maxg !! n, n) where (maxg,n) = maxFCompose g
--}
-
-
 
 {-------------------------------------------------------------------------
  makeChoices, emplaceChoices
@@ -85,7 +76,7 @@ compForce:: Tgraph -> Tgraph
 compForce = snd . partCompose . force
     
     
--- allCompFs g produces a list of all forced compositions starting from g up to but excluding the empty graph
+-- | allCompFs g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allCompFs:: Tgraph -> [Tgraph]
 allCompFs g = takeWhile (not . nullGraph) $ iterate compForce g
 
@@ -95,7 +86,7 @@ allComps:: Tgraph -> [Tgraph]
 allComps g = takeWhile (not . nullGraph) $ iterate composeG g
 
 
--- maxCompose and maxFCompose produce a maximal graph.
+-- | maxCompose and maxFCompose produce a maximal graph.
 maxCompose, maxFCompose:: Tgraph -> Tgraph
 maxCompose g = last $ allComps g
 maxFCompose g = force $ last $ allCompFs g

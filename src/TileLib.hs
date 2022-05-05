@@ -2,12 +2,12 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 
- {- |
+{- |
  Penrose Darts and Kites - infinite non-periodic tilings
  Main Operations of Inflate and Decompose
  using Half Tiles represented with a single vector 
  (the vector along the internal join where half tiles come together)
- -}
+-}
 module TileLib where
 
 import Diagrams.Prelude
@@ -143,7 +143,7 @@ drawPatch = patchWith drawPiece
 dashJPatch:: Patch -> Diagram B      
 dashJPatch = patchWith dashJPiece
 
--- colourDKG fill in a patch p with c1 colour for darts, c2 colour for kites and c3 colour for grout (edges)
+-- | colourDKG fill in a patch p with c1 colour for darts, c2 colour for kites and c3 colour for grout (edges)
 colourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
 colourDKG (c1,c2,c3) p = patchWith (fillDK c1 c2) p # lc c3
 

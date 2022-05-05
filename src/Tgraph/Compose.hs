@@ -88,7 +88,7 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
                               } where
   (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
 
--- kcs = kite centres of larger kites,
+-- | kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing tips
 -- gps is an association list of the group of faces for each dart wing tip
@@ -158,7 +158,7 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
                      _ -> (kcs,dbs,w:unks,gps) -- short edge of this rk has nothing attached => unknown
 
 
-    -- | find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
+    -- find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
     -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
   findFarK :: TileFace -> [TileFace] -> Maybe TileFace
   findFarK rd@(RD _) fcs = do lk <- find (matchingShortE rd) (filter isLK fcs)
