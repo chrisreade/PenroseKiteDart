@@ -1,3 +1,14 @@
+{-|
+Module      : Tgraph.Compose
+Description : A compose operation for Tgraphs
+Copyright   : (c) Chris Reade, 2021
+License     : MIT
+Maintainer  : chrisreade@mac.com
+Stability   : experimental
+
+This module includes the main composition operation composeG but also exposes 
+classifyDartWings (and type DWClass) for debugging and experimenting
+-}
 module Tgraph.Compose where
 
 import Data.List ((\\), find)
@@ -13,14 +24,14 @@ COMPOSING composeG and partCompose
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
--- | The main deterministic function for composing is composeG
+-- |The main deterministic function for composing is composeG
 -- which is essentially partCompose after unused faces are ignored.
 composeG:: Tgraph -> Tgraph
 composeG g = checkTgraph (faces g') where
     (_, g') = partCompose g
 -- composeG = snd . partCompose 
 
--- | partCompose produces a graph by composing faces which uniquely compose,
+-- |partCompose produces a graph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed graph
 -- it makes use of classifyDartWings which also returns an association of faces incident with each dart wing
 -- so these do not need to be reclculated.
@@ -66,7 +77,7 @@ partCompose g = (remainder,checkTgraph newFaces)
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
--- | DWClass is a record type for the result of classifying dart wings
+-- |DWClass is a record type for the result of classifying dart wings
 --  It now also records vGroup - an association of faces incident with each dart wing vertex
 --  to to save recalculating in partCompose
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
@@ -75,7 +86,7 @@ data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , vGroup :: Mapping Vertex [TileFace]
                        } deriving Show
                        
--- | classifyDartWings classifies all dart wing tips
+-- |classifyDartWings classifies all dart wing tips
 -- the result is a DWClass record of largeKiteCentres, largeDartBases, unknowns
 -- and an assoc list where
 -- largeKiteCentres are new kite centres, largeDartBases are new dart bases
@@ -88,7 +99,7 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
                               } where
   (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
 
--- | kcs = kite centres of larger kites,
+-- |kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing tips
 -- gps is an association list of the group of faces for each dart wing tip
