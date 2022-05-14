@@ -806,24 +806,28 @@ halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 figs, 
     decomp4 g = decompositionsG g !! 4
     redEmbed g1 g2 = lc red (lw medium $ dashJPatch $ dropVertices g1) <> lw ultraThin (drawPatch $ dropVertices g2)
 
+-- | two kites (force decomp twice) figure
+kkEmpsFig:: Diagram B
 kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $ 
             fmap drawGraph  [kk, kkD, kkD2] where
               kk = kitePlusKite
               kkD = force $ decomposeG kk
               kkD2 = force $ decomposeG kkD
              
+-- | two kites added to related vertex types figure
+maxShapesFig:: Diagram B
 maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 
 -- |drawForceEmplace g is a diagram for g followed by force g followed by emplace g
 drawForceEmplace g = padBorder $ hsep 1 $ fmap drawVGraph
                      [g, force g, emplace g]
 
-tester g = padBorder $ hsep 1 $ fmap drawVGraph [g, force g, maxFCompose g]
-testD = padBorder $ drawVGraph $ force $ decomposeG sunPlus3Dart'
+-- | force after adding half dart (rocket tip) to sunPlus3Dart'.
+-- Adding a kite half gives an incorrect graph discovered by forcing.
 testD' = padBorder $ drawVGraph $ force $ addHalfDart (force $ decomposeG sunPlus3Dart') (37,38)
 -- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
--- This example has an emplacement that does not include the original but is still a correct Tgraph
--- figure shows the force and emplace difference
+-- This example has an emplacement that does not include the original but is still a correct Tgraph.
+-- The figure shows the force and emplace difference.
 emplaceProblemFig = drawForceEmplace sunPlus3Dart'
 
    

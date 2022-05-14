@@ -4,7 +4,7 @@
 
 {-|
 Module      : TileFigExamples
-Description : Examples diagrams of kite and dart tilings 
+Description : Example patches of kite and dart tilings (not using Tgraphs) with diagrams
 Copyright   : (c) Chris Reade, 2021
 License     : MIT
 Maintainer  : chrisreade@mac.com

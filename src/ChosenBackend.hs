@@ -1,6 +1,6 @@
 {-|
 Module      : ChosenBackend
-Description : Export mainWith and B for the chosen backend 
+Description : Exports mainWith and B for the chosen backend 
 Copyright   : (c) Chris Reade, 2021
 License     : MIT
 Maintainer  : chrisreade@mac.com

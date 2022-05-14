@@ -10,11 +10,10 @@ Stability   : experimental
 module HalfTile where
 
 {-|
-Representing Half Tile Pieces Polymorphicly
-Common code for both graphs and vector representations of tiling 
+Representing Half Tile Pieces Polymorphicly.
+Common code for both graphs and vector representations of tilings. 
 For vectors - rep is V2 Double
 For Tgraphs rep is (Vertex,Vertex,Vertex)
-(HalfTile is a functor)
 -}
 data HalfTile rep = LD rep -- ^ Left Dart
                   | RD rep -- ^ Right Dart
@@ -35,7 +34,7 @@ tileRep (RD r) = r
 tileRep (LK r) = r
 tileRep (RK r) = r
 
--- |half-tile predicates
+-- |half-tile predicate
 isLD,isRD,isLK,isRK,isDart,isKite :: HalfTile rep -> Bool
 isLD (LD _) = True
 isLD _      = False

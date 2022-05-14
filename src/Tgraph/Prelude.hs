@@ -2,7 +2,7 @@
 
 {-|
 Module      : Tgraph.Prelude
-Description : Introducing type Tgraph and basic operations Tgraphs
+Description : Introducing type Tgraph and basic operations for Tgraphs
 Copyright   : (c) Chris Reade, 2021
 License     : MIT
 Maintainer  : chrisreade@mac.com

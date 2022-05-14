@@ -77,32 +77,33 @@ partCompose g = (remainder,checkTgraph newFaces)
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
--- |DWClass is a record type for the result of classifying dart wings
---  It now also records vGroup - an association of faces incident with each dart wing vertex
---  to to save recalculating in partCompose
+-- |DWClass is a record type for the result of classifying dart wings in a Tgraph.
+--  It also records vGroup - a mapping of each dart wing vertex
+--  in the Tgraph to the faces incident with the vertex. 
+-- This is to save recalculating the face groups when composing with partCompose.
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , largeDartBases  :: [Vertex]
                        , unknowns :: [Vertex]
                        , vGroup :: Mapping Vertex [TileFace]
                        } deriving Show
                        
--- |classifyDartWings classifies all dart wing tips
--- the result is a DWClass record of largeKiteCentres, largeDartBases, unknowns
--- and an assoc list where
+-- |classifyDartWings classifies all dart wing tips.
+-- The result is a DWClass record of largeKiteCentres, largeDartBases, unknowns
+-- and a mapping where
 -- largeKiteCentres are new kite centres, largeDartBases are new dart bases
 -- unknowns cannot be classified, and
--- the assoc list gives faces found at each vertex in both largeKiteCentres and largeDartBases
--- passed on to make partCompose more efficient
+-- the mapping identifies the faces found at each vertex in both largeKiteCentres and largeDartBases.
+-- This information is recorded to make partCompose more efficient.
 classifyDartWings :: Tgraph -> DWClass
 classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks
                               , vGroup = gps
                               } where
   (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
 
--- |kcs = kite centres of larger kites,
+-- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing tips
--- gps is an association list of the group of faces for each dart wing tip
+-- gps is a mapping of dart wing tips to the group of faces found at that vertex
   processD g (kcs, dbs, unks, gps) rd@(RD (orig, w, _))-- classify wing tip w
     | valencyD g w == 2 = (kcs, dbs, w : unks, gps) -- lone dart wing => unknown
     | w `elem` kcs || w `elem` dbs = (kcs, dbs, unks, gps) -- already classified

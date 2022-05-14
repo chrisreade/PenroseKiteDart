@@ -28,45 +28,47 @@ Using Imported polymorphic HalfTile
 -}
 type Piece = HalfTile (V2 Double)
 
--- | get the vector representing the join edge from the origin of a piece
+-- | get the vector representing the join edge in the direction away from the origin of a piece
 getJVec:: Piece -> V2 Double
 getJVec = tileRep
 
-{-| 
-******************************************************
-Making HalfTiles (and therefore Pieces) transformable
-*****************************************************
--}
+-- |Needed for Transformable instance of HalfTile
 type instance N (HalfTile a) = N a
+-- |Needed for Transformable instance of HalfTile
 type instance V (HalfTile a) = V a
+{-| 
+Making HalfTiles (and therefore Pieces and Patches) transformable
+-}
 instance Transformable a => Transformable (HalfTile a) where
     transform t = fmap (transform t)
 
--- |These are the only 4 pieces (oriented along x axis)
+-- |ldart,rdart,lkite,rkite are the 4 pieces (oriented along the x axis).
 ldart,rdart,lkite,rkite:: Piece
 ldart = LD unitX
 rdart = RD unitX
 lkite = LK (phi*^unitX)
 rkite = RK (phi*^unitX)
 
--- |All edges are powers of the golden section phi
+-- |All edges are powers of the golden section phi.
 -- We also have the interesting property of the golden section that phi^2 == phi + 1 and so 1/phi = phi-1
--- also phi^3 = 2phi +1 and 1/phi^2 = 2-phi
+-- (also phi^3 = 2phi +1 and 1/phi^2 = 2-phi)
 phi::Double
 phi = (1.0 + sqrt 5.0) / 2.0
 
--- |All angles used are multiples of tt -  tau/10 rad = 1/10 turn = 36 deg
--- angles are from positive x axis anticlockwise
+-- |All angles used are multiples of tt where tt is a tenth of a turn
+-- (so tau divided by 10 rad or 36 deg).
+-- ttangle n is n multiples of tt.
+-- Angles are from positive x axis anticlockwise
 ttangle:: Int -> Angle Double
 ttangle n = fromIntegral (n `mod` 10) *^tt
              where tt = 1/10 @@ turn
 
-{-|  The two outer tile edges of a piece.
+{-|  produces a list of the two non-join tile edges of a piece.
 Perhaps confusingly we regard left and right of a dart differently from left and right of a kite.
-This is in line with common sense view but darts are reversed from origin point of view
+This is in line with common sense view but darts are reversed from origin point of view.
 Going clockwise round the origin the Right Dart comes before Left Dart, but 
-the Left Kite comes before Right Kite
-This is manifest in only pieceEdges, tileEdges, compose and decompPiece
+the Left Kite comes before Right Kite.
+This is manifest in only pieceEdges, wholeTileEdges, compose and decompPiece
 -}
 pieceEdges:: Piece -> [V2 Double]
 pieceEdges (LD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 9) v
@@ -74,33 +76,34 @@ pieceEdges (RD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 1) v
 pieceEdges (RK v) = [v',v ^-^ v'] where v' = rotate (ttangle 9) v
 pieceEdges (LK v) = [v',v ^-^ v'] where v' = rotate (ttangle 1) v
 
--- |the 4 tile edges of a completed half-tile piece (needed for colour fill)
--- These are clockwise from the origin of the tile
-tileEdges:: Piece -> [V2 Double]
-tileEdges (LD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (LD v))
-tileEdges (RD v) = tileEdges (LD v)
-tileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (RK v))
-tileEdges (RK v) = tileEdges (LK v)
+-- |the 4 tile edges of a completed half-tile piece (used for colour fill).
+-- These are clockwise from the origin of the tile.
+wholeTileEdges:: Piece -> [V2 Double]
+wholeTileEdges (LD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (LD v))
+wholeTileEdges (RD v) = wholeTileEdges (LD v)
+wholeTileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (RK v))
+wholeTileEdges (RK v) = wholeTileEdges (LK v)
 
--- |drawing lines for the 2 outer edges of a piece
+-- |drawing lines for the 2 non-join edges of a piece
 drawPiece:: Piece -> Diagram B
 drawPiece = strokeLine . fromOffsets . pieceEdges
 
--- |fill whole tiles, darts with dcol and kites with kcol (colours)
--- Uses only left pieces to identify whole tile, ignoring right pieces
+-- |fillDK' dcol kcol pc fills the whole tile when pc is a left half-tile,
+-- darts are filled with colour dcol and kites with colour kcol.
+-- (Right half-tiles produce nothing, so whole tiles are not drawn twice)
 fillDK':: Colour Double -> Colour Double -> Piece -> Diagram B
 fillDK' dcol kcol pc =
-     case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ tileEdges pc)  # fc dcol
-                (LK _) -> strokeLoop (glueLine $ fromOffsets $ tileEdges pc)  # fc kcol
+     case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc dcol
+                (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc kcol
                 _      -> mempty
 
 -- |drawPiece with added join edge (also fillable as a loop)
 drawJPiece:: Piece -> Diagram B
 drawJPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
 
--- |similar to fillDK' except using drawJPiece
---  so that half tiles are not completed and both left and right are filled
--- The filled loop is coloured with matching edge colour, then overlayed with piece edges
+-- |fillDK  dcol kcol piece draws and fills the half-tile piece
+-- with colour dcol for darts and kcol for kites.
+-- The join edge is coloured with matching colour, so it will not show.
 fillDK:: Colour Double -> Colour Double -> Piece -> Diagram B
 fillDK dcol kcol piece = drawPiece piece <> (drawJPiece piece # fc col # lc col) where
     col = case piece of (LD _) -> dcol
@@ -120,7 +123,7 @@ drawJ piece = strokeLine (fromOffsets [getJVec piece])
         
 -- |experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.
--- Half tiles are first drawn with dashed lines, then certain edges are overlayed to emphasise
+-- Half tiles are first drawn with dashed lines, then certain edges are overlayed to emphasise them.
 -- Half darts have the join edge emphasised in red, while
 -- Half kites have the long edge emphasised in black.
 experiment:: Piece -> Diagram B
@@ -137,20 +140,20 @@ experiment pc = emph pc <> (drawJPiece pc # dashingN [0.002,0.002] 0 # lw ultraT
 -- |A patch is a list of Located pieces (i.e. a point associated with originV)
 type Patch = [Located Piece]
 
--- |turn a patch into a diagram using pd for drawing pieces
+-- |turn a patch into a diagram using the first argument for drawing pieces
 patchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
 patchWith pd = position . fmap (viewLoc . mapLoc pd)
 
     
--- |special case - turn patches to diagrams with drawPiece
+-- |special case of patchWith - turn patches to diagrams with drawPiece
 drawPatch:: Patch -> Diagram B      
 drawPatch = patchWith drawPiece
 
--- |special case - turn patches to diagrams with dashJPiece
+-- |special case of patchWith - turn patches to diagrams with dashJPiece
 dashJPatch:: Patch -> Diagram B      
 dashJPatch = patchWith dashJPiece
 
--- |colourDKG fill in a patch p with c1 colour for darts, c2 colour for kites and c3 colour for grout (edges)
+-- |colourDKG fill in a patch p with c1 colour for darts, c2 colour for kites and c3 colour for grout (non-join edges)
 colourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
 colourDKG (c1,c2,c3) p = patchWith (fillDK c1 c2) p # lc c3
 
@@ -192,8 +195,8 @@ decompositions:: Patch -> [Patch]
 decompositions = iterate decompose
 
 {-|
-Inflating produces a list of choices NOT a Patch
-Inflating a single piece at p - produces a list of alternative located pieces
+Inflating produces a list of choices NOT a Patch.
+Inflating a single piece located at p - produces a list of alternative located pieces.
 Each is a larger scale single piece with new location 
 (to ensure the larger piece contains the original in its original position in a decomposition)
 -}
@@ -232,15 +235,17 @@ inflations n lp = do
     lp' <- inflate lp
     inflations (n-1) lp'
                                 
--- |combine 5 copies of a patch (rotated by multiples of 2*tt successively) 
--- use with care to avoid nonsense patches
+-- |combine 5 copies of a patch (each rotated by ttangle 2 successively)
+-- (ttAngle 2 is 72 degrees) 
+-- Must be used with care to avoid creating a nonsense patch
 penta:: Patch -> Patch
 penta p = concatMap copy [0..4] 
             where copy n = rotate (ttangle (2*n)) p
   
--- |sun and star patches 
 sun,star::Patch         
+-- |sun is a patch with five kites sharing common origin (base of kite)
 sun =  penta [rkite `at` origin, lkite `at` origin]
+-- |star is a patch with five darts sharing common origin (tip of dart)
 star = penta [rdart `at` origin, ldart `at` origin]
 
 

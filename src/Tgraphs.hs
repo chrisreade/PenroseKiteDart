@@ -81,7 +81,7 @@ makeChoices g = choices unks [g] where
 ------------------------------------------------------------------------------}
 
 -- |compForce does a force then composeG but it
--- by-passes the check on the composed graph because it is forced
+-- by-passes the check on the composed graph because the argument was forced
 compForce:: Tgraph -> Tgraph
 compForce = snd . partCompose . force
     
@@ -90,8 +90,9 @@ compForce = snd . partCompose . force
 allCompFs:: Tgraph -> [Tgraph]
 allCompFs g = takeWhile (not . nullGraph) $ iterate compForce g
 
--- |allComps g produces a list of all compositions starting from g up to but excluding the empty graph
--- This is not safe in general
+-- |allComps g produces a list of all compositions starting from g up to but excluding the empty graph.
+-- This is not safe in general as it can fail by producing
+-- a non-connected graph or graph with crossing boundaries.
 allComps:: Tgraph -> [Tgraph]
 allComps g = takeWhile (not . nullGraph) $ iterate composeG g
 
@@ -101,7 +102,7 @@ maxCompose, maxFCompose:: Tgraph -> Tgraph
 maxCompose g = last $ allComps g
 maxFCompose g = force $ last $ allCompFs g
 
--- |remove haftile faces that do not have their matching half tile
+-- |remove halftile faces that do not have their matching half tile
 removeIncompleteTiles:: Tgraph -> Tgraph
 removeIncompleteTiles g = removeFaces halfTiles g
        where bdry = makeBoundary g

@@ -24,7 +24,7 @@ DECOMPOSING - decomposeG
 ----------------------------------}
 
 
--- |decomposeG is deterministic and should never fail with a correct Tgraph
+-- |Decompose a Tgraph. This is uniquely determined.
 decomposeG :: Tgraph -> Tgraph
 decomposeG g = Tgraph{ vertices = newVs++vertices g
                      , faces = newFaces
@@ -33,8 +33,8 @@ decomposeG g = Tgraph{ vertices = newVs++vertices g
     newFaces = concatMap (decompFace newVFor) (faces g)
 
 -- |newVPhiMap g produces newVs - a list of new vertices (one for each phi edge of v)
---   and a function mapping each phi edge to its assigned vertex in newVs
---   The map is built using buildMap and both (a,b) and (b,a) get the same v   
+--   and a function mapping each phi edge to its assigned vertex in newVs.
+--  Both (a,b) and (b,a) get the same v   
 newVPhiMap :: Tgraph -> ([Vertex], (Vertex, Vertex) -> Vertex)
 newVPhiMap g = (newVs, (Map.!) $ buildMap allPhi newVs Map.empty) where
   allPhi = phiEdges g
@@ -45,9 +45,9 @@ newVPhiMap g = (newVs, (Map.!) $ buildMap allPhi newVs Map.empty) where
     Nothing -> buildMap more (tail vs) (Map.insert (a,b) v (Map.insert (b,a) v m))
                where v = head vs
 
--- |decompFace to process a face in decomposition
--- producing new faces. 
--- It uses a newVFor - a function to get the unique vertex assigned to each phi edge
+-- |Decompose a face producing new faces. 
+-- This requires a function to get the unique vertex assigned to each phi edge
+-- (as created by newVPhiMap)
 decompFace:: ((Vertex,Vertex)->Vertex) -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
@@ -64,11 +64,11 @@ decompFace newVFor fc = case fc of
 
            
 
--- |infinite list of decompositions of a graph     
+-- |infinite list of decompositions of a Tgraph     
 decompositionsG :: Tgraph -> [Tgraph]
 decompositionsG = iterate decomposeG
 
--- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full graph
+-- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph
 decomposeSub :: SubTgraph -> SubTgraph
 decomposeSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph g' tlist' where
    g' = Tgraph{ vertices = newVs++vertices g

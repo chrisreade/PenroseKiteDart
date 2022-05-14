@@ -72,15 +72,15 @@ Similarly for bvLocMap.
 -}
 data Boundary 
   = Boundary
-    { bDedges:: [DEdge]  -- boundary directed edges (face on LHS, exterior on RHS)
-    , bvFacesMap:: Mapping Vertex [TileFace] -- faces at each boundary vertex
-    , bvLocMap:: Mapping Vertex (Point V2 Double)  -- position of each boundary vertex
-    , allFaces:: [TileFace]
-    , allVertices:: [Vertex]
-    , nextVertex::  Vertex
+    { bDedges:: [DEdge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
+    , bvFacesMap:: Mapping Vertex [TileFace] -- ^faces at each boundary vertex
+    , bvLocMap:: Mapping Vertex (Point V2 Double)  -- ^ position of each boundary vertex
+    , allFaces:: [TileFace] -- ^ all the tile faces
+    , allVertices:: [Vertex] -- ^ all the vertices
+    , nextVertex::  Vertex -- ^ next vertex number
     } deriving (Show)
 
--- |makeBoundary: calculate Boundary information from a Tgraph
+-- |Calculates Boundary information from a Tgraph
 makeBoundary:: Tgraph -> Boundary
 makeBoundary g = 
   let bdes = boundaryDedges g
@@ -95,21 +95,21 @@ makeBoundary g =
       , nextVertex = makeNewV (vertices g)
       }
  
--- |recoverGraph: convert a Boundary back to a Tgraph
+-- |Converts a Boundary back to a Tgraph
 recoverGraph:: Boundary -> Tgraph
 recoverGraph bd = 
   Tgraph{ faces = allFaces bd
         , vertices = allVertices bd
         }
 
--- |changeVFMap vs f vfmap  - adds f to the list of faces associated with each v in vs
+-- |changeVFMap vs f vfmap  - adds f to the list of faces associated with each v in vs and updates vfmap
 changeVFMap:: [Vertex] -> TileFace -> Mapping Vertex [TileFace] -> Mapping Vertex [TileFace]
 changeVFMap vs f vfmap = foldl (changeV f) vfmap vs
   where changeV f vfmap v = case Map.lookup v vfmap of
                             Just fs -> Map.insert v (f:fs) vfmap
                             Nothing -> Map.insert v [f] vfmap
 
--- |facesAtBV bd v - returns the faces found at v which should be a boundary vertex
+-- |facesAtBV bd v - returns the faces found at v (which must be a boundary vertex)
 facesAtBV:: Boundary -> Vertex -> [TileFace]
 facesAtBV bd v = case Map.lookup v (bvFacesMap bd) of
             Just fcs -> fcs
@@ -124,22 +124,21 @@ boundaryFaces = nub . concat . Map.elems . bvFacesMap
 Updates and ForceState types
 -}
 
--- |an Update is a pair of
+-- |An Update is a pair of
 -- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
--- and a makeFace function to create the new face when given a third vertex
+-- and a makeFace function to create the new face when given a third vertex.
 type Update = (Maybe Vertex, Vertex -> TileFace)
--- |UpdateMap: partial map associating updates with (some) boundary directed edges
+-- |UpdateMap: partial map associating updates with (some) boundary directed edges.
 type UpdateMap = Mapping DEdge Update
--- |ForceState: The force state records information between single face updates during forcing
--- (a Boundary and an UpdateMap)
+-- |ForceState: The force state records information between executing single face updates during forcing
+-- (a Boundary and an UpdateMap).
 data ForceState = ForceState 
                    { boundaryState:: Boundary
                    , updateMap:: UpdateMap 
                    }
--- |UpdateGenerator is the type of functions which change the UpdateMap (given a Boundary and focus edge list)
--- Such functions implement the forcing rules
+-- |UpdateGenerator is the type of functions which can change the UpdateMap when given a Boundary and a focus list of particular directed boundary edges.  It will add particular updates for those focus edges which match a rule. 
+-- So such functions implement the forcing rules.
 type UpdateGenerator = Boundary -> [DEdge] -> UpdateMap -> UpdateMap
--- type UpdateGenerator = Boundary -> (DEdge->Bool) -> UpdateMap -> UpdateMap  ---------------- Predicate version
 
 {-| BoundaryChange records a new boundary after an update
      plus edges which are no longer on the boundary
@@ -150,27 +149,20 @@ data BoundaryChange = BoundaryChange
                        { newBoundary:: Boundary
                        , removedEdges:: [DEdge]
                        , revisedEdges :: [DEdge] 
---                       , isRevisedEdge :: DEdge -> Bool  ------------------------------------ Predicate version
                        } deriving (Show)
 
-{-| affectedBoundary: given a list of new boundary edges it creates a predicate
-     which is true of any edges sharing a vertex with any new edge
-     The predicate is used to focus where the update map needs to be recalculated
-     For a safe update this will be true for
-     the single new edge + edges either side on boundary
-     For an unsafe update this will be true of
-     4 edges including the 2 new ones
+{-| Given a Boundary with a list of boundary edges that have been newly added,
+     it creates a list of boundary edges
+     that are affected. Namely, the boundary edges sharing a vertex with a new edge.
+     For a safe update this will be
+     the single new edge + edges either side on the boundary.
+     For an unsafe update this will be
+     4 edges including the 2 new ones. (Used to make revisedEdges in a BoundaryChange)
 -}
 affectedBoundary :: Boundary -> [DEdge] -> [DEdge]
 affectedBoundary bd edges = filter incidentEdge (bDedges bd) where
       bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
       incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
-{-
-affectedBoundary :: [DEdge] -> (DEdge -> Bool)   ------------------------------------ Predicate version
-affectedBoundary edges = incidentEdge where
-      bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
-      incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
--}
 
 {- *
 forcing operations
@@ -180,14 +172,14 @@ forcing operations
 force:: Tgraph -> Tgraph
 force = forceWith allUGenerator
 
--- |wholeTiles: special case of forcing only half tiles to whole tiles
+-- |special case of forcing only half tiles to whole tiles
 wholeTiles:: Tgraph -> Tgraph
 wholeTiles = forceWith wholeTileUpdates 
 
 {-| forceWith uGen: 
-     initialises force state before forcing (both using uGen to generate updates)
-     recursively does all updates using forceAll uGen, 
-     then gets boundary from state and converts back to a Tgraph
+     initialises force state before forcing (both using uGen to generate updates).
+     It recursively does all updates using forceAll uGen, 
+     then gets boundary from the final state and converts back to a Tgraph
 -}
 forceWith:: UpdateGenerator -> Tgraph -> Tgraph
 forceWith uGen = recoverGraph . boundaryState . forceAll uGen . initForceState uGen
@@ -205,22 +197,20 @@ forceAll uGen = retry where
                                   where umap = reviseUpdates uGen bdC (updateMap fs)
                       Nothing  -> fs           -- no more updates
 
-{-| initForceState uGen calculates initial force state with boundary information
-     and using uGen on all boundary edges to initialise updateMap
+{-| initForceState uGen g calculates an initial force state with boundary information from g
+     and uses uGen on all boundary edges to initialise updateMap.
 -}
 initForceState :: UpdateGenerator -> Tgraph -> ForceState
 initForceState uGen g = ForceState { boundaryState = bd , updateMap = umap } where
      bd = makeBoundary g
      umap = uGen bd (bDedges bd) Map.empty 
---     umap = uGen bd (\_ -> True) Map.empty ------------------------------------------- Predicate version
 
--- |reviseUpdates uGen updates the UpdateMap after a boundary change
--- using uGen to calculate new updates
+-- |reviseUpdates uGen bdChange: updates the UpdateMap after boundary change (bdChange)
+-- using uGen to calculate new updates.
 reviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> UpdateMap
 reviseUpdates uGen bdChange umap = umap'' where
   umap' = foldr Map.delete umap (removedEdges bdChange)
   umap'' = uGen (newBoundary bdChange) (revisedEdges bdChange) umap' 
---           umap'' = uGen (newBoundary bdc) (isRevisedEdge bdc) umap'   ------------------- Predicate version
 
 -- |safe updates are those which do not require a new vertex, 
 -- so have an identified existing vertex (Just v)
@@ -228,7 +218,7 @@ isSafeUpdate :: Update -> Bool
 isSafeUpdate (Just _ , _ ) = True
 isSafeUpdate (Nothing, _ ) = False
 
--- |findSafeUpdate finds the first safe update - Nothing if there are none
+-- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
 findSafeUpdate:: UpdateMap -> Maybe Update 
 findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
 
@@ -242,13 +232,12 @@ instance Show ForceState where
                ++ show (bDedges $ boundaryState fs) 
                ++ ",\nupdateMap = "
                ++ show (fmap (\(e,(mv,_)) -> (e,mv)) $ Map.assocs $ updateMap fs) ++ " }\n"
--- |stepForce and stepForceWith and stepF are used for testing
--- stepForce  produces an intermediate state after a given number of steps (face additions)
+-- |stepForce  produces an intermediate state after a given number of steps (face additions)
 stepForce :: Int -> Tgraph -> ForceState
 stepForce n g = stepForceWith allUGenerator n $ initForceState allUGenerator g
 
 
--- |used by stepForce
+-- |do a number of force steps using a given UpdateGenerator (used by stepForce)
 stepForceWith :: UpdateGenerator -> Int -> ForceState -> ForceState
 stepForceWith updateGen = count where
   count 0 fs = fs
@@ -280,25 +269,26 @@ oneStepF = oneStepWith allUGenerator
 
 
 
-{-| tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap
-   When touchChecKOn is True any unsafe update producing a touching vertex returns Nothing
+{-| tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap.
+   When touchChecKOn is True any unsafe update producing a touching vertex returns Nothing.
    tryUnsafes works through the unsafe updates in (directed edge) key order and
    completes the first unsafe update that is not blocked, returning
-   Just the resulting boundary change (if there was one) and Nothing if all unsafes are blocked
+   Just the resulting boundary change (if there was one) and Nothing if all unsafes are blocked.
 -}
 tryUnsafes:: ForceState -> Maybe BoundaryChange
 tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
     bd = boundaryState fs
     tryList [] = Nothing
-    tryList (u: more) = case tryUpdate bd u of
+    tryList (u: more) = case tryUnsafeUpdate bd u of
                           Nothing -> tryList more
                           Just bdC -> Just bdC
 
 {-| doSafeUpdate bd u adds a new face by completing a safe update u on boundary bd
+    (raising an error if u is an unsafe update).
      It returns a BoundaryChange (containing a new Boundary, removed boundary edges and
-     revised boundary edge list)
+     revised boundary edge list).
      It checks that the new face is not in conflict with existing faces,
-     raising an error if there is a conflict
+     raising an error if there is a conflict.
 -}
 doSafeUpdate:: Boundary -> Update -> BoundaryChange
 doSafeUpdate bd (Nothing, makeFace) = error "doSafeUpdate: applied to non-safe update "
@@ -320,7 +310,6 @@ doSafeUpdate bd (Just v, makeFace) =
                    { newBoundary = resultBd
                    , removedEdges = matchedDedges
                    , revisedEdges = affectedBoundary resultBd newDedges
---                   , isRevisedEdge = affectedBoundary newDedges  --------------------------- Predicate version
                    }
    in if noConflict newFace nbrFaces then bdChange else
       error ("doSafeUpdate:(incorrect tiling)\nConflicting new face  "
@@ -332,15 +321,16 @@ doSafeUpdate bd (Just v, makeFace) =
             )
 
 
-{-| tryUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex.
+{-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
+     (raising an error if u is a safe update).
      It checks that the new face is not in conflict with existing faces (raising an error if there is a conflict).
      If touchCheckOn is True, it performs a touching vertex check with the new vertex
-     returning Nothing if there is a touching vertex
-     Otherwise it returns Just a boundary change
+     returning Nothing if there is a touching vertex.
+     Otherwise it returns Just a boundary change.
 -}
-tryUpdate:: Boundary -> Update -> Maybe BoundaryChange
-tryUpdate bd (Just _ , makeFace) = error "tryUpdate: applied to safe update "
-tryUpdate bd (Nothing, makeFace) = 
+tryUnsafeUpdate:: Boundary -> Update -> Maybe BoundaryChange
+tryUnsafeUpdate bd (Just _ , makeFace) = error "tryUnsafeUpdate: applied to safe update "
+tryUnsafeUpdate bd (Nothing, makeFace) = 
    let v = nextVertex bd       
        newFace = makeFace v
        oldVPoints = bvLocMap bd
@@ -362,14 +352,13 @@ tryUpdate bd (Nothing, makeFace) =
                     { newBoundary = resultBd
                     , removedEdges = matchedDedges
                     , revisedEdges = affectedBoundary resultBd newDedges
---                    , isRevisedEdge = affectedBoundary newDedges  ------------------------------------ Predicate version
                     }
    in if touchCheck vPosition oldVPoints -- always False if touchCheckOn = False
       then Nothing -- don't proceed - v is a touching vertex
-      else if noConflict newFace nbrFaces  -- check new face does not conflict
+      else if noConflict newFace nbrFaces  -- check new face does not conflict on edges
            then Just bdChange  
            else error 
-                ("tryUpdate:(incorrect tiling)\nConflicting new face  "
+                ("tryUnsafeUpdate:(incorrect tiling)\nConflicting new face  "
                  ++ show newFace
                  ++ "\nwith neighbouring faces\n"
                  ++ show nbrFaces
@@ -381,7 +370,7 @@ tryUpdate bd (Nothing, makeFace) =
 -- |doUpdate: do a single update (safe or unsafe)
 doUpdate:: Boundary -> Update -> BoundaryChange
 doUpdate bd u = if isSafeUpdate u then doSafeUpdate bd u
-                else case tryUpdate bd u of
+                else case tryUnsafeUpdate bd u of
                  Just bdC -> bdC
                  Nothing -> error "doUpdate: crossing boundary (touching vertices)"
 
@@ -390,10 +379,10 @@ doUpdate bd u = if isSafeUpdate u then doSafeUpdate bd u
 Conflict Test
 -}
 
--- |noConflict fc fcs  where fc is a new face and fcs are neighbouring faces
+-- |noConflict fc fcs  where fc is a new face and fcs are neighbouring faces.
 -- There is no conflict if none of the new directed face edges of fc are already directed edges
 -- of neighbouring faces fcs (in the same direction)
--- and the edge length types (phi/nonPhi) do not conflict
+-- and the edge length types (phi/nonPhi) do not conflict.
 noConflict :: TileFace -> [TileFace] -> Bool
 noConflict fc fcs = null (faceDedges fc `intersect` concatMap faceDedges fcs) &&
                     null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
@@ -442,16 +431,13 @@ Forcing rules
 -}
            
 {-------------------  FORCING RULES and Generators --------------------------
-Each rule becomes an UpdateGenerator
-
 7 vertex types are:
-sun (k5), queen (k4d1), jack (k3d2, largeDartBase), ace (k2d1, fool),
-deuce (k2d2, largeKiteCentre), king (k2d3), star (d5)
+sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, star
 -}
 
-{-| allUGenerator combines all the forcing rules by linking a list of the 10 generators 
-     (linking composes the results of applying each to the arguments keeping the order)
-     The arguments are a boundary and an edge list (to restrict focus on certain boundary edges)                        
+{-| allUGenerator combines all the 10 update generators.
+     They are composed (keeping the order) after applying each to the
+     supplied boundary and edge list argumants                        
 -}
 allUGenerator :: UpdateGenerator 
 allUGenerator bd predE = link generators id where
@@ -471,21 +457,28 @@ allUGenerator bd predE = link generators id where
                  ]
 
 
--- |UFinder (Update case finder function) produces pairs of a boundary directed edge with
--- the tileface sharing that edge (using a particular force rule)
+-- |UFinder (Update case finder function). Given a Boundary and a list of (focus) boundary directed edges,
+-- such a function returns each focus edge satisfying the particular update case paired with the tileface
+-- matching that edge. For example, if the function is looking for dart short edges on the boundary,
+-- it will return only those focus edges which have a matching half-dart short edge,
+-- each paired with the corresponding half-dart.
 type UFinder = Boundary -> [DEdge] -> [(DEdge,TileFace)]
--- type UFinder = Boundary -> (DEdge->Bool) -> [(DEdge,TileFace)]  ------------------------------------ Predicate version
 
--- |UMaker (Update creator function) produces an Update for a boundary tile face
--- (using a particular rule)
+-- |UMaker (Update creator function). Given a Boundary and a particular tileface (on the boundary),
+-- such a function produces a unique update for that edge.
+-- For example, if the function is looking to add half-kites to dart short edges it will 
+-- produce the appropriate update when given a Boundary and half-dart tileface
+-- (whose short edge must be on the boundary).
 type UMaker = Boundary -> TileFace -> Update
 
-{-|  boundaryFilter: This is a general purpose function used to create UFinder functions for each force rule
- It requires a face predicate and a Boundary and a focus (restricted list of boundary directed edges).
- The face predicate takes a boundary bd, a boundary directed edge (a,b) and a tileface at a (the first vertex of the edge)
+{-|This is a general purpose filter used to create UFinder functions for each force rule.
+ It requires a face predicate.
+ The face predicate takes a Boundary bd, a boundary DEdge (a,b) and a TileFace at a
+ (the first vertex of the directed edge)
  and decides whether the face is wanted or not (True = wanted)
- This is then used to filter all the faces at the focus edges.
- For some predicates the boundary argument is not needed (eg boundaryJoin in incompleteHalves), 
+ This will be used to filter all the faces at the focus edges 
+ (when given a Boundary and list of focus edges).
+ For some predicates the boundary argument is not used (eg boundaryJoin in incompleteHalves), 
  but for others it is used to look at all the faces at b or at other faces at a besides the supplied fc 
  (eg kiteWDO in kitesWingDartOrigin) 
 -}
@@ -495,14 +488,6 @@ boundaryFilter predF bd focus =
              , fc <- facesAtBV bd (fst e)
              , predF bd e fc
              ]
-{-
-boundaryFilter predFace bd focus =   
-    [ (e,fc) | e <- bDedges bd            ------------------------------------ Predicate version
-             , focus e                    ------------------------------------ Predicate version
-             , fc <- facesAtBV bd (fst e)
-             , predFace bd e fc
-             ]
--}
 
 
 {-
@@ -514,7 +499,7 @@ boundaryFilter predFace bd focus =
      to create an update generator function.
      This is used to make all of the 10 update generators corresponding to 10 rules 
     
-    When given a boundary, list of focus edges and and updatemap,
+    When given a boundary, list of focus edges and an update map,
     the finder produces a list of new pairs of dEdge and face,
     the maker is used to convert the face in each pair to an update,
     the new (dedge,update) pairs are added to the final update map
@@ -526,33 +511,33 @@ makeGenerator maker finder bd edges umap = umap' where
     insertPair = uncurry Map.insert
 
 {- *
-10 Update Generators with their corresponding Finders
+Ten Update Generators (with corresponding Finders)
 -}
 
--- |update generator for rule (1)
+-- |Update generator for rule (1)
 wholeTileUpdates:: UpdateGenerator
 wholeTileUpdates = makeGenerator completeHalf incompleteHalves
 
--- |incompleteHalves finds faces with missing opposite face (mirror face)  
+-- |Find faces with missing opposite face (mirror face)  
 incompleteHalves :: UFinder 
 incompleteHalves = boundaryFilter boundaryJoin where
     boundaryJoin bd (a,b) fc = joinE fc == (b,a)
 
--- |update generator for rule (2)
+-- |Update generator for rule (2)
 kiteBelowDartUpdates :: UpdateGenerator
 kiteBelowDartUpdates = makeGenerator addKiteShortE nonKDarts
 
--- |nonKDarts finds half darts with boundary short edge
+-- |Find half darts with boundary short edge
 nonKDarts :: UFinder            
 nonKDarts = boundaryFilter bShortDarts where
     bShortDarts bd (a,b) fc = isDart fc && shortE fc == (b,a)
 
--- |update generator for rule (3)
+-- |Update generator for rule (3)
  -- queen and king vertices add a missing kite half
 kiteWingDartOriginUpdates :: UpdateGenerator
 kiteWingDartOriginUpdates = makeGenerator addKiteShortE kitesWingDartOrigin
 
--- |kites with boundary short edge where the wing is also a dart origin
+-- |Find kites with boundary short edge where the wing is also a dart origin
 kitesWingDartOrigin :: UFinder              
 kitesWingDartOrigin = boundaryFilter kiteWDO where
    kiteWDO bd (a,b) fc = shortE fc == (b,a) 
@@ -560,7 +545,7 @@ kitesWingDartOrigin = boundaryFilter kiteWDO where
    isDartOrigin bd v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
 
 
-{-| update generator for rule (4)
+{-| Update generator for rule (4)
      (for deuce vertices = largeKiteCentres)
      Kites whose short edge (b,a) matches a boundary edge (a,b) where their oppV (= a for LK and = b for RK)
      has 2 other kite halves sharing a shortE.
@@ -569,8 +554,8 @@ kitesWingDartOrigin = boundaryFilter kiteWDO where
 kiteGapUpdates :: UpdateGenerator
 kiteGapUpdates = makeGenerator addDartShortE kiteGaps
 
--- |kite halves with a short edge on the boundary (a,b) 
--- when there are 2 other kite halves sharing a short edge
+-- |Find kite halves with a short edge on the boundary (a,b) 
+-- where there are 2 other kite halves sharing a short edge
 -- at oppV of the kite half (a for left kite and b for right kite)
 kiteGaps :: UFinder              
 kiteGaps = boundaryFilter kiteGap where
@@ -579,15 +564,15 @@ kiteGaps = boundaryFilter kiteGap where
   hasKshortKat bd v = hasAnyMatchingE $ fmap shortE $ filter isKite $ facesAtBV bd v
 
 
--- |update generator for rule (5)
+-- |Update generator for rule (5)
 -- secondTouchingDartUpdates - jack vertex add a missing second dart
 secondTouchingDartUpdates :: UpdateGenerator
 secondTouchingDartUpdates = makeGenerator addDartShortE noTouchingDarts
 
 
--- |noTouchingDarts: kite halves with a short edge on the boundary (a,b) and oppV must be a largeDartBase  vertex
--- (oppV is a for left kite and b for right kite)
--- function mustbeLDB determines if a vertex must be a a largeDartBase
+-- |Find kite halves with a short edge on the boundary (a,b) where oppV is a largeDartBase vertex
+-- (oppV is a for left kite and b for right kite).
+-- The function mustbeLDB determines if a vertex must be a a largeDartBase
 noTouchingDarts :: UFinder              
 noTouchingDarts = boundaryFilter farKOfDarts where
    farKOfDarts bd (a,b) fc  = shortE fc == (b,a)
@@ -612,7 +597,7 @@ hasAnyMatchingE [] = False
 
 
  
-{-| update generator for rule (6)
+{-| Update generator for rule (6)
 sunStarUpdates is for vertices that must be either sun or star 
 almostSunStar finds half-kites/half-darts with a long edge on the boundary
 where their origin vertex has 8 total half-kites/half-darts respectively
@@ -623,7 +608,7 @@ sharing the long edge.
 sunStarUpdates :: UpdateGenerator
 sunStarUpdates = makeGenerator completeSunStar almostSunStar
 
--- |find a boundary long edge of either
+-- |Find a boundary long edge of either
 -- a dart where there are at least 7 dart origins, or
 -- a kite where there are at least 6 kite origins
 almostSunStar :: UFinder                  
@@ -641,24 +626,25 @@ almostSunStar = boundaryFilter multiples57 where
             dartOriginsAta = filter ((==a) . originV) (filter isDart fcsAta)             
             dartOriginsAtb = filter ((==b) . originV) (filter isDart fcsAtb)             
 
--- |update generator for rule (7)
+-- |Update generator for rule (7)
 -- jack vertices (largeDartBases) with dart long edge on boundary - add missing kite top
 dartKiteTopUpdates :: UpdateGenerator
 dartKiteTopUpdates = makeGenerator addKiteLongE noKiteTopDarts
 
--- |jack vertices (largeDartBases) with dart long edge on boundary
+-- |Find jack vertices (largeDartBases) with dart long edge on the boundary
 noKiteTopDarts :: UFinder                  
 noKiteTopDarts = boundaryFilter dartsWingDB where
     dartsWingDB bd (a,b) fc = (isLD fc && longE fc == (b,a) && mustbeLDB bd b) ||
                               (isRD fc && longE fc == (b,a) && mustbeLDB bd a)
 
--- |update generator for rule (8)
+-- |Update generator for rule (8)
 -- king vertices with 2 of the 3 darts  - add another half dart on a boundary long edge of existing darts
 thirdDartUpdates :: UpdateGenerator
 thirdDartUpdates = makeGenerator addDartLongE missingThirdDarts
 
 
--- |king vertices with 2 of the 3 darts (a kite wing and 4 dart origins present)
+-- |Find king vertices with 2 of the 3 darts (a kite wing and 4 dart origins present)
+-- and a kite long edge on the boundary
 missingThirdDarts :: UFinder                    
 missingThirdDarts = boundaryFilter pred where
     pred bd (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && length dartOriginsAta ==4) ||
@@ -672,12 +658,12 @@ missingThirdDarts = boundaryFilter pred where
             bHasKiteWing = b `elem` fmap wingV (filter isKite fcsAtb)
 
 
--- |update generator for rule (9)
+-- |Update generator for rule (9)
 -- queen vertices (with 4 kite wings) -- add any missing half dart on a boundary kite long edge
 queenDartUpdates :: UpdateGenerator
 queenDartUpdates = makeGenerator addDartLongE queenMissingDarts
 
--- |queen vertices (with 4 kite wings) and a boundary kite long edge
+-- |Find queen vertices (with 4 kite wings) and a boundary kite long edge
 queenMissingDarts :: UFinder                      
 queenMissingDarts = boundaryFilter pred where
     pred bd (a,b) fc = (isLK fc && longE fc == (b,a) && length (kiteWingsAt a) ==4) ||
@@ -686,12 +672,12 @@ queenMissingDarts = boundaryFilter pred where
                           kiteWingsAt x = filter ((==x) . wingV) $ filter isKite (facesAtBV bd x)
 
 
--- |update generator for rule (10)
+-- |Update generator for rule (10)
 -- queen vertices with 3 kite wings -- add missing fourth half kite on a boundary kite short edge
 queenKiteUpdates :: UpdateGenerator
 queenKiteUpdates = makeGenerator addKiteShortE queenMissingKite
 
--- |queen vertices with only 3 kite wings
+-- |Find queen vertices with only 3 kite wings and a kite short edge on the boundary
 queenMissingKite :: UFinder                        
 queenMissingKite = boundaryFilter pred where
     pred bd (a,b) fc = (isLK fc && shortE fc == (b,a) && length (kiteWingsAt b) ==3) ||
@@ -791,23 +777,24 @@ Other Forcing operations
 -}
 
 
--- |force applied to a SubTgraph - has no effect on tracked subsets
+-- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
 forceSub :: SubTgraph -> SubTgraph
 forceSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph (force g) tlist
 
 
 {-
 Other Force Related Functions
-addKite, addDart, forceLDB, forceLKC
+addHalfKite, addHalfDart, forceLDB, forceLKC
 -}
 
 
--- |addHalfKite and addHalfDart are not efficient but used to tinker with a graph by adding a single half tile
--- e.g. to see how it affects forcing. They use the update makers (UMaker)
-
--- adding by hand a single half kite
--- must be to a boundary edge but direction is automatically calculated
--- Will fail if edge is a dart join
+-- |[addHalfKite and addHalfDart are not efficient but used to tinker with a Tgraph by adding a single half tile
+-- e.g. to see how it affects forcing. They use the update makers (UMaker).]
+-- 
+-- addHalfKite is for adding a single half kite on a chosen DEdge of a Tgraph.
+-- The DEdge must be a boundary edge but the direction is not important as
+-- the correct direction is automatically calculated.
+-- It will fail if the edge is a dart join.
 addHalfKite :: Tgraph -> DEdge -> Tgraph
 addHalfKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
   bd = makeBoundary g
@@ -819,10 +806,11 @@ addHalfKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
     | shortE fc == reverseE de = addKiteShortE bd fc
     | joinE fc == reverseE de && isKite fc = completeHalf bd fc
     | otherwise = error "addHalfKite: applied to dart join (not possible)"
-      
--- |adding by hand a single half dart
--- must be to a boundary edge but direction is automatically calculated
--- Will fail if edge is a dart short edge or kite join.
+
+-- |addHalfDart is for adding a single half dart on a chosen DEdge of a Tgraph.
+-- The DEdge must be a boundary edge but the direction is not important as
+-- the correct direction is automatically calculated.
+-- It will fail if the edge is a dart short edge or kite join.
 addHalfDart :: Tgraph -> DEdge -> Tgraph
 addHalfDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
   bd = makeBoundary g
@@ -837,7 +825,7 @@ addHalfDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
     = error "addHalfDart: applied to short edge of dart or to kite join (not possible)"
 
 
--- |For an unclassifiable dart tip v, force it to become a large dart base (largeDartBase) by
+-- |For an unclassifiable dart wing v in a Tgraph, force it to become a large dart base (largeDartBase) by
 -- adding a second half dart face (sharing the kite below the existing half dart face at v)
 -- This assumes exactly one dart wing tip is at v, and that half dart has a full kite below it.
 forceLDB :: Vertex -> Tgraph -> Tgraph
@@ -850,16 +838,17 @@ forceLDB v g = recoverGraph $ newBoundary $ doUpdate bd (addDartShortE bd k) whe
     k = mustFind ((/= oppV d) . wingV) ks $
            error ("forceLDB: incomplete kite below dart " ++ show d)
 
--- |forceLKC adds 3 pieces of a larger kite at an unknown vertex. That is,
--- For an unclassifiable dart tip v, force it to become a large kite centre (largeKiteCentres) by adding
+-- |For an unclassifiable dart wing v in a Tgraph, force it to become a large kite centre (largeKiteCentres) by adding
 -- 3 faces - a second half dart face sharing the long edge of the existing half dart face at v,
 -- and then completing the kite on the new half dart short edge.
 -- This assumes exactly one dart wing tip is at v.
+-- (Note: farK for a half-dart d is that half of a full kite attached to the short edge of d
+-- which does not share an edge with d). 
 -- It is safe to add the 3 parts because v being unknown ensures the
 -- existing dart has a boundary long edge and 
 -- the new farK does not already exist (attached to existing dart farK),
 -- provided the existing dart half has no kite or a full kite below.
--- If it has only a half kite below, but the new farK exists, then v will already have crossing boundaries.
+-- If it has only a half kite below, but the new farK exists, then v will already be a crossing boundary.
 forceLKC :: Vertex -> Tgraph -> Tgraph
 forceLKC v g = recoverGraph bd3 where
     bd0 = makeBoundary g
@@ -875,8 +864,8 @@ forceLKC v g = recoverGraph bd3 where
     bd3 = newBoundary $ doUpdate bd2 (completeHalf bd2 newk)
 
 {-| mustFind is used to search (in forceLKC and forceLDB)
-It returns the first item satisfying predicate p and returns
-err arg when none found       
+mustFind p ls err returns the first item in ls satisfying predicate p and returns
+err argument when none found       
 -}
 mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
 mustFind p ls err = case find p ls of
@@ -919,18 +908,18 @@ indicates a crossing boundary so an error is reported as it is unsafe to assume 
 Possible Touching Vertices.
 When searchThirdV / findThirdV return Nothing, this means a new vertex needs to be created.
 This will need to have its position checked against other (boundary) vertices to avoid
-creating touching vertices/crossing boundary. (Taken care of in tryUpdate)
+creating touching vertices/crossing boundary. (Taken care of in tryUnsafeUpdate)
 ---------------------------------}
 
--- |findThirdV is the main exported interface to find a third vertex for a face added to a boundary edge.
--- It is a simpler interface to searchThirdV which it uses.
--- findThirdV bd (a,b) n m
--- (bd is a Boundary)
--- the two integer arguments n and m are the INTERNAL angles for the new face on the boundary edge (a,b)
--- for a and b respectively and must both be either 1,2, or 3.
--- It converts n and m to IntAngles
--- but subtracts n from 10 to get the antiClockwise (external) angle on the first vertex,
--- before calling searchThirdV to return a Maybe Vertex
+-- |findThirdV is the main exported interface to find a third vertex for a face added to
+-- the RIGHT HAND SIDE of a directed boundary edge.
+-- It is a simpler interface for searchThirdV (which it uses).
+-- In findThirdV bd (a,b) n m, the two integer arguments n and m are the INTERNAL angles
+-- for the new face on the boundary edge (a,b)
+-- (for a and b respectively) expressed as multiples of tt (tt being a tenth turn) and must both be either 1,2, or 3 
+-- It converts n and m to the correct IntAngles,
+-- subtracting n from 10 to get the antiClockwise (external) angle on the first vertex (a),
+-- before calling searchThirdV to return a Maybe Vertex. (See also searchThirdV)
 findThirdV:: Boundary -> DEdge -> Int -> Int -> Maybe Vertex
 findThirdV bd (a,b) n m = checkAngleNumbers $ searchThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
   where checkAngleNumbers x = if n `elem` [1,2,3] && m `elem` [1,2,3]
@@ -942,7 +931,7 @@ findThirdV bd (a,b) n m = checkAngleNumbers $ searchThirdV bd (a,b) (IntAngle (1
 -- |IntAngles are Ints mod 10
 newtype IntAngle = IntAngle Int deriving(Eq,Show)
 
--- |make an IntAngles from an Int (using `mod` 10)
+-- |make an IntAngle from an Int (using `mod` 10)
 intAngle :: Int -> IntAngle
 intAngle n = IntAngle (n `mod` 10)
 -- |from IntAngle n, turn clockwise/anticlockwise by IntAngle m to get a new IntAngle
@@ -950,28 +939,25 @@ anti,clock:: IntAngle -> IntAngle -> IntAngle
 anti  (IntAngle n) (IntAngle m) = intAngle (n+m)
 clock (IntAngle n) (IntAngle m) = intAngle (n-m)
 
-{- | searchThirdV             
-The main function for constructing a new face is searchThirdV
-searchThirdV bd (a,b) nAnti nClock will find the third vertex of a face depending on edges found
-to form a face on the >>> RIGHT HAND SIDE <<<< of the directed edge (a,b) - which must be 
-a boundary directed edge.
+{- | searchThirdV is the main function for constructing a new face.
+searchThirdV bd (a,b) nAnti nClock will find the third vertex of a face to be added to
+the RIGHT HAND SIDE of boundary directed edge (a,b) by inspecting the edges found at a and b.
 (To add to the LHS of (a,b) then the boundary direction must be (b,a) so add to the right of (b,a))
 
-nAnti is the angle number searched for at vertex a going anticlockwise (starting with (a,b) as angle 0).
-nAnti should be 7, 8, or 9 for the face to be on RHS
+nAnti is the IntAngle searched for at vertex a going anticlockwise (starting with (a,b) as IntAngle 0).
+nAnti should be formed from integers 7, 8, or 9 for the face to be on RHS.
 
-nClock is the angle number searched for at vertex b going clockwise (starting with (b,a) as 0).
-nClock should be 1,2, or 3 for the face to be on RHS
+nClock is the IntAngle searched for at vertex b going clockwise (starting with (b,a) as IntAngle 0).
+nClock should be formed from integers 1,2, or 3 for the face to be on RHS.
 
 If existing edges are found in the specified directions
-they are used and the associated vertex is returned (Just v). 
-If nothing is found, Nothing is returned - indicating the a new vertex is needed
+they are used and the associated third vertex is returned (Just v). 
+If nothing is found, Nothing is returned - indicating that a new vertex is needed.
 
-A gap in faces around a and b can result in a *crossing boundary* error
-when it is unsafe to conclude the edges do not exist. 
-The functions findAntiAt and findClockAt should detect the found edge NOT on the boundary.
-They are passed the Boundary information purely in order to include this in error reporting.
-Note findAntiAt is passed the directed boundary edge, but findClockAt is passed the reverse directed edge.
+A gap in faces processed round a and b (i.e. a boundary edge before all faces are checked) will indicate
+a *crossing boundary* error
+where it is unsafe to conclude the edges do not exist.
+This problem should be detected by findClockAt and findAntiAt.
 -} 
 searchThirdV:: Boundary -> DEdge -> IntAngle -> IntAngle -> Maybe Vertex
 searchThirdV bd (a,b) nAnti nClock  = 
@@ -984,22 +970,47 @@ searchThirdV bd (a,b) nAnti nClock  =
 
 {-| findClockAt, findAntiAt
 For a boundary bd and boundary directed edge (a,b) 
-findAntiAt bd n (a,b) fcs will look at directed edges from a of fcs going anti-clockwise round a with their direction
-starting with (a,b) in direction 0. fcs must be the faces at a. It then returns Just c if (a,c) is found in direction n.
-It will return Nothing if no such edge (a,c) is found BUT a *crossing boundary* error if there are faces left over
-when a match fails.
+findAntiAt bd n (a,b) fcs will look at directed edges from a of fcs going anti-clockwise round a with
+their direction starting with (a,b) in direction 0.
+fcs must be the faces at a. It then returns Just c if (a,c) is found in direction n on the boundary.
+It will return Nothing if no such edge (a,c) is found BUT a *crossing boundary* error
+if a boundary edge is found before the sought angle.
 It also produces an error if the last angle found is beyond the one searched for.
-This indicates an incorrect graph, and the boundary argument is used just for reporting the error in such cases.
-Similarly findClockAt in the clockwise direction but called with the reverse directed edge, so fcs must be faces at b.
+This indicates an incorrect graph, and the boundary argument is used just for reporting the error
+in such cases.
+Similarly findClockAt in the clockwise direction but called with the reverse directed edge,
+so fcs must be faces at b.
 -}
 findClockAt, findAntiAt :: Boundary -> IntAngle -> (Vertex, Vertex) -> [TileFace] -> Maybe Vertex
-findClockAt bd n (a,b) fcs = errorCheckClock bd a n $ allAnglesClock [(intAngle 0,b)] fcs
+{-| findAntiAt bd n (a,b) fcs
+(for a boundary bd and boundary directed edge (a,b) and faces at a fcs)
+will look at directed edges from a of fcs going anti-clockwise round a with
+their direction starting with (a,b) in direction 0.
+It then returns Just c if (a,c) is found in direction n on the boundary.
+It will return Nothing if no such edge (a,c) is found BUT a *crossing boundary* error
+if a boundary edge is found before the sought angle.
+It also produces an error if the last angle found is beyond the one searched for.
+This indicates an incorrect graph, and the boundary argument is used just for reporting the error
+in such cases.
+-}
 findAntiAt  bd n (a,b) fcs = errorCheckAnti bd a n  $ allAnglesAnti  [(intAngle 0,b)] fcs
+{-| findClockAt bd n (a,b) fcs
+(for a boundary bd and boundary directed edge (a,b) and faces at b fcs)
+findClockAt bd n (a,b) fcs will look at directed edges from b of fcs going anti-clockwise round b with
+their direction starting with (b,a) in direction 0.
+It then returns Just c if (b,c) is found in direction n on the boundary.
+It will return Nothing if no such edge (b,c) is found BUT a *crossing boundary* error
+if a boundary edge is found before the sought angle.
+It also produces an error if the last angle found is below the one searched for.
+This indicates an incorrect graph, and the boundary argument is used just for reporting the error
+in such cases.
+-}
+findClockAt bd n (a,b) fcs = errorCheckClock bd a n $ allAnglesClock [(intAngle 0,b)] fcs
 
--- |errorCheckAnti bd n and errorCheckClock bd n are used instead of just lookup n, 
--- because the search for n should find it in the front pair on the resulting list or not at all.
+-- |errorCheckAnti bd v n and errorCheckClock bd v n are used instead of just lookup n, 
+-- because the search for n should find it in the front pair on the list or not at all.
 -- However if the first angle is smaller than n for checkClockFor or bigger than n for checkAntiFor,
--- there is an incorrect graph.  The first 2 arguments are passed only to report such errors
+-- there is an incorrect graph.  The first 2 arguments are passed only to report such errors.
 errorCheckAnti,errorCheckClock::Boundary -> Vertex -> IntAngle -> [(IntAngle,Vertex)] -> Maybe Vertex
 errorCheckAnti bd v n [] = Nothing
 errorCheckAnti bd v n ms@((m, a) : _)
@@ -1034,7 +1045,7 @@ errorCheckClock bd v n ms@((m, a) : _)
 
 
 {-| allAnglesClock and allAnglesAnti are used by findClockAt and findAntiAt
-The second argument is the unprocessed list of faces attached to a common vertex a
+The second argument is the unprocessed list of faces attached to a common vertex a.
 The first argument is the accumulated list of directions found so far with last one at the front of the list
 e.g (n,last) means the last edge found was (a,last) at angle n.
 It looks for another face sharing vertex last (and therefore edge (a,last)) and uses this
@@ -1069,7 +1080,7 @@ faceAngles _      = fmap intAngle [1,2,2] -- LK and RK
 
 
 {-|
-For testing  allAnglesAnti and allAnglesClock on a boundary directed edge
+For testing  allAnglesAnti and allAnglesClock on a boundary directed edge.
 The RHS of directed edge (a,b) should be the exterior side.
 -}
 testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces g),

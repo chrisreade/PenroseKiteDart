@@ -25,15 +25,21 @@ import Data.Maybe (mapMaybe)
 import Diagrams.Prelude
 import ChosenBackend (B)
 
+{- * VPatches
+-}
 -- |a DualRep contains two representations - a vector and a face(= 3 vertices)
-data DualRep = DualRep {vector:: V2 Double, face::(Int,Int,Int)} deriving Show
+data DualRep = DualRep {vector:: V2 Double, face::(Vertex,Vertex,Vertex)} deriving Show
 
 -- |needed for making DualRep (and hence VPatch) transformable
 type instance N DualRep = Double
+-- |needed for making DualRep (and hence VPatch) transformable
 type instance V DualRep = V2
 
+-- |needed for making VPatch an instance of Show
 type instance N Vertex = Double
+-- |needed for making VPatch an instance of Show
 type instance V Vertex = V2
+
 
 -- |making DualRep (and hence VPatch) transformable
 instance Transformable DualRep where 
@@ -57,14 +63,11 @@ instance Transformable VPatch where
     transform t (VPatch {lVertices = lvs,  lHybrids = lhs})
          =  VPatch {lVertices = fmap (\lv -> unLoc lv `at` transform t (loc lv)) lvs,  lHybrids = transform t lhs}
 
-{-| makeVPatch - Converting a graph to a vpatch
+{-| For converting a Tgraph to a VPatch.
 An empty graph is a special case.
-Otherwise
-Use chooseLowest to choose a starting face (placed at front of list of faces of g)
-Then use createVPoints to form a mapping of vertices to positions vpMap
-Then convert original faces to located hybrids using makeLHyb and vpMap 
-and convert vpMap to located vertices using locateV and Map.toList
-to form a VPatch
+Otherwise it uses chooseLowest to choose a starting face (placed at the front of the list of faces)
+Then uses Tgraph.Prelude.createVPoints to form a mapping of vertices to positions.
+This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
 -}
 makeVPatch::Tgraph -> VPatch
 makeVPatch g = if nullGraph g 
@@ -80,10 +83,10 @@ makeVPatch g = if nullGraph g
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
 
--- |for Non-empty list of tile faces
--- find the face with lowest originV (and then lowest oppV) 
--- Move the face to the front of the returned list
--- Used by makeVPatch (and hence makePatch) for Non-empty graph
+-- |For a non-empty list of tile faces
+-- find the face with lowest originV (and then lowest oppV).
+-- Move this face to the front of the returned list of faces.
+-- Used by makeVPatch (and hence makePatch) for non-empty Tgraphs
 chooseLowest:: [TileFace] -> [TileFace]
 chooseLowest fcs = face:(fcs\\[face]) where
     a = minimum (fmap originV fcs)
@@ -101,14 +104,11 @@ and the Located Vertex information is dropped
 makePatch:: Tgraph -> Patch
 makePatch = dropVertices . makeVPatch
 
--- |graphFromVP: an inverse to makeVPatch which checks for connected and no crossing boundaries
+-- |An inverse to makeVPatch which checks for connected and no crossing boundaries
 graphFromVP:: VPatch -> Tgraph
 graphFromVP = checkTgraph . dropVectors
 
-{-
-*************************************
-Drawing Patches, VPatches, and Graphs
-*************************************
+{- * Drawing VPatches and Graphs
 -}
 
 -- |simplest drawing without vertex labels
@@ -131,7 +131,7 @@ drawVPatch = drawVPatchWith dashJPiece
 drawVPatchWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
 drawVPatchWith pd vp = drawVlabels (lVertices vp) <> patchWith pd (dropVertices vp)
 
--- |make a diagram of located vertices (used by drawVPatch and drawVPatchWith)
+-- |make a diagram of vertex labels given located vertices (used by drawVPatch and drawVPatchWith)
 drawVlabels :: [Located Vertex] -> Diagram B
 drawVlabels locvs = position $ fmap (viewLoc . mapLoc label) locvs
     where label n = baselineText (show n) # fontSize (global 0.3) # fc red
@@ -157,16 +157,13 @@ selectFacesVP fcs = withHybs (findAll fcs) where
 selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
 selectFacesGtoVP fcs g = selectFacesVP fcs (makeVPatch g)
 
--- |removeFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
+-- |removeFacesGtoVP fcs g - remove faces (fcs) after converting g to a VPatch
 removeFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
 removeFacesGtoVP fcs g = removeFacesVP fcs (makeVPatch g)
 
-{- 
-----------------------------------------
- Alignment with vertices
--------------------------------------------
--}
 
+{- * Alignment with Vertices
+-}
 
 -- |center a VPatch on a particular vertex
 centerOn :: Vertex -> VPatch -> VPatch
@@ -175,7 +172,7 @@ centerOn a vp =
         Just loca -> translate (origin .-. loca) vp
         _ -> error ("centerOn: vertex not found "++ show a)
 
--- |alignXaxis takes a vertex pair (a,b) an a VPatch vp
+-- |alignXaxis takes a vertex pair (a,b) and a VPatch vp
 -- for centering vp on a and rotating the result so that b is on the positive X axis.
 alignXaxis :: (Vertex, Vertex) -> VPatch -> VPatch    
 alignXaxis (a,b) vp =  rotate angle newvp
@@ -187,7 +184,7 @@ alignXaxis (a,b) vp =  rotate angle newvp
 
 -- |alignments takes a list of vertex pairs for respective rotations of VPatches in the second list.
 -- For a pair (a,b) the Vpatch is centered on a then b is aligned along the positive x axis. 
--- The vertex pair list can be shorter than the list of vpatches - the remaining vpatches are left unrotated.
+-- The vertex pair list can be shorter than the list of vpatches - the remaining vpatches are left as they are.
 alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]     
 alignments [] vps = vps
 alignments prs [] = error "alignments: Too many alignment pairs"  -- prs non-null
@@ -202,10 +199,8 @@ alignAll :: (Vertex, Vertex) -> [VPatch] -> [VPatch]
 alignAll (a,b) = fmap (alignXaxis (a,b))
     -- alignments ablist vps where ablist = take (length vps) (repeat (a,b))
 
-{- 
-----------------------------------------
- Rotating and Scaling lists
--------------------------------------------
+
+{- * Rotating and Scaling lists
 -}
 
 -- |rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
@@ -228,16 +223,14 @@ scales _  [] = error "scales: too many scalars"
 phiScales:: (Transformable a, V a ~ V2, N a ~ Double) => [a] -> [a]
 phiScales = phiScaling 1
 
--- |increasing scales by phi along a list starting with given argument s
+-- |increasing scales by phi along a list starting with given first argument
 phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
 phiScaling s [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
 
-{-
-----------------------------------------
- Auxiliary definitions
--------------------------------------------
+{- *  Auxiliary definitions
 -}
+
 
 -- |makes an association list of vertex to location from a VPatch
 vertexLocs :: VPatch -> [(Vertex, Point V2 Double)]
@@ -288,16 +281,15 @@ drawEdge vpMap (a,b) = case (Map.lookup a vpMap, Map.lookup b vpMap) of
                          _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
    
 
-{-
-    *********************
-    Drawing of SubTgraphs
-    *********************
+{- *  Drawing SubTgraphs
 -}
+                     
+                     
 {-|
     To draw a SubTgraph, we need a list of functions turning patches into diagrams
     The first function is applied to a patch for untracked faces
     Subsequent functions are applied to the respective tracked subsets
-    (The last patch is atop earlier ones, so the untracked patch is at the bottom)
+    (Each patch is atop earlier ones, so the untracked patch is at the bottom)
 -}
 drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
 drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
@@ -323,9 +315,11 @@ drawSubTgraph2 = drawSubTgraph [ drawPatch
                                ]
 
 
-{-| TESTING function touchingVertices
-For use if Touching vertex chack is switched off in forcing.  This is a reptrospective check.
+{- *  Touching Vertex global check
+-}
 
+{-| A TESTING function
+for use if the touching vertex check is switched off in forcing.  This is a reptrospective check.
 touchingVertices checks that no vertices are too close to each other by making a VPatch of a Tgraph.
 If vertices are too close that indicates we may have the same point with two different vertex numbers
 arising from the touching vertex problem. 
