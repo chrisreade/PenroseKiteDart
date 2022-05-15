@@ -2,7 +2,7 @@
 Module      : Tgraph.Force
 Description : The main force function for Tgraphs 
 Copyright   : (c) Chris Reade, 2021
-License     : MIT
+License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 

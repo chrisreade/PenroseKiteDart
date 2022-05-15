@@ -2,7 +2,7 @@
 Module      : HalfTile
 Description : Introducing a generic type for half tiles of darts and kites
 Copyright   : (c) Chris Reade, 2021
-License     : MIT
+License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 

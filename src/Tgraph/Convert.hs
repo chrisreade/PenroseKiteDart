@@ -2,7 +2,7 @@
 Module      : Tgraph.Convert
 Description : Conversion of Tgraphs to Patches (and VPatches) for drawing Tgraphs
 Copyright   : (c) Chris Reade, 2021
-License     : MIT
+License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 

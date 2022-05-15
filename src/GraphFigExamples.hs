@@ -6,7 +6,7 @@
 Module      : GraphFigExamples
 Description : Examples of tilings represented with Tgraphs with diagrams 
 Copyright   : (c) Chris Reade, 2021
-License     : MIT
+License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 

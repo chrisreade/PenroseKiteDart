@@ -2,7 +2,7 @@
 Module      : Tgraphs
 Description : Collects and exports the various Tgraph modules 
 Copyright   : (c) Chris Reade, 2021
-License     : MIT
+License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 

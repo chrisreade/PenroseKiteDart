@@ -2,7 +2,7 @@
 Module      : ChosenBackend
 Description : Exports mainWith and B for the chosen backend 
 Copyright   : (c) Chris Reade, 2021
-License     : MIT
+License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 

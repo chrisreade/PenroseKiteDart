@@ -25,7 +25,7 @@ import Tgraph.Convert
 
                 
 fig::Diagram B
-fig = kkEmpsFig
+fig = blackAndWhite
 --halfWholeFig --drawForceEmplace sunPlus3Dart' --maxShapesFig -- newDartPlusFig -- maxEmplaceFig --halfWholeFig
 
 main = mainWith fig

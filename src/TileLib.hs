@@ -6,7 +6,7 @@
 Module      : TileLib
 Description : Operations on Pieces and Patches including drawing operations
 Copyright   : (c) Chris Reade, 2021
-License     : MIT
+License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
@@ -97,7 +97,7 @@ fillDK' dcol kcol pc =
                 (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc kcol
                 _      -> mempty
 
--- |drawPiece with added join edge (also fillable as a loop)
+-- |same as drawPiece but with added join edge (also fillable as a loop)
 drawJPiece:: Piece -> Diagram B
 drawJPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
 
@@ -112,12 +112,12 @@ fillDK dcol kcol piece = drawPiece piece <> (drawJPiece piece # fc col # lc col)
                         (RK _) -> kcol
 
 
--- |join edge added as dashed-line
+-- |same as drawPiece but with join edge added as dashed-line
 dashJPiece:: Piece -> Diagram B
 dashJPiece piece = drawPiece piece <> (drawJ piece # dashingO [1,1] 0) -- # lw ultraThin)
 -- dashJPiece piece = drawPiece piece <> (drawJ piece # dashingN [0.002,0.002] 0 # lw ultraThin)
 
--- |draw join only 
+-- |draw join edge only 
 drawJ:: Piece -> Diagram B
 drawJ piece = strokeLine (fromOffsets [getJVec piece]) 
         
@@ -137,7 +137,7 @@ experiment pc = emph pc <> (drawJPiece pc # dashingN [0.002,0.002] 0 # lw ultraT
 
 
 
--- |A patch is a list of Located pieces (i.e. a point associated with originV)
+-- |A patch is a list of Located pieces (the point associated with each piece locates its originV)
 type Patch = [Located Piece]
 
 -- |turn a patch into a diagram using the first argument for drawing pieces
@@ -153,7 +153,7 @@ drawPatch = patchWith drawPiece
 dashJPatch:: Patch -> Diagram B      
 dashJPatch = patchWith dashJPiece
 
--- |colourDKG fill in a patch p with c1 colour for darts, c2 colour for kites and c3 colour for grout (non-join edges)
+-- |colourDKG (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and colour c3 for grout (that is, the non-join edges).
 colourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
 colourDKG (c1,c2,c3) p = patchWith (fillDK c1 c2) p # lc c3
 
@@ -162,7 +162,7 @@ colourDKG (c1,c2,c3) p = patchWith (fillDK c1 c2) p # lc c3
 
 {-|
 Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch
-Decomposition is unique.
+Decomposition is uniquely determined.
 -}
 decompose :: Patch -> Patch
 decompose = concatMap decompPiece
@@ -196,9 +196,9 @@ decompositions = iterate decompose
 
 {-|
 Inflating produces a list of choices NOT a Patch.
-Inflating a single piece located at p - produces a list of alternative located pieces.
-Each is a larger scale single piece with new location 
-(to ensure the larger piece contains the original in its original position in a decomposition)
+Inflating a single located piece produces a list of alternative located pieces.
+Each of these is a larger scale single piece with a location such that when decomposed
+the original piece in its original position is part of the decomposition)
 -}
 inflate :: Located Piece -> [Located Piece]
 inflate lp = case viewLoc lp of
