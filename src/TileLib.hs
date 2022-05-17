@@ -249,6 +249,31 @@ sun =  penta [rkite `at` origin, lkite `at` origin]
 star = penta [rdart `at` origin, ldart `at` origin]
 
 
+-- |rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
+-- This includes Diagrams, Patches, VPatches
+-- The integer list can be shorter than the list of items - the remaining items are left unrotated.
+rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
+rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
+rotations [] ds = ds
+rotations _  [] = error "rotations: too many rotation integers"
+
+
+-- |scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
+-- This includes Diagrams, Patches, VPatches
+-- The list of doubles can be shorter than the list of items - the remaining items are left unscaled.
+scales :: (Transformable a, V a ~ V2, N a ~ Double) => [Double] -> [a] -> [a]
+scales (s:ss) (d:ds) = scale s d: scales ss ds
+scales [] ds = ds
+scales _  [] = error "scales: too many scalars"
+
+-- |increasing scales by phi along a list starting with 1
+phiScales:: (Transformable a, V a ~ V2, N a ~ Double) => [a] -> [a]
+phiScales = phiScaling 1
+
+-- |increasing scales by phi along a list starting with given first argument
+phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
+phiScaling s [] = []
+phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
 
 
 

@@ -143,6 +143,35 @@ newFillSun6::Diagram B
 newFillSun6 = patchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
 
 
+
+-- |list of 3 diagrams for colour filled star,sun kite respectivly
+threeColouredShapes:: [Diagram B]
+threeColouredShapes = [star4,sun4,kite5] where
+        star4 = colourDKG (goldenrod, darkturquoise, saddlebrown) (decompositions TileLib.star !!4)
+        sun4 = colourDKG (darken 0.7 darkmagenta, indigo, gold) (suns!!4)
+        kite5 = colourDKG (darkblue,blend 0.9 red magenta, yellow) $
+                 scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
+
+-- |diagram of three coloured shapes in a row
+exampleTriple1::Diagram B
+exampleTriple1 =  hsep 0.1 $ lw thin $ rotations [0,0,2] $ fmap center threeColouredShapes
+
+-- |diagram of three coloured shapes in an arc
+exampleTriple2::Diagram B
+exampleTriple2 =  position $ zip [ p2(-2.55,-0.75), p2(0.0,1.0), p2(2.0,-1.2)] $
+                   lw thin $ rotations [1,0,1] $ fmap center threeColouredShapes
+
+{- OLDER VERSIONS
+threeColourFilled = lw thin $
+    position 
+    [ (p2(0.0,0.0)  ,colourDKG (darken 0.7 darkmagenta, indigo, gold) sun4)
+    , (p2(-3.0,0.0) ,colourDKG (goldenrod, darkturquoise, saddlebrown) star4)
+    , (p2(3.2, -1.4)  ,rotate (90 @@ deg) $ colourDKG (darkblue,blend 0.9 red magenta, yellow) kite5)
+    ] where
+        sun4 = suns!!4
+        star4 = decompositions TileLib.star !!4
+        kite5 = scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
+
 -- |showing three decomposed shapes with colouring for dart,kite and grout (edges)
 -- arranged in an arc
 threeShapesSample::Diagram B
@@ -155,61 +184,76 @@ threeShapesSample = lw thin $
         sun4 = suns!!4
         star4 = decompositions TileLib.star !!4
         kite5 = scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
-
--- |showing three decomposed shapes with colouring for dart,kite and grout (edges)
--- arranged in row
-threeColourFilled::Diagram B
-threeColourFilled = lw thin $
-    position 
-    [ (p2(0.0,0.0)  ,colourDKG (darken 0.7 darkmagenta, indigo, gold) sun4)
-    , (p2(-3.0,0.0) ,colourDKG (goldenrod, darkturquoise, saddlebrown) star4)
-    , (p2(3.2, -1.4)  ,rotate (90 @@ deg) $ colourDKG (darkblue,blend 0.9 red magenta, yellow) kite5)
-    ] where
-        sun4 = suns!!4
-        star4 = decompositions TileLib.star !!4
-        kite5 = scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
-
+-}
 
 
 {-*
 Swatches and Samples for colour-filled patches
 -}
 
-{-|  
-A swatch is a list of triples of colours which are used to fill sun5s 
-The order is dart fill colour, kite fill colour, grout (=edge) colour.
--}
-type Swatch = [(Colour Double,Colour Double,Colour Double)]
+-- |A sample abbreviates triples of colours (used for Dart,Kite,Grout (Edges) respectively
+type Sample = (Colour Double,Colour Double,Colour Double)
 
-{-|
-drawSwatch n sw produces a diagram from a swatch sw where n is used to indicate how many samples in a row
-(best displayed at 800).
--}
+-- |A swatch is a list of samples which are used to fill sun5s by drawSwatch
+type Swatch = [Sample]
+
+
+-- |drawSwatch n sw produces a sun5 filled example for each sample in the swatch sw.
+-- These are combined into a single diagram in rows of length n
 drawSwatch:: Int -> Swatch -> Diagram B
 drawSwatch n swatch = vsep 0.25 (hsep 0.25 . fmap sample <$> group n swatch) where
                      group n l = if length l <= n then [l] else take n l: group n (drop n l)
                      sample (c1,c2,c3) = colourDKG (c1,c2,c3) sun5 # lw ultraThin
 
--- |a sample is similarly a triple of colours  for a single sun6
--- (best displayed at 800).
-drawSample:: (Colour Double,Colour Double,Colour Double) -> Diagram B
+-- |The sample is used to fill a 6 times decomposed sun
+drawSample:: Sample -> Diagram B
 drawSample (c1,c2,c3) = colourDKG (c1,c2,c3) sun6 # lw thin
 
 
--- |a large sample is similarly a triple of colours  for a single sun7
--- (best displayed at 1000)
-drawLargeSample:: (Colour Double,Colour Double,Colour Double) -> Diagram B
-drawLargeSample (c1,c2,c3) = colourDKG (c1,c2,c3) (suns!!7) # lw ultraThin
+-- |The sample is used to fill a 7 times decomposed sun
+-- (so smaller kites and darts than drawSample).
+drawSampleSmall:: Sample -> Diagram B
+drawSampleSmall (c1,c2,c3) = colourDKG (c1,c2,c3) (suns!!7) # lw thin
 
--- |diagram of black and white large sample
+-- |The sample is used to fill an 8 times decomposed sun
+-- (so muuch smaller kites and darts than drawSample).
+drawSampleTiny:: Sample -> Diagram B
+drawSampleTiny (c1,c2,c3) = colourDKG (c1,c2,c3) (suns!!8) # scale phi # lw ultraThin
+
+
+-- |crop a diagram to half width and centred with A4 portrait dimensions.
+-- Ideal for decomposed suns.
+sunCropA4::Diagram B -> Diagram B
+sunCropA4 d = clipTo a4 (d # centerXY) where -- clipped a4 ... seems slow
+                  w = width d /2
+                  h = w * 290/210
+                  a4 = rect w h # centerXY
+
+-- |Make an A4 diagram using sample colours with drawSampleSmall
+a4Small :: Sample -> Diagram B
+a4Small = sunCropA4 . drawSampleSmall
+
+-- |Make an A4 diagram using sample colours with drawSampleTiny
+a4Tiny :: Sample -> Diagram B
+a4Tiny = sunCropA4 . drawSampleTiny
+
+-- |diagram for black and white example using a4Tiny
 blackAndWhite::Diagram B
-blackAndWhite = drawLargeSample (white,black, blend 0.5 black white)
+blackAndWhite = a4Tiny (white,black, blend 0.5 black white)
+
+-- |diagram for darkmagenta, indigo, gold example using a4Tiny
+migA4Tiny::Diagram B
+migA4Tiny = a4Tiny (darkmagenta, indigo, gold)
+
+-- |diagram for darkblue,red ,yellow example using a4Small
+bryA4Small::Diagram B
+bryA4Small = a4Small (darkblue,blend 0.9 red magenta, yellow)
 
 -- |sample coloured tile diagrams (using decomposed suns)
 sL1,sL2,sL3,news1,s7,s8,s9,s1,s2,s3,s4,s5,s6:: Diagram B                            
-sL1 = drawLargeSample (darkmagenta, indigo, gold)
-sL2 = drawLargeSample (goldenrod, darkturquoise, saddlebrown)
-sL3 = drawLargeSample (darkblue,blend 0.9 red magenta, yellow) 
+sL1 = drawSampleSmall (darkmagenta, indigo, gold)
+sL2 = drawSampleSmall (goldenrod, darkturquoise, saddlebrown)
+sL3 = drawSampleSmall (darkblue,blend 0.9 red magenta, yellow) 
 news1 = drawSample (darken 0.7 darkmagenta, indigo, gold)
 s7 = drawSample (indigo, red, gold)  
 s8 = drawSample (darkgoldenrod, blue, blend 0.7 pink red)

@@ -200,9 +200,11 @@ alignAll (a,b) = fmap (alignXaxis (a,b))
     -- alignments ablist vps where ablist = take (length vps) (repeat (a,b))
 
 
+{-
 {- * Rotating and Scaling lists
 -}
 
+{-
 -- |rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
 -- This includes Diagrams, Patches, VPatches
 -- The integer list can be shorter than the list of items - the remaining items are left unrotated.
@@ -210,6 +212,7 @@ rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
 rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
 rotations [] ds = ds
 rotations _  [] = error "rotations: too many rotation integers"
+-}
 
 -- |scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
 -- This includes Diagrams, Patches, VPatches
@@ -227,6 +230,7 @@ phiScales = phiScaling 1
 phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
 phiScaling s [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
+-}
 
 {- *  Auxiliary definitions
 -}
