@@ -58,17 +58,17 @@ Basic Tgraph, vertex, edge, face operations
 --------------------------------------------}
 
 
--- |provided a list of faces makes sense and are face-edge-connected
--- makeTgraph will create a Tgraph from the faces by calculating vertices
+-- |Creates a Tgraph from a list of faces by calculating vertices.
+-- It does not perform checks on the faces. Use checkTgraph to perform checks.
 makeTgraph:: [TileFace] -> Tgraph
 makeTgraph fcs =
     Tgraph { vertices = nub $ concatMap faceVList fcs
            , faces = fcs
            }
 
--- |checkTgraph creates a graph from faces but checks for edge conflicts and
--- crossing boundaries and connectedness
--- No crossing boundaries and connected => face-connected
+-- |Creates a Tgraph from a list of faces but checks the faces for edge conflicts and
+-- crossing boundaries and connectedness.
+-- (No crossing boundaries and connected implies face-connected).
 checkTgraph:: [TileFace] -> Tgraph
 checkTgraph fcs = 
     let g = makeTgraph fcs in
@@ -84,7 +84,7 @@ checkTgraph fcs =
          else g
 
 -- |select or remove faces from a Tgraph,
--- but check resulting graph for connectedness and no crossing boundaries
+-- but check resulting Tgraph for connectedness and no crossing boundaries.
 selectFaces, removeFaces  :: [TileFace] -> Tgraph -> Tgraph
 selectFaces fcs g = checkTgraph (faces g `intersect` fcs)
 removeFaces fcs g = checkTgraph (faces g \\ fcs)
@@ -246,33 +246,35 @@ reverseE (a,b) = (b,a)
 -- |Whilst first, second and third edges are obvious (always clockwise), 
 -- it is often more convenient to refer to the joinE (join edge),
 -- shortE (the short edge which is not a join edge), and
--- longE (the long edge which is not a join edge)
--- these are also directed clockwise.
+-- longE (the long edge which is not a join edge).
+-- These are also directed clockwise.
 -- joinOfTile also returns the join edge but in the direction away from the origin
 firstE,secondE,thirdE, joinE, shortE, longE, joinOfTile:: TileFace -> DEdge
 firstE = head . faceDedges
 secondE = head . tail . faceDedges
 thirdE = head . tail . tail . faceDedges
 
--- |joinE preserves the clockwise direction unlike joinOfTile
+-- |the join edge of a face in the clockwise direction going round the face (see also joinOfTile).
 joinE (LD(a,b,_)) = (a,b)
 joinE (RD(a,_,c)) = (c,a)
 joinE (LK(a,_,c)) = (c,a)
 joinE (RK(a,b,_)) = (a,b)
--- |shortE not the join edge in the dart cases
+-- |The short edge of a face in the clockwise direction going round the face.
+-- This is the non-join short edge for darts.
 shortE = secondE
--- |longE not the join edge in the kite cases
+-- |The long edge of a face in the clockwise direction going round the face.
+-- This is the non-join long edge for kites.
 longE (LD(a,_,c)) = (c,a)
 longE (RD(a,b,_)) = (a,b)
 longE (LK(a,b,_)) = (a,b) 
 longE (RK(a,_,c)) = (c,a)
 
--- |The directed join edge of a face but origin first (not clockwise for RD and LK)
+-- |The join edge of a face but directed from the origin (not clockwise for RD and LK)
 joinOfTile fc = (originV fc, oppV fc)
 
 facePhiEdges, faceNonPhiEdges::  TileFace -> [DEdge]
 -- |The phi edges of a face (both directions)
--- which is long edges of darts, and join and long edges of kites
+-- which is long edges for darts, and join and long edges for kites
 facePhiEdges fc@(RD _) = [e, reverseE e] where e = longE fc
 facePhiEdges fc@(LD _) = [e, reverseE e] where e = longE fc
 facePhiEdges fc        = [e, reverseE e, j, reverseE j] 
@@ -280,39 +282,41 @@ facePhiEdges fc        = [e, reverseE e, j, reverseE j]
                                j = joinE fc
 
 -- |The non-phi edges of a face (both directions)
--- which is short edges of kites, and join and short edges of darts
+-- which is short edges for kites, and join and short edges for darts
 faceNonPhiEdges fc = bothDir' (faceDedges fc) \\ facePhiEdges fc
 
 
 -- |matchingE etype fc is a predicate on tile faces 
--- where etype finds a particular type of edge of a face
--- etype could be joinE or longE or shortE   for example
--- it maps fc' to True if fc' has an etype edge matching the (reversed) etype edge of fc
+-- where etype finds a particular edge type of a face
+-- (etype could be joinE or longE or shortE for example).
+-- This is True for fc' if fc' has an etype edge matching the (reversed) etype edge of fc
 matchingE :: (TileFace -> DEdge) -> TileFace -> TileFace -> Bool
 matchingE etype fc = (== reverseE (etype fc)) . etype
 
 -- |special cases of matchingE etype 
--- where etype is longE, shortE and joinE
+-- where etype is longE, shortE, and joinE
 matchingLongE,matchingShortE,matchingJoinE ::  TileFace -> TileFace -> Bool
 matchingLongE  = matchingE longE
 matchingShortE = matchingE shortE
 matchingJoinE  = matchingE joinE
 
--- |all the directed edges of a graph
+-- |A list of all the directed edges of a graph (going clockwise round faces)
 graphDedges :: Tgraph -> [(Vertex, Vertex)]
 graphDedges g = concatMap faceDedges (faces g)
 
--- |phiEdges returns a list of the longer edges of a Tgraph (both directions of each edge)
+-- |phiEdges returns a list of the phi-edges of a Tgraph (= long non-join edges of the faces).
+-- This includes both directions of each edge.
 phiEdges :: Tgraph -> [(Vertex, Vertex)]
 phiEdges g = bothDir $ fmap longE (faces g)
                        ++ fmap joinE (lkites g ++ rkites g) 
 
--- |nonPhiEdges returns a list of the shorter edges of a Tgraph (both directions of each edge)
+-- |nonPhiEdges returns a list of the shorter non-join edges of a Tgraph.
+-- This includes both directions of each edge.
 nonPhiEdges :: Tgraph -> [(Vertex, Vertex)]
 nonPhiEdges g = bothDir $ fmap shortE (faces g)
                           ++ fmap joinE (ldarts g ++ rdarts g)
 
--- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge)
+-- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
 graphEdges :: Tgraph -> [(Vertex, Vertex)]
 graphEdges = bothDir . graphDedges
 
@@ -322,17 +326,17 @@ bothDir = nub . bothDir'
 
 -- |bothDir' adds the reverse directed edges to a list of directed edges without checking for duplicates 
 bothDir':: [DEdge] -> [DEdge]
-bothDir' [] = []
-bothDir' (e:more) = e:reverseE e:bothDir' more
+bothDir' = concatMap (\e -> [e,reverseE e])
+
 
 -- |boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
--- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge
+-- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
 boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
 boundaryDedges g = bothDir des \\ des where 
     des = graphDedges g
 
 
--- |boundary edges are face edges not shared by 2 faces (both directions)
+-- |boundary edges are face edges not shared by 2 faces (but both directions).
 boundaryEdges :: Tgraph -> [(Vertex, Vertex)]
 boundaryEdges  = bothDir' . boundaryDedges
 
@@ -361,19 +365,21 @@ Used for Boundary Information and also in
 GraphConvert.makeVPatch  to make VPatches and Patches
 -}
 
-{-| createVPoints: process list of faces to associate points for each vertex.
-     Faces must be tile-connected.
+{-| createVPoints: processes a list of faces to associate points for each vertex.
+     Faces must be tile-connected. It aligns the join of the first face on the x-axis.
+      Returns a vertex-to-point Map.
 -}
 createVPoints:: [TileFace] -> Mapping Vertex (Point V2 Double)
 createVPoints [] = Map.empty
 createVPoints (face:more) = addVPoints [face] more (initJoin face)
 
-{-| addVPoints readyfaces fcOther vpMap
+{-| addVPoints readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
-each will have at least two known vertex points.
-The second argument list of faces (fcOther) have not yet been added and may not yet have known vertex points.
+each will have at least two known vertex locations.
+The second argument list of faces (fcOther) are faces that have not yet been added
+and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
-This is used in tryUpdate as well as createVPoints
+This is used in tryUpdate as well as createVPoints.
 -}
 addVPoints:: [TileFace] -> [TileFace] -> Mapping Vertex (Point V2 Double) -> Mapping Vertex (Point V2 Double)
 addVPoints [] [] vpMap = vpMap 
@@ -385,31 +391,29 @@ addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
   (fcs', fcOther')   = partition (edgeNb fc) fcOther
 
 -- |initJoin fc 
--- initialises a vpMap with locations for join edge vertices of fc along x axis - used to initialise createVPoints
+-- initialises a vertex to point mapping with locations for the join edge vertices of fc
+-- with originV fc at the origin and aligned along the x axis. (Used to initialise createVPoints)
 initJoin::TileFace -> Mapping Vertex (Point V2 Double)                
 initJoin (LD(a,b,_)) = Map.insert a origin $ Map.insert b (p2(1,0)) Map.empty -- [(a,origin), (b, p2(1,0))]
 initJoin (RD(a,_,c)) = Map.insert a origin $ Map.insert c (p2(1,0)) Map.empty --[(a,origin), (c, p2(1,0))]
 initJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty --[(a,origin), (c, p2(phi,0))]
 initJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
 
--- |lookup 3 vertex locations
+-- |lookup 3 vertex locations in a vertex to point map.
 find3Locs::(Vertex,Vertex,Vertex) -> Mapping Vertex (Point V2 Double)
              -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))              
 find3Locs (v1,v2,v3) vpMap = (Map.lookup v1 vpMap, Map.lookup v2 vpMap, Map.lookup v3 vpMap)
 
-{-| thirdVertexLoc fc vpMap
-
-New Version - Assumes all edge lengths are 1 or phi
+{-| New Version - Assumes all edge lengths are 1 or phi.
 It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
-
-Requires ttangle and phi from TileLib
+(Requires ttangle and phi from TileLib).
 
      thirdVertexLoc fc vpMap
      where fc is a tileface and
      vpMap associates points with vertices (positions)
-     It looks up all 3 vertices in vpMap hoping to find 2 of them, it then returns Just pr
+     It looks up all 3 vertices of fc in vpMap hoping to find at least 2 of them, it then returns Just pr
      where pr is an association pair for the third vertex.
-     If all 3 are found, returns Nothing
+     If all 3 are found, returns Nothing.
      If none or one found this is an error (a non tile-connected face)
 -}
 thirdVertexLoc:: TileFace -> Mapping Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
@@ -446,15 +450,15 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
 {- * SubTgraphs -}
 {-|
  SubTgraph - introduced to allow tracking of subsets of faces
- in both force and decompose oerations
- A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces.
+ in both force and decompose oerations.
+ A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces (trackedSubsets).
  The list allows for tracking different subsets of faces at the same time
 -}
 data SubTgraph = SubTgraph{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
 
 -- |makeSubTgraph g trackedlist creates a SubTgraph from a Tgraph g
--- from trackedlist where each list in trackedlist is a subsets of the faces of g
--- (any faces not in g are ignored)
+-- from trackedlist where each list in trackedlist is a subset of the faces of g.
+-- Any faces not in g are ignored.
 makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
 makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
 

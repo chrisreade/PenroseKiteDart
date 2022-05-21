@@ -25,6 +25,6 @@ import Tgraph.Convert
 
                 
 fig::Diagram B
-fig = exampleTriple2
+fig = swatchFig0
 
 main = mainWith fig

@@ -95,12 +95,13 @@ fiveInflate = hsep 1 $ fmap drawPatch [[ld,lk'], decompositions [lk'] !! 5] wher
 -- fiveInflate = hsep 1 $ fmap drawPatch [[ld,lk'], multiDecomp 5 [lk']] where -- two seperate patches
 
 -- |show just the first 5 alternatives of 4-fold inflations of a located piece
-inflatefig:: Located Piece -> Diagram B
-inflatefig lp = hsep 1 $ fmap (drawPatch . (:[lp])) $ take 5 $ inflations 4 lp
+-- (previously called inflatefig)
+get5inflate4:: Located Piece -> Diagram B
+get5inflate4 lp = hsep 1 $ fmap (drawPatch . (:[lp])) $ take 5 $ inflations 4 lp
 
 -- |diagram showing first five alternatives of 4-fold inflations of a right dart
 fiveAlternatives:: Diagram B
-fiveAlternatives = inflatefig (rdart `at` origin)
+fiveAlternatives = get5inflate4 (rdart `at` origin)
 
 -- |An infinite list of patches of increasingly decomposed sun
 suns::[Patch]
@@ -194,16 +195,6 @@ Swatches and Samples for colour-filled patches
 -- |A sample abbreviates triples of colours (used for Dart,Kite,Grout (Edges) respectively
 type Sample = (Colour Double,Colour Double,Colour Double)
 
--- |A swatch is a list of samples which are used to fill sun5s by drawSwatch
-type Swatch = [Sample]
-
-
--- |drawSwatch n sw produces a sun5 filled example for each sample in the swatch sw.
--- These are combined into a single diagram in rows of length n
-drawSwatch:: Int -> Swatch -> Diagram B
-drawSwatch n swatch = vsep 0.25 (hsep 0.25 . fmap sample <$> group n swatch) where
-                     group n l = if length l <= n then [l] else take n l: group n (drop n l)
-                     sample (c1,c2,c3) = colourDKG (c1,c2,c3) sun5 # lw ultraThin
 
 -- |The sample is used to fill a 6 times decomposed sun
 drawSample:: Sample -> Diagram B
@@ -218,24 +209,24 @@ drawSampleSmall (c1,c2,c3) = colourDKG (c1,c2,c3) (suns!!7) # lw thin
 -- |The sample is used to fill an 8 times decomposed sun
 -- (so muuch smaller kites and darts than drawSample).
 drawSampleTiny:: Sample -> Diagram B
-drawSampleTiny (c1,c2,c3) = colourDKG (c1,c2,c3) (suns!!8) # scale phi # lw ultraThin
+drawSampleTiny (c1,c2,c3) = colourDKG (c1,c2,c3) (suns!!8) # lw ultraThin
 
 
 -- |crop a diagram to half width and centred with A4 portrait dimensions.
 -- Ideal for decomposed suns.
-sunCropA4::Diagram B -> Diagram B
-sunCropA4 d = clipTo a4 (d # centerXY) where -- clipped a4 ... seems slow
+centreCropA4::Diagram B -> Diagram B
+centreCropA4 d = clipTo a4 (d # centerXY) where -- clipped a4 ... seems slow
                   w = width d /2
                   h = w * 290/210
                   a4 = rect w h # centerXY
 
 -- |Make an A4 diagram using sample colours with drawSampleSmall
 a4Small :: Sample -> Diagram B
-a4Small = sunCropA4 . drawSampleSmall
+a4Small = centreCropA4 . drawSampleSmall
 
 -- |Make an A4 diagram using sample colours with drawSampleTiny
 a4Tiny :: Sample -> Diagram B
-a4Tiny = sunCropA4 . drawSampleTiny
+a4Tiny = centreCropA4 . drawSampleTiny
 
 -- |diagram for black and white example using a4Tiny
 blackAndWhite::Diagram B
@@ -249,133 +240,29 @@ migA4Tiny = a4Tiny (darkmagenta, indigo, gold)
 bryA4Small::Diagram B
 bryA4Small = a4Small (darkblue,blend 0.9 red magenta, yellow)
 
--- |sample coloured tile diagrams (using decomposed suns)
-sL1,sL2,sL3,news1,s7,s8,s9,s1,s2,s3,s4,s5,s6:: Diagram B                            
-sL1 = drawSampleSmall (darkmagenta, indigo, gold)
-sL2 = drawSampleSmall (goldenrod, darkturquoise, saddlebrown)
-sL3 = drawSampleSmall (darkblue,blend 0.9 red magenta, yellow) 
-news1 = drawSample (darken 0.7 darkmagenta, indigo, gold)
-s7 = drawSample (indigo, red, gold)  
-s8 = drawSample (darkgoldenrod, blue, blend 0.7 pink red)
-s9 = drawSample (darkgoldenrod, firebrick, wheat) 
+-- |A swatch is a list of samples which are used to fill sun5s by drawSwatch
+type Swatch = [Sample]
 
-s1 = drawSample (darkmagenta, indigo, gold)
-s2 = drawSample (cyan, darkmagenta, gold)
-s3 = drawSample (teal, darkmagenta, gold)
-s4 = drawSample (deepskyblue, lemonchiffon, darkblue)
-s5 = drawSample (powderblue, peachpuff, mediumvioletred)
-s6 = drawSample (darkseagreen, darksalmon, darkviolet)
+-- |drawSwatch n sw produces a sun5 filled example for each sample in the swatch sw.
+-- These are combined into a single diagram in rows of length n
+drawSwatch:: Int -> Swatch -> Diagram B
+drawSwatch n swatch = vsep 0.25 (hsep 0.25 . fmap sample <$> group n swatch) where
+                     group n l = if length l <= n then [l] else take n l: group n (drop n l)
+                     sample (c1,c2,c3) = colourDKG (c1,c2,c3) sun5 # lw ultraThin
 
--- |example swatches
-coasterSwatch,darkM,bluegreens,blues,pinks,pastel,greens,reds,swatch3,swatch2,swatch1:: Swatch
-coasterSwatch = [(deepskyblue, lemonchiffon, darkblue)
-                ,(darken 0.7 darkmagenta, indigo, gold)
-                ,(darkblue,blend 0.9 red magenta, yellow)
-                ,(indigo, red, gold)
+-- |an example swatch
+swatch0::Swatch
+swatch0 = [(darken 0.7 darkmagenta, indigo, gold)
+          ,(cyan, darkmagenta, gold)
+          ,(teal, darkmagenta, gold)
+          ,(deepskyblue, lemonchiffon, darkblue)
+          ,(powderblue, peachpuff, mediumvioletred)
+          ,(darkseagreen, darksalmon, darkviolet)
+          ,(indigo, red, gold)  
+          ,(darkgoldenrod, blue, blend 0.7 pink red)
+          ,(darkgoldenrod, firebrick, wheat)
+          ]
 
-                ,(powderblue, peachpuff, mediumvioletred)
-                ,(darkgoldenrod, blue, blend 0.7 pink red)
-                ,(cyan, darkmagenta, gold)
-                ,(fuchsia, aquamarine, blue)
-                
-                ,(darkseagreen, darksalmon, darkviolet) 
-                ,(darkgoldenrod, firebrick, wheat)               
-                ,(blend 0.3 green palegreen, violet, white) --darkviolet)
-                ,(blue, violet, yellow)            
---                ,(darkblue, teal, wheat)
---                ,(aquamarine, lavender, crimson)
-                ]
-                
-darkM  = [(darkmagenta, indigo, gold)
-         ,(darkblue, darkmagenta, orange)
-         ,(teal, darkmagenta, orange)
-         ,(teal, darkmagenta, gold)
-         ,(cyan, darkmagenta, gold)
-         ,(goldenrod, darkmagenta, antiquewhite)
-         ]
-bluegreens
-       = [(darkblue, teal, wheat)
-         ,(darkcyan, darkblue, wheat)
-         ,(blend 0.6 cyan indigo, indigo, yellow)
-         ,(darkgreen, slateblue, turquoise)  --cyan)                          
-         ,(indigo, darkgreen, orange)  
-         ,(darkblue, green, orange) --,(blue, green, violet)--,(blue, green, orange) -- 
-         ,(seagreen, slateblue, lime) 
-         ,(cornflowerblue, turquoise, darkblue)         
-         ]
-blues =  [(coral, darkblue, wheat)
-         ,(darkgoldenrod, blue, blend 0.7 pink red)
-         ,(darkturquoise, blue, mintcream)
-         ,(goldenrod, deepskyblue, indigo)
-         ,(cornflowerblue, cyan, darkblue)         
-         ]
-pinks  = [(hotpink, blueviolet, white)
-         ,(blue, violet, yellow)           
-         ,(fuchsia, blue, yellow)
-         ,(fuchsia, aquamarine, blue)
-         ]
-pastel = [(darkseagreen, darksalmon, darkviolet)         
-         ,(aquamarine, lavender, crimson)         
-         ,(deepskyblue, lemonchiffon, darkblue) --royalblue)
-         ,(indianred, lemonchiffon, indigo) --black)
-         ,(powderblue, peachpuff, mediumvioletred)         
-         ,(lightyellow, deepskyblue, indigo)
-         ]
-greens = [(blend 0.7 yellow saddlebrown, blend 0.7 lime blue, saddlebrown)          
-         ,(goldenrod, lime, saddlebrown) 
-         ,(goldenrod, blend 0.7 lime blue, saddlebrown)
---         ,(lightyellow, turquoise, saddlebrown)
-         ]
-reds   = [(indigo, red, gold)
-         ,(firebrick, darkblue, gold)  --,(firebrick, blueviolet, gold) 
-         ,(darkgoldenrod, firebrick, wheat)
-         ,(red, gold, indigo) 
-         ]
-
-
-swatch3 = -- dart, kite, grout
-         [(darkmagenta, indigo, gold)
-         ,(darkblue, darkmagenta, orange)
-         ,(teal, darkmagenta, orange)
-         ,(teal, darkmagenta, gold)
-         ,(darkcyan, indigo, lightsalmon) --peru)
-         ,(darkblue, teal, wheat)
-         ,(darkblue, teal, sandybrown)
-         ,(darkcyan, indigo, peachpuff)
-         ,(blend 0.6 cyan indigo, indigo, peachpuff)--,(darken 0.7 cyan, indigo, peachpuff)
-         ,(blue, violet, yellow)           
-         ,(firebrick, darkblue, gold)  --,(firebrick, blueviolet, gold) 
-         ,(darkblue, green, orange) --,(blue, green, violet)--,(blue, green, orange) -- 
-         ] 
-
-swatch2 = -- dart, kite, grout
-         [(hotpink, blueviolet, white) 
-         ,(red, yellow, indigo) 
-         ,(cyan, darkmagenta, gold)
-         ,(darkmagenta, indigo, gold) 
-         ,(goldenrod, darkturquoise, saddlebrown) 
-         ,(goldenrod, limegreen, saddlebrown) 
-         ,(lime, blue, white)
-         ,(blend 0.6 yellow gold, blend 0.5 green turquoise, saddlebrown)          
-         ,(fuchsia, aquamarine, blue)
-         ,(indigo, red, gold)         
-         ,(goldenrod, lime, saddlebrown) 
-         ,(cornflowerblue, chartreuse, blue)         
-         ]        
-swatch1 =  -- dart, kite, grout                 
-         [(fuchsia, deepskyblue, blue)
-         ,(deepskyblue, lemonchiffon, darkblue) --royalblue)
-         ,(indianred, lemonchiffon, indigo) --black)
-         ,(powderblue, peachpuff, mediumvioletred)         
-         ,(cyan, teal, plum)
-         ,(lavenderblush, teal, plum)
-         ,(indigo, darkgreen, orange)  
-         ,(darkgreen, slateblue, cyan) -- orange)                         
-         ,(darkseagreen, darksalmon, darkviolet)         
-         ,(aquamarine, lavender, crimson)         
-         ,(lightcoral, indigo, lightblue) -- orange) --lightcyan)
-         ,(darkgreen, orangered, yellow) --black)                
-         ]
-
-
-
+-- |figure for example swatch          
+swatchFig0:: Diagram B          
+swatchFig0 = drawSwatch 3 swatch0
