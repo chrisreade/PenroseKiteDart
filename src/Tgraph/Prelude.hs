@@ -68,7 +68,7 @@ makeTgraph fcs =
 
 -- |Creates a Tgraph from a list of faces but checks the faces for edge conflicts and
 -- crossing boundaries and connectedness.
--- (No crossing boundaries and connected implies face-connected).
+-- (No crossing boundaries and connected implies tile-connected).
 checkTgraph:: [TileFace] -> Tgraph
 checkTgraph fcs = 
     let g = makeTgraph fcs in
@@ -103,7 +103,13 @@ Tests and Tgraph properties
 -- (which should be null)
 conflictingDedges :: Tgraph -> [DEdge]
 conflictingDedges g = duplicates $  graphDedges g where
-     duplicates es = es \\ nub es
+
+-- |duplicates finds duplicated items in a list
+duplicates :: Eq a => [a] -> [a]
+duplicates [] = []
+duplicates (e:es) | e `elem` es = e:duplicates es
+                | otherwise = duplicates es
+--    duplicates es = es \\ nub es
 
 -- |conflictingLengthEdges g returns a list of conflicting lengthed edges of the faces in g
 -- (which should be null)     
@@ -117,8 +123,7 @@ edgeConflicts g = not $ null $ conflictingDedges g ++ conflictingLengthEdges g
 -- |crossingBVs g returns a list of vertices with crossing boundaries
 -- (which should be null).               
 crossingBVs :: Tgraph -> [Vertex]
-crossingBVs g = bVerts \\ nub bVerts  -- leaves any duplicates
-     where bVerts = fst <$> boundaryDedges g -- snd could replace fst here
+crossingBVs g = duplicates $ fst <$> boundaryDedges g
 
 -- |There are crossing boundaries if vertices occur more than once
 -- at the start of all boundary directed edges
@@ -126,19 +131,19 @@ crossingBVs g = bVerts \\ nub bVerts  -- leaves any duplicates
 crossingBoundaries :: Tgraph -> Bool
 crossingBoundaries g = not $ null $ crossingBVs g
 
--- |predicate to check Tgraph is a connected graph 
+-- |Predicate to check a Tgraph is a connected graph. 
 connected :: Tgraph -> Bool
-connected g =   nullGraph g || null (vs \\ connectedTo (head vs) vs (graphEdges g))
+connected g =   nullGraph g || null (vs \\ connectedBy (graphEdges g) (head vs) vs)
                    where vs = vertices g
 
--- |auxiliary function for calculating connectedness by depth first search
--- connectedTo v unvisited edges returns list of vertices connected to v
--- from the list of vertices (unvisited) using given list of edges
-connectedTo :: Eq a => a -> [a] -> [(a, a)] -> [a]
-connectedTo v unvisited edges = dfs [] [v] (unvisited \\[v]) where 
--- depth first search arguments:  processed, visited, unvisited
-  dfs done vs [] = vs++done
-  dfs done [] unvisited = done -- any unvisited not connected
+-- |Auxiliary function for calculating connectedness by depth first search.
+-- connectedBy edges v verts returns the sublist of verts connected to v
+-- by a chain of edges
+connectedBy :: Eq a => [(a, a)] -> a -> [a] -> [a]
+connectedBy edges v verts = dfs [] [v] (verts \\[v]) where 
+-- depth first search arguments:  done (=processed), visited, unvisited
+  dfs done visited [] = visited++done
+  dfs done [] unvisited = done -- any unvisited are not connected
   dfs done (x:visited) unvisited 
      = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
        where nextVs = map snd $ filter ((== x) . fst) edges

@@ -65,3 +65,4 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - PenroseKiteDart
+    - hspec

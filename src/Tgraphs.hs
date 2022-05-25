@@ -14,6 +14,7 @@ module Tgraphs ( module Tgraphs
                , module Tgraph.Decompose
                , module Tgraph.Compose
                , module Tgraph.Force
+               , module Tgraph.Convert
                ) where
 
 import Data.List (intersect)
@@ -22,6 +23,7 @@ import Tgraph.Prelude
 import Tgraph.Decompose
 import Tgraph.Compose
 import Tgraph.Force
+import Tgraph.Convert
 
 {----------------------------
 ********************************************

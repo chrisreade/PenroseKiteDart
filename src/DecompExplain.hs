@@ -56,7 +56,7 @@ drdartAt p = mconcat [dotAt p blue
                      ,labelP "p .+^ v'" point0
                      ] where point1 = p .+^ unitX
                              point0 = p .+^ (phi*^ e (ttangle 1))
-                             point2 = p .+^ (e (ttangle 1))
+                             point2 = p .+^ e (ttangle 1)
 
 srdartAt p = mconcat [dotAt p blue
                      ,labelVect "vd" p point1
@@ -64,19 +64,19 @@ srdartAt p = mconcat [dotAt p blue
                      ,point0 ~~ point1
                      ,labelP "p" p
                      ] where point1 = p .+^ ((phi-1)*^unitX)
-                             point0 = p .+^ (e (ttangle 1))
+                             point0 = p .+^ e (ttangle 1)
 
 spot  = circle 0.02 # lw none
 dotAt p c = spot # fc c  # moveTo p
 
-altlabel l p = text l # fontSize (local 0.1) # fc green # moveTo (p .+^ ((0.2)*^unit_X))
+altlabel l p = text l # fontSize (local 0.1) # fc green # moveTo (p .+^ (0.2 *^ unit_X))
 label l p = baselineText l # fontSize (local 0.1) # fc green # moveTo p
 labelP l p = topLeftText l # fontSize (local 0.1) # fc blue # moveTo p
 name l p  = baselineText l # fontSize (local 0.1) # fc red # moveTo p
 
 labelEdge l p p' = edgeArrow p p' <> label l p'' where p'' =  p .+^ (0.5 *^ (p' .-. p))
 labelVect l p p' = labelEdge l p p' # dashingG [0.03, 0.03] 0
-edgeArrow p p' = arrowBetween' (with & headLength .~ small ) p p'
+edgeArrow = arrowBetween' (with & headLength .~ small )
 
 line v = strokeT . fromOffsets $ [v]
 {-
@@ -104,7 +104,7 @@ fig0 =  mconcat[rkiteAt    $ p2 (2.0,3.5)
                <> name "INFLATE CHOICES (FOR RD)" (p2(1.8,1.5))
                
 decompExplainFig::Diagram B
-decompExplainFig = pad 1.2 $ centerXY $ fig0 
+decompExplainFig = pad 1.2 $ centerXY fig0 
 
     
 

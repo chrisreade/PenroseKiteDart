@@ -19,7 +19,7 @@ import Diagrams.Prelude
 import ChosenBackend (B)
 import TileLib
 import Tgraphs
-import Tgraph.Convert
+--import Tgraph.Convert
 
 
 -- |used for most diagrams to give border padding
@@ -568,7 +568,7 @@ curioPic0 = padBorder $ position $ concat
     xDGraphs = decompositionsG sunPlus3Dart'
     xDs  = lw ultraThin <$> rotations [7,7,8] $  phiScaling phi $ reverse $
            drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red # lw thin): 
-           (take 2 $ drop 1 $ fmap drawGraph xDGraphs)
+           take 2  (drop 1 $ fmap drawGraph xDGraphs)
     dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
     pointsRa = map p2 [ (0, 80), (42, 80), (95, 80), (150, 80), (200, 80)]
     pointsRb = map p2 [ (0, 40), (42, 40), (95, 40), (150, 40)]
