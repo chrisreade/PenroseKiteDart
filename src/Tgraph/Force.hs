@@ -437,12 +437,12 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
 
 {-| allUGenerator combines all the 10 update generators.
      They are composed (keeping the order) after applying each to the
-     supplied boundary and edge list argumants                        
+     supplied boundary and focus edge list arguments                        
 -}
 allUGenerator :: UpdateGenerator 
-allUGenerator bd predE = link generators id where
+allUGenerator bd focus = link generators id where
     link [] g = g
-    link (gen:more) g = link more (gen bd predE . g)
+    link (gen:more) g = link more (gen bd focus . g)
 
     generators = [ wholeTileUpdates          -- (1)
                  , kiteBelowDartUpdates      -- (2)

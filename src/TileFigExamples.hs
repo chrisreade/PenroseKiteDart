@@ -195,11 +195,13 @@ Swatches and Samples for colour-filled patches
 -- |A sample abbreviates triples of colours (used for Dart,Kite,Grout (Edges) respectively
 type Sample = (Colour Double,Colour Double,Colour Double)
 
-
 -- |The sample is used to fill a 6 times decomposed sun
 drawSample:: Sample -> Diagram B
 drawSample (c1,c2,c3) = colourDKG (c1,c2,c3) sun6 # lw thin
 
+-- |sampleFig0 is a figure drawn with drawSample 
+sampleFig0 :: Diagram B
+sampleFig0 = drawSample (darkmagenta, indigo, gold)
 
 -- |The sample is used to fill a 7 times decomposed sun
 -- (so smaller kites and darts than drawSample).

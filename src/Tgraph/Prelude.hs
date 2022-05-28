@@ -14,7 +14,7 @@ and re-exports module HalfTile
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, nub, elemIndex, partition) -- partition used in addVPoints
+import Data.List ((\\), intersect, nub, elemIndex, partition, intercalate) -- partition used in addVPoints
 import qualified Data.Map as Map (Map, lookup, insert, empty)
 
 import Diagrams.Prelude  -- necessary for createVPoints
@@ -58,36 +58,66 @@ Basic Tgraph, vertex, edge, face operations
 --------------------------------------------}
 
 
--- |Creates a Tgraph from a list of faces by calculating vertices.
--- It does not perform checks on the faces. Use checkTgraph to perform checks.
-makeTgraph:: [TileFace] -> Tgraph
-makeTgraph fcs =
+
+-- |Creates a (possibly invalid) Tgraph from a list of faces by calculating vertices.
+-- It does not perform checks on the faces. Use checkedTgraph to perform checks.
+makeUncheckedTgraph:: [TileFace] -> Tgraph
+makeUncheckedTgraph fcs =
     Tgraph { vertices = nub $ concatMap faceVList fcs
            , faces = fcs
            }
 
+-- |Creates a Tgraph from a list of faces but checking the faces for edge conflicts and
+-- crossing boundaries and connectedness with checkTgraphProps.
+-- (No crossing boundaries and connected implies tile-connected).
+-- Produces an error if a check fails
+checkedTgraph:: [TileFace] -> Tgraph
+checkedTgraph fcs = either showError id (checkTgraphProps fcs) where
+   showError lines = error (intercalate "\n" lines ++ '\n' : show fcs)
+
+-- |Checks a list of faces for edge conflicts and
+-- crossing boundaries and connectedness.
+-- (No crossing boundaries and connected implies tile-connected)
+-- Returns Right g where g is a Tgraph on passing checks
+-- Returns Left lines if a test fails, where lines describes the problem found.
+checkTgraphProps:: [TileFace] -> Either [String] Tgraph
+checkTgraphProps fcs
+      | not (connected g) =    Left ["Non-valid Tgraph", "Not connected"] 
+      | edgeConflicts g   =    Left ["Non-valid Tgraph"
+                                    ,"Conflicting face edges: " ++ show (conflictingDedges g)
+                                    ,"Conflicting length edges: " ++ show (conflictingLengthEdges g)
+                                    ]
+      | crossingBoundaries g = Left ["Non-valid Tgraph"
+                                    ,"Crossing boundaries found at " ++ show (crossingBVs g)
+                                    ]
+      | otherwise            = Right g 
+  where g = makeUncheckedTgraph fcs
+
+
+{-
 -- |Creates a Tgraph from a list of faces but checks the faces for edge conflicts and
 -- crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected).
-checkTgraph:: [TileFace] -> Tgraph
-checkTgraph fcs = 
-    let g = makeTgraph fcs in
-    if not (connected g)    then error ("checkTgraph: \nTgraph not connected\n" ++ show g) 
-    else if edgeConflicts g then error ("checkTgraph: \nConflicting face edges: " ++ show (conflictingDedges g) ++
+checkedTgraph:: [TileFace] -> Tgraph
+checkedTgraph fcs =
+    let g = makeUncheckedTgraph fcs in
+    if not (connected g)    then error ("checkedTgraph: \nTgraph not connected\n" ++ show g) 
+    else if edgeConflicts g then error ("checkedTgraph: \nConflicting face edges: " ++ show (conflictingDedges g) ++
                                         "\nConflicting length edges: " ++ show (conflictingLengthEdges g) ++
                                         "\nin\n" ++ show g
                                        )
     else if crossingBoundaries g 
-         then error ("checkTgraph: crossing boundaries found at " ++ show (crossingBVs g) ++
+         then error ("checkedTgraph: crossing boundaries found at " ++ show (crossingBVs g) ++
                      "\nin\n" ++ show g
                     )
          else g
+-}
 
 -- |select or remove faces from a Tgraph,
 -- but check resulting Tgraph for connectedness and no crossing boundaries.
 selectFaces, removeFaces  :: [TileFace] -> Tgraph -> Tgraph
-selectFaces fcs g = checkTgraph (faces g `intersect` fcs)
-removeFaces fcs g = checkTgraph (faces g \\ fcs)
+selectFaces fcs g = checkedTgraph (faces g `intersect` fcs)
+removeFaces fcs g = checkedTgraph (faces g \\ fcs)
 
 -- |is the graph empty?
 nullGraph:: Tgraph -> Bool

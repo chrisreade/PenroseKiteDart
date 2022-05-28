@@ -106,7 +106,7 @@ makePatch = dropVertices . makeVPatch
 
 -- |An inverse to makeVPatch which checks for connected and no crossing boundaries
 graphFromVP:: VPatch -> Tgraph
-graphFromVP = checkTgraph . dropVectors
+graphFromVP = checkedTgraph . dropVectors
 
 {- * Drawing VPatches and Graphs
 -}

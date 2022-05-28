@@ -27,7 +27,7 @@ COMPOSING composeG and partCompose
 -- |The main deterministic function for composing is composeG
 -- which is essentially partCompose after unused faces are ignored.
 composeG:: Tgraph -> Tgraph
-composeG g = checkTgraph (faces g') where
+composeG g = checkedTgraph (faces g') where
     (_, g') = partCompose g
 -- composeG = snd . partCompose 
 
@@ -36,7 +36,7 @@ composeG g = checkTgraph (faces g') where
 -- it makes use of classifyDartWings which also returns an association of faces incident with each dart wing
 -- so these do not need to be reclculated.
 partCompose:: Tgraph -> ([TileFace],Tgraph)
-partCompose g = (remainder,checkTgraph newFaces)
+partCompose g = (remainder,checkedTgraph newFaces)
   where
     dwClass = classifyDartWings g
 -- ignores unknowns
