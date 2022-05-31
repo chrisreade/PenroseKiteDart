@@ -31,7 +31,7 @@ import Tgraphs
 
                 
 fig::Diagram B
-fig = foolFig
+fig = testRelabelFig
 
 
 main = mainWith fig

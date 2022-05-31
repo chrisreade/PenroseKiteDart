@@ -13,7 +13,11 @@ Stability   : experimental
 -}
 module GraphFigExamples where
 
-import Data.List ((\\), nub)      
+-- temp for testin
+import qualified Data.Map as Map (Map, lookup, insert, empty, fromList)
+
+-- partition for testing
+import Data.List ((\\), nub, partition)      
 import Diagrams.Prelude
 
 import ChosenBackend (B)
@@ -184,25 +188,6 @@ drawMaxEmplace g =  drawEmbedVP overlay emp (lowestJoin maxg) where
 -- |an example showing the maximum composition (a kite) over 4 times decomposed pair of darts 
 maxEmplaceFig :: Diagram B
 maxEmplaceFig = padBorder $ drawMaxEmplace $ decompositionsG dartPlusDart !! 4
-
-{-
-    EXPERIMENTAL
---  empForceSubs g shows an infinite list of emplacements of a graph as SubTgraphs with 2 assumptions
--- (1) It assumes force g = emplace g  (which is NOT always true)
---     This assumption allows us to use SubTgraphs to avoid finding alignment vertices
--- (2) it could give incorrect results if g is not wholeTile complete so incomplete tiles are removed first.
-empForceSubs:: Tgraph -> [SubTgraph]
-empForceSubs g = 
-  iterate (forceSub . decomposeSub) $ forceSub $ makeSubTgraph g' [faces g'] where
-      g' = removeIncompleteTiles g
-
-newDartPlusFig = padBorder $ vsep 1 $ rotations [2,4] $ fmap (lw ultraThin . drawSubTgraph1)
-    [ empForceSubs dartHalfDart !! 5, empForceSubs dartPlusDart !! 5]
-
--}
-
-
-
 
 {- *
 Multi emplace and choices
@@ -834,5 +819,41 @@ testD' = padBorder $ drawVGraph $ force $ addHalfDart (force $ decomposeG sunPlu
 -- The figure shows the force and emplace difference.
 emplaceProblemFig = drawForceEmplace sunPlus3Dart'
 
+
+testRelabelFig = padBorder $ hsep 1 $ 
+                     fmap drawVGraph [ foolD
+                                     , relabelNewExcept [1,3] (vertices foolD) foolD
+                                     , relabelByCommonEdge foolD (1,3) foolD
+                                     ]
+  
+{-
+
+startTest = init where
+         g2' = relabelNewExcept [1,3] (vertices foolD) foolD
+         g2prepared = relabelGraph (Map.fromList [(1,1),(3,3)]) g2'
+         init = case pairing (1,3) foolD g2prepared of
+                 [(fc1,fc2)] -> ([fc2], [], faces g2prepared \\ [fc2], initVMap fc1 fc2)    
+                 _  -> error $ "relabelByEdges: Could not find matching faces for edges "++show [(1,3),(1,3)]
+    
+    
+stepTest ([], tried, _, vMap) = error "ended"    
+stepTest  ((fc:fcs), tried, awaiting, vMap) = 
+   case thirdVertexIn foolD (relabelFace vMap fc) of
+           Just (v,v') ->  ((fcs++fcs'), tried, awaiting', (Map.insert v v' vMap))
+                            where (fcs', awaiting') = partition (edgeNb fc) awaiting 
+           Nothing     -> (fcs, (fc:tried), awaiting, vMap)
    
-       
+inspect = partition (edgeNb (RK (1,3,16)))
+            [LK (1,15,3),RD (22,3,15),LD (23,16,3),RK (25,20,22),LK (25,17,20)
+            ,RD (24,20,17),LK (3,22,20),RK (3,20,18),LD (24,18,20),RK (3,21,23)
+            ,LK (3,18,21),RD (24,21,18),LK (26,23,21),RK (26,21,19),LD (24,19,21)
+            ] 
+inspect2 = thirdVertexIn foolD (relabelFace (Map.fromList [(1,1),(3,3),(16,9)]) (RK (1,3,16)))
+-}
+{-
+produces
+   ([LK (1,15,3),LD (23,16,3)],
+    [RD (22,3,15),RK (25,20,22),LK (25,17,20)
+    ,RD (24,20,17),LK (3,22,20),RK (3,20,18),LD (24,18,20),RK (3,21,23)
+    ,LK (3,18,21),RD (24,21,18),LK (26,23,21),RK (26,21,19),LD (24,19,21)
+    ] ) -}

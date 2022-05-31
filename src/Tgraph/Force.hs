@@ -296,7 +296,7 @@ doSafeUpdate bd (Just v, makeFace) =
    let newFace = makeFace v
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd
-       newDedges = fmap reverseE (fDedges \\ matchedDedges)
+       newDedges = fmap reverseD (fDedges \\ matchedDedges)
        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace)
        resultBd = Boundary 
                    { bDedges = newDedges ++ (bDedges bd \\ matchedDedges)
@@ -338,7 +338,7 @@ tryUnsafeUpdate bd (Nothing, makeFace) =
        Just vPosition = Map.lookup v newVPoints
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd
-       newDedges = fmap reverseE (fDedges \\ matchedDedges)
+       newDedges = fmap reverseD (fDedges \\ matchedDedges)
        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
        resultBd = Boundary 
                     { bDedges = newDedges ++ (bDedges bd \\ matchedDedges)
@@ -798,13 +798,13 @@ addHalfKite, addHalfDart, forceLDB, forceLKC
 addHalfKite :: Tgraph -> DEdge -> Tgraph
 addHalfKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
   bd = makeBoundary g
-  de = case [e, reverseE e] `intersect` bDedges bd of
+  de = case [e, reverseD e] `intersect` bDedges bd of
          [de] -> de
          _ -> error ("addHalfKite:  on non-boundary edge " ++ show e)
   [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
-  u | longE fc == reverseE de = addKiteLongE bd fc
-    | shortE fc == reverseE de = addKiteShortE bd fc
-    | joinE fc == reverseE de && isKite fc = completeHalf bd fc
+  u | longE fc == reverseD de = addKiteLongE bd fc
+    | shortE fc == reverseD de = addKiteShortE bd fc
+    | joinE fc == reverseD de && isKite fc = completeHalf bd fc
     | otherwise = error "addHalfKite: applied to dart join (not possible)"
 
 -- |addHalfDart is for adding a single half dart on a chosen DEdge of a Tgraph.
@@ -814,13 +814,13 @@ addHalfKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
 addHalfDart :: Tgraph -> DEdge -> Tgraph
 addHalfDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
   bd = makeBoundary g
-  de = case [e, reverseE e] `intersect` bDedges bd of
+  de = case [e, reverseD e] `intersect` bDedges bd of
          [de] -> de
          _ -> error ("addHalfDart:  on non-boundary edge " ++ show e)
   [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
-  u | longE fc == reverseE de = addDartLongE bd fc
-    | shortE fc == reverseE de && isKite fc = addDartShortE bd fc
-    | joinE fc == reverseE de && isDart fc = completeHalf bd fc
+  u | longE fc == reverseD de = addDartLongE bd fc
+    | shortE fc == reverseD de && isKite fc = addDartShortE bd fc
+    | joinE fc == reverseD de && isDart fc = completeHalf bd fc
     | otherwise
     = error "addHalfDart: applied to short edge of dart or to kite join (not possible)"
 

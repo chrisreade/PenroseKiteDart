@@ -58,7 +58,6 @@ Basic Tgraph, vertex, edge, face operations
 --------------------------------------------}
 
 
-
 -- |Creates a (possibly invalid) Tgraph from a list of faces by calculating vertices.
 -- It does not perform checks on the faces. Use checkedTgraph to perform checks.
 makeUncheckedTgraph:: [TileFace] -> Tgraph
@@ -67,21 +66,23 @@ makeUncheckedTgraph fcs =
            , faces = fcs
            }
 
--- |Creates a Tgraph from a list of faces but checking the faces for edge conflicts and
+-- |Creates a Tgraph from a list of faces AND checks for edge conflicts and
 -- crossing boundaries and connectedness with checkTgraphProps.
 -- (No crossing boundaries and connected implies tile-connected).
--- Produces an error if a check fails
+-- Produces an error if a check fails.
 checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph fcs = either showError id (checkTgraphProps fcs) where
-   showError lines = error (intercalate "\n" lines ++ '\n' : show fcs)
+   showError lines = error (intercalate "\n" lines ++ "\nFound for faces: " ++ show fcs)
 
--- |Checks a list of faces for edge conflicts and
+-- |Checks a list of faces for edge loops, edge conflicts and
 -- crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
--- Returns Right g where g is a Tgraph on passing checks
+-- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
 checkTgraphProps:: [TileFace] -> Either [String] Tgraph
 checkTgraphProps fcs
+      | hasEdgeLoops fcs  =    Left ["Non-valid tile-face(s)"
+                                    ,"Edge Loops at: " ++ show (findEdgeLoops fcs)]
       | not (connected g) =    Left ["Non-valid Tgraph", "Not connected"] 
       | edgeConflicts g   =    Left ["Non-valid Tgraph"
                                     ,"Conflicting face edges: " ++ show (conflictingDedges g)
@@ -93,25 +94,6 @@ checkTgraphProps fcs
       | otherwise            = Right g 
   where g = makeUncheckedTgraph fcs
 
-
-{-
--- |Creates a Tgraph from a list of faces but checks the faces for edge conflicts and
--- crossing boundaries and connectedness.
--- (No crossing boundaries and connected implies tile-connected).
-checkedTgraph:: [TileFace] -> Tgraph
-checkedTgraph fcs =
-    let g = makeUncheckedTgraph fcs in
-    if not (connected g)    then error ("checkedTgraph: \nTgraph not connected\n" ++ show g) 
-    else if edgeConflicts g then error ("checkedTgraph: \nConflicting face edges: " ++ show (conflictingDedges g) ++
-                                        "\nConflicting length edges: " ++ show (conflictingLengthEdges g) ++
-                                        "\nin\n" ++ show g
-                                       )
-    else if crossingBoundaries g 
-         then error ("checkedTgraph: crossing boundaries found at " ++ show (crossingBVs g) ++
-                     "\nin\n" ++ show g
-                    )
-         else g
--}
 
 -- |select or remove faces from a Tgraph,
 -- but check resulting Tgraph for connectedness and no crossing boundaries.
@@ -128,11 +110,15 @@ nullGraph g = null (faces g)
 Tests and Tgraph properties
 -}
 
+-- |Returns any repeated vertices in a single tileface for a list of tilefaces.
+findEdgeLoops:: [TileFace] -> [Vertex]
+findEdgeLoops = concatMap (duplicates . faceVList)
 
--- |conflictingDedges g returns a list of conflicting directed edges of the faces in g
--- (which should be null)
-conflictingDedges :: Tgraph -> [DEdge]
-conflictingDedges g = duplicates $  graphDedges g where
+-- |Checks if there are repeated vertices within a tileface for a list of tilefaces.
+-- Returns True if there are any.
+hasEdgeLoops:: [TileFace] -> Bool
+hasEdgeLoops = not . null . findEdgeLoops
+
 
 -- |duplicates finds duplicated items in a list
 duplicates :: Eq a => [a] -> [a]
@@ -140,6 +126,11 @@ duplicates [] = []
 duplicates (e:es) | e `elem` es = e:duplicates es
                 | otherwise = duplicates es
 --    duplicates es = es \\ nub es
+
+-- |conflictingDedges g returns a list of conflicting directed edges of the faces in g
+-- (which should be null)
+conflictingDedges :: Tgraph -> [DEdge]
+conflictingDedges g = duplicates $  graphDedges g where
 
 -- |conflictingLengthEdges g returns a list of conflicting lengthed edges of the faces in g
 -- (which should be null)     
@@ -275,8 +266,8 @@ faceDedges::TileFace -> [DEdge]
 faceDedges face = [(a,b),(b,c),(c,a)] where (a,b,c) = faceVs face
 
 -- |opposite directed edge
-reverseE:: DEdge -> DEdge
-reverseE (a,b) = (b,a)
+reverseD:: DEdge -> DEdge
+reverseD (a,b) = (b,a)
 
 -- |Whilst first, second and third edges are obvious (always clockwise), 
 -- it is often more convenient to refer to the joinE (join edge),
@@ -310,9 +301,9 @@ joinOfTile fc = (originV fc, oppV fc)
 facePhiEdges, faceNonPhiEdges::  TileFace -> [DEdge]
 -- |The phi edges of a face (both directions)
 -- which is long edges for darts, and join and long edges for kites
-facePhiEdges fc@(RD _) = [e, reverseE e] where e = longE fc
-facePhiEdges fc@(LD _) = [e, reverseE e] where e = longE fc
-facePhiEdges fc        = [e, reverseE e, j, reverseE j] 
+facePhiEdges fc@(RD _) = [e, reverseD e] where e = longE fc
+facePhiEdges fc@(LD _) = [e, reverseD e] where e = longE fc
+facePhiEdges fc        = [e, reverseD e, j, reverseD j] 
                          where e = longE fc
                                j = joinE fc
 
@@ -326,7 +317,7 @@ faceNonPhiEdges fc = bothDir' (faceDedges fc) \\ facePhiEdges fc
 -- (etype could be joinE or longE or shortE for example).
 -- This is True for fc' if fc' has an etype edge matching the (reversed) etype edge of fc
 matchingE :: (TileFace -> DEdge) -> TileFace -> TileFace -> Bool
-matchingE etype fc = (== reverseE (etype fc)) . etype
+matchingE etype fc = (== reverseD (etype fc)) . etype
 
 -- |special cases of matchingE etype 
 -- where etype is longE, shortE, and joinE
@@ -361,7 +352,7 @@ bothDir = nub . bothDir'
 
 -- |bothDir' adds the reverse directed edges to a list of directed edges without checking for duplicates 
 bothDir':: [DEdge] -> [DEdge]
-bothDir' = concatMap (\e -> [e,reverseE e])
+bothDir' = concatMap (\e -> [e,reverseD e])
 
 
 -- |boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
@@ -377,7 +368,7 @@ boundaryEdges  = bothDir' . boundaryDedges
 
 -- |internal edges are shared by two faces = all edges except boundary edges
 internalEdges :: Tgraph -> [(Vertex, Vertex)]
-internalEdges g = des \\ fmap reverseE bdes where
+internalEdges g = des \\ fmap reverseD bdes where
     des = graphDedges g
     bdes = bothDir des \\ des
 
@@ -385,7 +376,7 @@ internalEdges g = des \\ fmap reverseE bdes where
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
 edgeNb fc = any (`elem` edges) . faceDedges where
-      edges = fmap reverseE (faceDedges fc)
+      edges = fmap reverseD (faceDedges fc)
 
 
 
