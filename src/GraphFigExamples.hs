@@ -14,7 +14,7 @@ Stability   : experimental
 module GraphFigExamples where
 
 -- temp for testin
-import qualified Data.Map as Map (Map, lookup, insert, empty, fromList)
+import qualified Data.Map as Map (Map, lookup, insert, empty, fromList,union)
 
 -- partition for testing
 import Data.List ((\\), nub, partition)      
@@ -808,6 +808,7 @@ maxShapesFig:: Diagram B
 maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 
 -- |drawForceEmplace g is a diagram for g followed by force g followed by emplace g
+drawForceEmplace :: Tgraph -> Diagram B
 drawForceEmplace g = padBorder $ hsep 1 $ fmap drawVGraph
                      [g, force g, emplace g]
 
@@ -817,43 +818,84 @@ testD' = padBorder $ drawVGraph $ force $ addHalfDart (force $ decomposeG sunPlu
 -- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
 -- This example has an emplacement that does not include the original but is still a correct Tgraph.
 -- The figure shows the force and emplace difference.
+emplaceProblemFig:: Diagram B
 emplaceProblemFig = drawForceEmplace sunPlus3Dart'
 
 
-testRelabelFig = padBorder $ hsep 1 $ 
-                     fmap drawVGraph [ foolD
-                                     , relabelNewExcept [1,3] (vertices foolD) foolD
-                                     , relabelByCommonEdge foolD (1,3) foolD
-                                     ]
-  
-{-
 
-startTest = init where
-         g2' = relabelNewExcept [1,3] (vertices foolD) foolD
-         g2prepared = relabelGraph (Map.fromList [(1,1),(3,3)]) g2'
-         init = case pairing (1,3) foolD g2prepared of
-                 [(fc1,fc2)] -> ([fc2], [], faces g2prepared \\ [fc2], initVMap fc1 fc2)    
-                 _  -> error $ "relabelByEdges: Could not find matching faces for edges "++show [(1,3),(1,3)]
-    
-    
-stepTest ([], tried, _, vMap) = error "ended"    
-stepTest  ((fc:fcs), tried, awaiting, vMap) = 
-   case thirdVertexIn foolD (relabelFace vMap fc) of
-           Just (v,v') ->  ((fcs++fcs'), tried, awaiting', (Map.insert v v' vMap))
-                            where (fcs', awaiting') = partition (edgeNb fc) awaiting 
-           Nothing     -> (fcs, (fc:tried), awaiting, vMap)
-   
-inspect = partition (edgeNb (RK (1,3,16)))
-            [LK (1,15,3),RD (22,3,15),LD (23,16,3),RK (25,20,22),LK (25,17,20)
-            ,RD (24,20,17),LK (3,22,20),RK (3,20,18),LD (24,18,20),RK (3,21,23)
-            ,LK (3,18,21),RD (24,21,18),LK (26,23,21),RK (26,21,19),LD (24,19,21)
-            ] 
-inspect2 = thirdVertexIn foolD (relabelFace (Map.fromList [(1,1),(3,3),(16,9)]) (RK (1,3,16)))
+{- *
+Testing Relabelling
 -}
-{-
-produces
-   ([LK (1,15,3),LD (23,16,3)],
-    [RD (22,3,15),RK (25,20,22),LK (25,17,20)
-    ,RD (24,20,17),LK (3,22,20),RK (3,20,18),LD (24,18,20),RK (3,21,23)
-    ,LK (3,18,21),RD (24,21,18),LK (26,23,21),RK (26,21,19),LD (24,19,21)
-    ] ) -}
+
+
+
+-- |A diagram testing relabelByCommonEdge and showing 
+-- (1) labelled foolD, followed by 
+-- (2) a freshly relabelled foolD avoiding vertices in foolD except for edge (1,3),followed by
+-- (3) a further relabelling calculated to match up with foolD starting from the common edge.
+testRelabellingFig1:: Diagram B
+testRelabellingFig1 = 
+    padBorder $ hsep 1 $ 
+    fmap drawVGraph [ foolD
+                    , relabelNewExcept [1,3] (vertices foolD) foolD
+                    , relabelByCommonEdge foolD (1,3) foolD
+                    ]
+
+-- |Another diagram testing the boundary cases of relabelByCommonEdge where
+-- checkForBoundaryThirdV has to be called. It shows
+-- (1) labelled decomposed kitGraph (kiteD), followed by 
+-- (2) a reduced version (reducedKiteD) with two faces removed, followed by
+-- (3) a freshly relabelled kiteD avoiding vertices in reducedKiteD except for edge (1,7),followed by
+-- (4) a further relabelling calculated to match up with reducedKiteD starting from the common edge.
+-- Note that 6 does not get relabelled in (3), and 2 boundary faces outside reducedKiteD are dealt with.
+testRelabellingFig2:: Diagram B
+testRelabellingFig2 = 
+    padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
+      fmap makeVPatch [ kiteGraphD
+                      , reducedKiteD
+                      , relabelNewExcept [1,7] (vertices reducedKiteD) kiteGraphD
+                      , relabelByCommonEdge reducedKiteD (1,7) kiteGraphD
+                      ]
+    where kiteGraphD = decomposeG kiteGraph
+          reducedKiteD = removeFaces [LD(1,6,7), RK(3,7,6)] kiteGraphD
+
+-- |Another diagram testing the boundary cases of relabelByCommonEdge.
+-- Similar to testRelabellingFig2 but with only 1 face removed.
+-- This time relabelling the last (missing) face requires discovery of the third vertex
+-- by checkForBoundaryThirdV.
+testRelabellingFig3:: Diagram B
+testRelabellingFig3 = 
+    padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
+      fmap makeVPatch [ kiteGraphD
+                      , reducedKiteD
+                      , relabelNewExcept [1,7] (vertices reducedKiteD) kiteGraphD
+                      , relabelByCommonEdge reducedKiteD (1,7) kiteGraphD
+                      ]
+    where kiteGraphD = decomposeG kiteGraph
+          reducedKiteD = removeFaces [LD(1,6,7)] kiteGraphD
+
+
+-- |Test function designed to watch steps of relabelByCommonEdge using ghci.
+-- The result is a tuple of arguments for first call of addToVmap
+-- Use:  relabelWatchStep it on the result to step through.
+relabelWatchStart g1 (x,y) g2 = initialArgs where
+         g2' = relabelNewExcept [x,y] (vertices g1) g2
+         g2prepared = relabelGraph (Map.fromList [(x,x),(y,y)]) g2'
+         initialArgs = case pairing (x,y) g1 g2prepared of
+             Just (fc1,fc2) -> (g1, [fc2], [], faces g2prepared \\ [fc2], initVMap fc1 fc2)    
+             _  -> error $ "relabelWatchStart: Could not find matching faces for edges "++show [(1,3),(1,3)]
+    
+-- |Test function designed to watch steps of relabelByCommonEdge using ghci.
+-- After set up with relabelWatchStart
+-- Use:  relabelWatchStep it on the result to step through.    
+-- Result shows changes to tuple of arguments after one step (before next call of of addToVmap).
+-- Ends with an error when processing faces empty and addToVmapBdCheck is about to be called
+relabelWatchStep (g, [], tried, _, vMap) = 
+    error $ "relabelWatchStep ended \n with tried list: " ++show tried   
+relabelWatchStep (g, fc:fcs, tried, awaiting, vMap) = 
+   case thirdVertexIn g (relabelFace vMap fc) of
+           Just prs ->  (g, fcs++fcs', tried, awaiting', vMap')
+                            where (fcs', awaiting') = partition (edgeNb fc) awaiting
+                                  vMap' = Map.union (Map.fromList prs) vMap 
+           Nothing     -> (g, fcs, (fc:tried), awaiting, vMap)
+

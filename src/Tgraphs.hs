@@ -116,24 +116,29 @@ removeIncompleteTiles g = removeFaces halfTiles g
 {-
 ******************** TESTING OUT RELABELLING *****************************
 -}
+         
+-- |Relabelling is a special case of mappings from vertices to vertices.
+-- We use the identity map for vertices not found in the mapping keys
+-- (see relabelV)       
+type Relabelling = Map.Map Vertex Vertex
 -- |Uses a vertex to vertex mapping to change vertices in a Tgraph
 -- relabelGraph vmap g will produce a valid Tgraph provided:
 -- g is a valid Tgraph, and
 -- the mapping vmap is 1-1 with no output vertices in common with the vertices of g.
 -- Vertices of g that are not in the domain of the mapping are left unchanged.
-relabelGraph:: Mapping Vertex Vertex -> Tgraph -> Tgraph
+relabelGraph:: Relabelling -> Tgraph -> Tgraph
 relabelGraph vmap g = checkedTgraph newFaces where
    newFaces = fmap (relabelFace vmap) (faces g) 
 
 -- |Uses a vertex to vertex mapping to relabelxf the three vertices of a face
 -- Any vertex not in the domain of the mapping is left unchanged.
 -- The mapping should be 1-1 to avoid creating a self loop edge.
-relabelFace:: Mapping Vertex Vertex -> TileFace -> TileFace
+relabelFace:: Relabelling -> TileFace -> TileFace
 relabelFace vmap = fmap (all3 (relabelV vmap))  -- fmap of HalfTile Functor
 
 -- |relabelV vmap v. Use mapping vmap to find a replacement for v (leave as v if none found)
--- I.e relabelV turns a Mapping into a total function using identity for undefined cases 
-relabelV:: Mapping Vertex Vertex -> Vertex -> Vertex
+-- I.e relabelV turns a Mapping into a total function using identity for undefined cases. 
+relabelV:: Relabelling -> Vertex -> Vertex
 relabelV vmap v = maybe v id (Map.lookup v vmap)
 
 -- |Applies a function to all three elements of a triple
@@ -142,19 +147,22 @@ all3 f (a,b,c) = (f a,f b,f c)
 
 -- |relabelNewExcept fixed avoid g produces a new Tgraph from g by relabelling.
 -- Any vertex in g that is in the list fixed will remain unchanged.
--- All other vertices in g that are in the list avoid will be changed to new vertices that are
--- neither in g nor in the list avoid.
+-- All Other vertices in g that are in the list avoid will be changed to new vertices that are
+-- neither in g nor in the list avoid nor in the list fixed.
 -- (If a vertex in g appears in both fixed and avoid, it will remain unchanged) 
 relabelNewExcept:: [Vertex] -> [Vertex] -> Tgraph -> Tgraph
 relabelNewExcept fixed avoid g = relabelGraph vmap g where
-  avoid' = avoid \\ fixed
-  vmap = newVMapAvoid avoid' (vertices g `intersect` avoid')
+  avoidWithoutFixed = avoid \\ fixed
+  avoidAndFixed = avoid `union` fixed
+  vertsToChange = vertices g `intersect` avoidWithoutFixed
+  vmap = newVMapAvoid avoidAndFixed vertsToChange
 
--- |newVMapAvoid avoid vs produces a 1-1 mapping from vertices in vs to new vertices
+-- |newVMapAvoid avoid vs - produces a 1-1 mapping from vertices in vs to new vertices
 -- such that no new vertex is in the list avoid or in vs
-newVMapAvoid:: [Vertex] -> [Vertex] -> Mapping Vertex Vertex
+newVMapAvoid:: [Vertex] -> [Vertex] -> Relabelling
 newVMapAvoid avoid vs = Map.fromList $ zip vs newvs
-  where newvs = makeNewVs (length vs) $ vs `union` avoid
+  where avoid' = vs `union` avoid
+        newvs = makeNewVs (length vs) avoid'
 
 {-|relabelByCommonEdge g1 (x,y) g2  produces a relabeled version of g2 that is
 consistent with g1 on their overlap.
@@ -184,8 +192,8 @@ relabelByEdges (g1,(x1,y1)) (g2,(x2,y2)) = relabelGraph vmap g2prepared where
              Just (fc1,fc2) -> createVMapUsing (g1,fc1) (g2prepared,fc2)
              _  -> error $ "relabelByEdges: Could not find matching faces for edges "++show [(x1,y1),(x2,y2)]
 
--- |createVMapUsing (g1,fc1) (g2,fc2) creates a relabelling map to make g2 consistent with g1 in a region of overlap
--- if this is possible.
+-- |createVMapUsing (g1,fc1) (g2,fc2) creates a relabelling map to make g2 consistent with g1
+-- in a region of overlap if this is possible.
 -- fc1 and fc2 should be matching face types and have at least 2 vertices the same (without relabelling),
 -- with fc1 in g1 and fc2 in g2.
 -- g2 must have no vertices in common with g1 at the outset except for the 2 common vertices in fc1 and fc2
@@ -195,7 +203,7 @@ relabelByEdges (g1,(x1,y1)) (g2,(x2,y2)) = relabelGraph vmap g2prepared where
 -- The resulting map gives the required relabelling for g2
 -- This will not produce correct results if there are other overlaps not tile-connected in g1
 -- to the region containing fc1
-createVMapUsing:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Mapping Vertex Vertex
+createVMapUsing:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Relabelling
 createVMapUsing (g1,fc1) (g2,fc2) = addToVmap g1 [fc2] [] (faces g2 \\ [fc2]) (initVMap fc1 fc2)
 
 
@@ -223,8 +231,10 @@ previously matched face. We prioritorize processing faces that have a match in g
 If a face is tried but has no such match, it is stacked up in the tried list to await
 a check (with addToVmapBdCheck) for boundary cases after all faces in the overlap have been processed
 (when processing == []).
+If a processed face has an edge in common with a face in g but the faces do not match, this raises an error
+(indicating a mismatch on the overlap).
 -}
-addToVmap:: Tgraph -> [TileFace] -> [TileFace] -> [TileFace] -> Mapping Vertex Vertex -> Mapping Vertex Vertex
+addToVmap:: Tgraph -> [TileFace] -> [TileFace] -> [TileFace] -> Relabelling -> Relabelling
 addToVmap g [] [] [] vMap = vMap
 addToVmap g [] [] awaiting vMap = error ("addToVmap: Faces not tile-connected " ++ show awaiting)
 addToVmap g (fc:fcs) tried awaiting vMap = 
@@ -239,16 +249,15 @@ addToVmap g [] tried awaiting vMap = addToVmapBdCheck (makeBoundary g) tried vMa
 {- addToVmapBdCheck is an auxiliary function for addToVmap to check boundary cases.
 When it is called, all faces in the overlap have been processed.
 The awaiting list is then dropped because:
-Faces in awaiting cannot have an edge in common with the processed overlap
+faces in awaiting cannot have an edge in common with the processed overlap
 and therefore cannot have a  boundary edge.
 (If they have a single boundary vertex, this already has a relabelling in vMap)
 It remains to process the tried faces to see if they are on the boundary.
 If not, they can be ignored, but if they have a boundary edge, we need to find if the third vertex 
-coincides with a boundary vertex, in case this vertex also needs relabelling.
-All this assumes the overlap was a single region (satisfying Tgraph proerties)
--- |Check for boundary edges in tried list 
+coincides with a neighbouring boundary vertex, in case this vertex also needs relabelling.
+All this assumes the overlap was a single region (satisfying Tgraph proerties) 
 -}
-addToVmapBdCheck:: Boundary -> [TileFace] -> Mapping Vertex Vertex -> Mapping Vertex Vertex
+addToVmapBdCheck:: Boundary -> [TileFace] -> Relabelling -> Relabelling
 addToVmapBdCheck bdry [] vMap = vMap
 addToVmapBdCheck bdry (fc:tried) vMap =
     if hasEdgeIn (bDedges bdry) fc'
@@ -259,37 +268,40 @@ addToVmapBdCheck bdry (fc:tried) vMap =
   where fc' = relabelFace vMap fc
 
 
-
+-- | checkForBoundaryThirdV bdry fc - fc must be a new face sharing a boundary edge in bdry.
+-- It checks if the third vertex of fc coincides with a third vertex on the neighbouring boundary
+-- (with possibly different label).  If this is the case, it returns Just(v,v') to indicate the relabelling
+-- required for third vertex v (of fc to match with the found vertex v' on the boundary.
+-- Returns Nothing if such a vertex is not found.
+-- CAVEAT: No location checking is done to check for a non-local touching vertex.
 checkForBoundaryThirdV:: Boundary -> TileFace -> Maybe (Vertex,Vertex)
 checkForBoundaryThirdV bdry fc =  
   case findThirdV bdry e n m of
       Just v' -> let fc' = relabelFace (Map.insert v v' Map.empty) fc in
-                  if conflictCheck fc' bdry 
+                  if noConflictCheck fc' bdry 
                   then Just (v,v')
                   else error $ "checkForBoundaryThirdV: Conflicting face found: " ++ show fc' 
       Nothing -> Nothing
-  where [e] = faceDedges fc `intersect` (bDedges bdry)
-        (n,m,v) = analyse e fc
+  where (e:_) = faceDedges fc `intersect` (bDedges bdry)
+        (v,(n,m)) = thirdVAngles e fc
 
-conflictCheck :: TileFace -> Boundary -> Bool
-conflictCheck fc bdry = noConflict fc nbrFaces where
+-- | noConflictCheck fc bdry - f must be a new face sharing a boundary directed edge in bdry.
+-- It returns true if f has no conflicts with its neighbouring faces on the boundary.
+noConflictCheck :: TileFace -> Boundary -> Bool
+noConflictCheck fc bdry = noConflict fc nbrFaces where
     nbrFaces = nub $ concatMap (facesAtBV bdry) (faceVList fc)
 
-
-analyse::DEdge -> TileFace -> (Int,Int,Vertex)
-analyse e (LD (a,b,c)) | e==(a,b) = (1,3,c)
-                       | e==(b,c) = (3,1,a)
-                       | e==(c,a) = (1,1,b)
-analyse e (RD (a,b,c)) | e==(a,b) = (1,1,c)
-                       | e==(b,c) = (1,3,a)
-                       | e==(c,a) = (3,1,b)
-analyse e (LK (a,b,c)) | e==(a,b) = (1,2,c)
-                       | e==(b,c) = (2,2,a)
-                       | e==(c,a) = (2,1,b)
-analyse e (RK (a,b,c)) | e==(a,b) = (1,2,c)
-                       | e==(b,c) = (2,2,a)
-                       | e==(c,a) = (2,1,b)  
-
+-- | thirdVAngles e f - the directed edge e must be one of the directed edges of face f.
+-- The result is the third vertex of f paired with the two internal angles of the face on the directed edge
+-- (in order).
+-- The internal angles are expressed as a pair of integer multiples of ttangle (so 1,2,or 3).
+-- These numbers are used by findThirdV.
+thirdVAngles::DEdge -> TileFace -> (Vertex,(Int,Int))
+thirdVAngles (x,y) fc = (z,(n,m)) where
+  intangles = faceAngles fc
+  IntAngle n = intangles !! indexV x fc
+  IntAngle m = intangles !! indexV y fc
+  z = nextV y fc
 
 -- | thirdVertexIn g f tries to find a face in g corresponding to face f,
 -- where at least 2 vertices have to match. If successful, 
@@ -318,7 +330,7 @@ hasEdge e f = e `elem` (faceDedges f)
 
 -- |initVMap f1 f2 - creates a relabelling (vertex to vertex mapping) so that
 -- if applied to face f2, the vertices will match with face f1 exactly.
-initVMap :: TileFace -> TileFace -> Mapping Vertex Vertex
+initVMap :: TileFace -> TileFace -> Relabelling
 initVMap f1 f2 -- f2 relabels to f1
   = Map.insert (firstV  f2) (firstV  f1) $
     Map.insert (secondV f2) (secondV f1) $
