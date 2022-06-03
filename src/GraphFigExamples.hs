@@ -13,11 +13,11 @@ Stability   : experimental
 -}
 module GraphFigExamples where
 
--- temp for testin
+-- temp for testing
 import qualified Data.Map as Map (Map, lookup, insert, empty, fromList,union)
 
 -- partition for testing
-import Data.List ((\\), nub, partition)      
+import Data.List ((\\), nub, partition,intersect,union)      
 import Diagrams.Prelude
 
 import ChosenBackend (B)
@@ -837,7 +837,7 @@ testRelabellingFig1:: Diagram B
 testRelabellingFig1 = 
     padBorder $ hsep 1 $ 
     fmap drawVGraph [ foolD
-                    , relabelNewExcept [1,3] (vertices foolD) foolD
+                    , partRelabelFixChange [1,3] (vertices foolD) foolD
                     , relabelByCommonEdge foolD (1,3) foolD
                     ]
 
@@ -853,7 +853,7 @@ testRelabellingFig2 =
     padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
       fmap makeVPatch [ kiteGraphD
                       , reducedKiteD
-                      , relabelNewExcept [1,7] (vertices reducedKiteD) kiteGraphD
+                      , partRelabelFixChange [1,7] (vertices reducedKiteD) kiteGraphD
                       , relabelByCommonEdge reducedKiteD (1,7) kiteGraphD
                       ]
     where kiteGraphD = decomposeG kiteGraph
@@ -868,18 +868,43 @@ testRelabellingFig3 =
     padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
       fmap makeVPatch [ kiteGraphD
                       , reducedKiteD
-                      , relabelNewExcept [1,7] (vertices reducedKiteD) kiteGraphD
+                      , partRelabelFixChange [1,7] (vertices reducedKiteD) kiteGraphD
                       , relabelByCommonEdge reducedKiteD (1,7) kiteGraphD
                       ]
     where kiteGraphD = decomposeG kiteGraph
           reducedKiteD = removeFaces [LD(1,6,7)] kiteGraphD
 
+-- |Another diagram testing the boundary cases of relabelByEdges.
+-- The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
+-- The bottom left shows one relabelling of g2 that matches with g1
+-- (with edge (37,35) matching against (1,12) in g1).
+-- The bottom right is a different relabelling of g2 that also matches with g1
+-- (with edge (37,40) matching against (1,12) in g1).
+testRelabellingFig4:: Diagram B
+testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
+                       [hsep 1 $ fmap center $ take 2 four, hsep 1 $ fmap center $ drop 2 four] where
+     four  = fmap drawVPatch $ alignAll (1,12) $
+             fmap makeVPatch [ reduced1
+                             , relabel2
+                             , relabelByEdges (reduced1, (1,12)) (relabel2,(37,35))
+                             , relabelByEdges (reduced1, (1,12)) (relabel2,(37,40))
+                             
+                             ] where
+     sunD2 = sunDs!!2
+     fsunD2 = force sunD2
+     reduced1 = removeVertices [36,20,48,49,35,37] sunD2
+     reduced2 = removeVertices [6,5,4] fsunD2
+     relabel2 = relabelAny reduced2
+
+
+--  removed = filter (hasVIn [36,20,48,49,35,37]) (faces sunD2)
+--  reduced = removeFaces removed sunD2
 
 -- |Test function designed to watch steps of relabelByCommonEdge using ghci.
 -- The result is a tuple of arguments for first call of addToVmap
 -- Use:  relabelWatchStep it on the result to step through.
 relabelWatchStart g1 (x,y) g2 = initialArgs where
-         g2' = relabelNewExcept [x,y] (vertices g1) g2
+         g2' = partRelabelFixChange [x,y] (vertices g1) g2
          g2prepared = relabelGraph (Map.fromList [(x,x),(y,y)]) g2'
          initialArgs = case pairing (x,y) g1 g2prepared of
              Just (fc1,fc2) -> (g1, [fc2], [], faces g2prepared \\ [fc2], initVMap fc1 fc2)    

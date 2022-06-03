@@ -19,7 +19,7 @@ module Tgraphs ( module Tgraphs
 
 -- WAS  JUST import Data.List (intersect)
 import Data.List (intersect, (\\), union,find,nub,partition)
-import qualified Data.Map as Map (Map, lookup, insert, empty, fromList,union)
+import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, fromList,union)
 
 import Tgraph.Prelude
 import Tgraph.Decompose
@@ -118,26 +118,27 @@ removeIncompleteTiles g = removeFaces halfTiles g
 -}
          
 -- |Relabelling is a special case of mappings from vertices to vertices.
--- We use the identity map for vertices not found in the mapping keys
--- (see relabelV)       
+-- We use the identity map for vertices not found in the mapping domain
+-- (see relabelV).  Relabellings are expected to be 1-1.       
 type Relabelling = Map.Map Vertex Vertex
--- |Uses a vertex to vertex mapping to change vertices in a Tgraph
+
+-- |Uses a relabelling to change vertices in a Tgraph
 -- relabelGraph vmap g will produce a valid Tgraph provided:
 -- g is a valid Tgraph, and
--- the mapping vmap is 1-1 with no output vertices in common with the vertices of g.
--- Vertices of g that are not in the domain of the mapping are left unchanged.
+-- the mapping vmap extended with the identity is 1-1 on vertices in g.
+-- (Vertices of g that are not in the domain of the mapping are left unchanged.)
 relabelGraph:: Relabelling -> Tgraph -> Tgraph
 relabelGraph vmap g = checkedTgraph newFaces where
    newFaces = fmap (relabelFace vmap) (faces g) 
 
--- |Uses a vertex to vertex mapping to relabelxf the three vertices of a face
+-- |Uses a relabelling to relabel the three vertices of a face
 -- Any vertex not in the domain of the mapping is left unchanged.
--- The mapping should be 1-1 to avoid creating a self loop edge.
+-- The mapping should be 1-1 on the 3 vertices to avoid creating a self loop edge.
 relabelFace:: Relabelling -> TileFace -> TileFace
 relabelFace vmap = fmap (all3 (relabelV vmap))  -- fmap of HalfTile Functor
 
--- |relabelV vmap v. Use mapping vmap to find a replacement for v (leave as v if none found)
--- I.e relabelV turns a Mapping into a total function using identity for undefined cases. 
+-- |relabelV vmap v. Uses relabelling vmap to find a replacement for v (leaves as v if none found)
+-- I.e relabelV turns a relabelling into a total function using identity for undefined cases. 
 relabelV:: Relabelling -> Vertex -> Vertex
 relabelV vmap v = maybe v id (Map.lookup v vmap)
 
@@ -145,17 +146,18 @@ relabelV vmap v = maybe v id (Map.lookup v vmap)
 all3:: (a -> b) -> (a,a,a) -> (b,b,b)
 all3 f (a,b,c) = (f a,f b,f c)
 
--- |relabelNewExcept fixed avoid g produces a new Tgraph from g by relabelling.
--- Any vertex in g that is in the list fixed will remain unchanged.
--- All Other vertices in g that are in the list avoid will be changed to new vertices that are
--- neither in g nor in the list avoid nor in the list fixed.
--- (If a vertex in g appears in both fixed and avoid, it will remain unchanged) 
-relabelNewExcept:: [Vertex] -> [Vertex] -> Tgraph -> Tgraph
-relabelNewExcept fixed avoid g = relabelGraph vmap g where
-  avoidWithoutFixed = avoid \\ fixed
-  avoidAndFixed = avoid `union` fixed
-  vertsToChange = vertices g `intersect` avoidWithoutFixed
-  vmap = newVMapAvoid avoidAndFixed vertsToChange
+-- |partRelabelFixChange fix change g - produces a new Tgraph from g by relabelling.
+-- Any vertex in g that is in the list fix will remain unchanged.
+-- All Other vertices in g that are in the list change will be changed to new vertices that are
+-- neither in g nor in the list change nor in the list fix.
+-- (If a vertex in g appears in both fix and change, it will remain unchanged) 
+partRelabelFixChange:: [Vertex] -> [Vertex] -> Tgraph -> Tgraph
+partRelabelFixChange fix change g = relabelGraph vmap g where
+  gverts = vertices g
+  changeWithoutFixed = change \\ fix
+  avoidTarget = fix `union` change `union` gverts -- new targets must not clash with existing labels
+  vertsToChange = gverts `intersect` changeWithoutFixed
+  vmap = newVMapAvoid avoidTarget vertsToChange
 
 -- |newVMapAvoid avoid vs - produces a 1-1 mapping from vertices in vs to new vertices
 -- such that no new vertex is in the list avoid or in vs
@@ -163,6 +165,13 @@ newVMapAvoid:: [Vertex] -> [Vertex] -> Relabelling
 newVMapAvoid avoid vs = Map.fromList $ zip vs newvs
   where avoid' = vs `union` avoid
         newvs = makeNewVs (length vs) avoid'
+
+-- |Relabel all vertices in Tgraph using new labels 1..n (where n is the number of vertices)
+relabelAny :: Tgraph -> Tgraph
+relabelAny g = relabelGraph vmap g where
+   vs = vertices g
+   vmap = Map.fromList $ zip vs [1..length vs]
+
 
 {-|relabelByCommonEdge g1 (x,y) g2  produces a relabeled version of g2 that is
 consistent with g1 on their overlap.
@@ -186,7 +195,7 @@ a correct relabelling of g2)
 -}
 relabelByEdges:: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
 relabelByEdges (g1,(x1,y1)) (g2,(x2,y2)) = relabelGraph vmap g2prepared where
-     g2' = relabelNewExcept [x2,y2] (vertices g1) g2
+     g2' = partRelabelFixChange [x2,y2] (vertices g1) g2
      g2prepared = relabelGraph (Map.fromList [(x2,x1),(y2,y1)]) g2'
      vmap = case pairing (x1,y1) g1 g2prepared of
              Just (fc1,fc2) -> createVMapUsing (g1,fc1) (g2prepared,fc2)
@@ -246,7 +255,7 @@ addToVmap g (fc:fcs) tried awaiting vMap =
 addToVmap g [] tried awaiting vMap = addToVmapBdCheck (makeBoundary g) tried vMap
 
 
-{- addToVmapBdCheck is an auxiliary function for addToVmap to check boundary cases.
+{-|addToVmapBdCheck is an auxiliary function for addToVmap to check boundary cases.
 When it is called, all faces in the overlap have been processed.
 The awaiting list is then dropped because:
 faces in awaiting cannot have an edge in common with the processed overlap

@@ -95,11 +95,29 @@ checkTgraphProps fcs
   where g = makeUncheckedTgraph fcs
 
 
--- |select or remove faces from a Tgraph,
--- but check resulting Tgraph for connectedness and no crossing boundaries.
-selectFaces, removeFaces  :: [TileFace] -> Tgraph -> Tgraph
+-- |selects faces from a Tgraph (removing any not in the list),
+-- but checks resulting Tgraph for required properties
+-- e.g. connectedness and no crossing boundaries.
+selectFaces :: [TileFace] -> Tgraph -> Tgraph
 selectFaces fcs g = checkedTgraph (faces g `intersect` fcs)
+
+-- |removes faces from a Tgraph,
+-- but checks resulting Tgraph for required properties
+-- e.g. connectedness and no crossing boundaries.
+removeFaces :: [TileFace] -> Tgraph -> Tgraph
 removeFaces fcs g = checkedTgraph (faces g \\ fcs)
+
+-- |removeVertices vs g - removes any vertex in the list vs from g
+-- by removing all faces at those vertices. Resulting Tgrpah is checked
+-- for required properties  e.g. connectedness and no crossing boundaries.
+removeVertices :: [Vertex] -> Tgraph -> Tgraph
+removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
+
+-- |selectVertices vs g - removes any face that does not have a vertex in the list vs from g.
+-- Resulting Tgrpah is checked
+-- for required properties  e.g. connectedness and no crossing boundaries.
+selectVertices :: [Vertex] -> Tgraph -> Tgraph
+selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 
 -- |is the graph empty?
 nullGraph:: Tgraph -> Bool
@@ -244,6 +262,10 @@ prevV v fc = case indexV v fc of
 -- |isAtV v fc asks if a face fc has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool           
 isAtV v face  =  v `elem` faceVList face
+
+-- |hasVIn vs fc asks if a face fc has an element of vs as a vertex
+hasVIn:: [Vertex] -> TileFace -> Bool           
+hasVIn vs fc = not $ null $ faceVList fc `intersect` vs
 
 -- |given existing vertices vs, create n new vertices
 makeNewVs :: Int -> [Vertex] -> [Vertex]
