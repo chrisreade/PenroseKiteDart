@@ -263,7 +263,7 @@ prevV v fc = case indexV v fc of
 isAtV:: Vertex -> TileFace -> Bool           
 isAtV v face  =  v `elem` faceVList face
 
--- |hasVIn vs fc asks if a face fc has an element of vs as a vertex
+-- |hasVIn vs fc - asks if face fc has an element of vs as a vertex
 hasVIn:: [Vertex] -> TileFace -> Bool           
 hasVIn vs fc = not $ null $ faceVList fc `intersect` vs
 
@@ -347,6 +347,14 @@ matchingLongE,matchingShortE,matchingJoinE ::  TileFace -> TileFace -> Bool
 matchingLongE  = matchingE longE
 matchingShortE = matchingE shortE
 matchingJoinE  = matchingE joinE
+
+-- |hasDEdge e f returns True if directed edge e is one of the directed edges of face f
+hasDEdge :: DEdge -> TileFace -> Bool
+hasDEdge e f = e `elem` (faceDedges f)
+
+-- |hasDEdgeIn es fc - is True if fc has a directed edge in the list of edges es.
+hasDEdgeIn :: [DEdge] -> TileFace -> Bool
+hasDEdgeIn es fc = not $ null (es `intersect` faceDedges fc)
 
 -- |A list of all the directed edges of a graph (going clockwise round faces)
 graphDedges :: Tgraph -> [(Vertex, Vertex)]

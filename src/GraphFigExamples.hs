@@ -829,7 +829,7 @@ Testing Relabelling
 
 
 
--- |A diagram testing relabelByCommonEdge and showing 
+-- |A diagram testing matchByCommonEdge and showing 
 -- (1) labelled foolD, followed by 
 -- (2) a freshly relabelled foolD avoiding vertices in foolD except for edge (1,3),followed by
 -- (3) a further relabelling calculated to match up with foolD starting from the common edge.
@@ -838,10 +838,10 @@ testRelabellingFig1 =
     padBorder $ hsep 1 $ 
     fmap drawVGraph [ foolD
                     , partRelabelFixChange [1,3] (vertices foolD) foolD
-                    , relabelByCommonEdge foolD (1,3) foolD
+                    , matchByCommonEdge foolD (1,3) foolD
                     ]
 
--- |Another diagram testing the boundary cases of relabelByCommonEdge where
+-- |Another diagram testing the boundary cases of matchByCommonEdge where
 -- checkForBoundaryThirdV has to be called. It shows
 -- (1) labelled decomposed kitGraph (kiteD), followed by 
 -- (2) a reduced version (reducedKiteD) with two faces removed, followed by
@@ -854,12 +854,12 @@ testRelabellingFig2 =
       fmap makeVPatch [ kiteGraphD
                       , reducedKiteD
                       , partRelabelFixChange [1,7] (vertices reducedKiteD) kiteGraphD
-                      , relabelByCommonEdge reducedKiteD (1,7) kiteGraphD
+                      , matchByCommonEdge reducedKiteD (1,7) kiteGraphD
                       ]
     where kiteGraphD = decomposeG kiteGraph
           reducedKiteD = removeFaces [LD(1,6,7), RK(3,7,6)] kiteGraphD
 
--- |Another diagram testing the boundary cases of relabelByCommonEdge.
+-- |Another diagram testing the boundary cases of matchByCommonEdge.
 -- Similar to testRelabellingFig2 but with only 1 face removed.
 -- This time relabelling the last (missing) face requires discovery of the third vertex
 -- by checkForBoundaryThirdV.
@@ -869,12 +869,12 @@ testRelabellingFig3 =
       fmap makeVPatch [ kiteGraphD
                       , reducedKiteD
                       , partRelabelFixChange [1,7] (vertices reducedKiteD) kiteGraphD
-                      , relabelByCommonEdge reducedKiteD (1,7) kiteGraphD
+                      , matchByCommonEdge reducedKiteD (1,7) kiteGraphD
                       ]
     where kiteGraphD = decomposeG kiteGraph
           reducedKiteD = removeFaces [LD(1,6,7)] kiteGraphD
 
--- |Another diagram testing the boundary cases of relabelByEdges.
+-- |Another diagram testing the boundary cases of matchByEdges.
 -- The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
 -- The bottom left shows one relabelling of g2 that matches with g1
 -- (with edge (37,35) matching against (1,12) in g1).
@@ -886,8 +886,8 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
      four  = fmap drawVPatch $ alignAll (1,12) $
              fmap makeVPatch [ reduced1
                              , relabel2
-                             , relabelByEdges (reduced1, (1,12)) (relabel2,(37,35))
-                             , relabelByEdges (reduced1, (1,12)) (relabel2,(37,40))
+                             , matchByEdges (reduced1, (1,12)) (relabel2,(37,35))
+                             , matchByEdges (reduced1, (1,12)) (relabel2,(37,40))
                              
                              ] where
      sunD2 = sunDs!!2
@@ -896,21 +896,18 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
      reduced2 = removeVertices [6,5,4] fsunD2
      relabel2 = relabelAny reduced2
 
-
---  removed = filter (hasVIn [36,20,48,49,35,37]) (faces sunD2)
---  reduced = removeFaces removed sunD2
-
--- |Test function designed to watch steps of relabelByCommonEdge using ghci.
+{-
+-- |Test function designed to watch steps of matchByCommonEdge using ghci.
 -- The result is a tuple of arguments for first call of addToVmap
 -- Use:  relabelWatchStep it on the result to step through.
 relabelWatchStart g1 (x,y) g2 = initialArgs where
          g2' = partRelabelFixChange [x,y] (vertices g1) g2
          g2prepared = relabelGraph (Map.fromList [(x,x),(y,y)]) g2'
-         initialArgs = case pairing (x,y) g1 g2prepared of
+         initialArgs = case facePairing (x,y) g1 g2prepared of
              Just (fc1,fc2) -> (g1, [fc2], [], faces g2prepared \\ [fc2], initVMap fc1 fc2)    
              _  -> error $ "relabelWatchStart: Could not find matching faces for edges "++show [(1,3),(1,3)]
     
--- |Test function designed to watch steps of relabelByCommonEdge using ghci.
+-- |Test function designed to watch steps of matchByCommonEdge using ghci.
 -- After set up with relabelWatchStart
 -- Use:  relabelWatchStep it on the result to step through.    
 -- Result shows changes to tuple of arguments after one step (before next call of of addToVmap).
@@ -923,4 +920,5 @@ relabelWatchStep (g, fc:fcs, tried, awaiting, vMap) =
                             where (fcs', awaiting') = partition (edgeNb fc) awaiting
                                   vMap' = Map.union (Map.fromList prs) vMap 
            Nothing     -> (g, fcs, (fc:tried), awaiting, vMap)
+-}
 

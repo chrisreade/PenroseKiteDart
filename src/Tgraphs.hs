@@ -18,7 +18,7 @@ module Tgraphs ( module Tgraphs
                ) where
 
 -- WAS  JUST import Data.List (intersect)
-import Data.List (intersect, (\\), union,find,nub,partition)
+import Data.List (intersect, (\\), union,find,nub,partition,intercalate)
 import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, fromList,union)
 
 import Tgraph.Prelude
@@ -173,89 +173,133 @@ relabelAny g = relabelGraph vmap g where
    vmap = Map.fromList $ zip vs [1..length vs]
 
 
-{-|relabelByCommonEdge g1 (x,y) g2  produces a relabeled version of g2 that is
+{-|matchByCommonEdge g1 e g2  produces a relabelled version of g2 that is
 consistent with g1 on their overlap.
-The overlaping region must contain the common directed edge (x,y) without relabelling.
+The overlaping region must contain the common directed edge e without relabelling.
+This produces an error if a mismatcch is found in the overlap.
 
 CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
 (If the overlap contains more than one tile-connected region the result may not be
 a correct relabelling of g2)    
 -}
-relabelByCommonEdge:: Tgraph -> DEdge -> Tgraph -> Tgraph
-relabelByCommonEdge g1 (x,y) g2 = relabelByEdges (g1,(x,y)) (g2,(x,y))
+matchByCommonEdge:: Tgraph -> DEdge -> Tgraph -> Tgraph
+matchByCommonEdge g1 e g2 = either showError id $ tryMatchByCommonEdge g1 e g2 where
+  showError lines = error $ intercalate "\n" lines
+ 
+{-|tryMatchByCommonEdge g1 e g2  produces either Right g where g is a relabelled version of g2 that is
+consistent with g1 on their overlap or Left lines if there is a mismatch (lines explaining the problem).
+The overlaping region must contain the common directed edge e without relabelling.
 
-{-|rrelabelByEdges (g1,e1) (g2,e2)  produces a relabeled version of g2 that is
+CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
+(If the overlap contains more than one tile-connected region the result may not be
+a correct relabelling of g2)    
+-}
+tryMatchByCommonEdge:: Tgraph -> DEdge -> Tgraph -> Either [String] Tgraph
+tryMatchByCommonEdge g1 e g2 = tryMatchByEdges (g1,e) (g2,e)
+
+{-|matchByEdges (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
 consistent with g1 on their overlap.
-The overlaping region must contain the directed edge e1 in g1 and e2 in g2,
+The overlapping region must contain the directed edge e1 in g1 and e2 in g2,
+which will be identified by the relabelling of g2.
+This produces an error if a mismatcch is found in the overlap.
+
+CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
+(If the overlap contains more than one tile-connected region the result may not be
+a correct relabelling of g2)    
+-}
+matchByEdges:: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
+matchByEdges ge1 ge2 = either showError id $ tryMatchByEdges ge1 ge2 where
+  showError lines = error $ intercalate "\n" lines
+ 
+{-|tryMatchByEdges (g1,e1) (g2,e2) produces either Right g where g is a relabelled version of g2 that is
+consistent with g1 on their overlap or Left lines if there is a mismatch (lines explaining the problem).
+The overlapping region must contain the directed edge e1 in g1 and e2 in g2,
 which will be identified by the relabelling of g2.
 
 CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
 (If the overlap contains more than one tile-connected region the result may not be
 a correct relabelling of g2)    
 -}
-relabelByEdges:: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
-relabelByEdges (g1,(x1,y1)) (g2,(x2,y2)) = relabelGraph vmap g2prepared where
+tryMatchByEdges :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Either [String] Tgraph
+tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = 
+   case find  (hasDEdge (x1,y1)) (faces g2prepared) of
+     Just fc2 -> case matchFaceIn g1 fc2 of
+                   Right (Just fc1) -> case findRelabelling (g1,fc1) (g2,fc2) of
+                                          Right vmap  -> Right $ relabelGraph vmap g2prepared
+                                          Left  lines -> Left lines
+                   Right Nothing ->   Left ["tryMatchByEdges:"
+                                           ,"no matching face found at edge "++show (x1,y1)
+                                           ,"for relabelled face " ++ show fc2]
+                   Left lines -> Left lines
+     _ -> Left ["tryMatchByEdges:", "No face found for edge " ++ show (x2,y2)]
+   where
      g2' = partRelabelFixChange [x2,y2] (vertices g1) g2
-     g2prepared = relabelGraph (Map.fromList [(x2,x1),(y2,y1)]) g2'
-     vmap = case pairing (x1,y1) g1 g2prepared of
-             Just (fc1,fc2) -> createVMapUsing (g1,fc1) (g2prepared,fc2)
-             _  -> error $ "relabelByEdges: Could not find matching faces for edges "++show [(x1,y1),(x2,y2)]
-
--- |createVMapUsing (g1,fc1) (g2,fc2) creates a relabelling map to make g2 consistent with g1
--- in a region of overlap if this is possible.
--- fc1 and fc2 should be matching face types and have at least 2 vertices the same (without relabelling),
--- with fc1 in g1 and fc2 in g2.
--- g2 must have no vertices in common with g1 at the outset except for the 2 common vertices in fc1 and fc2
--- The resulting map when applied to fc2 will be identical to fc1.
--- The common overlap needs to be a SINGLE region of tile-connected faces in g1.
--- The common region must contain fc1 in g1 and fc2 in g2
--- The resulting map gives the required relabelling for g2
--- This will not produce correct results if there are other overlaps not tile-connected in g1
--- to the region containing fc1
-createVMapUsing:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Relabelling
-createVMapUsing (g1,fc1) (g2,fc2) = addToVmap g1 [fc2] [] (faces g2 \\ [fc2]) (initVMap fc1 fc2)
+     g2prepared | null prs = g2'
+                | otherwise = relabelGraph (Map.fromList prs) g2'
+     prs = differences [(x2,x1),(y2,y1)]
 
 
+{-|findRelabelling is an auxiliary function for tryMatchByEdges and tryMatchByCommonEdge.
+fc1 and fc2 should be matching face types and have at least 2 vertices the same (without relabelling),
+with fc1 in g1 and fc2 in g2.
+g2 must have no vertices in common with g1 except for the common vertices in fc1 and fc2.
+findRelabelling (g1,fc1) (g2,fc2) - produces either Right rel where
+rel is a relabelling map to make g2 consistent with g1 in a region of overlap if this is possible, or
+Left lines if there is a mismatch (lines explaining the problem).
+In the successful case rel when applied to fc2 will be identical to fc1.
+
+CAVEAT: The common overlap needs to be a SINGLE region of tile-connected faces in g1.
+The common region must contain fc1 in g1 and fc2 in g2.
+This may not produce correct results if there are other overlaps not tile-connected in g1
+to the region containing fc1
+-}
+findRelabelling:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Either [String] Relabelling
+findRelabelling (g1,fc1) (g2,fc2) = addRelabel g1 [fc2] [] (faces g2 \\ [fc2]) (initVMap fc1 fc2)
+
+-- |initVMap f1 f2 - creates a relabelling so that
+-- if applied to face f2, the vertices will match with face f1 exactly.
+initVMap :: TileFace -> TileFace -> Relabelling
+initVMap f1 f2 -- f2 relabels to f1
+  = Map.fromList $ differences $ zip (faceVList f2) (faceVList f1)
+
+-- |selects only non-matching pairs from a list
+differences :: [(Vertex,Vertex)] -> [(Vertex,Vertex)]
+differences = filter different where
+              different (a,b) = a /= b
 
 
-
-
-
-{-| addToVmap is used by createVMapUsing to build a relabelling map.
-(addToVmap g processing tried awaiting vmap) produces a new vmap
-to be used for relabelling faces being matched against g.
-A match occurs if a relabeled face matches the face type and at least 2
-corresponding vertices of a face in g.
-Argument g is the Tgraph being matched against.
-Argument processing is a list of faces to be matched next and
-each has an edge in common with at least one previously matched face.
-Argument tried is a list of faces that have been checked for a matching face in g but none found.
+{-|addRelabel is used by findRelabelling to build a relabelling map which can fail, producing Left lines.
+In the successful case (addRelabel g processing tried awaiting vmap) produces a Right rel
+where rel is the required relabelling. The arguments are:
+g - the Tgraph being matched against.
+processing - a list of faces to be matched next where
+each has an edge in common with at least one previously matched face (or it is the starting face).
+tried - a list of faces that have been checked for a matching face in g but none found.
 They may still be on the boundary of g.
-Argument awaiting is a list of faces that have not yet been tried for a match and are not
+awaiting - a list of faces that have not yet been tried for a match and are not
 tile-connected to any faces already matched.
-Argument vmap is a vertex to vertex mapping used to store relabelling information during the process.
+vmap - a vertex to vertex mapping used to store relabelling information during the process.
 
 The idea is that from a single matched starting face we process faces that share an edge with a
 previously matched face. We prioritorize processing faces that have a match in g (with 2 matching vertices).
 If a face is tried but has no such match, it is stacked up in the tried list to await
-a check (with addToVmapBdCheck) for boundary cases after all faces in the overlap have been processed
+a check (with addRelabelBdCheck) for boundary cases after all faces in the overlap have been processed
 (when processing == []).
-If a processed face has an edge in common with a face in g but the faces do not match, this raises an error
-(indicating a mismatch on the overlap).
+If a processed face has an edge in common with a face in g but the faces do not match, this
+indicates a mismatch on the overlap and Left ... is returned.
 -}
-addToVmap:: Tgraph -> [TileFace] -> [TileFace] -> [TileFace] -> Relabelling -> Relabelling
-addToVmap g [] [] [] vMap = vMap
-addToVmap g [] [] awaiting vMap = error ("addToVmap: Faces not tile-connected " ++ show awaiting)
-addToVmap g (fc:fcs) tried awaiting vMap = 
-    case thirdVertexIn g (relabelFace vMap fc) of
-       Just prs -> addToVmap g (fcs++fcs') tried awaiting' vMap'
-                              where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                                    vMap' = Map.union (Map.fromList prs) vMap 
-       Nothing  -> addToVmap g fcs (fc:tried) awaiting vMap
-addToVmap g [] tried awaiting vMap = addToVmapBdCheck (makeBoundary g) tried vMap
+addRelabel:: Tgraph -> [TileFace] -> [TileFace] -> [TileFace] -> Relabelling -> Either [String] Relabelling
+addRelabel g [] tried awaiting vMap = 
+  addRelabelBdCheck (makeBoundary g) tried vMap -- awaiting do not need to be checked
+addRelabel g (fc:fcs) tried awaiting vMap = 
+  case matchVsIn g (relabelFace vMap fc) of
+       Right prs -> addRelabel g (fcs++fcs') tried awaiting' vMap'
+                      where (fcs', awaiting') = partition (edgeNb fc) awaiting
+                            vMap' = Map.union (Map.fromList prs) vMap 
+       Left lines -> Left lines
 
 
-{-|addToVmapBdCheck is an auxiliary function for addToVmap to check boundary cases.
+{-|addRelabelBdCheck is an auxiliary function for addRelabel to check boundary cases.
 When it is called, all faces in the overlap have been processed.
 The awaiting list is then dropped because:
 faces in awaiting cannot have an edge in common with the processed overlap
@@ -264,33 +308,40 @@ and therefore cannot have a  boundary edge.
 It remains to process the tried faces to see if they are on the boundary.
 If not, they can be ignored, but if they have a boundary edge, we need to find if the third vertex 
 coincides with a neighbouring boundary vertex, in case this vertex also needs relabelling.
-All this assumes the overlap was a single region (satisfying Tgraph proerties) 
+
+CAVEAT: All this assumes the overlap was a single region (satisfying Tgraph proerties) 
 -}
-addToVmapBdCheck:: Boundary -> [TileFace] -> Relabelling -> Relabelling
-addToVmapBdCheck bdry [] vMap = vMap
-addToVmapBdCheck bdry (fc:tried) vMap =
-    if hasEdgeIn (bDedges bdry) fc'
+addRelabelBdCheck:: Boundary -> [TileFace] -> Relabelling -> Either [String] Relabelling
+addRelabelBdCheck bdry [] vMap = Right vMap
+addRelabelBdCheck bdry (fc:tried) vMap =
+    if hasDEdgeIn (bDedges bdry) fc'
     then case checkForBoundaryThirdV bdry fc' of 
-          Just (a,b) -> addToVmapBdCheck bdry tried (Map.insert a b vMap)
-          Nothing -> addToVmapBdCheck bdry tried vMap
-    else addToVmapBdCheck bdry tried vMap
+          Right prs -> addRelabelBdCheck bdry tried (Map.union (Map.fromList prs) vMap)
+          Left lines -> Left lines
+    else addRelabelBdCheck bdry tried vMap
   where fc' = relabelFace vMap fc
 
-
--- | checkForBoundaryThirdV bdry fc - fc must be a new face sharing a boundary edge in bdry.
--- It checks if the third vertex of fc coincides with a third vertex on the neighbouring boundary
--- (with possibly different label).  If this is the case, it returns Just(v,v') to indicate the relabelling
--- required for third vertex v (of fc to match with the found vertex v' on the boundary.
--- Returns Nothing if such a vertex is not found.
--- CAVEAT: No location checking is done to check for a non-local touching vertex.
-checkForBoundaryThirdV:: Boundary -> TileFace -> Maybe (Vertex,Vertex)
+{-| checkForBoundaryThirdV bdry fc - fc must be a new face sharing a boundary edge in bdry.
+It checks if the third vertex of fc coincides with a third vertex on the neighbouring boundary
+(with possibly different label).  If this is NOT the case  Right [] is returned.
+If this is the case, a check is made that the face has no conflicts with faces on the boundary.
+If there are no conflicts, Right [(v,v')] is returned to indicate the relabelling
+required for third vertex v (of fc) to match with the found vertex v' on the boundary.
+If there is a conflict, Left lines is returned (where lines explains the conflict)
+  
+CAVEAT: No location checking is done to check for a non-local touching vertex.
+-}
+checkForBoundaryThirdV:: Boundary -> TileFace -> Either [String] [(Vertex,Vertex)]
 checkForBoundaryThirdV bdry fc =  
   case findThirdV bdry e n m of
       Just v' -> let fc' = relabelFace (Map.insert v v' Map.empty) fc in
                   if noConflictCheck fc' bdry 
-                  then Just (v,v')
-                  else error $ "checkForBoundaryThirdV: Conflicting face found: " ++ show fc' 
-      Nothing -> Nothing
+                  then Right [(v,v')]
+                  else Left ["checkForBoundaryThirdV:"
+                            ,"Conflicting face found: " ++ show fc'
+                            ,"Relabelled from: " ++ show fc
+                            ]
+      Nothing -> Right []
   where (e:_) = faceDedges fc `intersect` (bDedges bdry)
         (v,(n,m)) = thirdVAngles e fc
 
@@ -312,52 +363,44 @@ thirdVAngles (x,y) fc = (z,(n,m)) where
   IntAngle m = intangles !! indexV y fc
   z = nextV y fc
 
--- | thirdVertexIn g f tries to find a face in g corresponding to face f,
--- where at least 2 vertices have to match. If successful, 
--- it returns Just [(v,v')] where v needs to be relabeled to v' for a 3 verrtex match, OR
--- it may return Just [] if there is already a 3 vertex match. 
--- A return of Nothing indicates a failure to find a match.                 
-thirdVertexIn:: Tgraph -> TileFace -> Maybe [(Vertex, Vertex)]  
-thirdVertexIn g face = 
-  case matchFace face (faces g) of
-      Just matched ->  Just $ filter different $ zip (faceVList face) (faceVList matched)
-      _            ->  Nothing
-  where different (a,b) = a /= b
 
--- |pairing e g1 g2 - finds a a face in g1 with directed edge and a face in g2 with directed edge e
--- It returns an empty list if the faces do not match,
-pairing :: DEdge -> Tgraph -> Tgraph -> Maybe (TileFace, TileFace)
-pairing e g1 g2 = case [(fc1,fc2) | fc1 <- filter (hasEdge e) (faces g1)
-                                  , fc2 <- filter (hasEdge e) (faces g2)
-                                  , twoVMatch fc1 fc2 ] of
-                  [] -> Nothing
-                  (pr: _ ) -> Just pr
+{-|
+matchVsIn g f - looks for a face in g that corresponds to f (sharing a directed edge),
+If the corresponding face does not match properly (with twoVMatch) this stops the
+matching process returning Left ... to indicate a failed match.
+Otherwise it returns Right [(v,v')] when the third vertices are different (a relabel for a full match)
+It returns Right [] if either there is no corresponding face or if there is a corresponding
+face which matches all 3 vertices.
+-}
+matchVsIn:: Tgraph -> TileFace -> Either [String] [(Vertex, Vertex)] 
+matchVsIn g face = 
+  case correspondingIn g face of
+    Just corresp -> if twoVMatch corresp face
+                    then Right $  differences $ zip (faceVList face) (faceVList corresp)
+                    else Left ["matchVsIn: Found non matching faces ", show (corresp, face)]
+    _            -> Right []
 
--- |hasEdge e f returns True if directed edge e is one of the directed edges of face f
-hasEdge :: DEdge -> TileFace -> Bool
-hasEdge e f = e `elem` (faceDedges f)
+-- |correspondingIn g fc - returns  Just f if f is a face in g with a directed edge matching an edge in fc.
+-- It does NOT check if the faces are the same with same ordering of edges.
+-- It returns Nothing if no such face is found.
+correspondingIn:: Tgraph -> TileFace -> Maybe TileFace
+correspondingIn g fc = find (hasDEdgeIn (faceDedges fc)) (faces g)
 
--- |initVMap f1 f2 - creates a relabelling (vertex to vertex mapping) so that
--- if applied to face f2, the vertices will match with face f1 exactly.
-initVMap :: TileFace -> TileFace -> Relabelling
-initVMap f1 f2 -- f2 relabels to f1
-  = Map.insert (firstV  f2) (firstV  f1) $
-    Map.insert (secondV f2) (secondV f1) $
-    Map.insert (thirdV  f2) (thirdV  f1) Map.empty
+{-|
+matchFaceIn g f - looks for a face in g that corresponds to f (sharing a directed edge),
+If the corresponding face does not match properly (with twoVMatch) this stops the
+matching process returning Left ... to indicate a failed match.
+Otherwise it returns either Right (Just f) where f is the matched face or
+Right Nothing if there is no corresponding face.
+-}
+matchFaceIn:: Tgraph -> TileFace -> Either [String] (Maybe TileFace)  
+matchFaceIn g face = 
+  case correspondingIn g face of
+    Just corresp -> if twoVMatch corresp face
+                    then Right $ Just corresp
+                    else Left ["matchFaceIn: Found non matching faces ", show (corresp, face)]
+    _            -> Right Nothing
 
--- |matchFace f1 fcs - looks for a face in fcs that has a directed edge in common with f1.
--- If such a face is found it checks that it matches (except possibly for one vertex label)
--- Returns Just f if f is the matched face, but an error f does not match.
--- Retruns Nothing if no face in fcs has a directed edge in common with f1
-matchFace :: TileFace -> [TileFace] -> Maybe TileFace
-matchFace f1 fcs = 
-  case filter (hasEdgeIn (faceDedges f1)) fcs of
-     f:_ -> if twoVMatch f1 f then Just f else error ("matchFace: Cannot match faces "++ show(f,f1))
-     _   -> Nothing
-
--- |hasEdgeIn es fc - is True if fc has a directed edge in the list of edges es.
-hasEdgeIn :: [DEdge] -> TileFace -> Bool
-hasEdgeIn es fc = not $ null (es `intersect` faceDedges fc)
 
 -- |twoVMatch f1 f2 is True if the two tilefaces are the same except
 -- for a single vertex label possibly not matching.
