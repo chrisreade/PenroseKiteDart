@@ -17,7 +17,7 @@ module GraphFigExamples where
 import qualified Data.Map as Map (Map, lookup, insert, empty, fromList,union)
 
 -- partition for testing
-import Data.List ((\\), nub, partition,intersect,union)      
+import Data.List ((\\), nub, partition,intersect,union,intercalate,find)      
 import Diagrams.Prelude
 
 import ChosenBackend (B)
@@ -874,51 +874,66 @@ testRelabellingFig3 =
     where kiteGraphD = decomposeG kiteGraph
           reducedKiteD = removeFaces [LD(1,6,7)] kiteGraphD
 
--- |Another diagram testing the boundary cases of matchByEdges.
--- The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
--- The bottom left shows one relabelling of g2 that matches with g1
--- (with edge (37,35) matching against (1,12) in g1).
--- The bottom right is a different relabelling of g2 that also matches with g1
--- (with edge (37,40) matching against (1,12) in g1).
+{-|Another diagram testing the boundary cases of matchByEdges.
+The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
+The next row has: (left) a relabelling of g2 leaving (35,37) 
+which is a preparation step to avoid accidental clashes with g1,
+(middle) a further relabelling of g2 by matching against g1 using (37,35)
+as the edge to match with (1,12),
+(right) the union of this relabelled graph with g1.
+The bottom row is as for the row above but using (37,40) as the edge to match with (1,12)
+resulting in a different union.
+[RK(1,16,36) is a test of a boundary case with 3 vertices on the boundary]
+-}
 testRelabellingFig4:: Diagram B
 testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
-                       [hsep 1 $ fmap center $ take 2 four, hsep 1 $ fmap center $ drop 2 four] where
-     four  = fmap drawVPatch $ alignAll (1,12) $
-             fmap makeVPatch [ reduced1
+                       [ hsep 1 $ fmap center $ take 2 six
+                       , hsep 1 $ fmap center $ take 3 $ drop 2 six
+                       , hsep 1 $ fmap center $ drop 5 six
+                       ] where
+     six  = fmap drawVPatch $
+             fmap makeVPatch [ g1
                              , relabel2
-                             , matchByEdges (reduced1, (1,12)) (relabel2,(37,35))
-                             , matchByEdges (reduced1, (1,12)) (relabel2,(37,40))
-                             
+                             , g2_3735
+                             , matchByEdges (g1, (1,12)) (relabel2,(37,35))
+                             , unionGraphs (g1, (1,12)) (relabel2,(37,35))
+                             , g2_3740
+                             , matchByEdges (g1, (1,12)) (relabel2,(37,40))
+                             , unionGraphs (g1, (1,12)) (relabel2,(37,40))
                              ] where
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
-     reduced1 = removeVertices [36,20,48,49,35,37] sunD2
+     g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [6,5,4] fsunD2
      relabel2 = relabelAny reduced2
+     g2_3735 = partRelabelFixChange [37,35] (vertices g1) relabel2
+     g2_3740 = partRelabelFixChange [37,40] (vertices g1) relabel2
 
-{-
--- |Test function designed to watch steps of matchByCommonEdge using ghci.
+   
+-- |Test function designed to watch steps of matchByEdges using ghci.
 -- The result is a tuple of arguments for first call of addToVmap
 -- Use:  relabelWatchStep it on the result to step through.
-relabelWatchStart g1 (x,y) g2 = initialArgs where
-         g2' = partRelabelFixChange [x,y] (vertices g1) g2
-         g2prepared = relabelGraph (Map.fromList [(x,x),(y,y)]) g2'
-         initialArgs = case facePairing (x,y) g1 g2prepared of
-             Just (fc1,fc2) -> (g1, [fc2], [], faces g2prepared \\ [fc2], initVMap fc1 fc2)    
-             _  -> error $ "relabelWatchStart: Could not find matching faces for edges "++show [(1,3),(1,3)]
+relabelWatchStart (g1,(x1,y1)) (g2,(x2,y2)) = initialArgs where
+    g2' = partRelabelFixChange [x2,y2] (vertices g1) g2
+    g2prepared | null prs = g2'
+               | otherwise = relabelGraph (Map.fromList prs) g2'
+    prs = differences [(x2,x1),(y2,y1)]
+    Just fc2 = find (hasDEdge (x1,y1)) (faces g2prepared)
+    Right (Just fc1) = matchFaceIn g1 fc2
+    initialArgs = (initRelabelling fc1 fc2, [fc2], [], faces g2prepared \\ [fc2], g1)    
     
 -- |Test function designed to watch steps of matchByCommonEdge using ghci.
 -- After set up with relabelWatchStart
 -- Use:  relabelWatchStep it on the result to step through.    
 -- Result shows changes to tuple of arguments after one step (before next call of of addToVmap).
 -- Ends with an error when processing faces empty and addToVmapBdCheck is about to be called
-relabelWatchStep (g, [], tried, _, vMap) = 
+relabelWatchStep (vMap, [], tried, _, g) = 
     error $ "relabelWatchStep ended \n with tried list: " ++show tried   
-relabelWatchStep (g, fc:fcs, tried, awaiting, vMap) = 
-   case thirdVertexIn g (relabelFace vMap fc) of
-           Just prs ->  (g, fcs++fcs', tried, awaiting', vMap')
-                            where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                                  vMap' = Map.union (Map.fromList prs) vMap 
-           Nothing     -> (g, fcs, (fc:tried), awaiting, vMap)
--}
+relabelWatchStep (vMap, fc:fcs, tried, awaiting, g) =     
+  case matchFaceIn g (relabelFace vMap fc) of
+    Right Nothing -> (vMap,fcs, fc:tried, awaiting, g)
+    Right (Just orig) -> (vMap',fcs++fcs', tried, awaiting', g)
+                        where (fcs', awaiting') = partition (edgeNb fc) awaiting
+                              vMap' = Map.union (initRelabelling orig fc) vMap
+    Left lines -> error $ intercalate "\n" lines
 

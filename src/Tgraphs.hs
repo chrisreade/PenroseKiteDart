@@ -173,6 +173,16 @@ relabelAny g = relabelGraph vmap g where
    vmap = Map.fromList $ zip vs [1..length vs]
 
 
+
+
+tryUnionGraphs ::(Tgraph,DEdge) -> (Tgraph,DEdge) -> Either [String] Tgraph
+tryUnionGraphs (g1,e1) (g2,e2) = either Left (Right .unify) (tryMatchByEdges (g1,e1) (g2,e2)) where
+        unify g = checkedTgraph $ faces g1 `union` faces g
+
+unionGraphs :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
+unionGraphs (g1,e1) (g2,e2) = either showError id (tryUnionGraphs (g1,e1) (g2,e2)) where
+  showError lines = error $ intercalate "\n" ("unionGraphs":lines)
+
 {-|matchByCommonEdge g1 e g2  produces a relabelled version of g2 that is
 consistent with g1 on their overlap.
 The overlaping region must contain the common directed edge e without relabelling.
@@ -184,7 +194,7 @@ a correct relabelling of g2)
 -}
 matchByCommonEdge:: Tgraph -> DEdge -> Tgraph -> Tgraph
 matchByCommonEdge g1 e g2 = either showError id $ tryMatchByCommonEdge g1 e g2 where
-  showError lines = error $ intercalate "\n" lines
+  showError lines = error $ intercalate "\n" ("matchByCommonEdge:":lines)
  
 {-|tryMatchByCommonEdge g1 e g2  produces either Right g where g is a relabelled version of g2 that is
 consistent with g1 on their overlap or Left lines if there is a mismatch (lines explaining the problem).
@@ -209,7 +219,7 @@ a correct relabelling of g2)
 -}
 matchByEdges:: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
 matchByEdges ge1 ge2 = either showError id $ tryMatchByEdges ge1 ge2 where
-  showError lines = error $ intercalate "\n" lines
+  showError lines = error $ intercalate "\n" ("matchByEdges:":lines)
  
 {-|tryMatchByEdges (g1,e1) (g2,e2) produces either Right g where g is a relabelled version of g2 that is
 consistent with g1 on their overlap or Left lines if there is a mismatch (lines explaining the problem).
@@ -222,21 +232,19 @@ a correct relabelling of g2)
 -}
 tryMatchByEdges :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Either [String] Tgraph
 tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = 
-   case find  (hasDEdge (x1,y1)) (faces g2prepared) of
-     Just fc2 -> case matchFaceIn g1 fc2 of
-                   Right (Just fc1) -> case findRelabelling (g1,fc1) (g2,fc2) of
+   case find (hasDEdge (x2,y2)) (faces g2prepared) of
+     Just fc2 -> case matchFaceIn g1 $ relabelFace (Map.fromList [(x2,x1),(y2,y1)]) fc2 of
+                   Right (Just fc1) -> case findRelabelling (g1,fc1) (g2prepared,fc2) of
                                           Right vmap  -> Right $ relabelGraph vmap g2prepared
-                                          Left  lines -> Left lines
+                                          Left  lines -> Left ("tryMatchByEdges:":lines)
                    Right Nothing ->   Left ["tryMatchByEdges:"
                                            ,"no matching face found at edge "++show (x1,y1)
                                            ,"for relabelled face " ++ show fc2]
-                   Left lines -> Left lines
+                   Left lines -> Left ("tryMatchByEdges:":lines)
      _ -> Left ["tryMatchByEdges:", "No face found for edge " ++ show (x2,y2)]
    where
-     g2' = partRelabelFixChange [x2,y2] (vertices g1) g2
-     g2prepared | null prs = g2'
-                | otherwise = relabelGraph (Map.fromList prs) g2'
-     prs = differences [(x2,x1),(y2,y1)]
+     g2prepared = partRelabelFixChange [x2,y2] (vertices g1) g2
+
 
 
 {-|findRelabelling is an auxiliary function for tryMatchByEdges and tryMatchByCommonEdge.
@@ -254,12 +262,13 @@ This may not produce correct results if there are other overlaps not tile-connec
 to the region containing fc1
 -}
 findRelabelling:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Either [String] Relabelling
-findRelabelling (g1,fc1) (g2,fc2) = addRelabel g1 [fc2] [] (faces g2 \\ [fc2]) (initVMap fc1 fc2)
+findRelabelling (g1,fc1) (g2,fc2) = addRelabel g1 [fc2] [] (faces g2 \\ [fc2]) (initRelabelling fc1 fc2)
 
--- |initVMap f1 f2 - creates a relabelling so that
+-- |initRelabelling f1 f2 - creates a relabelling so that
 -- if applied to face f2, the vertices will match with face f1 exactly.
-initVMap :: TileFace -> TileFace -> Relabelling
-initVMap f1 f2 -- f2 relabels to f1
+-- It does not check that the tile faces have the same form (LK,RK,LD,RD).
+initRelabelling :: TileFace -> TileFace -> Relabelling
+initRelabelling f1 f2 -- f2 relabels to f1
   = Map.fromList $ differences $ zip (faceVList f2) (faceVList f1)
 
 -- |selects only non-matching pairs from a list
@@ -292,12 +301,13 @@ addRelabel:: Tgraph -> [TileFace] -> [TileFace] -> [TileFace] -> Relabelling -> 
 addRelabel g [] tried awaiting vMap = 
   addRelabelBdCheck (makeBoundary g) tried vMap -- awaiting do not need to be checked
 addRelabel g (fc:fcs) tried awaiting vMap = 
-  case matchVsIn g (relabelFace vMap fc) of
-       Right prs -> addRelabel g (fcs++fcs') tried awaiting' vMap'
-                      where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                            vMap' = Map.union (Map.fromList prs) vMap 
-       Left lines -> Left lines
-
+  case matchFaceIn g (relabelFace vMap fc) of
+    Right Nothing -> addRelabel g fcs (fc:tried) awaiting vMap
+    Right (Just orig) -> addRelabel g (fcs++fcs') tried awaiting' vMap'
+                           where (fcs', awaiting') = partition (edgeNb fc) awaiting
+                                 vMap' = Map.union (initRelabelling orig fc) vMap
+    Left lines -> Left ("addRelabel:":lines)
+    
 
 {-|addRelabelBdCheck is an auxiliary function for addRelabel to check boundary cases.
 When it is called, all faces in the overlap have been processed.
@@ -317,7 +327,7 @@ addRelabelBdCheck bdry (fc:tried) vMap =
     if hasDEdgeIn (bDedges bdry) fc'
     then case checkForBoundaryThirdV bdry fc' of 
           Right prs -> addRelabelBdCheck bdry tried (Map.union (Map.fromList prs) vMap)
-          Left lines -> Left lines
+          Left lines -> Left $ ("addRelabelBdCheck: for face: " ++ show fc):lines
     else addRelabelBdCheck bdry tried vMap
   where fc' = relabelFace vMap fc
 
@@ -363,29 +373,6 @@ thirdVAngles (x,y) fc = (z,(n,m)) where
   IntAngle m = intangles !! indexV y fc
   z = nextV y fc
 
-
-{-|
-matchVsIn g f - looks for a face in g that corresponds to f (sharing a directed edge),
-If the corresponding face does not match properly (with twoVMatch) this stops the
-matching process returning Left ... to indicate a failed match.
-Otherwise it returns Right [(v,v')] when the third vertices are different (a relabel for a full match)
-It returns Right [] if either there is no corresponding face or if there is a corresponding
-face which matches all 3 vertices.
--}
-matchVsIn:: Tgraph -> TileFace -> Either [String] [(Vertex, Vertex)] 
-matchVsIn g face = 
-  case correspondingIn g face of
-    Just corresp -> if twoVMatch corresp face
-                    then Right $  differences $ zip (faceVList face) (faceVList corresp)
-                    else Left ["matchVsIn: Found non matching faces ", show (corresp, face)]
-    _            -> Right []
-
--- |correspondingIn g fc - returns  Just f if f is a face in g with a directed edge matching an edge in fc.
--- It does NOT check if the faces are the same with same ordering of edges.
--- It returns Nothing if no such face is found.
-correspondingIn:: Tgraph -> TileFace -> Maybe TileFace
-correspondingIn g fc = find (hasDEdgeIn (faceDedges fc)) (faces g)
-
 {-|
 matchFaceIn g f - looks for a face in g that corresponds to f (sharing a directed edge),
 If the corresponding face does not match properly (with twoVMatch) this stops the
@@ -400,7 +387,7 @@ matchFaceIn g face =
                     then Right $ Just corresp
                     else Left ["matchFaceIn: Found non matching faces ", show (corresp, face)]
     _            -> Right Nothing
-
+  where correspondingIn g fc = find (hasDEdgeIn (faceDedges fc)) (faces g)
 
 -- |twoVMatch f1 f2 is True if the two tilefaces are the same except
 -- for a single vertex label possibly not matching.
