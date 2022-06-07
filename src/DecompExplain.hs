@@ -2,6 +2,18 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 
+{-|
+Module      : DecompExplain
+Description : Introducing type Tgraph and basic operations for Tgraphs
+Copyright   : (c) Chris Reade, 2021
+License     : BSD-style
+Maintainer  : chrisreade@mac.com
+Stability   : experimental
+
+Exports a single figure decompExplainFig
+illustrating piece decomposition with vectors (and compose choices)
+-}
+
 module DecompExplain (decompExplainFig) where
     
 import Diagrams.Prelude hiding (dart)
@@ -101,8 +113,9 @@ fig0 =  mconcat[rkiteAt    $ p2 (2.0,3.5)
                <> name "DECOMPOSITION" (p2(2.55,3.0))
                <> arrowV (0.3 *^ (unitY^+^unitX)) # moveTo (p2(2.5,1.0))
                <> arrowV (0.3 *^ (unitY^+^unit_X)) # moveTo (p2(2.5,1.0))
-               <> name "INFLATE CHOICES (FOR RD)" (p2(1.8,1.5))
-               
+               <> name "COMPOSE CHOICES (FOR RD)" (p2(1.8,1.5))
+
+-- |A figure illustrating decomposition of pieces (and composition choices) with vectors.         
 decompExplainFig::Diagram B
 decompExplainFig = pad 1.2 $ centerXY fig0 
 

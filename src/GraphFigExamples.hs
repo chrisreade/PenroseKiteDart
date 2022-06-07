@@ -23,7 +23,6 @@ import Diagrams.Prelude
 import ChosenBackend (B)
 import TileLib
 import Tgraphs
---import Tgraph.Convert
 
 
 -- |used for most diagrams to give border padding
@@ -911,22 +910,23 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
 
    
 -- |Test function designed to watch steps of matchByEdges using ghci.
--- The result is a tuple of arguments for first call of addToVmap
+-- The result is a tuple of arguments for first call of addRelabel (not in order)
 -- Use:  relabelWatchStep it on the result to step through.
+relabelWatchStart:: (Tgraph, (Vertex, Vertex)) -> (Tgraph, (Vertex, Vertex)) 
+                 -> (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph)
 relabelWatchStart (g1,(x1,y1)) (g2,(x2,y2)) = initialArgs where
-    g2' = partRelabelFixChange [x2,y2] (vertices g1) g2
-    g2prepared | null prs = g2'
-               | otherwise = relabelGraph (Map.fromList prs) g2'
-    prs = differences [(x2,x1),(y2,y1)]
-    Just fc2 = find (hasDEdge (x1,y1)) (faces g2prepared)
-    Right (Just fc1) = matchFaceIn g1 fc2
+    g2prepared = partRelabelFixChange [x2,y2] (vertices g1) g2
+    Just fc2 = find (hasDEdge (x2,y2)) (faces g2prepared)
+    Right (Just fc1) = matchFaceIn g1 $ relabelFace (Map.fromList [(x2,x1),(y2,y1)]) fc2
     initialArgs = (initRelabelling fc1 fc2, [fc2], [], faces g2prepared \\ [fc2], g1)    
     
--- |Test function designed to watch steps of matchByCommonEdge using ghci.
+-- |Test function designed to watch steps of matchByEdges using ghci.
 -- After set up with relabelWatchStart
 -- Use:  relabelWatchStep it on the result to step through.    
--- Result shows changes to tuple of arguments after one step (before next call of of addToVmap).
--- Ends with an error when processing faces empty and addToVmapBdCheck is about to be called
+-- Result shows changes to tuple of arguments after one step (before next call of of addRelabel).
+-- Ends with an error when processing list is empty and addRelabelBdCheck is about to be called
+relabelWatchStep :: (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph) 
+                 -> (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph)
 relabelWatchStep (vMap, [], tried, _, g) = 
     error $ "relabelWatchStep ended \n with tried list: " ++show tried   
 relabelWatchStep (vMap, fc:fcs, tried, awaiting, g) =     

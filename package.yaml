@@ -38,6 +38,7 @@ library:
     - Tgraph.Compose
     - Tgraph.Force
     - Tgraph.Convert
+    - Tgraph.Relabelling
     - GraphFigExamples
     - DecompExplain
     - ChosenBackend
