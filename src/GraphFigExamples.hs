@@ -886,27 +886,27 @@ resulting in a different union.
 -}
 testRelabellingFig4:: Diagram B
 testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
-                       [ hsep 1 $ fmap center $ take 2 six
-                       , hsep 1 $ fmap center $ take 3 $ drop 2 six
-                       , hsep 1 $ fmap center $ drop 5 six
+                       [ hsep 1 $ fmap center $ take 2 eight
+                       , hsep 1 $ fmap center $ take 3 $ drop 2 eight
+                       , hsep 1 $ fmap center $ drop 5 eight
                        ] where
-     six  = fmap drawVPatch $
+     eight = fmap drawVPatch $
              fmap makeVPatch [ g1
-                             , relabel2
+                             , g2
                              , g2_3735
-                             , matchByEdges (g1, (1,12)) (relabel2,(37,35))
-                             , unionGraphs (g1, (1,12)) (relabel2,(37,35))
+                             , matchByEdges (g1, (1,12)) (g2,(37,35))
+                             , unionGraphs (g1, (1,12)) (g2,(37,35))
                              , g2_3740
-                             , matchByEdges (g1, (1,12)) (relabel2,(37,40))
-                             , unionGraphs (g1, (1,12)) (relabel2,(37,40))
+                             , matchByEdges (g1, (1,12)) (g2,(37,40))
+                             , unionGraphs (g1, (1,12)) (g2,(37,40))
                              ] where
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
      g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [6,5,4] fsunD2
-     relabel2 = relabelAny reduced2
-     g2_3735 = partRelabelFixChange [37,35] (vertices g1) relabel2
-     g2_3740 = partRelabelFixChange [37,40] (vertices g1) relabel2
+     g2 = relabelAny reduced2
+     g2_3735 = partRelabelFixChange [37,35] (vertices g1) g2
+     g2_3740 = partRelabelFixChange [37,40] (vertices g1) g2
 
    
 -- |Test function designed to watch steps of matchByEdges using ghci.
@@ -935,5 +935,42 @@ relabelWatchStep (vMap, fc:fcs, tried, awaiting, g) =
     Right (Just orig) -> (vMap',fcs++fcs', tried, awaiting', g)
                         where (fcs', awaiting') = partition (edgeNb fc) awaiting
                               vMap' = Map.union (initRelabelling orig fc) vMap
-    Left lines -> error $ intercalate "\n" lines
+    Left lines -> error lines
+
+
+{- *
+Testing ReportFail functions
+-}
+
+-- | testing ReportFail  - try arguments 0..5  only 4 succeeds
+reportFailTest1 a = getResult $ onFail "reportFailTest1:\n" $ do
+  b <- maybeExample a `nothingFail` ("maybeExample: produced Nothing when applied to "++show a ++"\n")
+  c <- onFail "first call:\n"  $ eitherExample (b-1)
+  d <- onFail "second call:\n" $ eitherExample (c-1)
+  e <- onFail "third call:\n"  $ eitherExample (d-1)
+  return (a,b,c,d,e)
+
+-- | testing ReportFail  - try arguments 0..3   only 2 succeeds
+reportFailTest2 a = getResult $ onFail "reportFailTest2:\n" $ do
+  b <- eitherMaybeExample a
+  c <- b `nothingFail` "eitherMaybeExample produced Nothing\n"
+  d <- onFail "trying eitherExample:\n" $ eitherExample (c-1)
+  return (a,b,c,d)
+
+-- | for testing in reportFailTest1 and reportFailTest2
+eitherExample :: Int -> ReportFail Int
+eitherExample a = if a==0 then Left "eitherExample: arg is zero\n" else Right a 
+
+-- | for testing in reportFailTest1
+maybeExample :: Int -> Maybe Int
+maybeExample a = if a<5 then Just a else Nothing
+
+-- | for testing in reportFailTest1 and reportFailTest2
+eitherMaybeExample :: Int -> ReportFail (Maybe Int)
+eitherMaybeExample a | a<1 = Right Nothing
+                     | a<3 = Right (Just a) 
+                     | otherwise = Left "eitherMaybeExample: arg >=3\n"
+
+
+
 

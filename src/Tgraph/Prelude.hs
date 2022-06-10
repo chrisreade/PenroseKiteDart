@@ -71,14 +71,28 @@ makeUncheckedTgraph fcs =
 -- (No crossing boundaries and connected implies tile-connected).
 -- Produces an error if a check fails.
 checkedTgraph:: [TileFace] -> Tgraph
-checkedTgraph fcs = either showError id (checkTgraphProps fcs) where
-   showError lines = error (intercalate "\n" lines ++ "\nFound for faces: " ++ show fcs)
+checkedTgraph fcs = getResult $ onFail report (checkTgraphProps fcs)
+ where report = "checkedTgraph:\nFailed for faces: \n" ++ show fcs ++ "\n"
 
 -- |Checks a list of faces for edge loops, edge conflicts and
 -- crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
 -- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
+checkTgraphProps:: [TileFace] -> ReportFail Tgraph
+checkTgraphProps fcs
+      | hasEdgeLoops fcs  =    Left $ "Non-valid tile-face(s)\n" ++
+                                      "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
+      | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
+      | edgeConflicts g   =    Left $ "Non-valid Tgraph\n" ++
+                                      "Conflicting face edges: " ++ show (conflictingDedges g) ++
+                                      "\nConflicting length edges: " ++ show (conflictingLengthEdges g) ++ "\n"
+      | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
+                                      "Crossing boundaries found at " ++ show (crossingBVs g) ++ "\n"
+      | otherwise            = Right g 
+  where g = makeUncheckedTgraph fcs
+
+{-
 checkTgraphProps:: [TileFace] -> Either [String] Tgraph
 checkTgraphProps fcs
       | hasEdgeLoops fcs  =    Left ["Non-valid tile-face(s)"
@@ -93,6 +107,7 @@ checkTgraphProps fcs
                                     ]
       | otherwise            = Right g 
   where g = makeUncheckedTgraph fcs
+-}
 
 
 -- |selects faces from a Tgraph (removing any not in the list),
@@ -517,5 +532,29 @@ data SubTgraph = SubTgraph{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
 -- Any faces not in g are ignored.
 makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
 makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
+
+
+
+{- * Error reporting (for partial operations) -}
+
+-- | Abbreviation for use of Either String.  Used for results of partial functions
+-- which return either Right something when defined or Laft string when there is a problem
+-- where string is a failure report.
+type ReportFail a = Either String a
+
+-- | onFail s exp - inserts s at the front of failure report if exp fails with Left report
+onFail:: String -> ReportFail a -> ReportFail a
+onFail s = either (Left . (s++)) Right
+
+-- | Converts a Maybe Result into a ReportFail result by treating Nothing as a failure
+-- (the string s is prepended to the failure report on failure).
+-- Usually used as infix (exp `nothingFail` s)
+nothingFail :: Maybe b -> String -> ReportFail b
+nothingFail a s = maybe (Left s) Right a
+
+-- |Extract the (Right) result from a ReportFail, producing an error if the ReportFail is Left s.
+-- the failure report is passed to error for an error report.
+getResult:: ReportFail a -> a
+getResult = either error id
 
 
