@@ -19,10 +19,10 @@ import Tgraph.Force (Boundary(..), makeBoundary, facesAtBV, findThirdV, noConfli
          
 -- |Relabelling is a special case of mappings from vertices to vertices.
 -- We use the identity map for vertices not found in the mapping domain
--- (see relabelV).  Relabellings are expected to be 1-1.       
+-- (see relabelV).  Relabellings are expected to be 1-1 on their domain.       
 type Relabelling = Map.Map Vertex Vertex
 
--- |Uses a relabelling to change vertices in a Tgraph
+-- |Uses a relabelling to change vertices in a Tgraph.
 -- relabelGraph vmap g will produce a valid Tgraph provided:
 -- g is a valid Tgraph, and
 -- the mapping vmap extended with the identity is 1-1 on vertices in g.
@@ -31,18 +31,18 @@ relabelGraph:: Relabelling -> Tgraph -> Tgraph
 relabelGraph vmap g = checkedTgraph newFaces where
    newFaces = fmap (relabelFace vmap) (faces g) 
 
--- |Uses a relabelling to relabel the three vertices of a face
+-- |Uses a relabelling to relabel the three vertices of a face.
 -- Any vertex not in the domain of the mapping is left unchanged.
 -- The mapping should be 1-1 on the 3 vertices to avoid creating a self loop edge.
 relabelFace:: Relabelling -> TileFace -> TileFace
 relabelFace vmap = fmap (all3 (relabelV vmap))  -- fmap of HalfTile Functor
 
--- |relabelV vmap v. Uses relabelling vmap to find a replacement for v (leaves as v if none found)
+-- |relabelV vmap v. Uses relabelling vmap to find a replacement for v (leaves as v if none found).
 -- I.e relabelV turns a relabelling into a total function using identity for undefined cases. 
 relabelV:: Relabelling -> Vertex -> Vertex
 relabelV vmap v = maybe v id (Map.lookup v vmap)
 
--- |Applies a function to all three elements of a triple
+-- |Applies a function to all three elements of a triple.
 all3:: (a -> b) -> (a,a,a) -> (b,b,b)
 all3 f (a,b,c) = (f a,f b,f c)
 
@@ -50,7 +50,7 @@ all3 f (a,b,c) = (f a,f b,f c)
 -- Any vertex in g that is in the list fix will remain unchanged.
 -- All Other vertices in g that are in the list change will be changed to new vertices that are
 -- neither in g nor in the list change nor in the list fix.
--- (If a vertex in g appears in both fix and change, it will remain unchanged) 
+-- (If a vertex in g appears in both fix and change, it will remain unchanged). 
 partRelabelFixChange:: [Vertex] -> [Vertex] -> Tgraph -> Tgraph
 partRelabelFixChange fix change g = relabelGraph vmap g where
   gverts = vertices g
@@ -60,13 +60,13 @@ partRelabelFixChange fix change g = relabelGraph vmap g where
   vmap = newVMapAvoid avoidTarget vertsToChange
 
 -- |newVMapAvoid avoid vs - produces a 1-1 mapping from vertices in vs to new vertices
--- such that no new vertex is in the list avoid or in vs
+-- such that no new vertex is in the list avoid or in vs.
 newVMapAvoid:: [Vertex] -> [Vertex] -> Relabelling
 newVMapAvoid avoid vs = Map.fromList $ zip vs newvs
   where avoid' = vs `union` avoid
         newvs = makeNewVs (length vs) avoid'
 
--- |Relabel all vertices in Tgraph using new labels 1..n (where n is the number of vertices)
+-- |Relabel all vertices in Tgraph using new labels 1..n (where n is the number of vertices).
 relabelAny :: Tgraph -> Tgraph
 relabelAny g = relabelGraph vmap g where
    vs = vertices g
@@ -75,7 +75,7 @@ relabelAny g = relabelGraph vmap g where
 
 
 -- |tryUnionGraphs (g1,e1) (g2,e2) - where edge e1 is in g1 and e2 is in g2,
--- checks if g2 can be relabelled to produce a coomon single region of overlap with g1
+-- checks if g2 can be relabelled to produce a common single region of overlap with g1
 -- (with e2 relabelled to e1). If so then the result is Right g where g is the union of the faces.
 -- Otherwise the result is Left lines where lines explains the problem.
 tryUnionGraphs ::(Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
@@ -83,7 +83,7 @@ tryUnionGraphs (g1,e1) (g2,e2) = either Left (Right .unify) (tryMatchByEdges (g1
         unify g = checkedTgraph $ faces g1 `union` faces g
 
 -- |unionGraphs (g1,e1) (g2,e2) - where edge e1 is in g1 and e2 is in g2,
--- checks if g2 can be relabelled to produce a coomon single region of overlap with g1
+-- checks if g2 can be relabelled to produce a common single region of overlap with g1
 -- (with e2 relabelled to e1). If so then the result is Right g where g is the union of the faces.
 -- Otherwise an error is raised.
 unionGraphs :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
@@ -194,7 +194,9 @@ previously matched face. We prioritorize processing faces that have a match in g
 If a face is tried but has no such match, it is stacked up in the tried list to await
 a check (with addRelabelBdCheck) for boundary cases after all faces in the overlap have been processed
 (when processing == []).
-If a processed face has an edge in common with a face in g but the faces do not match, this
+If a processed face has an edge in common with a face in g it has to match exactly
+apart from (possibly) the third vertex label,
+otherwise the faces do not match and this
 indicates a mismatch on the overlap and Left ... is returned.
 -}
 addRelabel:: Tgraph -> [TileFace] -> [TileFace] -> [TileFace] -> Relabelling -> ReportFail Relabelling
@@ -219,7 +221,7 @@ It remains to process the tried faces to see if they are on the boundary.
 If not, they can be ignored, but if they have a boundary edge, we need to find if the third vertex 
 coincides with a neighbouring boundary vertex, in case this vertex also needs relabelling.
 
-CAVEAT: All this assumes the overlap was a single region (satisfying Tgraph proerties) 
+CAVEAT: All this assumes the overlap is a single region. 
 -}
 addRelabelBdCheck:: Boundary -> [TileFace] -> Relabelling -> ReportFail Relabelling
 addRelabelBdCheck bdry [] vMap = Right vMap
@@ -242,7 +244,7 @@ CAVEAT: No location checking is done to check for a non-local touching vertex.
 -}
 checkForBoundaryThirdV:: Boundary -> TileFace -> ReportFail [(Vertex,Vertex)]
 checkForBoundaryThirdV bdry fc = onFail "checkForBoundaryThirdV:\n" $
-  case findThirdV bdry e n m of
+  case findThirdV bdry e (n,m) of
       Nothing -> Right []
       Just v' -> let fc' = relabelFace (Map.insert v v' Map.empty) fc in
                  if noConflictCheck fc' bdry 

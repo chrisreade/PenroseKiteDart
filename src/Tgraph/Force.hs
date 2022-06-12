@@ -226,12 +226,12 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
 {- *
 Inspecting Force Steps
 -}
-
+-- |show applied to a ForceState suppresses the update functions in the updateMap with "fn".
 instance Show ForceState where
     show fs = "ForceState{ boundaryState = ...\nbDedges = "
                ++ show (bDedges $ boundaryState fs) 
                ++ ",\nupdateMap = "
-               ++ show (fmap (\(e,(mv,_)) -> (e,mv)) $ Map.assocs $ updateMap fs) ++ " }\n"
+               ++ show (fmap (\(e,(mv,_)) -> (e,(mv,"fn"))) $ Map.assocs $ updateMap fs) ++ " }\n"
 -- |stepForce  produces an intermediate state after a given number of steps (face additions)
 stepForce :: Int -> Tgraph -> ForceState
 stepForce n g = stepForceWith allUGenerator n $ initForceState allUGenerator g
@@ -695,40 +695,40 @@ Six Update Makers
 completeHalf :: UMaker      
 completeHalf bd (LD(a,b,_)) = (x, makeFace) where
         makeFace v = RD(a,v,b)
-        x = findThirdV bd (b,a) 3 1 
+        x = findThirdV bd (b,a) anglesForJoinRD
 completeHalf bd (RD(a,_,b)) = (x, makeFace) where
         makeFace v = LD(a,b,v)
-        x = findThirdV bd (a,b) 1 3
+        x = findThirdV bd (a,b) anglesForJoinLD
 completeHalf bd (LK(a,_,b)) = (x, makeFace) where
         makeFace v = RK(a,b,v)
-        x = findThirdV bd (a,b) 1 2
+        x = findThirdV bd (a,b) anglesForJoinRK
 completeHalf bd (RK(a,b,_)) = (x, makeFace) where
         makeFace v = LK(a,v,b)
-        x = findThirdV bd (b,a) 2 1
+        x = findThirdV bd (b,a) anglesForJoinLK
 
 -- |add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE :: UMaker         
 addKiteShortE bd (RD(_,b,c)) = (x, makeFace) where
     makeFace v = LK(v,c,b)
-    x = findThirdV bd (c,b) 2 2
+    x = findThirdV bd (c,b) anglesForShortLK
 addKiteShortE bd (LD(_,b,c)) = (x, makeFace) where
     makeFace v = RK(v,c,b)
-    x = findThirdV bd (c,b) 2 2
+    x = findThirdV bd (c,b) anglesForShortRK
 addKiteShortE bd (LK(_,b,c)) = (x, makeFace) where
     makeFace v = RK(v,c,b)
-    x = findThirdV bd (c,b) 2 2
+    x = findThirdV bd (c,b) anglesForShortRK
 addKiteShortE bd (RK(_,b,c)) = (x, makeFace) where
     makeFace v = LK(v,c,b)
-    x = findThirdV bd (c,b) 2 2
+    x = findThirdV bd (c,b) anglesForShortLK
 
 -- |add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: UMaker         
 addDartShortE bd (RK(_,b,c)) = (x, makeFace) where
         makeFace v = LD(v,c,b)
-        x = findThirdV bd (c,b) 3 1
+        x = findThirdV bd (c,b) anglesForShortLD
 addDartShortE bd (LK(_,b,c)) = (x, makeFace) where
         makeFace v = RD(v,c,b)
-        x = findThirdV bd (c,b) 1 3
+        x = findThirdV bd (c,b) anglesForShortRD
 addDartShortE bd _ = error "addDartShortE applied to non-kite face"
 
 -- |add a kite half to a kite long edge or dart half to a dart long edge
@@ -741,32 +741,32 @@ completeSunStar bd fc = if isKite fc
 addKiteLongE :: UMaker            
 addKiteLongE bd (LD(a,_,c)) = (x, makeFace) where
     makeFace v = RK(c,v,a)
-    x = findThirdV bd (a,c) 2 1
+    x = findThirdV bd (a,c) anglesForLongRK
 addKiteLongE bd (RD(a,b,_)) = (x, makeFace) where
     makeFace v = LK(b,a,v)
-    x = findThirdV bd (b,a) 1 2
+    x = findThirdV bd (b,a) anglesForLongLK
 addKiteLongE bd (RK(a,_,c)) = (x, makeFace) where
   makeFace v = LK(a,c,v)
-  x = findThirdV bd (a,c) 1 2
+  x = findThirdV bd (a,c) anglesForLongLK
 addKiteLongE bd (LK(a,b,_)) = (x, makeFace) where
   makeFace v = RK(a,v,b)
-  x = findThirdV bd (b,a) 2 1
+  x = findThirdV bd (b,a) anglesForLongRK
 
 -- |add a half dart on a boundary long edge of a dart or kite
 addDartLongE :: UMaker            
 addDartLongE bd (LD(a,_,c)) = (x, makeFace) where
   makeFace v = RD(a,c,v)
-  x = findThirdV bd (a,c) 1 1
+  x = findThirdV bd (a,c) anglesForLongRD
 addDartLongE bd (RD(a,b,_)) = (x, makeFace) where
   makeFace v = LD(a,v,b)
-  x = findThirdV bd (b,a) 1 1
+  x = findThirdV bd (b,a) anglesForLongLD
 
 addDartLongE bd (LK(a,b,_)) = (x, makeFace) where
   makeFace v = RD(b,a,v)
-  x = findThirdV bd (b,a) 1 1
+  x = findThirdV bd (b,a) anglesForLongRD
 addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
   makeFace v = LD(c,v,a)
-  x = findThirdV bd (a,c) 1 1
+  x = findThirdV bd (a,c) anglesForLongLD
 
 {-
 ------------------  END OF FORCING CASES  ----------------------------
@@ -914,19 +914,39 @@ creating touching vertices/crossing boundary. (Taken care of in tryUnsafeUpdate)
 -- |findThirdV is the main exported interface to find a third vertex for a face added to
 -- the RIGHT HAND SIDE of a directed boundary edge.
 -- It is a simpler interface for searchThirdV (which it uses).
--- In findThirdV bd (a,b) n m, the two integer arguments n and m are the INTERNAL angles
+-- In findThirdV bd (a,b) (n,m), the two integer arguments n and m are the INTERNAL angles
 -- for the new face on the boundary edge (a,b)
 -- (for a and b respectively) expressed as multiples of tt (tt being a tenth turn) and must both be either 1,2, or 3 
 -- It converts n and m to the correct IntAngles,
 -- subtracting n from 10 to get the antiClockwise (external) angle on the first vertex (a),
 -- before calling searchThirdV to return a Maybe Vertex. (See also searchThirdV)
-findThirdV:: Boundary -> DEdge -> Int -> Int -> Maybe Vertex
-findThirdV bd (a,b) n m = checkAngleNumbers $ searchThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
+findThirdV:: Boundary -> DEdge -> (Int,Int) -> Maybe Vertex
+findThirdV bd (a,b) (n,m) = searchThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
+{-
+findThirdV bd (a,b) (n,m) = checkAngleNumbers $ searchThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
   where checkAngleNumbers x = if n `elem` [1,2,3] && m `elem` [1,2,3]
                               then x
                               else error ("findThirdV angles should be 1,2 or 3 but found "++ show(n,m))
+-}
 
-
+-- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
+anglesForJoinRD,anglesForJoinLD,anglesForJoinRK,anglesForJoinLK::(Int,Int)
+anglesForJoinRD = (3,1)
+anglesForJoinLD = (1,3)
+anglesForJoinRK = (1,2)
+anglesForJoinLK = (2,1)
+-- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
+anglesForLongLD,anglesForLongRD,anglesForLongRK,anglesForLongLK::(Int,Int)
+anglesForLongLD = (1,1)
+anglesForLongRD = (1,1)
+anglesForLongRK = (2,1)
+anglesForLongLK = (1,2)
+-- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
+anglesForShortLD,anglesForShortRD,anglesForShortLK,anglesForShortRK::(Int,Int)
+anglesForShortLD = (3,1)
+anglesForShortRD = (1,3)
+anglesForShortLK = (2,2)
+anglesForShortRK = (2,2)
 
 -- |IntAngles are Ints mod 10
 newtype IntAngle = IntAngle Int deriving(Eq,Show)
@@ -1044,7 +1064,7 @@ errorCheckClock bd v n ms@((m, a) : _)
 (IntAngle m) `smallerAngle`  (IntAngle n) = m<n-- only valid up to n==9
 
 
-{-| allAnglesClock and allAnglesAnti are used by findClockAt and findAntiAt
+{-| allAnglesClock and allAnglesAnti are used by findClockAt and findAntiAt.
 The second argument is the unprocessed list of faces attached to a common vertex a.
 The first argument is the accumulated list of directions found so far with last one at the front of the list
 e.g (n,last) means the last edge found was (a,last) at angle n.
@@ -1067,7 +1087,7 @@ allAnglesAnti la@((n,last):_) fcs = case filter (isAtV last) fcs of
     other    -> error ("allAnglesAnti: Conflicting faces found: " ++ show other)
 
 -- |intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
--- returning an IntAngle (1,2,or 3)
+-- returning an IntAngle (1,2,or 3).
 intAngleAt :: Vertex -> TileFace -> IntAngle
 intAngleAt v fc = faceAngles fc !! indexV v fc
 
