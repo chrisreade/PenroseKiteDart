@@ -74,7 +74,7 @@ checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph fcs = getResult $ onFail report (checkTgraphProps fcs)
  where report = "checkedTgraph:\nFailed for faces: \n" ++ show fcs ++ "\n"
 
--- |Checks a list of faces for edge loops, edge conflicts and
+-- |Checks a list of faces for edge loops, edge conflicts (illegal tilings) and
 -- crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
 -- Returns Right g where g is a Tgraph on passing checks.
@@ -83,33 +83,28 @@ checkTgraphProps:: [TileFace] -> ReportFail Tgraph
 checkTgraphProps fcs
       | hasEdgeLoops fcs  =    Left $ "Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
-      | edgeConflicts g   =    Left $ "Non-valid Tgraph\n" ++
+      | illegalTiling g   =    Left $ "Tgraph has non-legal tiling\n" ++
                                       "Conflicting face edges: " ++ show (conflictingDedges g) ++
-                                      "\nConflicting length edges: " ++ show (conflictingLengthEdges g) ++ "\n"
+                                      "\nIllegal tile juxtapositions: " ++ show (illegals g) ++ "\n"
+{-
+      | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
       | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
                                       "Crossing boundaries found at " ++ show (crossingBVs g) ++ "\n"
-      | otherwise            = Right g 
-  where g = makeUncheckedTgraph fcs
-
-{-
-checkTgraphProps:: [TileFace] -> Either [String] Tgraph
-checkTgraphProps fcs
-      | hasEdgeLoops fcs  =    Left ["Non-valid tile-face(s)"
-                                    ,"Edge Loops at: " ++ show (findEdgeLoops fcs)]
-      | not (connected g) =    Left ["Non-valid Tgraph", "Not connected"] 
-      | edgeConflicts g   =    Left ["Non-valid Tgraph"
-                                    ,"Conflicting face edges: " ++ show (conflictingDedges g)
-                                    ,"Conflicting length edges: " ++ show (conflictingLengthEdges g)
-                                    ]
-      | crossingBoundaries g = Left ["Non-valid Tgraph"
-                                    ,"Crossing boundaries found at " ++ show (crossingBVs g)
-                                    ]
-      | otherwise            = Right g 
-  where g = makeUncheckedTgraph fcs
 -}
+      | otherwise            = checkConnectedNoCross g 
+  where g = makeUncheckedTgraph fcs
 
-
+-- |Checks a Tgraph for crossing boundaries and connectedness.
+-- (No crossing boundaries and connected implies tile-connected)
+-- Returns Right g where g is a Tgraph on passing checks.
+-- Returns Left lines if a test fails, where lines describes the problem found.
+checkConnectedNoCross:: Tgraph -> ReportFail Tgraph
+checkConnectedNoCross g
+  | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
+  | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
+                                  "Crossing boundaries found at " ++ show (crossingBVs g) ++ "\n"
+  | otherwise            = Right g 
+  
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for required properties
 -- e.g. connectedness and no crossing boundaries.
@@ -163,7 +158,64 @@ duplicates (e:es) | e `elem` es = e:duplicates es
 -- |conflictingDedges g returns a list of conflicting directed edges of the faces in g
 -- (which should be null)
 conflictingDedges :: Tgraph -> [DEdge]
-conflictingDedges g = duplicates $  graphDedges g where
+conflictingDedges g = duplicates $  graphDedges g
+
+-- | type used to classify edges of faces 
+data EdgeType = Short | Long | Join deriving (Show,Eq)
+
+-- | edgeType d f - classifies the directed edge d
+-- which must be one of the three directed edges of face f.
+-- An error is raised if it is not a directed edge of the face
+edgeType:: DEdge -> TileFace -> EdgeType
+edgeType d f | d == longE f  = Long
+             | d == shortE f = Short
+             | d == joinE f  = Join 
+             | otherwise = error $ "edgeType: edge " ++ show d ++ 
+                                   " not found in face " ++ show f
+
+-- |For a Tgraph g this produces a list of tuples of the form (f1,f2,etpe1,etype2)
+-- where f1 and f2 share a common edge and etype1 is the type of the shared edge in f1 and
+-- etype2 is the type of the shared edge in f2.
+-- This list can then be checked for inconsistencies / illegal pairings (using legal).
+sharedEdges:: Tgraph -> [(TileFace,TileFace,EdgeType,EdgeType)]
+sharedEdges g = [(f1,f2,edgeType d1 f1,edgeType d2 f2) 
+                 | f1 <- faces g
+                 , d1 <- faceDedges f1
+                 , let d2 = reverseD d1
+                 , f2 <- filter (hasDEdge d2) (faces g)
+                ]
+
+-- | legal (f1,f2,etype1,etype2) is True if and only if it is legal for f1 and f2 to share an edge
+-- with edge type etype1 and etype2 is equal to etype1.                   
+legal:: (TileFace,TileFace,EdgeType,EdgeType) -> Bool                
+legal (LK _, RK _, e1 , e2    ) = e1 ==e2 
+legal (RK _, LK _, e1 , e2    ) = e1 ==e2 
+legal (LK _, RD _, Short,Short) = True
+legal (RD _, LK _, Short,Short) = True
+legal (LK _, RD _, Long, Long ) = True
+legal (RD _, LK _, Long, Long ) = True
+legal (LD _, RD _, Join, Join ) = True
+legal (RD _, LD _, Join, Join ) = True
+legal (LD _, RD _, Long, Long ) = True
+legal (RD _, LD _, Long, Long ) = True
+legal (LD _, RK _, Short,Short) = True
+legal (RK _, LD _, Short,Short) = True
+legal (LD _, RK _, Long, Long ) = True
+legal (RK _, LD _, Long, Long ) = True
+legal _ = False               
+
+-- | Returns a list of illegal face parings of the form (f1,f2,e1,e2) where f1 and f2 share an edge
+-- and e1 is the type of this edge in f1, and e2 is the type of this edge in f2.
+-- The list should be null for a legal Tgraph.
+illegals:: Tgraph -> [(TileFace,TileFace,EdgeType,EdgeType)]
+illegals g = filter (not . legal) $ sharedEdges g
+
+-- | Returns True if there are conflicting directed edges in g or if there are illegal shared edges in g
+illegalTiling:: Tgraph -> Bool
+illegalTiling g = not (null (illegals g)) || not (null (conflictingDedges g))
+
+
+{- OLDER
 
 -- |conflictingLengthEdges g returns a list of conflicting lengthed edges of the faces in g
 -- (which should be null)     
@@ -173,6 +225,8 @@ conflictingLengthEdges g = phiEdges g `intersect` nonPhiEdges g -- using undirec
 -- |predicate - true if there are edge conflicts in a Tgraph
 edgeConflicts :: Tgraph -> Bool
 edgeConflicts g = not $ null $ conflictingDedges g ++ conflictingLengthEdges g
+
+-}
 
 -- |crossingBVs g returns a list of vertices with crossing boundaries
 -- (which should be null).               

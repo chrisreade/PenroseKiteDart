@@ -25,19 +25,21 @@ COMPOSING composeG and partCompose
 ---------------------------------------------------------------------------}
 
 -- |The main deterministic function for composing is composeG
--- which is essentially partCompose after unused faces are ignored.
+-- which is essentially partCompose after uncomposed faces are ignored.
+-- If the result fails to be connected or has crossing boundaries an error is raised.
 composeG:: Tgraph -> Tgraph
-composeG g = checkedTgraph (faces g') where
-    (_, g') = partCompose g
+composeG = snd . partCompose
 -- composeG = snd . partCompose 
 
--- |partCompose produces a graph by composing faces which uniquely compose,
--- returning a pair consisting of unused faces of the original graph along with the composed graph
--- it makes use of classifyDartWings which also returns an association of faces incident with each dart wing
--- so these do not need to be reclculated.
+-- |partCompose produces a Tgraph by composing faces which uniquely compose,
+-- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
+-- It checks the Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
+-- (it makes use of classifyDartWings which also returns an association of faces inciden
+-- with each dart wing so these do not need to be reclculated.)
 partCompose:: Tgraph -> ([TileFace],Tgraph)
-partCompose g = (remainder,checkedTgraph newFaces)
+partCompose g = (remainder,g')
   where
+    g' = getResult $ checkConnectedNoCross (makeUncheckedTgraph newFaces)
     dwClass = classifyDartWings g
 -- ignores unknowns
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs

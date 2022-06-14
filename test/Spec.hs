@@ -31,6 +31,9 @@ x3 = [LK (3,8,1),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13)
      ,RD (6,13,10),LK (3,2,13),LD (6,11,13),LK (7,4,14),RK (7,14,12)
      ]
 
+-- x4 has edge conflicts 
+x4 = [LD(1,2,3),RD(1,4,2),RD(4,1,5),LD(4,5,6)]
+
 -- Test example Tgraph
 
 -- dD6 is a 6 times decomposed dartGraph
@@ -57,12 +60,15 @@ graphPropSpec = describe "Test Properties of Tgraphs" $ do
     context "When a Tgraph is not connected" $
       it "connected should return False" $
         connected (makeUncheckedTgraph x2) `shouldBe` False
-    context "When a Tgraph has edge conflicts" $
-      it "edgeConflicts should return True" $
-        edgeConflicts (makeUncheckedTgraph x3) `shouldBe` True
-    context "When a Tgraph has no edge conflicts" $
-      it "edgeConflicts should return False" $
-        edgeConflicts (makeUncheckedTgraph x1) `shouldBe` False
+    context "When a Tgraph has illegal edge conflicts" $
+      it "illegalTiling should return True" $
+        illegalTiling (makeUncheckedTgraph x3) `shouldBe` True
+    context "When a Tgraph has illegal edge conflicts" $
+      it "illegalTiling should return True" $
+        illegalTiling (makeUncheckedTgraph x4) `shouldBe` True
+    context "When a Tgraph has no illegal edge conflicts" $
+      it "illegalTiling should return False" $
+        illegalTiling (makeUncheckedTgraph x1) `shouldBe` False
     context "When faces do not form a valid Tgraph" $
       it "checkedTgraph should throw an exception" $ do
           evaluate (checkedTgraph testCrossingBoundary) `shouldThrow` anyException

@@ -66,7 +66,7 @@ newVMapAvoid avoid vs = Map.fromList $ zip vs newvs
   where avoid' = vs `union` avoid
         newvs = makeNewVs (length vs) avoid'
 
--- |Relabel all vertices in Tgraph using new labels 1..n (where n is the number of vertices).
+-- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
 relabelAny :: Tgraph -> Tgraph
 relabelAny g = relabelGraph vmap g where
    vs = vertices g
