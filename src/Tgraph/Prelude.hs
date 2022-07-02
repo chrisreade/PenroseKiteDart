@@ -46,7 +46,8 @@ type DEdge = (Vertex,Vertex)
 type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
 -- |A Tgraph contains vertices, and faces (each are lists treated as sets with no repetitions).
--- Every vertex must be a face vertex and vice versa
+-- Every vertex must be a face vertex and vice versa.
+-- Valid Tgraphs should be constructed with checkedTgraph to ensure required properties are checked.
 data Tgraph = Tgraph { vertices :: [Vertex]
                      , faces    :: [TileFace]
                      } deriving (Show)
@@ -60,6 +61,7 @@ Basic Tgraph, vertex, edge, face operations
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces by calculating vertices.
 -- It does not perform checks on the faces. Use checkedTgraph to perform checks.
+-- This is intended for use only in testing and in checkTgraphProps
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph fcs =
     Tgraph { vertices = nub $ concatMap faceVList fcs
@@ -83,13 +85,12 @@ checkTgraphProps:: [TileFace] -> ReportFail Tgraph
 checkTgraphProps fcs
       | hasEdgeLoops fcs  =    Left $ "Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | illegalTiling g   =    Left $ "Non-legal tiling\n" ++
+      | illegalTiling fcs   =  Left $ "Non-legal tiling\n" ++
                                       "Conflicting face edges (non-planar tiling): "
-                                      ++ show (conflictingDedges g) ++
+                                      ++ show (conflictingDedges fcs) ++
                                       "\nIllegal tile juxtapositions: "
-                                      ++ show (illegals g) ++ "\n"
-      | otherwise            = checkConnectedNoCross g 
-  where g = makeUncheckedTgraph fcs
+                                      ++ show (illegals fcs) ++ "\n"
+      | otherwise            = checkConnectedNoCross $ makeUncheckedTgraph fcs 
 
 -- |Checks a Tgraph for crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
@@ -152,10 +153,10 @@ duplicates (e:es) | e `elem` es = e:duplicates es
                 | otherwise = duplicates es
 --    duplicates es = es \\ nub es
 
--- |conflictingDedges g returns a list of conflicting directed edges of the faces in g
--- (which should be null)
-conflictingDedges :: Tgraph -> [DEdge]
-conflictingDedges g = duplicates $  graphDedges g
+-- |conflictingDedges fcs returns a list of conflicting directed edges in fcs
+-- (which should be null for a Tgraph)
+conflictingDedges :: [TileFace] -> [DEdge]
+conflictingDedges = duplicates . facesDedges
 
 -- |Returns the list of all directed edges (clockwise round) a list of tile faces
 facesDedges :: [TileFace] -> [(Vertex, Vertex)]
@@ -174,17 +175,17 @@ edgeType d f | d == longE f  = Long
              | otherwise = error $ "edgeType: edge " ++ show d ++ 
                                    " not found in face " ++ show f
 
--- |For a Tgraph g this produces a list of tuples of the form (f1,f2,etpe1,etype2)
+-- |For a list of tile faces fcs this produces a list of tuples of the form (f1,f2,etpe1,etype2)
 -- where f1 and f2 share a common edge and etype1 is the type of the shared edge in f1 and
 -- etype2 is the type of the shared edge in f2.
 -- This list can then be checked for inconsistencies / illegal pairings (using legal).
-sharedEdges:: Tgraph -> [(TileFace,TileFace,EdgeType,EdgeType)]
-sharedEdges g = [(f1,f2,edgeType d1 f1,edgeType d2 f2) 
-                 | f1 <- faces g
-                 , d1 <- faceDedges f1
-                 , let d2 = reverseD d1
-                 , f2 <- filter (hasDEdge d2) (faces g)
-                ]
+sharedEdges:: [TileFace] -> [(TileFace,TileFace,EdgeType,EdgeType)]
+sharedEdges fcs = [(f1,f2,edgeType d1 f1,edgeType d2 f2) 
+                   | f1 <- fcs
+                   , d1 <- faceDedges f1
+                   , let d2 = reverseD d1
+                   , f2 <- filter (hasDEdge d2) fcs
+                  ]
 
 -- | legal (f1,f2,etype1,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 and etype2 is equal to etype1.                   
@@ -208,12 +209,13 @@ legal _ = False
 -- | Returns a list of illegal face parings of the form (f1,f2,e1,e2) where f1 and f2 share an edge
 -- and e1 is the type of this edge in f1, and e2 is the type of this edge in f2.
 -- The list should be null for a legal Tgraph.
-illegals:: Tgraph -> [(TileFace,TileFace,EdgeType,EdgeType)]
-illegals g = filter (not . legal) $ sharedEdges g
+illegals:: [TileFace] -> [(TileFace,TileFace,EdgeType,EdgeType)]
+illegals = filter (not . legal) .  sharedEdges
 
--- | Returns True if there are conflicting directed edges in g or if there are illegal shared edges in g
-illegalTiling:: Tgraph -> Bool
-illegalTiling g = not (null (illegals g)) || not (null (conflictingDedges g))
+-- | Returns True if there are conflicting directed edges or if there are illegal shared edges
+-- in the list of tile faces
+illegalTiling:: [TileFace] -> Bool
+illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fcs))
 
 
 {- OLDER

@@ -62,13 +62,13 @@ graphPropSpec = describe "Test Properties of Tgraphs" $ do
         connected (makeUncheckedTgraph x2) `shouldBe` False
     context "When a Tgraph has illegal edge conflicts" $
       it "illegalTiling should return True" $
-        illegalTiling (makeUncheckedTgraph x3) `shouldBe` True
+        illegalTiling x3 `shouldBe` True
     context "When a Tgraph has illegal edge conflicts" $
       it "illegalTiling should return True" $
-        illegalTiling (makeUncheckedTgraph x4) `shouldBe` True
+        illegalTiling x4 `shouldBe` True
     context "When a Tgraph has no illegal edge conflicts" $
       it "illegalTiling should return False" $
-        illegalTiling (makeUncheckedTgraph x1) `shouldBe` False
+        illegalTiling x1 `shouldBe` False
     context "When faces do not form a valid Tgraph" $
       it "checkedTgraph should throw an exception" $ do
           evaluate (checkedTgraph testCrossingBoundary) `shouldThrow` anyException

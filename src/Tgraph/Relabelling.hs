@@ -76,8 +76,8 @@ tryUnionGraphs (g1,e1) (g2,e2) = either Left (Right .unify) (tryMatchByEdges (g1
 
 -- |unionGraphs (g1,e1) (g2,e2) - where edge e1 is in g1 and e2 is in g2,
 -- checks if g2 can be relabelled to produce a common single region of overlap with g1
--- (with e2 relabelled to e1). If so then the result is Right g where g is the union of the faces.
--- Otherwise an error is raised.
+-- (with e2 relabelled to e1). If so then the result is a (checked) Tgraph g
+-- where g has the union of the faces. Otherwise an error is raised.
 unionGraphs :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
 unionGraphs (g1,e1) (g2,e2) = getResult (tryUnionGraphs (g1,e1) (g2,e2))
 
