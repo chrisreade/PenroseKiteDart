@@ -11,7 +11,7 @@ classifyDartWings (and type DWClass) for debugging and experimenting
 -}
 module Tgraph.Compose where
 
-import Data.List ((\\), find)
+import Data.List ((\\), find, foldl')
 import qualified Data.Map.Strict as Map (Map, lookup, insert, empty)
 import Data.Maybe (mapMaybe)
 
@@ -99,7 +99,7 @@ classifyDartWings :: Tgraph -> DWClass
 classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks
                               , vGroup = gps
                               } where
-  (kcs,dbs,unks,gps) = foldl (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
+  (kcs,dbs,unks,gps) = foldl' (processD g) ([],[],[],Map.empty) (rdarts g ++ ldarts g)
 
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,

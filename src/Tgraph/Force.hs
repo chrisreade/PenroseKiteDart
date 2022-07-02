@@ -12,7 +12,7 @@ It also exposes the calculation of relative angle of edges at vertices used to f
 module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find)
-import qualified Data.Map as Map (Map, lookup, insert, empty, (!), elems, fromAscList, fromList, delete, assocs)
+import qualified Data.Map as Map (Map, lookup, insert, empty, (!), elems, fromList, delete, filterWithKey, alter, assocs)
 import Control.Arrow(second) -- used in makeGenerator
 
 import Diagrams.Prelude      -- necessary for New createVPoints and for Located boundaries
@@ -85,10 +85,11 @@ makeBoundary:: Tgraph -> Boundary
 makeBoundary g = 
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
-      bvLocs = Map.fromAscList $ filter ((`elem` bvs) . fst) $ Map.assocs $ createVPoints (faces g) 
+      bvLocs = Map.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints (faces g)
+      addFacesAt v = Map.insert v (filter (isAtV v) (faces g)) 
   in Boundary
       { bDedges = bdes
-      , bvFacesMap = Map.fromList $ fmap (\v -> (v, filter (isAtV v) (faces g))) bvs
+      , bvFacesMap = foldr addFacesAt Map.empty bvs
       , bvLocMap = bvLocs 
       , allFaces = faces g
       , allVertices = vertices g
@@ -102,13 +103,13 @@ recoverGraph bd =
         , vertices = allVertices bd
         }
 
--- |changeVFMap vs f vfmap  - adds f to the list of faces associated with each v in vs and updates vfmap
-changeVFMap:: [Vertex] -> TileFace -> Mapping Vertex [TileFace] -> Mapping Vertex [TileFace]
-changeVFMap vs f vfmap = foldl (changeV f) vfmap vs
-  where changeV f vfmap v = case Map.lookup v vfmap of
-                            Just fs -> Map.insert v (f:fs) vfmap
-                            Nothing -> Map.insert v [f] vfmap
-
+-- |changeVFMap f vfmap vs - adds f to the list of faces associated with each v in vs and updates vfmap
+changeVFMap::  TileFace -> Mapping Vertex [TileFace] -> [Vertex] -> Mapping Vertex [TileFace]
+changeVFMap f = foldr (Map.alter addf) where
+   addf Nothing = Just [f]
+   addf (Just fs) = Just (f:fs)
+   
+   
 -- |facesAtBV bd v - returns the faces found at v (which must be a boundary vertex)
 facesAtBV:: Boundary -> Vertex -> [TileFace]
 facesAtBV bd v = case Map.lookup v (bvFacesMap bd) of
@@ -295,14 +296,15 @@ doSafeUpdate bd (Nothing, makeFace) = error "doSafeUpdate: applied to non-safe u
 doSafeUpdate bd (Just v, makeFace) = 
    let newFace = makeFace v
        fDedges = faceDedges newFace
-       matchedDedges = fDedges `intersect` bDedges bd
-       newDedges = fmap reverseD (fDedges \\ matchedDedges)
+       matchedDedges = fDedges `intersect` bDedges bd -- list of 2
+       removedBV = commonV matchedDedges -- vertex no longer on boundary
+       newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace)
        resultBd = Boundary 
                    { bDedges = newDedges ++ (bDedges bd \\ matchedDedges)
-                   , bvFacesMap = changeVFMap (faceVList newFace) newFace (bvFacesMap bd)
+                   , bvFacesMap = changeVFMap newFace (bvFacesMap bd) (faceVList newFace)
                    , allFaces = newFace:allFaces bd
-                   , bvLocMap = bvLocMap bd  -- no change
+                   , bvLocMap = Map.delete removedBV (bvLocMap bd)  --remove vertex no longer on boundary
                    , allVertices = allVertices bd
                    , nextVertex = nextVertex bd
                    }
@@ -320,6 +322,12 @@ doSafeUpdate bd (Just v, makeFace) =
              ++ show (recoverGraph resultBd)
             )
 
+-- | given 2 adjacent directed edges, this returns the common vertex.
+-- Raises an error if the argument is not 2 adjacent directed edges
+commonV [(a,b),(c,d)] | b==c = b 
+                      | d==a = a
+                      | otherwise = error $ "commonV: directed edges not adjacent:" ++ show [(a,b),(c,d)]
+commonV es = error $ "commonV: argument is not 2 adjacent directed edges:" ++ show es
 
 {-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
      (raising an error if u is a safe update).
@@ -342,7 +350,7 @@ tryUnsafeUpdate bd (Nothing, makeFace) =
        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
        resultBd = Boundary 
                     { bDedges = newDedges ++ (bDedges bd \\ matchedDedges)
-                    , bvFacesMap = changeVFMap (faceVList newFace) newFace (bvFacesMap bd)
+                    , bvFacesMap = changeVFMap newFace (bvFacesMap bd) (faceVList newFace)
                     , bvLocMap = newVPoints
                     , allFaces = newFace:allFaces bd
                     , allVertices = v:allVertices bd
