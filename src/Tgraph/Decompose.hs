@@ -11,7 +11,7 @@ some auxilliary functions for debugging, experimenting and use with SubTgraphs
 -}
 module Tgraph.Decompose where
 
-import qualified Data.Map as Map (Map, lookup, insert, empty, (!))
+import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, (!))
 
 import Tgraph.Prelude
 

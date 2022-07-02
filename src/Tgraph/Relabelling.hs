@@ -12,7 +12,7 @@ module Tgraph.Relabelling  where
 
 
 import Data.List (intersect, (\\), union,find,nub,partition,intercalate)
-import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, fromList,union)
+import qualified Data.Map.Strict as Map (Map, findWithDefault, insert, empty, fromList, union)
 
 import Tgraph.Prelude
 import Tgraph.Force (Boundary(..), makeBoundary, facesAtBV, findThirdV, noConflict, faceAngles, IntAngle(IntAngle))
@@ -40,39 +40,31 @@ relabelFace vmap = fmap (all3 (relabelV vmap))  -- fmap of HalfTile Functor
 -- |relabelV vmap v. Uses relabelling vmap to find a replacement for v (leaves as v if none found).
 -- I.e relabelV turns a relabelling into a total function using identity for undefined cases. 
 relabelV:: Relabelling -> Vertex -> Vertex
-relabelV vmap v = maybe v id (Map.lookup v vmap)
+relabelV vmap v = Map.findWithDefault v v vmap
+-- relabelV vmap v = maybe v id (Map.lookup v vmap)
+
 
 -- |Applies a function to all three elements of a triple.
 all3:: (a -> b) -> (a,a,a) -> (b,b,b)
 all3 f (a,b,c) = (f a,f b,f c)
 
--- |partRelabelFixChange fix change g - produces a new Tgraph from g by relabelling.
--- Any vertex in g that is in the list fix will remain unchanged.
--- All Other vertices in g that are in the list change will be changed to new vertices that are
--- neither in g nor in the list change nor in the list fix.
--- (If a vertex in g appears in both fix and change, it will remain unchanged). 
-partRelabelFixChange:: [Vertex] -> [Vertex] -> Tgraph -> Tgraph
-partRelabelFixChange fix change g = relabelGraph vmap g where
-  gverts = vertices g
-  changeWithoutFixed = change \\ fix
-  avoidTarget = fix `union` change `union` gverts -- new targets must not clash with existing labels
-  vertsToChange = gverts `intersect` changeWithoutFixed
-  vmap = newVMapAvoid avoidTarget vertsToChange
 
--- |newVMapAvoid avoid vs - produces a 1-1 mapping from vertices in vs to new vertices
--- such that no new vertex is in the list avoid or in vs.
-newVMapAvoid:: [Vertex] -> [Vertex] -> Relabelling
-newVMapAvoid avoid vs = Map.fromList $ zip vs newvs
-  where avoid' = vs `union` avoid
-        newvs = makeNewVs (length vs) avoid'
+-- |partRelabelAvoid vs g - produces a new Tgraph from g by relabelling.
+-- Any vertex in g that is in the list vs will be changed to a new vertex that is
+-- neither in g nor in the list vs. Vertices in g that are not in vs will remain the same.
+partRelabelAvoid :: [Vertex] -> Tgraph -> Tgraph
+partRelabelAvoid avoid g = relabelGraph vmap g where
+  gverts = vertices g
+  avoidTarget = gverts `union` avoid
+  vertsToChange = gverts `intersect` avoid
+  newvs = makeNewVs (length vertsToChange) avoidTarget
+  vmap = Map.fromList $ zip vertsToChange newvs
 
 -- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
 relabelAny :: Tgraph -> Tgraph
 relabelAny g = relabelGraph vmap g where
    vs = vertices g
    vmap = Map.fromList $ zip vs [1..length vs]
-
-
 
 -- |tryUnionGraphs (g1,e1) (g2,e2) - where edge e1 is in g1 and e2 is in g2,
 -- checks if g2 can be relabelled to produce a common single region of overlap with g1
@@ -114,8 +106,8 @@ tryMatchByCommonEdge g1 e g2 = tryMatchByEdges (g1,e) (g2,e)
 
 {-|matchByEdges (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
 consistent with g1 on their overlap.
-The overlapping region must contain the directed edge e1 in g1 and e2 in g2,
-which will be identified by the relabelling of g2.
+The overlapping region must contain the directed edge e1 in g1. The edge e2 in g2
+will be identified with e1 by the relabelling of g2.
 This produces an error if a mismatcch is found in the overlap.
 
 CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
@@ -127,8 +119,8 @@ matchByEdges ge1 ge2 = getResult $ tryMatchByEdges ge1 ge2
  
 {-|tryMatchByEdges (g1,e1) (g2,e2) produces either Right g where g is a relabelled version of g2 that is
 consistent with g1 on their overlap or Left lines if there is a mismatch (lines explaining the problem).
-The overlapping region must contain the directed edge e1 in g1 and e2 in g2,
-which will be identified by the relabelling of g2.
+The overlapping region must contain the directed edge e1 in g1. The edge e2 in g2
+will be identified with e1 by the relabelling of g2.
 
 CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
 (If the overlap contains more than one tile-connected region the result may not be
@@ -136,7 +128,8 @@ a correct relabelling of g2)
 -}
 tryMatchByEdges :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
 tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $ 
-  do let g2prepared = partRelabelFixChange [x2,y2] (vertices g1) g2
+--  do let g2prepared = partRelabelFixChange [x2,y2] (vertices g1) g2
+  do let g2prepared = partRelabelAvoid (vertices g1\\[x2,y2]) g2
      fc2 <- find (hasDEdge (x2,y2)) (faces g2prepared)
             `nothingFail` ("No face found for edge " ++ show (x2,y2))                      
      maybef <- matchFaceIn g1 $ relabelFace (Map.fromList [(x2,x1),(y2,y1)]) fc2
@@ -184,7 +177,7 @@ g - the Tgraph being matched against.
 processing - a list of faces to be matched next where
 each has an edge in common with at least one previously matched face (or it is the starting face).
 tried - a list of faces that have been checked for a matching face in g but none found.
-They may still be on the boundary of g.
+They will each have an edge in the boundary of g.
 awaiting - a list of faces that have not yet been tried for a match and are not
 tile-connected to any faces already matched.
 vmap - a vertex to vertex mapping used to store relabelling information during the process.
@@ -192,8 +185,8 @@ vmap - a vertex to vertex mapping used to store relabelling information during t
 The idea is that from a single matched starting face we process faces that share an edge with a
 previously matched face. We prioritorize processing faces that have a match in g (with 2 matching vertices).
 If a face is tried but has no such match, it is stacked up in the tried list to await
-a check (with addRelabelBdCheck) for boundary cases after all faces in the overlap have been processed
-(when processing == []).
+a check (with addRelabelBdCheck) boundary cases after all faces in the overlap have been processed
+(i.e. when processing == []).
 If a processed face has an edge in common with a face in g it has to match exactly
 apart from (possibly) the third vertex label,
 otherwise the faces do not match and this
@@ -210,19 +203,26 @@ addRelabel g (fc:fcs) tried awaiting vMap =
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
                           vMap' = Map.union (initRelabelling orig fc) vMap
     
-
 {-|addRelabelBdCheck is an auxiliary function for addRelabel to check boundary cases.
 When it is called, all faces in the overlap have been processed.
 The awaiting list is then dropped because:
 faces in awaiting cannot have an edge in common with the processed overlap
 and therefore cannot have a  boundary edge.
-(If they have a single boundary vertex, this already has a relabelling in vMap)
-It remains to process the tried faces to see if they are on the boundary.
-If not, they can be ignored, but if they have a boundary edge, we need to find if the third vertex 
+(If they have a single boundary vertex, this will get its relabelling from a neighbouring processed face)
+It remains to process the tried faces which must each have a boundary edge.
+We need to find if the third vertex (not on the boundary edge)
 coincides with a neighbouring boundary vertex, in case this vertex also needs relabelling.
+Such a face then has two (or possibly 3) boundary edges
+and is checked for conflicts with its neighbouring faces on the boundary.
 
 CAVEAT: All this assumes the overlap is a single region. 
 -}
+addRelabelBdCheck:: Boundary -> [TileFace] -> Relabelling -> ReportFail Relabelling
+addRelabelBdCheck bdry [] vMap = Right vMap
+addRelabelBdCheck bdry (fc:tried) vMap =
+   do prs <- checkForBoundaryThirdV bdry (relabelFace vMap fc)
+      addRelabelBdCheck bdry tried (Map.union (Map.fromList prs) vMap)
+{-
 addRelabelBdCheck:: Boundary -> [TileFace] -> Relabelling -> ReportFail Relabelling
 addRelabelBdCheck bdry [] vMap = Right vMap
 addRelabelBdCheck bdry (fc:tried) vMap =
@@ -231,6 +231,7 @@ addRelabelBdCheck bdry (fc:tried) vMap =
             addRelabelBdCheck bdry tried (Map.union (Map.fromList prs) vMap)
     else addRelabelBdCheck bdry tried vMap
   where fc' = relabelFace vMap fc
+-}
 
 {-| checkForBoundaryThirdV bdry fc - fc must be a new face sharing a boundary edge in bdry.
 It checks if the third vertex of fc coincides with a third vertex on the neighbouring boundary

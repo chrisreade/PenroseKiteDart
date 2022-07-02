@@ -19,7 +19,7 @@ import TileLib
 import Tgraph.Prelude
 
 import Data.List ((\\), find)
-import qualified Data.Map as Map (Map, lookup, toList, fromList)
+import qualified Data.Map.Strict as Map (Map, lookup, toList, fromList)
 import Data.Maybe (mapMaybe)
 
 import Diagrams.Prelude

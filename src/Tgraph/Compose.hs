@@ -12,7 +12,7 @@ classifyDartWings (and type DWClass) for debugging and experimenting
 module Tgraph.Compose where
 
 import Data.List ((\\), find)
-import qualified Data.Map as Map (Map, lookup, insert, empty)
+import qualified Data.Map.Strict as Map (Map, lookup, insert, empty)
 import Data.Maybe (mapMaybe)
 
 import Tgraph.Prelude
@@ -29,7 +29,6 @@ COMPOSING composeG and partCompose
 -- If the result fails to be connected or has crossing boundaries an error is raised.
 composeG:: Tgraph -> Tgraph
 composeG = snd . partCompose
--- composeG = snd . partCompose 
 
 -- |partCompose produces a Tgraph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.

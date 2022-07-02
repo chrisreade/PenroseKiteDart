@@ -15,7 +15,7 @@ and re-exports module HalfTile
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, nub, elemIndex, partition, intercalate) -- partition used in addVPoints
-import qualified Data.Map as Map (Map, lookup, insert, empty)
+import qualified Data.Map.Strict as Map (Map, lookup, insert, empty)
 
 import Diagrams.Prelude  -- necessary for createVPoints
 
@@ -83,14 +83,11 @@ checkTgraphProps:: [TileFace] -> ReportFail Tgraph
 checkTgraphProps fcs
       | hasEdgeLoops fcs  =    Left $ "Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | illegalTiling g   =    Left $ "Tgraph has non-legal tiling\n" ++
-                                      "Conflicting face edges: " ++ show (conflictingDedges g) ++
-                                      "\nIllegal tile juxtapositions: " ++ show (illegals g) ++ "\n"
-{-
-      | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
-      | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
-                                      "Crossing boundaries found at " ++ show (crossingBVs g) ++ "\n"
--}
+      | illegalTiling g   =    Left $ "Non-legal tiling\n" ++
+                                      "Conflicting face edges (non-planar tiling): "
+                                      ++ show (conflictingDedges g) ++
+                                      "\nIllegal tile juxtapositions: "
+                                      ++ show (illegals g) ++ "\n"
       | otherwise            = checkConnectedNoCross g 
   where g = makeUncheckedTgraph fcs
 
@@ -159,6 +156,10 @@ duplicates (e:es) | e `elem` es = e:duplicates es
 -- (which should be null)
 conflictingDedges :: Tgraph -> [DEdge]
 conflictingDedges g = duplicates $  graphDedges g
+
+-- |Returns the list of all directed edges (clockwise round) a list of tile faces
+facesDedges :: [TileFace] -> [(Vertex, Vertex)]
+facesDedges = concatMap faceDedges
 
 -- | type used to classify edges of faces 
 data EdgeType = Short | Long | Join deriving (Show,Eq)
@@ -427,7 +428,7 @@ hasDEdgeIn es fc = not $ null (es `intersect` faceDedges fc)
 
 -- |A list of all the directed edges of a graph (going clockwise round faces)
 graphDedges :: Tgraph -> [(Vertex, Vertex)]
-graphDedges g = concatMap faceDedges (faces g)
+graphDedges = facesDedges . faces
 
 -- |phiEdges returns a list of the phi-edges of a Tgraph (= long non-join edges of the faces).
 -- This includes both directions of each edge.

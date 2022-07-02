@@ -279,17 +279,17 @@ Incorrect Tgraphs (and other problem Tgraphs)
 -}
   
 
--- |faces removed from foolD to illustrate crossing boundary and non-face-connected VPatches
+-- |faces removed from foolD to illustrate crossing boundary and non tile-connected VPatches
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
        where d1 = drawVPatch $ removeFacesGtoVP [LK(3,11,14), RK(3,14,4), RK(3,13,11)] foolD
              d2 = drawVPatch $ removeFacesGtoVP [RK(5,13,2), LD(6,11,13), RD(6,14,11), LD(6,12,14)] foolD
 
--- |mistake is an erroneous graph with a kite bordered by 2 darts
+-- |mistake is a legal but incorrect graph with a kite bordered by 2 darts
 mistake:: Tgraph
 mistake = checkedTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1), LD(3,5,7), RD(4,8,6)]
 
--- |mistake and the point at which forcing fails                
+-- |figure showing mistake Tgraph and the point at which forcing fails                
 pfMistakeFig :: Diagram B
 pfMistakeFig  = padBorder $ hsep 1 [drawVGraph mistake, drawVGraph partForcedMistake] where
    partForcedMistake = 
@@ -836,7 +836,7 @@ testRelabellingFig1:: Diagram B
 testRelabellingFig1 = 
     padBorder $ hsep 1 $ 
     fmap drawVGraph [ foolD
-                    , partRelabelFixChange [1,3] (vertices foolD) foolD
+                    , partRelabelAvoid (vertices foolD\\[1,3]) foolD
                     , matchByCommonEdge foolD (1,3) foolD
                     ]
 
@@ -852,7 +852,7 @@ testRelabellingFig2 =
     padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
       fmap makeVPatch [ kiteGraphD
                       , reducedKiteD
-                      , partRelabelFixChange [1,7] (vertices reducedKiteD) kiteGraphD
+                      , partRelabelAvoid (vertices reducedKiteD\\[1,7]) kiteGraphD
                       , matchByCommonEdge reducedKiteD (1,7) kiteGraphD
                       ]
     where kiteGraphD = decomposeG kiteGraph
@@ -867,7 +867,7 @@ testRelabellingFig3 =
     padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
       fmap makeVPatch [ kiteGraphD
                       , reducedKiteD
-                      , partRelabelFixChange [1,7] (vertices reducedKiteD) kiteGraphD
+                      , partRelabelAvoid (vertices reducedKiteD\\[1,7]) kiteGraphD
                       , matchByCommonEdge reducedKiteD (1,7) kiteGraphD
                       ]
     where kiteGraphD = decomposeG kiteGraph
@@ -885,7 +885,7 @@ resulting in a different union.
 [RK(1,16,36) is a test of a boundary case with 3 vertices on the boundary]
 -}
 testRelabellingFig4:: Diagram B
-testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
+testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 
                        [ hsep 1 $ fmap center $ take 2 eight
                        , hsep 1 $ fmap center $ take 3 $ drop 2 eight
                        , hsep 1 $ fmap center $ drop 5 eight
@@ -905,9 +905,28 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
      g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [6,5,4] fsunD2
      g2 = relabelAny reduced2
-     g2_3735 = partRelabelFixChange [37,35] (vertices g1) g2
-     g2_3740 = partRelabelFixChange [37,40] (vertices g1) g2
+     g2_3735 = partRelabelAvoid  (vertices g1\\[37,35]) g2
+     g2_3740 = partRelabelAvoid  (vertices g1\\[37,40]) g2
 
+-- | This example shows an erroneous matchByEdges relabelling caused by
+-- the overlap not being a single tile connected region in the matched graph.
+-- (In the last relabelled graph, vertex 101 does not get matched to 15
+-- in the first graph, for example). The unionGraph will raise an error
+incorrectRelabelFig:: Diagram B
+incorrectRelabelFig = padBorder $ lw ultraThin $ vsep 1 $ 
+                       [ hsep 1 $ fmap center $ take 2 thelist
+                       , hsep 1 $ fmap center $ drop 2 thelist
+                       ] where
+     thelist = fmap drawVPatch $
+               fmap makeVPatch [ g1
+                               , g2
+                               , matchByEdges (g1, (1,12)) (g2,(37,35))
+                             ] where
+     sunD2 = sunDs!!2
+     fsunD2 = force sunD2
+     g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
+     reduced2 = removeVertices [6,5,4,14] fsunD2
+     g2 = relabelAny reduced2
    
 -- |Test function designed to watch steps of matchByEdges using ghci.
 -- The result is a tuple of arguments for first call of addRelabel (not in order)
@@ -915,7 +934,7 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 $
 relabelWatchStart:: (Tgraph, (Vertex, Vertex)) -> (Tgraph, (Vertex, Vertex)) 
                  -> (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph)
 relabelWatchStart (g1,(x1,y1)) (g2,(x2,y2)) = initialArgs where
-    g2prepared = partRelabelFixChange [x2,y2] (vertices g1) g2
+    g2prepared = partRelabelAvoid (vertices g1\\[x2,y2]) g2
     Just fc2 = find (hasDEdge (x2,y2)) (faces g2prepared)
     Right (Just fc1) = matchFaceIn g1 $ relabelFace (Map.fromList [(x2,x1),(y2,y1)]) fc2
     initialArgs = (initRelabelling fc1 fc2, [fc2], [], faces g2prepared \\ [fc2], g1)    
@@ -923,7 +942,7 @@ relabelWatchStart (g1,(x1,y1)) (g2,(x2,y2)) = initialArgs where
 -- |Test function designed to watch steps of matchByEdges using ghci.
 -- After set up with relabelWatchStart
 -- Use:  relabelWatchStep it on the result to step through.    
--- Result shows changes to tuple of arguments after one step (before next call of of addRelabel).
+-- Result shows changes to tuple of arguments after one step (before next call of addRelabel).
 -- Ends with an error when processing list is empty and addRelabelBdCheck is about to be called
 relabelWatchStep :: (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph) 
                  -> (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph)
