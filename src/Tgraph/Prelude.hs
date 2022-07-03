@@ -422,11 +422,11 @@ matchingJoinE  = matchingE joinE
 
 -- |hasDEdge e f returns True if directed edge e is one of the directed edges of face f
 hasDEdge :: DEdge -> TileFace -> Bool
-hasDEdge e f = e `elem` (faceDedges f)
+hasDEdge e f = e `elem` faceDedges f
 
 -- |hasDEdgeIn es fc - is True if fc has a directed edge in the list of edges es.
 hasDEdgeIn :: [DEdge] -> TileFace -> Bool
-hasDEdgeIn es fc = not $ null (es `intersect` faceDedges fc)
+hasDEdgeIn es fc = not $ null $ es `intersect` faceDedges fc
 
 -- |A list of all the directed edges of a graph (going clockwise round faces)
 graphDedges :: Tgraph -> [(Vertex, Vertex)]

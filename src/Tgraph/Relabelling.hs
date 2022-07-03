@@ -6,7 +6,8 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This module includes relabelling functions for Tgraphs and a guided union of Tgraphs
+This module includes relabelling functions for Tgraphs whose main purpose is
+to implement a guided union of Tgraphs (unionGraphs and tryUnionGraphs)
 -}
 module Tgraph.Relabelling  where
 
@@ -60,6 +61,18 @@ partRelabelAvoid avoid g = relabelGraph vmap g where
   newvs = makeNewVs (length vertsToChange) avoidTarget
   vmap = Map.fromList $ zip vertsToChange newvs
 
+{-|prepareFixAvoid fix avoid g - produces a new Tgraph from g by relabelling.
+ Any vertex in g that is in the list avoid but not in the list fix will be changed to a new vertex that is
+ neither in g nor in the list avoid \\\\ fix.
+ All other vertices of g (including those in fix) will remain the same.
+ Usage: This is used to prepare a graph by avoiding accidental label clashes with the avoid list
+ (usually vertices of another graph).
+  However we fix a list of vertices which we intend to control in a subsequent relabelling.
+  (this is usually a pair of vertices from a directed edge that will get a specific subsequent relabelling).
+-}
+prepareFixAvoid :: [Vertex] -> [Vertex] -> Tgraph -> Tgraph
+prepareFixAvoid fix avoid = partRelabelAvoid (avoid\\fix)
+
 -- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
 relabelAny :: Tgraph -> Tgraph
 relabelAny g = relabelGraph vmap g where
@@ -70,14 +83,18 @@ relabelAny g = relabelGraph vmap g where
 -- checks if g2 can be relabelled to produce a common single region of overlap with g1
 -- (with e2 relabelled to e1). If so then the result is Right g where g is the union of the faces.
 -- Otherwise the result is Left lines where lines explains the problem.
+-- 
+-- CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
 tryUnionGraphs ::(Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
-tryUnionGraphs (g1,e1) (g2,e2) = either Left (Right .unify) (tryMatchByEdges (g1,e1) (g2,e2)) where
+tryUnionGraphs (g1,e1) (g2,e2) = fmap unify (tryMatchByEdges (g1,e1) (g2,e2)) where
         unify g = checkedTgraph $ faces g1 `union` faces g
 
 -- |unionGraphs (g1,e1) (g2,e2) - where edge e1 is in g1 and e2 is in g2,
 -- checks if g2 can be relabelled to produce a common single region of overlap with g1
 -- (with e2 relabelled to e1). If so then the result is a (checked) Tgraph g
 -- where g has the union of the faces. Otherwise an error is raised.
+-- 
+-- CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
 unionGraphs :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
 unionGraphs (g1,e1) (g2,e2) = getResult (tryUnionGraphs (g1,e1) (g2,e2))
 
@@ -128,8 +145,7 @@ a correct relabelling of g2)
 -}
 tryMatchByEdges :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
 tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $ 
---  do let g2prepared = partRelabelFixChange [x2,y2] (vertices g1) g2
-  do let g2prepared = partRelabelAvoid (vertices g1\\[x2,y2]) g2
+  do let g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
      fc2 <- find (hasDEdge (x2,y2)) (faces g2prepared)
             `nothingFail` ("No face found for edge " ++ show (x2,y2))                      
      maybef <- matchFaceIn g1 $ relabelFace (Map.fromList [(x2,x1),(y2,y1)]) fc2
@@ -252,7 +268,7 @@ checkForBoundaryThirdV bdry fc = onFail "checkForBoundaryThirdV:\n" $
                  then Right [(v,v')]
                  else Left $ "Conflicting face found: " ++ show fc' ++
                               "\nRelabelled from: " ++ show fc ++ "\n"                           
-  where (e:_) = faceDedges fc `intersect` (bDedges bdry)
+  where (e:_) = faceDedges fc `intersect` bDedges bdry
         (v,(n,m)) = thirdVAngles e fc
 
 -- | noConflictCheck fc bdry - f must be a new face sharing a boundary directed edge in bdry.

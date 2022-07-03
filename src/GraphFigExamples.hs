@@ -447,7 +447,7 @@ boundaryGap5Fig = lw ultraThin $ drawVGraph boundaryGapFDart5
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
 -- using stepForce 2000
 gapProgress5 :: Diagram B
-gapProgress5 = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
+gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
     [ dashJGraph g
     , drawGraph $ recoverGraph $ boundaryState $ stepForce 2000 g
     ] where g = boundaryGapFDart5
@@ -455,7 +455,7 @@ gapProgress5 = lw ultraThin $ vsep 1 $ fmap center $ rotations [1,1]
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
 -- using stepForce 600
 gapProgress4 :: Diagram B
-gapProgress4 = lw ultraThin $ hsep 1 $ fmap center $ rotations [5,5]
+gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
     [ dashJGraph g
     , drawGraph $ recoverGraph $ boundaryState $ stepForce 600 g
     ] where g = boundaryGapFDart4
@@ -836,7 +836,7 @@ testRelabellingFig1:: Diagram B
 testRelabellingFig1 = 
     padBorder $ hsep 1 $ 
     fmap drawVGraph [ foolD
-                    , partRelabelAvoid (vertices foolD\\[1,3]) foolD
+                    , prepareFixAvoid [1,3] (vertices foolD) foolD
                     , matchByCommonEdge foolD (1,3) foolD
                     ]
 
@@ -852,7 +852,7 @@ testRelabellingFig2 =
     padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
       fmap makeVPatch [ kiteGraphD
                       , reducedKiteD
-                      , partRelabelAvoid (vertices reducedKiteD\\[1,7]) kiteGraphD
+                      , prepareFixAvoid [1,7] (vertices reducedKiteD) kiteGraphD
                       , matchByCommonEdge reducedKiteD (1,7) kiteGraphD
                       ]
     where kiteGraphD = decomposeG kiteGraph
@@ -867,7 +867,7 @@ testRelabellingFig3 =
     padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
       fmap makeVPatch [ kiteGraphD
                       , reducedKiteD
-                      , partRelabelAvoid (vertices reducedKiteD\\[1,7]) kiteGraphD
+                      , prepareFixAvoid [1,7] (vertices reducedKiteD) kiteGraphD
                       , matchByCommonEdge reducedKiteD (1,7) kiteGraphD
                       ]
     where kiteGraphD = decomposeG kiteGraph
@@ -886,12 +886,11 @@ resulting in a different union.
 -}
 testRelabellingFig4:: Diagram B
 testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 
-                       [ hsep 1 $ fmap center $ take 2 eight
-                       , hsep 1 $ fmap center $ take 3 $ drop 2 eight
-                       , hsep 1 $ fmap center $ drop 5 eight
+                       [ hsep 1 $ center <$> take 2 eight
+                       , hsep 1 $ center <$> take 3 $ drop 2 eight
+                       , hsep 1 $ center <$> drop 5 eight
                        ] where
-     eight = fmap drawVPatch $
-             fmap makeVPatch [ g1
+     eight = fmap drawVGraph [ g1
                              , g2
                              , g2_3735
                              , matchByEdges (g1, (1,12)) (g2,(37,35))
@@ -899,29 +898,28 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1
                              , g2_3740
                              , matchByEdges (g1, (1,12)) (g2,(37,40))
                              , unionGraphs (g1, (1,12)) (g2,(37,40))
-                             ] where
+                             ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
      g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [6,5,4] fsunD2
      g2 = relabelAny reduced2
-     g2_3735 = partRelabelAvoid  (vertices g1\\[37,35]) g2
-     g2_3740 = partRelabelAvoid  (vertices g1\\[37,40]) g2
+     g2_3735 = prepareFixAvoid [37,35] (vertices g1) g2
+     g2_3740 = prepareFixAvoid [37,40] (vertices g1) g2
 
 -- | This example shows an erroneous matchByEdges relabelling caused by
 -- the overlap not being a single tile connected region in the matched graph.
 -- (In the last relabelled graph, vertex 101 does not get matched to 15
 -- in the first graph, for example). The unionGraph will raise an error
 incorrectRelabelFig:: Diagram B
-incorrectRelabelFig = padBorder $ lw ultraThin $ vsep 1 $ 
-                       [ hsep 1 $ fmap center $ take 2 thelist
-                       , hsep 1 $ fmap center $ drop 2 thelist
+incorrectRelabelFig = padBorder $ lw ultraThin $ vsep 1 
+                       [ hsep 1 $ center <$> take 2 thelist
+                       , hsep 1 $ center <$> drop 2 thelist
                        ] where
-     thelist = fmap drawVPatch $
-               fmap makeVPatch [ g1
+     thelist = fmap drawVGraph [ g1
                                , g2
                                , matchByEdges (g1, (1,12)) (g2,(37,35))
-                             ] where
+                               ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
      g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
@@ -934,7 +932,7 @@ incorrectRelabelFig = padBorder $ lw ultraThin $ vsep 1 $
 relabelWatchStart:: (Tgraph, (Vertex, Vertex)) -> (Tgraph, (Vertex, Vertex)) 
                  -> (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph)
 relabelWatchStart (g1,(x1,y1)) (g2,(x2,y2)) = initialArgs where
-    g2prepared = partRelabelAvoid (vertices g1\\[x2,y2]) g2
+    g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
     Just fc2 = find (hasDEdge (x2,y2)) (faces g2prepared)
     Right (Just fc1) = matchFaceIn g1 $ relabelFace (Map.fromList [(x2,x1),(y2,y1)]) fc2
     initialArgs = (initRelabelling fc1 fc2, [fc2], [], faces g2prepared \\ [fc2], g1)    

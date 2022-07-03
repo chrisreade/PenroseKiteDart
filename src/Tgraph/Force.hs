@@ -11,6 +11,7 @@ It also exposes the calculation of relative angle of edges at vertices used to f
 -}
 module Tgraph.Force  where
 
+-- import Data.Maybe (listToMaybe,mapMaybe)
 import Data.List ((\\), intersect, nub, find)
 import qualified Data.Map as Map (Map, lookup, insert, empty, (!), elems, fromList, delete, filterWithKey, alter, assocs)
 import Control.Arrow(second) -- used in makeGenerator
@@ -86,7 +87,7 @@ makeBoundary g =
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
       bvLocs = Map.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints (faces g)
-      addFacesAt v = Map.insert v (filter (isAtV v) (faces g)) 
+      addFacesAt v = Map.insert v $ filter (isAtV v) (faces g) 
   in Boundary
       { bDedges = bdes
       , bvFacesMap = foldr addFacesAt Map.empty bvs
@@ -137,19 +138,22 @@ data ForceState = ForceState
                    { boundaryState:: Boundary
                    , updateMap:: UpdateMap 
                    }
--- |UpdateGenerator is the type of functions which can change the UpdateMap when given a Boundary and a focus list of particular directed boundary edges.  It will add particular updates for those focus edges which match a rule. 
--- So such functions implement the forcing rules.
+{-|UpdateGenerator is the type of functions which can change the UpdateMap when given
+a Boundary and a focus list of particular directed boundary edges.  
+Such functions should add particular updates for those focus edges which match a rule. 
+So such functions implement the forcing rules.
+-}
 type UpdateGenerator = Boundary -> [DEdge] -> UpdateMap -> UpdateMap
 
-{-| BoundaryChange records a new boundary after an update
-     plus edges which are no longer on the boundary
-     plus a list of boundary edges revised  (used to focus where the update map needs to be recalculated)
-     (see affectedBoundary)
+{-| BoundaryChange records the new boundary after an update (by either doSafeUpdate or tryUnsafeUpdate)
+     along with a list of directed edges which are no longer on the boundary,
+     plus a list of boundary edges revised (and requiring updates to be recalculated)
+     See affectedBoundary.
 -}
 data BoundaryChange = BoundaryChange 
-                       { newBoundary:: Boundary
-                       , removedEdges:: [DEdge]
-                       , revisedEdges :: [DEdge] 
+                       { newBoundary:: Boundary -- ^ resulting boundary
+                       , removedEdges:: [DEdge] -- ^ edges no longer on the boundary
+                       , revisedEdges :: [DEdge]  -- ^ boundary edges requiring new update calculations
                        } deriving (Show)
 
 {-| Given a Boundary with a list of boundary edges that have been newly added,
@@ -169,7 +173,7 @@ affectedBoundary bd edges = filter incidentEdge (bDedges bd) where
 forcing operations
 -}
 
--- |The main force function using allUGenerator representing all 10 rules
+-- |The main force function using allUGenerator representing all 10 rules for updates
 force:: Tgraph -> Tgraph
 force = forceWith allUGenerator
 
@@ -279,10 +283,12 @@ oneStepF = oneStepWith allUGenerator
 tryUnsafes:: ForceState -> Maybe BoundaryChange
 tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
     bd = boundaryState fs
+--    tryList = listToMaybe . mapMaybe (tryUnsafeUpdate bd)
     tryList [] = Nothing
     tryList (u: more) = case tryUnsafeUpdate bd u of
                           Nothing -> tryList more
                           Just bdC -> Just bdC
+
 
 {-| doSafeUpdate bd u adds a new face by completing a safe update u on boundary bd
     (raising an error if u is an unsafe update).
@@ -324,10 +330,11 @@ doSafeUpdate bd (Just v, makeFace) =
 
 -- | given 2 adjacent directed edges, this returns the common vertex.
 -- Raises an error if the argument is not 2 adjacent directed edges
+commonV :: [DEdge] -> Vertex
 commonV [(a,b),(c,d)] | b==c = b 
                       | d==a = a
-                      | otherwise = error $ "commonV: directed edges not adjacent:" ++ show [(a,b),(c,d)]
-commonV es = error $ "commonV: argument is not 2 adjacent directed edges:" ++ show es
+                      | otherwise = error $ "commonV: directed edges not adjacent: " ++ show [(a,b),(c,d)]
+commonV es = error $ "commonV: argument is not 2 adjacent directed edges: " ++ show es
 
 {-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
      (raising an error if u is a safe update).
@@ -345,8 +352,8 @@ tryUnsafeUpdate bd (Nothing, makeFace) =
        newVPoints = addVPoints [newFace] [] oldVPoints
        Just vPosition = Map.lookup v newVPoints
        fDedges = faceDedges newFace
-       matchedDedges = fDedges `intersect` bDedges bd
-       newDedges = fmap reverseD (fDedges \\ matchedDedges)
+       matchedDedges = fDedges `intersect` bDedges bd -- singleton
+       newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
        nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
        resultBd = Boundary 
                     { bDedges = newDedges ++ (bDedges bd \\ matchedDedges)
