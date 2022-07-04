@@ -27,6 +27,7 @@ import Tgraph.Force
 import Tgraph.Convert
 import Tgraph.Relabelling
 
+
 {----------------------------
 ********************************************
 EXPERIMENTAL BITS
@@ -111,4 +112,11 @@ removeIncompleteTiles:: Tgraph -> Tgraph
 removeIncompleteTiles g = removeFaces halfTiles g
        where bdry = makeBoundary g
              halfTiles = fmap snd $ incompleteHalves bdry $ bDedges bdry
+
+
+
+
+
+
+
  

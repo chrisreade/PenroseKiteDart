@@ -894,10 +894,10 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1
                              , g2
                              , g2_3735
                              , matchByEdges (g1, (1,12)) (g2,(37,35))
-                             , unionGraphs (g1, (1,12)) (g2,(37,35))
+                             , simpleUnion (g1, (1,12)) (g2,(37,35))
                              , g2_3740
                              , matchByEdges (g1, (1,12)) (g2,(37,40))
-                             , unionGraphs (g1, (1,12)) (g2,(37,40))
+                             , simpleUnion (g1, (1,12)) (g2,(37,40))
                              ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
@@ -907,19 +907,25 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1
      g2_3735 = prepareFixAvoid [37,35] (vertices g1) g2
      g2_3740 = prepareFixAvoid [37,40] (vertices g1) g2
 
--- | This example shows an erroneous matchByEdges relabelling caused by
--- the overlap not being a single tile connected region in the matched graph.
--- (In the last relabelled graph, vertex 101 does not get matched to 15
--- in the first graph, for example). The unionGraph will raise an error
-incorrectRelabelFig:: Diagram B
-incorrectRelabelFig = padBorder $ lw ultraThin $ vsep 1 
-                       [ hsep 1 $ center <$> take 2 thelist
-                       , hsep 1 $ center <$> drop 2 thelist
-                       ] where
-     thelist = fmap drawVGraph [ g1
-                               , g2
-                               , matchByEdges (g1, (1,12)) (g2,(37,35))
-                               ]
+{-| Example showing match relabelling failing as well as a successful fullUnion of graphs.
+The top right graph g2 is matched against the top left graph g1 
+with g2 edge (37,35) matching g1 edge (1,12).
+The bottom left shows the relabelling to match, but this is not correct because the overlap of
+g2 on g1 is not a single tile connected region.
+(In the bottom left relabelled graph, vertex 101 does not get matched to 15 in g1, for exmple)
+The simpleUnion will raise an error but the result of a fullUnion is shown (bottom right)
+-}
+incorrectAndFullUnionFig:: Diagram B
+incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1 
+                            [ hsep 1 $ center <$> take 2 thelist
+                            , hsep 1 $ center <$> drop 2 thelist
+                            ] where
+     thelist = fmap drawVPatch $ rotations [0,9] $ fmap makeVPatch 
+                 [ g1
+                 , g2
+                 , matchByEdges (g1, (1,12)) (g2,(37,35))
+                 , fullUnion  (g1, (1,12)) (g2,(37,35))
+                 ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
      g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)

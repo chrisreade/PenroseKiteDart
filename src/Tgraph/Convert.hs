@@ -15,14 +15,13 @@ to allow vertex labels to be drawn.
 
 module Tgraph.Convert where
 
-import TileLib
-import Tgraph.Prelude
-
 import Data.List ((\\), find)
 import qualified Data.Map.Strict as Map (Map, lookup, toList, fromList)
 import Data.Maybe (mapMaybe)
 
 import Diagrams.Prelude
+import TileLib
+import Tgraph.Prelude
 import ChosenBackend (B)
 
 {- * VPatches
@@ -335,11 +334,16 @@ Complexity has order of the square of the number of vertices (calculates distanc
 touchingVertices:: Tgraph -> [(Vertex,Vertex)]
 touchingVertices g = check $ vertexLocs $ makeVPatch g where
   check [] = []
-  check ((v,p):more) = [(v,v1) | (v1,p1) <- more, tooClose p p1 ] ++ check more
-  tooClose p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
---  sqLength vec = dot vec vec
---  assocVP = vertexLocs $ makeVPatch g
+  check ((v,p):more) = [(v,v1) | (v1,p1) <- more, touching p p1 ] ++ check more
+--  tooClose p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
 
+{-|touching checks if two points are considered close.
+Close means the square of the distance between them is less than 0.25 so they cannot be
+vertex locations for 2 different vertices in a VPatch using unit scale for short edges.
+It is used in touchingVertices checks but also exported (used in Tgraph.Relabelling(fullUnion))
+-}
+touching :: Point V2 Double -> Point V2 Double -> Bool
+touching p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
 
 
 
