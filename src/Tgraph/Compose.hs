@@ -33,12 +33,12 @@ composeG = snd . partCompose
 -- |partCompose produces a Tgraph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
 -- It checks the Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
--- (it makes use of classifyDartWings which also returns an association of faces inciden
--- with each dart wing so these do not need to be reclculated.)
+-- (it makes use of classifyDartWings which also returns an association of faces incident
+-- with each dart wing so these do not need to be recalculated.)
 partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = (remainder,g')
   where
-    g' = getResult $ checkConnectedNoCross (makeUncheckedTgraph newFaces)
+    g' = getResult $ checkConnectedNoCross $ makeUncheckedTgraph newFaces
     dwClass = classifyDartWings g
 -- ignores unknowns
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs

@@ -12,6 +12,7 @@ some auxilliary functions for debugging, experimenting and use with SubTgraphs
 module Tgraph.Decompose where
 
 import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, (!))
+import Data.List(sort,foldl')
 
 import Tgraph.Prelude
 
@@ -34,8 +35,18 @@ decomposeG g = Tgraph{ vertices = newVs++vertices g
 
 -- |newVPhiMap g produces newVs - a list of new vertices (one for each phi edge of v)
 --   and a function mapping each phi edge to its assigned vertex in newVs.
---  Both (a,b) and (b,a) get the same v   
+--  Both (a,b) and (b,a) get the same v.
+-- (Also sorted phiEdges to reduce arbitrariness of numbering).  
 newVPhiMap :: Tgraph -> ([Vertex], (Vertex, Vertex) -> Vertex)
+
+newVPhiMap g = (newVs, (Map.!) $ edgeVMap) where
+  phiReps = sort [(a,b) | (a,b) <- phiEdges g, a<b]
+  newVs = makeNewVs (length phiReps) (vertices g)
+  (_, edgeVMap) = foldl' insert2 (newVs, Map.empty) phiReps
+  insert2 (v:vs,emap) e = (vs, Map.insert e v $ Map.insert (reverseD e) v emap)
+
+
+{-
 newVPhiMap g = (newVs, (Map.!) $ buildMap allPhi newVs Map.empty) where
   allPhi = phiEdges g
   newVs = makeNewVs (length allPhi `div` 2) (vertices g)
@@ -44,6 +55,8 @@ newVPhiMap g = (newVs, (Map.!) $ buildMap allPhi newVs Map.empty) where
     Just _  -> buildMap more vs m
     Nothing -> buildMap more (tail vs) (Map.insert (a,b) v (Map.insert (b,a) v m))
                where v = head vs
+-}
+
 
 -- |Decompose a face producing new faces. 
 -- This requires a function to get the unique vertex assigned to each phi edge

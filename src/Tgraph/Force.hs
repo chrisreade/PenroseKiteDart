@@ -13,7 +13,7 @@ module Tgraph.Force  where
 
 -- import Data.Maybe (listToMaybe,mapMaybe)
 import Data.List ((\\), intersect, nub, find)
-import qualified Data.Map as Map (Map, lookup, insert, empty, (!), elems, fromList, delete, filterWithKey, alter, assocs)
+import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, (!), elems, fromList, delete, filterWithKey, alter, assocs)
 import Control.Arrow(second) -- used in makeGenerator
 
 import Diagrams.Prelude      -- necessary for New createVPoints and for Located boundaries

@@ -16,7 +16,7 @@ module GraphFigExamples where
 -- temp for testing
 import qualified Data.Map as Map (Map, lookup, insert, empty, fromList,union)
 
--- partition for testing
+-- partition for testing (relabelWatchStep)
 import Data.List ((\\), nub, partition,intersect,union,intercalate,find)      
 import Diagrams.Prelude
 
@@ -45,7 +45,7 @@ foolDs :: [Tgraph]
 foolDs = decompositionsG fool
 
 -- |foolDminus: 3 faces removed from foolD
-foolDminus = removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
+foolDminus = removeFaces [RD(6,12,11), LD(6,14,12), RK(5,10,2)] foolD --removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
 
 -- | diagram of just fool
 foolFig :: Diagram B
@@ -206,7 +206,7 @@ foolChoices = padBorder $ vsep 1
 emplaceFoolDChoices :: Diagram B
 emplaceFoolDChoices = padBorder $ hsep 1 $
         fmap (addFoolD . lw ultraThin . drawPatch . dropVertices) vpChoices where
-        (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(29,6)] 
+        (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(27,6)] --(29,6)] 
                                          (fmap makeVPatch (foolD:emplaceChoices foolD))
         addFoolD fig = (lc red . dashJPatch . dropVertices) vpFoolD <> fig
 
@@ -223,7 +223,8 @@ dartD4 = dartDs!!4
 -- |brokenDart gets repaired by forcing but can also be composed to a maximal graph
 brokenDart :: Tgraph
 brokenDart = removeFaces deleted dartD4 where
-  deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
+  deleted = [RK(2,14,26),LD(13,26,14),RK(14,45,13),LK(14,46,45),LK(5,13,45)] 
+  -- [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
 
 {-| badlyBrokenDart gets repaired by forcing but will fail to produce a valid graph
      if composed twice without forcing 
@@ -233,12 +234,17 @@ brokenDart = removeFaces deleted dartD4 where
 -}
 badlyBrokenDart :: Tgraph
 badlyBrokenDart = removeFaces deleted dartD4 where
-  deleted = [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
+  deleted = [RK(2,14,26),LD(13,26,14),RK(14,45,13),LK(14,46,45),LK(5,13,45)]
+            ++[LK(7,21,43),RK(7,43,40),LD(9,40,43),RD(9,43,44),LK(22,44,43),RK(22,43,21),RK(6,22,38)]
+{-
+      [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
             ++[LK(11,21,44),RK(11,44,34),LD(9,34,44),RD(9,44,35),LK(17,35,44),RK(17,44,21),RK(6,17,33)]
+-}
  
 -- |brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
 brokenDartFig :: Diagram B
 brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap dashJGraph [dartD4, brokenDart, badlyBrokenDart]
+
 -- |the force of the worst case (badlyBrokenDart)
 checkBrokenDartFig  :: Diagram B
 checkBrokenDartFig = drawGraph $ force badlyBrokenDart
@@ -256,22 +262,24 @@ brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPatch 
                   [decomposeG kitePlusKite, brokenKites, composeG brokenKites, emplace brokenKites]
 -- |2 adjacent kites decomposed then the top half kite components removed (3 of them)
-brokenKites = removeFaces [LD(1,7,10),LK(6,5,10),RK(6,10,7)] $  decomposeG kitePlusKite
+brokenKites = removeFaces [LD(1,11,10),LK(6,5,10),RK(6,10,11)] $ decomposeG kitePlusKite
+    -- removeFaces [LD(1,7,10),LK(6,5,10),RK(6,10,7)] $  decomposeG kitePlusKite
 
 -- |diagram of touching vertex situation and forced result
 touchingTestFig::  Diagram B
 touchingTestFig = 
-  padBorder $ hsep 1
+  padBorder $ lw thin $ hsep 1 $
     [ drawVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)
-    , drawVPatch $ alignXaxis (6,32) $ makeVPatch $ force touchGraph
+    , drawVPatch $  alignXaxis (8,3) $ makeVPatch $ force touchGraph
     ] where    
       touchGraph = graphFromVP vpLeft
       vpLeft = removeFacesVP deleted vp
       vpGone = selectFacesVP deleted vp
-      vp = makeVPatch sunD2
+      vp = makeVPatch $ sunD2
       sunD2 = sunDs!!2
       deleted = filter ((==1).originV) (faces sunD2) ++
-                [LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
+                [LD(20,26,21),RK(21,50,20),LK(10,20,50),RK(10,50,48)]
+                --[LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
 
 
 {- *
@@ -282,8 +290,10 @@ Incorrect Tgraphs (and other problem Tgraphs)
 -- |faces removed from foolD to illustrate crossing boundary and non tile-connected VPatches
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
-       where d1 = drawVPatch $ removeFacesGtoVP [LK(3,11,14), RK(3,14,4), RK(3,13,11)] foolD
-             d2 = drawVPatch $ removeFacesGtoVP [RK(5,13,2), LD(6,11,13), RD(6,14,11), LD(6,12,14)] foolD
+       where d1 = drawVPatch $ removeFacesGtoVP [LK(3,11,12), RK(3,12,4), RK(3,10,11)] foolD
+       --[LK(3,11,14), RK(3,14,4), RK(3,13,11)] foolD
+             d2 = drawVPatch $ removeFacesGtoVP [RK(5,10,2), LD(6,11,10), RD(6,12,11), LD(6,14,12)] foolD
+             -- [RK(5,13,2), LD(6,11,13), RD(6,14,11), LD(6,12,14)] foolD
 
 -- |mistake is a legal but incorrect graph with a kite bordered by 2 darts
 mistake:: Tgraph
@@ -556,7 +566,7 @@ curioPic0 = padBorder $ position $ concat
     pointsRb = map p2 [ (0, 40), (42, 40), (95, 40), (150, 40)]
     pointsRc = map p2 [ (0, 0),  (42, 0),  (95, 0),  (150, 0), (200, 0)]
 
-{-| curioPic is a diagram illustrating where compose looses information not recovered by force
+{-| curioPic is a diagram illustrating where compose loses information not recovered by force
   with sunPlus3Dart' third item in bottom row, (curioPic0 is diagram without arrows)
 -}
 curioPic :: Diagram B
@@ -656,7 +666,6 @@ testBoundary5 =  padBorder $ lw ultraThin $ drawGBoundary boundaryGapFDart5
 -- checkedTgraph testCrossingBoundary, or by using
 -- force (makeUncheckedTgraph testCrossingBoundary)
 -- This produces a non-valid Tgraph.
--- It is constructed as faces of foolDminus  with LD(6,11,13) removed.
 testCrossingBoundary :: [TileFace]
 testCrossingBoundary = [LK (1,8,3),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13),RD (6,13,10)
                        ,LK (3,2,13),RK (3,13,11),RK (3,14,4),LK (3,11,14),LK (7,4,14),RK (7,14,12)
@@ -735,7 +744,7 @@ trackTwoChoices g de = fmap forceSub [sub1,sub2] where
           
 -- |Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [SubTgraph]
-twoChoices = trackTwoChoices (force $ dartDs !!4) (233,202)
+twoChoices = trackTwoChoices (force $ dartDs !!4) (233,201) --(233,202)
          
 -- |show the (tracked) twoChoices with drawSubTgraph2 (tracked faces in red, new face filled black)  
 twoChoicesFig:: Diagram B
@@ -751,9 +760,9 @@ moreChoices1 = trackTwoChoices (fullGraph $ twoChoices !! 1) (178,219)
 
 -- |figures for 4 further choices
 moreChoicesFig0,moreChoicesFig1,moreChoicesFig:: Diagram B
-moreChoicesFig =  vsep 1 [moreChoicesFig0,moreChoicesFig1]  
 moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSubTgraph2 moreChoices0
 moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 moreChoices1
+moreChoicesFig  =  vsep 1 [moreChoicesFig0,moreChoicesFig1]  
 
 -- |Trying to find which extensions to the starting dart correspond to the twoChoicesFig
 dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite :: Tgraph
@@ -826,66 +835,18 @@ emplaceProblemFig = drawForceEmplace sunPlus3Dart'
 Testing Relabelling
 -}
 
-
-
--- |A diagram testing matchByCommonEdge and showing 
--- (1) labelled foolD, followed by 
--- (2) a freshly relabelled foolD avoiding vertices in foolD except for edge (1,3),followed by
--- (3) a further relabelling calculated to match up with foolD starting from the common edge.
-testRelabellingFig1:: Diagram B
-testRelabellingFig1 = 
-    padBorder $ hsep 1 $ 
-    fmap drawVGraph [ foolD
-                    , prepareFixAvoid [1,3] (vertices foolD) foolD
-                    , matchByCommonEdge foolD (1,3) foolD
-                    ]
-
--- |Another diagram testing the boundary cases of matchByCommonEdge where
--- checkForBoundaryThirdV has to be called. It shows
--- (1) labelled decomposed kitGraph (kiteD), followed by 
--- (2) a reduced version (reducedKiteD) with two faces removed, followed by
--- (3) a freshly relabelled kiteD avoiding vertices in reducedKiteD except for edge (1,7),followed by
--- (4) a further relabelling calculated to match up with reducedKiteD starting from the common edge.
--- Note that 6 does not get relabelled in (3), and 2 boundary faces outside reducedKiteD are dealt with.
-testRelabellingFig2:: Diagram B
-testRelabellingFig2 = 
-    padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
-      fmap makeVPatch [ kiteGraphD
-                      , reducedKiteD
-                      , prepareFixAvoid [1,7] (vertices reducedKiteD) kiteGraphD
-                      , matchByCommonEdge reducedKiteD (1,7) kiteGraphD
-                      ]
-    where kiteGraphD = decomposeG kiteGraph
-          reducedKiteD = removeFaces [LD(1,6,7), RK(3,7,6)] kiteGraphD
-
--- |Another diagram testing the boundary cases of matchByCommonEdge.
--- Similar to testRelabellingFig2 but with only 1 face removed.
--- This time relabelling the last (missing) face requires discovery of the third vertex
--- by checkForBoundaryThirdV.
-testRelabellingFig3:: Diagram B
-testRelabellingFig3 = 
-    padBorder $ hsep 1 $ fmap drawVPatch $ alignAll (1,7) $
-      fmap makeVPatch [ kiteGraphD
-                      , reducedKiteD
-                      , prepareFixAvoid [1,7] (vertices reducedKiteD) kiteGraphD
-                      , matchByCommonEdge reducedKiteD (1,7) kiteGraphD
-                      ]
-    where kiteGraphD = decomposeG kiteGraph
-          reducedKiteD = removeFaces [LD(1,6,7)] kiteGraphD
-
-{-|Another diagram testing the boundary cases of matchByEdges.
+{-|A diagram testing matchByEdges.
 The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
-The next row has: (left) a relabelling of g2 leaving (35,37) 
+The next row has: (left) a relabelling of g2 leaving (37,35) 
 which is a preparation step to avoid accidental clashes with g1,
 (middle) a further relabelling of g2 by matching against g1 using (37,35)
-as the edge to match with (1,12),
+as the edge to match with (1,13),
 (right) the union of this relabelled graph with g1.
-The bottom row is as for the row above but using (37,40) as the edge to match with (1,12)
+The bottom row is as for the row above but using (37,40) as the edge to match with (1,13)
 resulting in a different union.
-[RK(1,16,36) is a test of a boundary case with 3 vertices on the boundary]
 -}
-testRelabellingFig4:: Diagram B
-testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1 
+testRelabellingFig:: Diagram B
+testRelabellingFig = padBorder $ lw ultraThin $ vsep 1 
                        [ hsep 1 $ center <$> take 2 eight
                        , hsep 1 $ center <$> take 3 $ drop 2 eight
                        , hsep 1 $ center <$> drop 5 eight
@@ -893,23 +854,23 @@ testRelabellingFig4 = padBorder $ lw ultraThin $ vsep 1
      eight = fmap drawVGraph [ g1
                              , g2
                              , g2_3735
-                             , matchByEdges (g1, (1,12)) (g2,(37,35))
-                             , simpleUnion (g1, (1,12)) (g2,(37,35))
+                             , matchByEdges (g1, (1,13)) (g2,(37,35))
+                             , simpleUnion (g1, (1,13)) (g2,(37,35))
                              , g2_3740
-                             , matchByEdges (g1, (1,12)) (g2,(37,40))
-                             , simpleUnion (g1, (1,12)) (g2,(37,40))
+                             , matchByEdges (g1, (1,13)) (g2,(37,40))
+                             , simpleUnion (g1, (1,13)) (g2,(37,40))
                              ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
-     g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
-     reduced2 = removeVertices [6,5,4] fsunD2
+     g1 = removeFaces [RK(1,21,26)] (removeVertices [20,47,50,44,48] sunD2)
+     reduced2 = removeVertices [8,7,6] fsunD2
      g2 = relabelAny reduced2
      g2_3735 = prepareFixAvoid [37,35] (vertices g1) g2
      g2_3740 = prepareFixAvoid [37,40] (vertices g1) g2
 
 {-| Example showing match relabelling failing as well as a successful fullUnion of graphs.
 The top right graph g2 is matched against the top left graph g1 
-with g2 edge (37,35) matching g1 edge (1,12).
+with g2 edge (37,40) matching g1 edge (1,13).
 The bottom left shows the relabelling to match, but this is not correct because the overlap of
 g2 on g1 is not a single tile connected region.
 (In the bottom left relabelled graph, vertex 101 does not get matched to 15 in g1, for exmple)
@@ -920,17 +881,28 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
                             [ hsep 1 $ center <$> take 2 thelist
                             , hsep 1 $ center <$> drop 2 thelist
                             ] where
-     thelist = fmap drawVPatch $ rotations [0,9] $ fmap makeVPatch 
+     thelist = fmap drawVPatch $ rotations [0,7] $ fmap makeVPatch 
                  [ g1
                  , g2
-                 , matchByEdges (g1, (1,12)) (g2,(37,35))
+                 , matchByEdges (g1, (1,13)) (g2,(37,40))
+                 , fullUnion  (g1, (1,13)) (g2,(37,40))
+                 ]
+     sunD2 = sunDs!!2
+     fsunD2 = force sunD2
+     g1 = removeFaces [RK(1,21,26)] (removeVertices [20,47,50,44,48] sunD2)
+         --removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
+     reduced2 = removeVertices [8,7,6,17] fsunD2
+     g2 = relabelAny reduced2
+{-                 , matchByEdges (g1, (1,12)) (g2,(37,35))
                  , fullUnion  (g1, (1,12)) (g2,(37,35))
                  ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
      g1 = removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
+         --removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [6,5,4,14] fsunD2
      g2 = relabelAny reduced2
+-}
    
 -- |Test function designed to watch steps of matchByEdges using ghci.
 -- The result is a tuple of arguments for first call of addRelabel (not in order)

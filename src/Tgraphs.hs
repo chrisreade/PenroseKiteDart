@@ -85,12 +85,11 @@ makeChoices g = choices unks [g] where
  compForce, allCompFs, allComps, maxCompose, maxFCompose
 ------------------------------------------------------------------------------}
 
--- |compForce does a force then composeG but it
--- by-passes the check on the composed graph because the argument was forced
+-- |compForce does a force then composeG. 
+-- (the connectedNoCross check may be redundant on the composed graph because the argument was forced.)
 compForce:: Tgraph -> Tgraph
-compForce = snd . partCompose . force
-    
-    
+compForce = composeG . force
+        
 -- |allCompFs g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allCompFs:: Tgraph -> [Tgraph]
 allCompFs g = takeWhile (not . nullGraph) $ iterate compForce g

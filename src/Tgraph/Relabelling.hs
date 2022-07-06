@@ -18,6 +18,10 @@ import qualified Data.Map.Strict as Map (Map, findWithDefault, lookup, insert, e
 import Tgraph.Prelude
 import Tgraph.Convert (makeVPatch, touching, vertexLocs) -- used for fullUnion
 
+{- *
+Relabelling operations
+-}
+
 -- |Relabelling is a special case of mappings from vertices to vertices.
 -- We use the identity map for vertices not found in the mapping domain
 -- (see relabelV).  Relabellings are expected to be 1-1 on their domain.       
@@ -37,18 +41,12 @@ relabelGraph rlab g = checkedTgraph newFaces where
 -- The mapping should be 1-1 on the 3 vertices to avoid creating a self loop edge.
 relabelFace:: Relabelling -> TileFace -> TileFace
 relabelFace rlab = fmap (all3 (relabelV rlab))  -- fmap of HalfTile Functor
-
+   where all3 f (a,b,c) = (f a,f b,f c)
+   
 -- |relabelV rlab v. Uses relabelling rlab to find a replacement for v (leaves as v if none found).
 -- I.e relabelV turns a relabelling into a total function using identity for undefined cases. 
 relabelV:: Relabelling -> Vertex -> Vertex
 relabelV rlab v = Map.findWithDefault v v rlab
-
-
--- |Applies a function to all three elements of a triple.
-all3:: (a -> b) -> (a,a,a) -> (b,b,b)
-all3 f (a,b,c) = (f a,f b,f c)
-
-
 
 -- |relabelAvoid vs g - produces a new Tgraph from g by relabelling.
 -- Any vertex in g that is in the list vs will be changed to a new vertex that is
@@ -79,15 +77,11 @@ relabelAny g = relabelGraph rlab g where
    vs = vertices g
    rlab = Map.fromList $ zip vs [1..length vs]
 
--- |trySimpleUnion (g1,e1) (g2,e2) - where edge e1 is in g1 and e2 is in g2,
--- checks if g2 can be relabelled to produce a common single region of overlap with g1
--- (with e2 relabelled to e1). If so then the result is Right g where g is the union of the faces.
--- Otherwise the result is Left lines where lines explains the problem.
--- 
--- CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
-trySimpleUnion ::(Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
-trySimpleUnion (g1,e1) (g2,e2) = fmap unify (tryMatchByEdges (g1,e1) (g2,e2)) where
-        unify g = checkedTgraph $ faces g1 `union` faces g
+
+
+{- *
+Union (and matching) operations
+-}
 
 -- |simpleUnion (g1,e1) (g2,e2) - where edge e1 is in g1 and e2 is in g2,
 -- checks if g2 can be relabelled to produce a common single region of overlap with g1
@@ -98,6 +92,15 @@ trySimpleUnion (g1,e1) (g2,e2) = fmap unify (tryMatchByEdges (g1,e1) (g2,e2)) wh
 simpleUnion :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
 simpleUnion (g1,e1) (g2,e2) = getResult $ trySimpleUnion (g1,e1) (g2,e2)
 
+-- |trySimpleUnion (g1,e1) (g2,e2) - where edge e1 is in g1 and e2 is in g2,
+-- checks if g2 can be relabelled to produce a common single region of overlap with g1
+-- (with e2 relabelled to e1). If so then the result is Right g where g is the union of the faces.
+-- Otherwise the result is Left lines where lines explains the problem.
+-- 
+-- CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
+trySimpleUnion ::(Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
+trySimpleUnion (g1,e1) (g2,e2) = fmap unify (tryMatchByEdges (g1,e1) (g2,e2)) where
+        unify g = checkedTgraph $ faces g1 `union` faces g
 
 {-| fullUnion (g1,e1) (g2,e2) will try to create the full union of g1 and g2
     by matching the respective edges e1 and e2 and relabelling g2 to match g1.
@@ -120,46 +123,6 @@ tryFullUnion (g1,e1) (g2,e2) =
   do g3 <- tryMatchByEdges (g1,e1) (g2,e2)
      let g4 = relabelTouching g1 g3  
      checkTgraphProps $ faces g1 `union` faces g4
-
-{-| relabelTouching g1 g2 assumes that there are vertex labels in g2 that match with vertex labels in g1
-in a matching tile-connected overlap region. It then identifies other vertices in g2 that need to be
-relabelled to match vertices in g1 based on a vertex location calculation.
-It returns the result of applying this further relabelling to g2.
--}
-relabelTouching :: Tgraph -> Tgraph -> Tgraph
-relabelTouching g1 g2 = relabelGraph (Map.fromList $ overlaps) g2 where
-      overlaps = [ (v2,v1) 
-                 | v2 <- vertices g2 \\ vertices g1
-                 , v1 <- vertices g1
-                 , let Just p1 = Map.lookup v1 vlocs
-                 , let Just p2 = Map.lookup v2 vlocs
-                 , touching p1 p2
-                 ]
-      vlocs = Map.fromList $ vertexLocs $ makeVPatch $ 
-              makeUncheckedTgraph $ faces g1 `union` faces g2
-
-{-|matchByCommonEdge g1 e g2  produces a relabelled version of g2 that is
-consistent with g1 on their overlap.
-The overlaping region must contain the common directed edge e without relabelling.
-This produces an error if a mismatcch is found in the overlap.
-
-CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
-(If the overlap contains more than one tile-connected region the result may not be
-a correct relabelling of g2)    
--}
-matchByCommonEdge:: Tgraph -> DEdge -> Tgraph -> Tgraph
-matchByCommonEdge g1 e g2 = getResult $ tryMatchByCommonEdge g1 e g2
-
-{-|tryMatchByCommonEdge g1 e g2  produces either Right g where g is a relabelled version of g2 that is
-consistent with g1 on their overlap or Left lines if there is a mismatch (lines explaining the problem).
-The overlaping region must contain the common directed edge e without relabelling.
-
-CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
-(If the overlap contains more than one tile-connected region the result may not be
-a correct relabelling of g2)    
--}
-tryMatchByCommonEdge:: Tgraph -> DEdge -> Tgraph -> ReportFail Tgraph
-tryMatchByCommonEdge g1 e g2 = tryMatchByEdges (g1,e) (g2,e)
 
 {-|matchByEdges (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
 consistent with g1 on their overlap.
@@ -195,7 +158,32 @@ tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $
      rlab <- findRelabelling (g1,fc1) (g2prepared,fc2)
      return $ relabelGraph rlab g2prepared
  
+{-|matchByCommonEdge g1 e g2  produces a relabelled version of g2 that is
+consistent with g1 on their overlap.
+The overlaping region must contain the common directed edge e without relabelling.
+This produces an error if a mismatcch is found in the overlap.
 
+CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
+(If the overlap contains more than one tile-connected region the result may not be
+a correct relabelling of g2)    
+-}
+matchByCommonEdge:: Tgraph -> DEdge -> Tgraph -> Tgraph
+matchByCommonEdge g1 e g2 = getResult $ tryMatchByCommonEdge g1 e g2
+
+{-|tryMatchByCommonEdge g1 e g2  produces either Right g where g is a relabelled version of g2 that is
+consistent with g1 on their overlap or Left lines if there is a mismatch (lines explaining the problem).
+The overlaping region must contain the common directed edge e without relabelling.
+
+CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
+(If the overlap contains more than one tile-connected region the result may not be
+a correct relabelling of g2)    
+-}
+tryMatchByCommonEdge:: Tgraph -> DEdge -> Tgraph -> ReportFail Tgraph
+tryMatchByCommonEdge g1 e g2 = tryMatchByEdges (g1,e) (g2,e)
+
+{- *
+Auxiliary functions
+-}
  
 {-|findRelabelling is an auxiliary function for tryMatchByEdges and tryMatchByCommonEdge.
 findRelabelling (g1,fc1) (g2,fc2) - fc1 and fc2 should be matching face types,
@@ -214,6 +202,25 @@ to the region containing fc1
 findRelabelling:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> ReportFail Relabelling
 findRelabelling (g1,fc1) (g2,fc2) = onFail "findRelabelling:\n" $ 
    addRelabel g1 [fc2] (faces g2 \\ [fc2]) (initRelabelling fc1 fc2)
+
+{-|relabelTouching is used by tryFullUnion.
+relabelTouching g1 g2 assumes that there are vertex labels in g2 that match with vertex labels in g1
+in a matching tile-connected overlap region. It then identifies other vertices in g2 that need to be
+relabelled to match vertices in g1 based on a vertex location calculation.
+It returns the result of applying this further relabelling to g2.
+-}
+relabelTouching :: Tgraph -> Tgraph -> Tgraph
+relabelTouching g1 g2 = relabelGraph (Map.fromList $ overlaps) g2 where
+      overlaps = [ (v2,v1) 
+                 | v2 <- vertices g2 \\ vertices g1
+                 , v1 <- vertices g1
+                 , let Just p1 = Map.lookup v1 vlocs
+                 , let Just p2 = Map.lookup v2 vlocs
+                 , touching p1 p2
+                 ]
+      vlocs = Map.fromList $ vertexLocs $ makeVPatch $ 
+              makeUncheckedTgraph $ faces g1 `union` faces g2
+
 
 -- |initRelabelling f1 f2 - creates a relabelling so that
 -- if applied to face f2, the vertices will match with face f1 exactly.
@@ -258,6 +265,8 @@ addRelabel g (fc:fcs) awaiting rlab =
                           rlab' = Map.union (initRelabelling orig fc) rlab
 
 {- OLDER VERSION
+   did some boundary checking after matching a single region, to allow for
+   faces outside the region but with 2 boundary edges.  Such cases now covered by fullUnion.
                       
 needed import Tgraph.Force boundary operations
                                            

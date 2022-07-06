@@ -172,7 +172,7 @@ edgeType:: DEdge -> TileFace -> EdgeType
 edgeType d f | d == longE f  = Long
              | d == shortE f = Short
              | d == joinE f  = Join 
-             | otherwise = error $ "edgeType: edge " ++ show d ++ 
+             | otherwise = error $ "edgeType: directed edge " ++ show d ++ 
                                    " not found in face " ++ show f
 
 -- |For a list of tile faces fcs this produces a list of tuples of the form (f1,f2,etpe1,etype2)
@@ -432,17 +432,25 @@ hasDEdgeIn es fc = not $ null $ es `intersect` faceDedges fc
 graphDedges :: Tgraph -> [(Vertex, Vertex)]
 graphDedges = facesDedges . faces
 
--- |phiEdges returns a list of the phi-edges of a Tgraph (= long non-join edges of the faces).
+-- |phiEdges returns a list of the phi-edges of a Tgraph (including kite joins).
 -- This includes both directions of each edge.
 phiEdges :: Tgraph -> [(Vertex, Vertex)]
+phiEdges g = bothDir $ concatMap facePhiEdges $ faces g
+{-
 phiEdges g = bothDir $ fmap longE (faces g)
                        ++ fmap joinE (lkites g ++ rkites g) 
+-}
 
--- |nonPhiEdges returns a list of the shorter non-join edges of a Tgraph.
+
+-- |nonPhiEdges returns a list of the shorter edges of a Tgraph (including dart joins).
 -- This includes both directions of each edge.
 nonPhiEdges :: Tgraph -> [(Vertex, Vertex)]
+nonPhiEdges g = bothDir $ concatMap faceNonPhiEdges $ faces g
+{-
 nonPhiEdges g = bothDir $ fmap shortE (faces g)
                           ++ fmap joinE (ldarts g ++ rdarts g)
+-}
+
 
 -- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
 graphEdges :: Tgraph -> [(Vertex, Vertex)]

@@ -162,32 +162,6 @@ exampleTriple2::Diagram B
 exampleTriple2 =  position $ zip [ p2(-2.55,-0.75), p2(0.0,1.0), p2(2.0,-1.2)] $
                    lw thin $ rotations [1,0,1] $ fmap center threeColouredShapes
 
-{- OLDER VERSIONS
-threeColourFilled = lw thin $
-    position 
-    [ (p2(0.0,0.0)  ,colourDKG (darken 0.7 darkmagenta, indigo, gold) sun4)
-    , (p2(-3.0,0.0) ,colourDKG (goldenrod, darkturquoise, saddlebrown) star4)
-    , (p2(3.2, -1.4)  ,rotate (90 @@ deg) $ colourDKG (darkblue,blend 0.9 red magenta, yellow) kite5)
-    ] where
-        sun4 = suns!!4
-        star4 = decompositions TileLib.star !!4
-        kite5 = scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
-
--- |showing three decomposed shapes with colouring for dart,kite and grout (edges)
--- arranged in an arc
-threeShapesSample::Diagram B
-threeShapesSample = lw thin $
-    position 
-    [ (p2(0.0,1.0)  ,colourDKG (darken 0.7 darkmagenta, indigo, gold) sun4)
-    , (p2(-3.0,0.0) ,colourDKG (goldenrod, darkturquoise, saddlebrown) star4)
-    , (p2(1.4,0.0)  ,colourDKG (darkblue,blend 0.9 red magenta, yellow) kite5)
-    ] where
-        sun4 = suns!!4
-        star4 = decompositions TileLib.star !!4
-        kite5 = scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
--}
-
-
 {-*
 Swatches and Samples for colour-filled patches
 -}

@@ -31,7 +31,7 @@ import Tgraphs
 
                 
 fig::Diagram B
-fig = incorrectAndFullUnionFig
+fig =  touchingTestFig --incorrectAndFullUnionFig
 
 
 main = mainWith fig
