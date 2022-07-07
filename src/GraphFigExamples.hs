@@ -243,7 +243,7 @@ badlyBrokenDart = removeFaces deleted dartD4 where
  
 -- |brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
 brokenDartFig :: Diagram B
-brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap dashJGraph [dartD4, brokenDart, badlyBrokenDart]
+brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawVGraph [dartD4, brokenDart, badlyBrokenDart]
 
 -- |the force of the worst case (badlyBrokenDart)
 checkBrokenDartFig  :: Diagram B
@@ -436,18 +436,18 @@ Other miscelaneous Tgraphs and Diagrams
 
 -- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
-boundaryFDart4 =  
-    checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!4)
-boundaryFDart5 =  
-    checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!5)
+boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!4)
+boundaryFDart5 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!5)
 
+-- |figures of the boundary faces only of a forced graph
+boundaryFDart4Fig,boundaryFDart5Fig:: Diagram B
+boundaryFDart4Fig = padBorder $ lw ultraThin $ drawVGraph boundaryFDart4
+boundaryFDart5Fig = padBorder $ lw ultraThin $ drawVGraph boundaryFDart5
 
 -- |graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
-boundaryGapFDart4 =   
-    checkedTgraph $ filter ((/=332).originV)  (faces boundaryFDart4)
-boundaryGapFDart5 =   
-    checkedTgraph $ filter ((/=1287).originV) (faces boundaryFDart5)
+boundaryGapFDart4 = checkedTgraph $ filter ((/=332).originV)  (faces boundaryFDart4)
+boundaryGapFDart5 = checkedTgraph $ filter ((/=1287).originV) (faces boundaryFDart5)
 
 -- |figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
@@ -556,9 +556,9 @@ curioPic0 = padBorder $ position $ concat
   , zip pointsRc $ zipWith named ["c4", "c3","c2","c1","c0"] (dots : fmap (center . lw thin) xDs)
   ] where
     forceDs  = lw ultraThin <$> rotations [1,1]  $ phiScaling phi $ reverse $ take 4 $ fmap (drawGraph . force) dartDs
-    forceXDs = rotations [7,7,8]  $ phiScaling phi $ reverse $ take 3 $ fmap drawForce xDGraphs
+    forceXDs = rotations [9,9,8]  $ phiScaling phi $ reverse $ take 3 $ fmap drawForce xDGraphs
     xDGraphs = decompositionsG sunPlus3Dart'
-    xDs  = lw ultraThin <$> rotations [7,7,8] $  phiScaling phi $ reverse $
+    xDs  = lw ultraThin <$> rotations [9,9,8] $  phiScaling phi $ reverse $
            drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red # lw thin): 
            take 2  (drop 1 $ fmap drawGraph xDGraphs)
     dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
@@ -648,7 +648,7 @@ testViewBoundary rots bd =  lc lime bdryFig <> graphFig where
 
 -- |used to discover accuracy problem of older thirdVertexLoc
 -- view tha boundary after n steps of forcing (starting with boundaryGapFDart5)
--- e.g. n = 1900
+-- e.g. n = 1900 for inspectForce5 or 200 for inspectForce3
 inspectForce5,inspectForce3 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
                   testViewBoundary [5] $ boundaryState $ stepForce n boundaryGapFDart5
@@ -741,7 +741,11 @@ trackTwoChoices g de = fmap forceSub [sub1,sub2] where
           g'' = addHalfKite g de
           sub1 = makeSubTgraph g' [faces g', faces g' \\ faces g]
           sub2 = makeSubTgraph g'' [faces g'', faces g'' \\ faces g]
-          
+
+-- |forced 4 times decomposed dart (used for identifying particular boundary
+-- edges in twoChoices and moreChoices)
+forceDartD4Fig:: Diagram B
+forceDartD4Fig = padBorder $ lw ultraThin $ drawVGraph $ force $ dartDs !! 4          
 -- |Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [SubTgraph]
 twoChoices = trackTwoChoices (force $ dartDs !!4) (233,201) --(233,202)
