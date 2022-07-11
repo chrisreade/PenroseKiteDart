@@ -101,21 +101,24 @@ fillDK' dcol kcol pc =
 drawJPiece:: Piece -> Diagram B
 drawJPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
 
--- |fillDK  dcol kcol piece draws and fills the half-tile piece
+-- |fillPiece col piece - fills piece with colour col without drawing any lines
+fillPiece:: Colour Double -> Piece -> Diagram B
+fillPiece col piece  = drawJPiece piece # fc col # lw none
+
+-- |fillDK dcol kcol piece - draws and fills the half-tile piece
 -- with colour dcol for darts and kcol for kites.
--- The join edge is coloured with matching colour, so it will not show.
+-- Note the order D K.
 fillDK:: Colour Double -> Colour Double -> Piece -> Diagram B
-fillDK dcol kcol piece = drawPiece piece <> (drawJPiece piece # fc col # lc col) where
+fillDK dcol kcol piece = drawPiece piece <> fillPiece col piece where
     col = case piece of (LD _) -> dcol
                         (RD _) -> dcol
                         (LK _) -> kcol
                         (RK _) -> kcol
 
-
 -- |same as drawPiece but with join edge added as dashed-line
 dashJPiece:: Piece -> Diagram B
-dashJPiece piece = drawPiece piece <> (drawJ piece # dashingO [1,1] 0) -- # lw ultraThin)
--- dashJPiece piece = drawPiece piece <> (drawJ piece # dashingN [0.002,0.002] 0 # lw ultraThin)
+dashJPiece piece = drawPiece piece <> (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
+                                       -- (drawJ piece # dashingO [1,2] 0)
 
 -- |draw join edge only 
 drawJ:: Piece -> Diagram B
@@ -127,7 +130,8 @@ drawJ piece = strokeLine (fromOffsets [getJVec piece])
 -- Half darts have the join edge emphasised in red, while
 -- Half kites have the long edge emphasised in black.
 experiment:: Piece -> Diagram B
-experiment pc = emph pc <> (drawJPiece pc # dashingN [0.002,0.002] 0 # lw ultraThin)
+experiment pc = --emph pc <> (drawJPiece pc # dashingO [1,2] 0 # lw ultraThin)
+    emph pc <> (drawJPiece pc # dashingN [0.001,0.002] 0 # lwN 0.001)
   where emph pc = case pc of
           (LD v) -> (strokeLine . fromOffsets) [v] # lc red   -- emphasise join edge of darts in red
           (RD v) -> (strokeLine . fromOffsets) [v] # lc red 
@@ -153,10 +157,11 @@ drawPatch = patchWith drawPiece
 dashJPatch:: Patch -> Diagram B      
 dashJPatch = patchWith dashJPiece
 
--- |colourDKG (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and colour c3 for grout (that is, the non-join edges).
+-- |colourDKG (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and
+-- colour c3 for grout (that is, the non-join edges).
+-- Note the order D K G.
 colourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
 colourDKG (c1,c2,c3) p = patchWith (fillDK c1 c2) p # lc c3
-
 
 
 
@@ -195,13 +200,12 @@ decompositions:: Patch -> [Patch]
 decompositions = iterate decompose
 
 {-|
-Inflating produces a list of choices NOT a Patch.
-Inflating a single located piece produces a list of alternative located pieces.
+compChoices applied to  a single located piece produces a list of alternative located pieces NOT a Patch.
 Each of these is a larger scale single piece with a location such that when decomposed
 the original piece in its original position is part of the decomposition)
 -}
-inflate :: Located Piece -> [Located Piece]
-inflate lp = case viewLoc lp of
+compChoices :: Located Piece -> [Located Piece]
+compChoices lp = case viewLoc lp of
   (p, RD vd)-> [ RD vd' `at` (p .+^ v')
                , RK vk  `at` p
                ] where v'  = (phi+1) *^ vd                  -- vd*phi^2
@@ -228,12 +232,20 @@ inflate lp = case viewLoc lp of
                        rvk' = phi*^rotate (ttangle 7) vk
                        lvk' = phi*^rotate (ttangle 3) vk
 
--- |a list of all the alternatives after n inflation choices
-inflations :: Int -> Located Piece -> [Located Piece]
-inflations 0 lp = [lp]
-inflations n lp = do
+-- |compNChoices n lp - gives a list of all the alternatives after n compChoices starting with lp
+compNChoices :: Int -> Located Piece -> [Located Piece]
+compNChoices 0 lp = [lp]
+compNChoices n lp = do
     lp' <- inflate lp
-    inflations (n-1) lp'
+    compNChoices (n-1) lp'
+
+-- |inflate is a deprecated name for what is now compChoices
+inflate :: Located Piece -> [Located Piece]
+inflate = compChoices
+
+-- |a deprecated name for what is now compNChoices
+inflations :: Int -> Located Piece -> [Located Piece]
+inflations = compNChoices
                                 
 -- |combine 5 copies of a patch (each rotated by ttangle 2 successively)
 -- (ttAngle 2 is 72 degrees) 
@@ -256,7 +268,6 @@ rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
 rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
 rotations [] ds = ds
 rotations _  [] = error "rotations: too many rotation integers"
-
 
 -- |scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
 -- This includes Diagrams, Patches, VPatches

@@ -63,39 +63,18 @@ instance Transformable VPatch where
          =  VPatch {lVertices = fmap (\lv -> unLoc lv `at` transform t (loc lv)) lvs,  lHybrids = transform t lhs}
 
 {-| For converting a Tgraph to a VPatch.
-An empty graph is a special case.
-Otherwise it uses chooseLowest to choose a starting face (placed at the front of the list of faces)
-Then uses Tgraph.Prelude.createVPoints to form a mapping of vertices to positions.
+This uses Tgraph.Prelude.createVPoints to form a mapping of vertices to positions.
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
 -}
 makeVPatch::Tgraph -> VPatch
-makeVPatch g = if nullGraph g 
-               then VPatch { lVertices = [], lHybrids = [] }
-               else VPatch { lVertices = fmap locateV (Map.toList vpMap)
-                           , lHybrids  = makeLHyb <$> faces g
-                           }
-    where
-    (face:more) = chooseLowest (faces g)
-    vpMap = createVPoints $ chooseLowest $ faces g
+makeVPatch g = VPatch { lVertices = fmap locateV (Map.toList vpMap)
+                      , lHybrids  = makeLHyb <$> faces g
+                      } where
+    vpMap = createVPoints $ faces g
     locateV (v,p) = v `at` p
     makeLHyb fc = case (Map.lookup (originV fc) vpMap , Map.lookup (oppV fc) vpMap) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
-
--- |For a non-empty list of tile faces
--- find the face with lowest originV (and then lowest oppV).
--- Move this face to the front of the returned list of faces.
--- Used by makeVPatch (and hence makePatch) for non-empty Tgraphs
-chooseLowest:: [TileFace] -> [TileFace]
-chooseLowest fcs = face:(fcs\\[face]) where
-    a = minimum (fmap originV fcs)
-    aFs = filter ((a==) . originV) fcs
-    b = minimum (fmap oppV aFs)
-    face = case filter (((a,b)==) . joinOfTile) aFs of  -- should be find
-           (face:_) -> face
-           []       -> error "chooseLowest: empty graph?"
-
-
 {- |
 makePatch uses makeVPatch first then the Hybrids are converted to Pieces
 and the Located Vertex information is dropped
@@ -199,37 +178,6 @@ alignAll (a,b) = fmap (alignXaxis (a,b))
     -- alignments ablist vps where ablist = take (length vps) (repeat (a,b))
 
 
-{-
-{- * Rotating and Scaling lists
--}
-
-{-
--- |rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
--- This includes Diagrams, Patches, VPatches
--- The integer list can be shorter than the list of items - the remaining items are left unrotated.
-rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
-rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
-rotations [] ds = ds
-rotations _  [] = error "rotations: too many rotation integers"
--}
-
--- |scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
--- This includes Diagrams, Patches, VPatches
--- The list of doubles can be shorter than the list of items - the remaining items are left unscaled.
-scales :: (Transformable a, V a ~ V2, N a ~ Double) => [Double] -> [a] -> [a]
-scales (s:ss) (d:ds) = scale s d: scales ss ds
-scales [] ds = ds
-scales _  [] = error "scales: too many scalars"
-
--- |increasing scales by phi along a list starting with 1
-phiScales:: (Transformable a, V a ~ V2, N a ~ Double) => [a] -> [a]
-phiScales = phiScaling 1
-
--- |increasing scales by phi along a list starting with given first argument
-phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
-phiScaling s [] = []
-phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
--}
 
 {- *  Auxiliary definitions
 -}

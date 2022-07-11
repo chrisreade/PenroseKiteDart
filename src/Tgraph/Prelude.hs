@@ -14,7 +14,7 @@ and re-exports module HalfTile
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, nub, elemIndex, partition, intercalate) -- partition used in addVPoints
+import Data.List ((\\), intersect, nub, elemIndex, partition, intercalate,foldl') -- partition used in addVPoints
 import qualified Data.Map.Strict as Map (Map, lookup, insert, empty)
 
 import Diagrams.Prelude  -- necessary for createVPoints
@@ -146,12 +146,13 @@ hasEdgeLoops:: [TileFace] -> Bool
 hasEdgeLoops = not . null . findEdgeLoops
 
 
--- |duplicates finds duplicated items in a list
+-- |duplicates finds duplicated items in a list (reverses order but unique results)
 duplicates :: Eq a => [a] -> [a]
-duplicates [] = []
-duplicates (e:es) | e `elem` es = e:duplicates es
-                | otherwise = duplicates es
---    duplicates es = es \\ nub es
+duplicates = fst . foldl' check ([],[]) where
+ check (dups,seen) x | x `elem` dups = (dups,seen)
+                     | x `elem` seen = (x:dups,seen)
+                     | otherwise = (dups,x:seen)
+--    duplicates es = nub $ es \\ nub es
 
 -- |conflictingDedges fcs returns a list of conflicting directed edges in fcs
 -- (which should be null for a Tgraph)
@@ -190,8 +191,8 @@ sharedEdges fcs = [(f1,f2,edgeType d1 f1,edgeType d2 f2)
 -- | legal (f1,f2,etype1,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 and etype2 is equal to etype1.                   
 legal:: (TileFace,TileFace,EdgeType,EdgeType) -> Bool                
-legal (LK _, RK _, e1 , e2    ) = e1 ==e2 
-legal (RK _, LK _, e1 , e2    ) = e1 ==e2 
+legal (LK _, RK _, e1 , e2    ) = e1 == e2 
+legal (RK _, LK _, e1 , e2    ) = e1 == e2 
 legal (LK _, RD _, Short,Short) = True
 legal (RD _, LK _, Short,Short) = True
 legal (LK _, RD _, Long, Long ) = True
@@ -406,15 +407,15 @@ facePhiEdges fc        = [e, reverseD e, j, reverseD j]
 faceNonPhiEdges fc = bothDir' (faceDedges fc) \\ facePhiEdges fc
 
 
--- |matchingE etype fc is a predicate on tile faces 
--- where etype finds a particular edge type of a face
--- (etype could be joinE or longE or shortE for example).
--- This is True for fc' if fc' has an etype edge matching the (reversed) etype edge of fc
+-- |matchingE eselect fc is a predicate on tile faces 
+-- where eselect selects a particular edge type of a face
+-- (eselect could be joinE or longE or shortE for example).
+-- This is True for fc' if fc' has an eselect edge matching the (reversed) eselect edge of fc
 matchingE :: (TileFace -> DEdge) -> TileFace -> TileFace -> Bool
-matchingE etype fc = (== reverseD (etype fc)) . etype
+matchingE eselect fc = (== reverseD (eselect fc)) . eselect
 
--- |special cases of matchingE etype 
--- where etype is longE, shortE, and joinE
+-- |special cases of matchingE eselect 
+-- where eselect is longE, shortE, and joinE
 matchingLongE,matchingShortE,matchingJoinE ::  TileFace -> TileFace -> Bool
 matchingLongE  = matchingE longE
 matchingShortE = matchingE shortE
@@ -436,21 +437,11 @@ graphDedges = facesDedges . faces
 -- This includes both directions of each edge.
 phiEdges :: Tgraph -> [(Vertex, Vertex)]
 phiEdges g = bothDir $ concatMap facePhiEdges $ faces g
-{-
-phiEdges g = bothDir $ fmap longE (faces g)
-                       ++ fmap joinE (lkites g ++ rkites g) 
--}
-
 
 -- |nonPhiEdges returns a list of the shorter edges of a Tgraph (including dart joins).
 -- This includes both directions of each edge.
 nonPhiEdges :: Tgraph -> [(Vertex, Vertex)]
 nonPhiEdges g = bothDir $ concatMap faceNonPhiEdges $ faces g
-{-
-nonPhiEdges g = bothDir $ fmap shortE (faces g)
-                          ++ fmap joinE (ldarts g ++ rdarts g)
--}
-
 
 -- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
 graphEdges :: Tgraph -> [(Vertex, Vertex)]
@@ -463,7 +454,6 @@ bothDir = nub . bothDir'
 -- |bothDir' adds the reverse directed edges to a list of directed edges without checking for duplicates 
 bothDir':: [DEdge] -> [DEdge]
 bothDir' = concatMap (\e -> [e,reverseD e])
-
 
 -- |boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
@@ -482,12 +472,10 @@ internalEdges g = des \\ fmap reverseD bdes where
     des = graphDedges g
     bdes = bothDir des \\ des
 
-
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
 edgeNb fc = any (`elem` edges) . faceDedges where
       edges = fmap reverseD (faceDedges fc)
-
 
 
 
@@ -502,12 +490,13 @@ GraphConvert.makeVPatch  to make VPatches and Patches
 -}
 
 {-| createVPoints: processes a list of faces to associate points for each vertex.
-     Faces must be tile-connected. It aligns the join of the first face on the x-axis.
+     Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
       Returns a vertex-to-point Map.
 -}
 createVPoints:: [TileFace] -> Mapping Vertex (Point V2 Double)
 createVPoints [] = Map.empty
-createVPoints (face:more) = addVPoints [face] more (initJoin face)
+createVPoints faces = addVPoints [face] more (axisJoin face) where
+    (face:more) = lowestJoinFirst faces
 
 {-| addVPoints readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
@@ -526,14 +515,27 @@ addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
              Nothing -> vpMap
   (fcs', fcOther')   = partition (edgeNb fc) fcOther
 
--- |initJoin fc 
+-- |For a non-empty list of tile faces
+-- find the face with lowest originV (and then lowest oppV).
+-- Move this face to the front of the returned list of faces.
+-- Used by createVPoints to determine the starting point for location calculation
+lowestJoinFirst:: [TileFace] -> [TileFace]
+lowestJoinFirst fcs = face:(fcs\\[face]) where
+    a = minimum (fmap originV fcs)
+    aFs = filter ((a==) . originV) fcs
+    b = minimum (fmap oppV aFs)
+    face = case filter (((a,b)==) . joinOfTile) aFs of  -- should be find
+           (face:_) -> face
+           []       -> error "lowestJoinFirst: empty graph?"
+
+-- |axisJoin fc 
 -- initialises a vertex to point mapping with locations for the join edge vertices of fc
 -- with originV fc at the origin and aligned along the x axis. (Used to initialise createVPoints)
-initJoin::TileFace -> Mapping Vertex (Point V2 Double)                
-initJoin (LD(a,b,_)) = Map.insert a origin $ Map.insert b (p2(1,0)) Map.empty -- [(a,origin), (b, p2(1,0))]
-initJoin (RD(a,_,c)) = Map.insert a origin $ Map.insert c (p2(1,0)) Map.empty --[(a,origin), (c, p2(1,0))]
-initJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty --[(a,origin), (c, p2(phi,0))]
-initJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
+axisJoin::TileFace -> Mapping Vertex (Point V2 Double)                
+axisJoin (LD(a,b,_)) = Map.insert a origin $ Map.insert b (p2(1,0)) Map.empty -- [(a,origin), (b, p2(1,0))]
+axisJoin (RD(a,_,c)) = Map.insert a origin $ Map.insert c (p2(1,0)) Map.empty --[(a,origin), (c, p2(1,0))]
+axisJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty --[(a,origin), (c, p2(phi,0))]
+axisJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
 
 -- |lookup 3 vertex locations in a vertex to point map.
 find3Locs::(Vertex,Vertex,Vertex) -> Mapping Vertex (Point V2 Double)

@@ -31,7 +31,7 @@ import Tgraphs
 
                 
 fig::Diagram B
-fig =  bigPic --incorrectAndFullUnionFig
+fig =  inspectForce3 200 --incorrectAndFullUnionFig
 
 
 main = mainWith fig

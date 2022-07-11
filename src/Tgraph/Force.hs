@@ -64,7 +64,7 @@ Boundary operations
 the boundary directed edges (directed so that faces are on LHS and exterior is on RHS)
 plus 
 a mapping of boundary vertices to their incident faces, plus
-a mapping of boundary vertices to positions.
+a mapping of boundary vertices to positions (using Tgraph.Prelude.createVPoints).
 It also keeps track of all the faces and vertices, 
 and the next vertex label to be used when adding a new vertex.
 Note that bvFacesMap is initially only defined for boundary vertices,
@@ -86,7 +86,7 @@ makeBoundary:: Tgraph -> Boundary
 makeBoundary g = 
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
-      bvLocs = Map.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints (faces g)
+      bvLocs = Map.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints $ faces g
       addFacesAt v = Map.insert v $ filter (isAtV v) (faces g) 
   in Boundary
       { bDedges = bdes

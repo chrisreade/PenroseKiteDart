@@ -172,7 +172,7 @@ checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
  
 -- |returns the join edge with lowest origin (and lowest oppV of faces with that origin)
 lowestJoin:: Tgraph -> (Vertex,Vertex)
-lowestJoin = joinOfTile . head . chooseLowest . faces
+lowestJoin = joinOfTile . head . lowestJoinFirst . faces
 {- |
 drawMaxEmplace g produces the emplacement of g overlaid with the maximal (forced) composition of g
 -}
@@ -636,12 +636,12 @@ testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart5
 -- (used in conjunction with stepForce to get an intermediate Boundary)
 -- The boundary edges of a Boundary are shown in lime - using the Boundary positions of vertices
 -- The graph is converted to a vp separately (so using a fresh calculation of positions)
--- Thus rotations may be needed to match up.
--- Use an empty list of integer rotations to see what rotations are needed to align the figures.
+-- Relies on createVPoints using lowestJoinFirst so both makeBoundary and Convert.makeVPatch use
+-- consistent positioning of graph and boundary.
 -}
-testViewBoundary :: [Int] -> Boundary -> Diagram B
-testViewBoundary rots bd =  lc lime bdryFig <> graphFig where 
-    [bdryFig, graphFig] = center <$> rotations rots [drawEdges vpMap bdE,  drawVGraph g]
+testViewBoundary :: Boundary -> Diagram B
+testViewBoundary bd =  lc lime bdryFig <> graphFig where 
+    [bdryFig, graphFig] = center <$> [drawEdges vpMap bdE,  drawVGraph g]
     g = recoverGraph bd
     vpMap = bvLocMap bd
     bdE = bDedges bd
@@ -651,10 +651,10 @@ testViewBoundary rots bd =  lc lime bdryFig <> graphFig where
 -- e.g. n = 1900 for inspectForce5 or 200 for inspectForce3
 inspectForce5,inspectForce3 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
-                  testViewBoundary [5] $ boundaryState $ stepForce n boundaryGapFDart5
+                  testViewBoundary $ boundaryState $ stepForce n boundaryGapFDart5
 
 inspectForce3 n = padBorder $ lw ultraThin $
-                  testViewBoundary [3] $ boundaryState $ stepForce n $ dartDs !! 3
+                  testViewBoundary $ boundaryState $ stepForce n $ dartDs !! 3
 
 
 -- |figures showing boundary edges of the boundary gap graphs boundaryGapFDart4 and boundaryGapFDart5 
@@ -680,11 +680,11 @@ checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [sunD4, wholeTiles sunD
 checkGraphFromVP :: Diagram B
 checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
 
-
 -- |figure testing selectFacesGtoVP by removing all kites
 dartsOnlyFig :: Diagram B
-dartsOnlyFig = dashJPatch $ dropVertices $ selectFacesGtoVP (ldarts g++rdarts g) g where g = sunDs !! 5
-
+dartsOnlyFig = padBorder $ lw thin $ drawPatch $ dropVertices $ selectFacesGtoVP darts g where
+    g = force $ sunDs !! 5
+    darts = filter isDart $ faces g
 
 {- *
 Testing SubTgraphs

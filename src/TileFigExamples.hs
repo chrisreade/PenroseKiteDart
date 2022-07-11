@@ -81,27 +81,23 @@ fourDecomps:: Diagram B
 fourDecomps = hsep 1 $ fmap decomps thePieces # lw thin where
          decomps pc = vsep 1 $ fmap drawPatch $ take 5 $ decompositions [pc `at` origin] 
 
--- |example of inflate in action with 5 chosen inflation steps from a left dart.
+-- |example of compChoices in action with 5 chosen compChoices steps from a left dart.
 -- This shows inital and final piece together on the left,  
 -- and 5 decomposition of the final piece on the right.
-fiveInflate:: Diagram B
-fiveInflate = hsep 1 $ fmap drawPatch [[ld,lk'], decompositions [lk'] !! 5] where -- two seperate patches
+fiveCompChoices:: Diagram B
+fiveCompChoices = pad 1.1 $ hsep 1 $ fmap dashJPatch [[ld,lk'], decompositions [lk'] !! 5] where
+     -- two seperate patches
        ld  = ldart `at` origin
-       lk  = inflate ld  !!1
-       rk  = inflate lk  !!1
-       rk' = inflate rk  !!2
-       ld' = inflate rk' !!0
-       lk' = inflate ld' !!1
--- fiveInflate = hsep 1 $ fmap drawPatch [[ld,lk'], multiDecomp 5 [lk']] where -- two seperate patches
+       lk  = compChoices ld  !!1
+       rk  = compChoices lk  !!1
+       rk' = compChoices rk  !!2
+       ld' = compChoices rk' !!0
+       lk' = compChoices ld' !!1
 
--- |show just the first 5 alternatives of 4-fold inflations of a located piece
--- (previously called inflatefig)
-get5inflate4:: Located Piece -> Diagram B
-get5inflate4 lp = hsep 1 $ fmap (drawPatch . (:[lp])) $ take 5 $ inflations 4 lp
-
--- |diagram showing first five alternatives of 4-fold inflations of a right dart
+-- |diagram showing first five alternatives of 4-fold compNChoices of a right dart
 fiveAlternatives:: Diagram B
-fiveAlternatives = get5inflate4 (rdart `at` origin)
+fiveAlternatives = hsep 1 $ fmap (dashJPatch . (:[lp])) $ take 5 $ compNChoices 4 lp where
+                     lp = (rdart `at` origin)
 
 -- |An infinite list of patches of increasingly decomposed sun
 suns::[Patch]
