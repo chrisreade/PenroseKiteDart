@@ -17,7 +17,7 @@ import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, (!), elems,
 import Control.Arrow(second) -- used in makeGenerator
 
 import Diagrams.Prelude      -- necessary for New createVPoints and for Located boundaries
-
+import Tgraph.Convert(touching, createVPoints,addVPoints)
 import Tgraph.Prelude
 
 {-
@@ -49,12 +49,14 @@ Touching vertex checking
 requires Diagrams.Prelude for points and V2
 --------------------------------------------}
 -- |check if a vertex location touches (is too close to) any other vertex location in the mapping
-touchCheck:: Point V2 Double -> Mapping a (Point V2 Double) -> Bool
-touchCheck p vpMap = touchCheckOn && any (tooClose p) (Map.elems vpMap)
+touchCheck:: Point V2 Double -> Map.Map a (Point V2 Double) -> Bool
+touchCheck p vpMap = touchCheckOn && any (touching p) (Map.elems vpMap)
 
+{-
 -- |check if two vertex locatioons are too close (indicating touching vertices)
 tooClose :: Point V2 Double  -> Point V2 Double -> Bool
 tooClose p p' = quadrance (p .-. p') < 0.25 -- quadrance is square of length of a vector
+-}
 
 
 {- *
@@ -74,8 +76,8 @@ Similarly for bvLocMap.
 data Boundary 
   = Boundary
     { bDedges:: [DEdge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
-    , bvFacesMap:: Mapping Vertex [TileFace] -- ^faces at each boundary vertex
-    , bvLocMap:: Mapping Vertex (Point V2 Double)  -- ^ position of each boundary vertex
+    , bvFacesMap:: Map.Map Vertex [TileFace] -- ^faces at each boundary vertex
+    , bvLocMap:: Map.Map Vertex (Point V2 Double)  -- ^ position of each boundary vertex
     , allFaces:: [TileFace] -- ^ all the tile faces
     , allVertices:: [Vertex] -- ^ all the vertices
     , nextVertex::  Vertex -- ^ next vertex number
@@ -105,7 +107,7 @@ recoverGraph bd =
         }
 
 -- |changeVFMap f vfmap vs - adds f to the list of faces associated with each v in vs and updates vfmap
-changeVFMap::  TileFace -> Mapping Vertex [TileFace] -> [Vertex] -> Mapping Vertex [TileFace]
+changeVFMap::  TileFace -> Map.Map Vertex [TileFace] -> [Vertex] -> Map.Map Vertex [TileFace]
 changeVFMap f = foldr (Map.alter addf) where
    addf Nothing = Just [f]
    addf (Just fs) = Just (f:fs)
@@ -131,7 +133,7 @@ Updates and ForceState types
 -- and a makeFace function to create the new face when given a third vertex.
 type Update = (Maybe Vertex, Vertex -> TileFace)
 -- |UpdateMap: partial map associating updates with (some) boundary directed edges.
-type UpdateMap = Mapping DEdge Update
+type UpdateMap = Map.Map DEdge Update
 -- |ForceState: The force state records information between executing single face updates during forcing
 -- (a Boundary and an UpdateMap).
 data ForceState = ForceState 

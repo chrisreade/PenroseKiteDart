@@ -632,16 +632,31 @@ testForce4 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart4
 testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart5        
 
 
+
+-- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
+drawGBoundary :: Tgraph -> Diagram B
+drawGBoundary g =  lc lime (drawEdges vpMap bd) <> drawVPatch vp where
+    vp = makeVPatch g
+    vpMap = Map.fromList $ vertexLocs vp
+    bd = boundaryDedges g
+
+-- |produce a diagram of a list of edges (given a mapping of vertices to locations)
+drawEdges :: Map.Map Vertex (Point V2 Double) -> [(Vertex,Vertex)] -> Diagram B
+drawEdges vpMap = foldMap (drawEdge vpMap)
+
+-- |produce a diagram of a single edge (given a mapping of vertices to locations)
+drawEdge :: Map.Map Vertex (Point V2 Double) -> (Vertex,Vertex) -> Diagram B
+drawEdge vpMap (a,b) = case (Map.lookup a vpMap, Map.lookup b vpMap) of
+                         (Just pa, Just pb) -> pa ~~ pb
+                         _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
+  
 {-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
 -- (used in conjunction with stepForce to get an intermediate Boundary)
--- The boundary edges of a Boundary are shown in lime - using the Boundary positions of vertices
--- The graph is converted to a vp separately (so using a fresh calculation of positions)
--- Relies on createVPoints using lowestJoinFirst so both makeBoundary and Convert.makeVPatch use
--- consistent positioning of graph and boundary.
+-- The boundary edges of a Boundary are shown in lime - using the Boundary positions of vertices.
+-- This is overlaid on the full graph drawn with vertex labels.
 -}
 testViewBoundary :: Boundary -> Diagram B
-testViewBoundary bd =  lc lime bdryFig <> graphFig where 
-    [bdryFig, graphFig] = center <$> [drawEdges vpMap bdE,  drawVGraph g]
+testViewBoundary bd =  lc lime (drawEdges vpMap bdE) <> drawVGraph g where 
     g = recoverGraph bd
     vpMap = bvLocMap bd
     bdE = bDedges bd

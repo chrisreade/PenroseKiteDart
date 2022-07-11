@@ -85,7 +85,7 @@ partCompose g = (remainder,g')
 data DWClass = DWClass { largeKiteCentres  :: [Vertex]
                        , largeDartBases  :: [Vertex]
                        , unknowns :: [Vertex]
-                       , vGroup :: Mapping Vertex [TileFace]
+                       , vGroup :: Map.Map Vertex [TileFace]
                        } deriving Show
                        
 -- |classifyDartWings classifies all dart wing tips.

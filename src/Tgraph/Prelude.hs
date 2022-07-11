@@ -14,16 +14,13 @@ and re-exports module HalfTile
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, nub, elemIndex, partition, intercalate,foldl') -- partition used in addVPoints
-import qualified Data.Map.Strict as Map (Map, lookup, insert, empty)
+import Data.List ((\\), intersect, nub, elemIndex, intercalate,foldl')
+--import qualified Data.Map.Strict as Map (Map, lookup, insert, empty)
 
 import Diagrams.Prelude  -- necessary for createVPoints
 
 import HalfTile
 import TileLib (ttangle,phi) -- necessary for New createVPoints
-
--- | Mapping abbreviates Data.Map.Map
-type Mapping = Map.Map
 
 {---------------------
 *********************
@@ -478,113 +475,6 @@ edgeNb fc = any (`elem` edges) . faceDedges where
       edges = fmap reverseD (faceDedges fc)
 
 
-
-{- * Vertex Location Calculation -}
-
-{- createVPoints
-Uses addVPoints and thirdVertexLoc
-and points from Diagram.Prelude
-             
-Used for Boundary Information and also in 
-GraphConvert.makeVPatch  to make VPatches and Patches
--}
-
-{-| createVPoints: processes a list of faces to associate points for each vertex.
-     Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
-      Returns a vertex-to-point Map.
--}
-createVPoints:: [TileFace] -> Mapping Vertex (Point V2 Double)
-createVPoints [] = Map.empty
-createVPoints faces = addVPoints [face] more (axisJoin face) where
-    (face:more) = lowestJoinFirst faces
-
-{-| addVPoints readyfaces fcOther vpMap.
-The first argument list of faces (readyfaces) contains the ones being processed next in order where
-each will have at least two known vertex locations.
-The second argument list of faces (fcOther) are faces that have not yet been added
-and may not yet have known vertex locations.
-The third argument is the mapping of vertices to points.
-This is used in tryUpdate as well as createVPoints.
--}
-addVPoints:: [TileFace] -> [TileFace] -> Mapping Vertex (Point V2 Double) -> Mapping Vertex (Point V2 Double)
-addVPoints [] [] vpMap = vpMap 
-addVPoints [] fcOther vpMap = error ("addVPoints: Faces not tile-connected " ++ show fcOther)
-addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
-  vpMap' = case thirdVertexLoc fc vpMap of
-             Just (v,p) -> Map.insert v p vpMap
-             Nothing -> vpMap
-  (fcs', fcOther')   = partition (edgeNb fc) fcOther
-
--- |For a non-empty list of tile faces
--- find the face with lowest originV (and then lowest oppV).
--- Move this face to the front of the returned list of faces.
--- Used by createVPoints to determine the starting point for location calculation
-lowestJoinFirst:: [TileFace] -> [TileFace]
-lowestJoinFirst fcs = face:(fcs\\[face]) where
-    a = minimum (fmap originV fcs)
-    aFs = filter ((a==) . originV) fcs
-    b = minimum (fmap oppV aFs)
-    face = case filter (((a,b)==) . joinOfTile) aFs of  -- should be find
-           (face:_) -> face
-           []       -> error "lowestJoinFirst: empty graph?"
-
--- |axisJoin fc 
--- initialises a vertex to point mapping with locations for the join edge vertices of fc
--- with originV fc at the origin and aligned along the x axis. (Used to initialise createVPoints)
-axisJoin::TileFace -> Mapping Vertex (Point V2 Double)                
-axisJoin (LD(a,b,_)) = Map.insert a origin $ Map.insert b (p2(1,0)) Map.empty -- [(a,origin), (b, p2(1,0))]
-axisJoin (RD(a,_,c)) = Map.insert a origin $ Map.insert c (p2(1,0)) Map.empty --[(a,origin), (c, p2(1,0))]
-axisJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty --[(a,origin), (c, p2(phi,0))]
-axisJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
-
--- |lookup 3 vertex locations in a vertex to point map.
-find3Locs::(Vertex,Vertex,Vertex) -> Mapping Vertex (Point V2 Double)
-             -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))              
-find3Locs (v1,v2,v3) vpMap = (Map.lookup v1 vpMap, Map.lookup v2 vpMap, Map.lookup v3 vpMap)
-
-{-| New Version - Assumes all edge lengths are 1 or phi.
-It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
-(Requires ttangle and phi from TileLib).
-
-     thirdVertexLoc fc vpMap
-     where fc is a tileface and
-     vpMap associates points with vertices (positions)
-     It looks up all 3 vertices of fc in vpMap hoping to find at least 2 of them, it then returns Just pr
-     where pr is an association pair for the third vertex.
-     If all 3 are found, returns Nothing.
-     If none or one found this is an error (a non tile-connected face)
--}
-thirdVertexLoc:: TileFace -> Mapping Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
-thirdVertexLoc fc@(LD _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 1) (loc3 .-. loc1))
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
-
-thirdVertexLoc fc@(RD _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = signorm (rotate (ttangle 3) (loc2 .-. loc3))
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
- 
-thirdVertexLoc fc@(LK _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
- 
-thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
-  (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
-
-
-
 {- * SubTgraphs -}
 {-|
  SubTgraph - introduced to allow tracking of subsets of faces
@@ -599,8 +489,6 @@ data SubTgraph = SubTgraph{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
 -- Any faces not in g are ignored.
 makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
 makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
-
-
 
 {- * Error reporting (for partial operations) -}
 
