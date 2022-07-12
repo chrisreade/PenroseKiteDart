@@ -9,15 +9,13 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 Introduces Tgraphs and includes operations on vertices, edges and faces as well as Tgraphs.
-Also includes functions to calculate (relative) locations of vertices (createVPoints)
-and re-exports module HalfTile
+Includes experimental SubTgraphs and also
+type ReportFail for use as result of partial operations.
+This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, nub, elemIndex, intercalate,foldl')
---import qualified Data.Map.Strict as Map (Map, lookup, insert, empty)
-
-import Diagrams.Prelude  -- necessary for createVPoints
+import Data.List ((\\), intersect, nub, elemIndex,foldl')
 
 import HalfTile
 import TileLib (ttangle,phi) -- necessary for New createVPoints
@@ -214,20 +212,6 @@ illegals = filter (not . legal) .  sharedEdges
 -- in the list of tile faces
 illegalTiling:: [TileFace] -> Bool
 illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fcs))
-
-
-{- OLDER
-
--- |conflictingLengthEdges g returns a list of conflicting lengthed edges of the faces in g
--- (which should be null)     
-conflictingLengthEdges :: Tgraph -> [DEdge]
-conflictingLengthEdges g = phiEdges g `intersect` nonPhiEdges g -- using undirected edges
-
--- |predicate - true if there are edge conflicts in a Tgraph
-edgeConflicts :: Tgraph -> Bool
-edgeConflicts g = not $ null $ conflictingDedges g ++ conflictingLengthEdges g
-
--}
 
 -- |crossingBVs g returns a list of vertices with crossing boundaries
 -- (which should be null).               

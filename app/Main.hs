@@ -31,7 +31,7 @@ import Tgraphs
 
                 
 fig::Diagram B
-fig =  inspectForce3 200 --incorrectAndFullUnionFig
+fig =  twoChoicesFig -- moreChoicesFig --
 
 
 main = mainWith fig

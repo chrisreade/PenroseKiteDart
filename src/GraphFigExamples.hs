@@ -13,11 +13,12 @@ Stability   : experimental
 -}
 module GraphFigExamples where
 
+--import qualified Data.Map as Map (Map, lookup, insert, empty, fromList,union)
 -- temp for testing
-import qualified Data.Map as Map (Map, lookup, insert, empty, fromList,union)
+import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
 
--- partition for testing (relabelWatchStep)
-import Data.List ((\\), nub, partition,intersect,union,intercalate,find)      
+-- partition find used for testing (relabelWatchStep)
+import Data.List ((\\), partition,find)      
 import Diagrams.Prelude
 
 import ChosenBackend (B)
@@ -637,18 +638,9 @@ testForce5 = padBorder $ lw ultraThin $ drawVGraph $ force boundaryGapFDart5
 drawGBoundary :: Tgraph -> Diagram B
 drawGBoundary g =  lc lime (drawEdges vpMap bd) <> drawVPatch vp where
     vp = makeVPatch g
-    vpMap = Map.fromList $ vertexLocs vp
+    vpMap = vertexLocs vp
     bd = boundaryDedges g
 
--- |produce a diagram of a list of edges (given a mapping of vertices to locations)
-drawEdges :: Map.Map Vertex (Point V2 Double) -> [(Vertex,Vertex)] -> Diagram B
-drawEdges vpMap = foldMap (drawEdge vpMap)
-
--- |produce a diagram of a single edge (given a mapping of vertices to locations)
-drawEdge :: Map.Map Vertex (Point V2 Double) -> (Vertex,Vertex) -> Diagram B
-drawEdge vpMap (a,b) = case (Map.lookup a vpMap, Map.lookup b vpMap) of
-                         (Just pa, Just pb) -> pa ~~ pb
-                         _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
   
 {-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
 -- (used in conjunction with stepForce to get an intermediate Boundary)
@@ -931,7 +923,7 @@ relabelWatchStart:: (Tgraph, (Vertex, Vertex)) -> (Tgraph, (Vertex, Vertex))
 relabelWatchStart (g1,(x1,y1)) (g2,(x2,y2)) = initialArgs where
     g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
     Just fc2 = find (hasDEdge (x2,y2)) (faces g2prepared)
-    Right (Just fc1) = matchFaceIn g1 $ relabelFace (Map.fromList [(x2,x1),(y2,y1)]) fc2
+    Right (Just fc1) = matchFaceIn g1 $ relabelFace (VMap.fromList [(x2,x1),(y2,y1)]) fc2
     initialArgs = (initRelabelling fc1 fc2, [fc2], [], faces g2prepared \\ [fc2], g1)    
     
 -- |Test function designed to watch steps of matchByEdges using ghci.
@@ -948,7 +940,7 @@ relabelWatchStep (vMap, fc:fcs, tried, awaiting, g) =
     Right Nothing -> (vMap,fcs, fc:tried, awaiting, g)
     Right (Just orig) -> (vMap',fcs++fcs', tried, awaiting', g)
                         where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                              vMap' = Map.union (initRelabelling orig fc) vMap
+                              vMap' = VMap.union (initRelabelling orig fc) vMap
     Left lines -> error lines
 
 

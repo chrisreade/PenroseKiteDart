@@ -12,8 +12,9 @@ to implement a guided union of Tgraphs (simpleUnion and trySimpleUnion)
 module Tgraph.Relabelling  where
 
 
-import Data.List (intersect, (\\), union,find,nub,partition,intercalate)
-import qualified Data.Map.Strict as Map (Map, findWithDefault, lookup, insert, empty, fromList, union)
+import Data.List (intersect, (\\), union,find,partition)
+--import qualified Data.Map.Strict as Map (Map, findWithDefault, lookup, insert, empty, fromList, union)
+import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, lookup, insert, empty, fromList, union)
 
 import Tgraph.Prelude
 import Tgraph.Convert (makeVPatch, touching, vertexLocs) -- used for fullUnion
@@ -25,7 +26,7 @@ Relabelling operations
 -- |Relabelling is a special case of mappings from vertices to vertices.
 -- We use the identity map for vertices not found in the mapping domain
 -- (see relabelV).  Relabellings are expected to be 1-1 on their domain.       
-type Relabelling = Map.Map Vertex Vertex
+type Relabelling = VMap.IntMap Vertex
 
 -- |Uses a relabelling to change vertices in a Tgraph.
 -- relabelGraph rlab g will produce a valid Tgraph provided:
@@ -46,7 +47,7 @@ relabelFace rlab = fmap (all3 (relabelV rlab))  -- fmap of HalfTile Functor
 -- |relabelV rlab v. Uses relabelling rlab to find a replacement for v (leaves as v if none found).
 -- I.e relabelV turns a relabelling into a total function using identity for undefined cases. 
 relabelV:: Relabelling -> Vertex -> Vertex
-relabelV rlab v = Map.findWithDefault v v rlab
+relabelV rlab v = VMap.findWithDefault v v rlab
 
 -- |relabelAvoid vs g - produces a new Tgraph from g by relabelling.
 -- Any vertex in g that is in the list vs will be changed to a new vertex that is
@@ -57,7 +58,7 @@ relabelAvoid avoid g = relabelGraph rlab g where
   avoidTarget = gverts `union` avoid
   vertsToChange = gverts `intersect` avoid
   newvs = makeNewVs (length vertsToChange) avoidTarget
-  rlab = Map.fromList $ zip vertsToChange newvs
+  rlab = VMap.fromList $ zip vertsToChange newvs
 
 {-|prepareFixAvoid fix avoid g - produces a new Tgraph from g by relabelling.
  Any vertex in g that is in the list avoid but not in the list fix will be changed to a new vertex that is
@@ -75,7 +76,7 @@ prepareFixAvoid fix avoid = relabelAvoid (avoid\\fix)
 relabelAny :: Tgraph -> Tgraph
 relabelAny g = relabelGraph rlab g where
    vs = vertices g
-   rlab = Map.fromList $ zip vs [1..length vs]
+   rlab = VMap.fromList $ zip vs [1..length vs]
 
 
 
@@ -151,7 +152,7 @@ tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $
   do let g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
      fc2 <- find (hasDEdge (x2,y2)) (faces g2prepared)
             `nothingFail` ("No face found for edge " ++ show (x2,y2))                      
-     maybef <- matchFaceIn g1 $ relabelFace (Map.fromList [(x2,x1),(y2,y1)]) fc2
+     maybef <- matchFaceIn g1 $ relabelFace (VMap.fromList [(x2,x1),(y2,y1)]) fc2
      fc1 <- maybef `nothingFail` 
                    ("No matching face found at edge "++show (x1,y1)++
                     "\nfor relabelled face " ++ show fc2)  
@@ -210,15 +211,15 @@ relabelled to match vertices in g1 based on a vertex location calculation.
 It returns the result of applying this further relabelling to g2.
 -}
 relabelTouching :: Tgraph -> Tgraph -> Tgraph
-relabelTouching g1 g2 = relabelGraph (Map.fromList $ overlaps) g2 where
+relabelTouching g1 g2 = relabelGraph (VMap.fromList $ overlaps) g2 where
       overlaps = [ (v2,v1) 
                  | v2 <- vertices g2 \\ vertices g1
                  , v1 <- vertices g1
-                 , let Just p1 = Map.lookup v1 vlocs
-                 , let Just p2 = Map.lookup v2 vlocs
+                 , let Just p1 = VMap.lookup v1 vlocs
+                 , let Just p2 = VMap.lookup v2 vlocs
                  , touching p1 p2
                  ]
-      vlocs = Map.fromList $ vertexLocs $ makeVPatch $ 
+      vlocs = vertexLocs $ makeVPatch $ 
               makeUncheckedTgraph $ faces g1 `union` faces g2
 
 
@@ -227,7 +228,7 @@ relabelTouching g1 g2 = relabelGraph (Map.fromList $ overlaps) g2 where
 -- It does not check that the tile faces have the same form (LK,RK,LD,RD).
 initRelabelling :: TileFace -> TileFace -> Relabelling
 initRelabelling f1 f2 -- f2 relabels to f1
-  = Map.fromList $ differences $ zip (faceVList f2) (faceVList f1)
+  = VMap.fromList $ differences $ zip (faceVList f2) (faceVList f1)
 
 -- |selects only non-matching pairs from a list
 differences :: [(Vertex,Vertex)] -> [(Vertex,Vertex)]
@@ -262,7 +263,7 @@ addRelabel g (fc:fcs) awaiting rlab =
        Nothing   -> addRelabel g fcs awaiting rlab
        Just orig -> addRelabel g (fcs++fcs') awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                          rlab' = Map.union (initRelabelling orig fc) rlab
+                          rlab' = VMap.union (initRelabelling orig fc) rlab
 
 {- OLDER VERSION
    did some boundary checking after matching a single region, to allow for
@@ -318,7 +319,7 @@ addRelabel g (fc:fcs) tried awaiting rlab =
        Nothing   -> addRelabel g fcs (fc:tried) awaiting rlab
        Just orig -> addRelabel g (fcs++fcs') tried awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                          rlab' = Map.union (initRelabelling orig fc) rlab
+                          rlab' = VMap.union (initRelabelling orig fc) rlab
 
 addRelabelBdCheck is an auxiliary function for addRelabel to check boundary cases.
 When it is called, all faces in the overlap have been processed.
@@ -338,7 +339,7 @@ addRelabelBdCheck:: Boundary -> [TileFace] -> Relabelling -> ReportFail Relabell
 addRelabelBdCheck bdry [] rlab = Right rlab
 addRelabelBdCheck bdry (fc:tried) rlab =
    do prs <- checkForBoundaryThirdV bdry (relabelFace rlab fc)
-      addRelabelBdCheck bdry tried (Map.union (Map.fromList prs) rlab)
+      addRelabelBdCheck bdry tried (VMap.union (VMap.fromList prs) rlab)
 
 
 checkForBoundaryThirdV bdry fc - fc must be a new face sharing a boundary edge in bdry.
@@ -355,7 +356,7 @@ checkForBoundaryThirdV:: Boundary -> TileFace -> ReportFail [(Vertex,Vertex)]
 checkForBoundaryThirdV bdry fc = onFail "checkForBoundaryThirdV:\n" $
   case findThirdV bdry e (n,m) of
       Nothing -> Right []
-      Just v' -> let fc' = relabelFace (Map.insert v v' Map.empty) fc in
+      Just v' -> let fc' = relabelFace (VMap.insert v v' VMap.empty) fc in
                  if noConflictCheck fc' bdry 
                  then Right [(v,v')]
                  else Left $ "Conflicting face found: " ++ show fc' ++

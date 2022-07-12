@@ -18,8 +18,6 @@ module Tgraphs ( module Tgraphs
                , module Tgraph.Relabelling
                ) where
 
-import Data.List (intersect)
-
 import Tgraph.Prelude
 import Tgraph.Decompose
 import Tgraph.Compose

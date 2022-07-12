@@ -8,6 +8,7 @@ Stability   : experimental
 
 Includes conversion operations from Tgraphs to diagrams as well as the intermediate type VPatch
 to allow vertex labels to be drawn.
+Includes functions to calculate (relative) locations of vertices (createVPoints, adddVPoints)
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
@@ -16,8 +17,7 @@ to allow vertex labels to be drawn.
 module Tgraph.Convert where
 
 import Data.List ((\\), find, partition)
-import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, toList, fromList)
-
+import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, toList, fromList)
 import Data.Maybe (mapMaybe)
 
 import Diagrams.Prelude
@@ -25,6 +25,8 @@ import TileLib
 import Tgraph.Prelude
 import ChosenBackend (B)
 
+-- |Abbreviation for mappings from Vertex to Location (i.e Point)
+type VertexLocMap = VMap.IntMap (Point V2 Double)
 
 {- * VPatches
 -}
@@ -69,12 +71,12 @@ This uses Tgraph.Prelude.createVPoints to form a mapping of vertices to position
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
 -}
 makeVPatch::Tgraph -> VPatch
-makeVPatch g = VPatch { lVertices = fmap locateV (Map.toList vpMap)
+makeVPatch g = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
                       , lHybrids  = makeLHyb <$> faces g
                       } where
     vpMap = createVPoints $ faces g
     locateV (v,p) = v `at` p
-    makeLHyb fc = case (Map.lookup (originV fc) vpMap , Map.lookup (oppV fc) vpMap) of
+    makeLHyb fc = case (VMap.lookup (originV fc) vpMap , VMap.lookup (oppV fc) vpMap) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
 {- |
@@ -186,12 +188,12 @@ alignAll (a,b) = fmap (alignXaxis (a,b))
 
 
 -- |makes an association list of vertex to location from a VPatch
-vertexLocs :: VPatch -> [(Vertex, Point V2 Double)]
-vertexLocs = fmap ((\(p,v)->(v,p)) . viewLoc) . lVertices
+vertexLocs :: VPatch -> VertexLocMap
+vertexLocs = VMap.fromList . fmap ((\(p,v)->(v,p)) . viewLoc) . lVertices
 
 -- |find the location of a specific vertex in a VPatch
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
-findLoc v vp = lookup v (vertexLocs vp)
+findLoc v vp = VMap.lookup v (vertexLocs vp)
  
 -- |Apply a function to just the list of located hybrids in a VPatch (leaving located vertices untouched)
 withHybs:: ([Located Hybrid]->[Located Hybrid]) -> VPatch -> VPatch
@@ -220,8 +222,8 @@ dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
      Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
       Returns a vertex-to-point Map.
 -}
-createVPoints:: [TileFace] -> Map.Map Vertex (Point V2 Double)
-createVPoints [] = Map.empty
+createVPoints:: [TileFace] -> VertexLocMap
+createVPoints [] = VMap.empty
 createVPoints faces = addVPoints [face] more (axisJoin face) where
     (face:more) = lowestJoinFirst faces
 
@@ -233,12 +235,12 @@ and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 This is used in tryUpdate as well as createVPoints.
 -}
-addVPoints:: [TileFace] -> [TileFace] -> Map.Map Vertex (Point V2 Double) -> Map.Map Vertex (Point V2 Double)
+addVPoints:: [TileFace] -> [TileFace] -> VertexLocMap -> VertexLocMap
 addVPoints [] [] vpMap = vpMap 
 addVPoints [] fcOther vpMap = error ("addVPoints: Faces not tile-connected " ++ show fcOther)
 addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
   vpMap' = case thirdVertexLoc fc vpMap of
-             Just (v,p) -> Map.insert v p vpMap
+             Just (v,p) -> VMap.insert v p vpMap
              Nothing -> vpMap
   (fcs', fcOther')   = partition (edgeNb fc) fcOther
 
@@ -258,16 +260,16 @@ lowestJoinFirst fcs = face:(fcs\\[face]) where
 -- |axisJoin fc 
 -- initialises a vertex to point mapping with locations for the join edge vertices of fc
 -- with originV fc at the origin and aligned along the x axis. (Used to initialise createVPoints)
-axisJoin::TileFace -> Map.Map Vertex (Point V2 Double)                
-axisJoin (LD(a,b,_)) = Map.insert a origin $ Map.insert b (p2(1,0)) Map.empty -- [(a,origin), (b, p2(1,0))]
-axisJoin (RD(a,_,c)) = Map.insert a origin $ Map.insert c (p2(1,0)) Map.empty --[(a,origin), (c, p2(1,0))]
-axisJoin (LK(a,_,c)) = Map.insert a origin $ Map.insert c (p2(phi,0)) Map.empty --[(a,origin), (c, p2(phi,0))]
-axisJoin (RK(a,b,_)) = Map.insert a origin $ Map.insert b (p2(phi,0)) Map.empty -- [(a,origin), (b, p2(phi,0))]
+axisJoin::TileFace -> VertexLocMap                
+axisJoin (LD(a,b,_)) = VMap.insert a origin $ VMap.insert b (p2(1,0)) VMap.empty -- [(a,origin), (b, p2(1,0))]
+axisJoin (RD(a,_,c)) = VMap.insert a origin $ VMap.insert c (p2(1,0)) VMap.empty --[(a,origin), (c, p2(1,0))]
+axisJoin (LK(a,_,c)) = VMap.insert a origin $ VMap.insert c (p2(phi,0)) VMap.empty --[(a,origin), (c, p2(phi,0))]
+axisJoin (RK(a,b,_)) = VMap.insert a origin $ VMap.insert b (p2(phi,0)) VMap.empty -- [(a,origin), (b, p2(phi,0))]
 
 -- |lookup 3 vertex locations in a vertex to point map.
-find3Locs::(Vertex,Vertex,Vertex) -> Map.Map Vertex (Point V2 Double)
+find3Locs::(Vertex,Vertex,Vertex) -> VertexLocMap
              -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))              
-find3Locs (v1,v2,v3) vpMap = (Map.lookup v1 vpMap, Map.lookup v2 vpMap, Map.lookup v3 vpMap)
+find3Locs (v1,v2,v3) vpMap = (VMap.lookup v1 vpMap, VMap.lookup v2 vpMap, VMap.lookup v3 vpMap)
 
 {-| New Version - Assumes all edge lengths are 1 or phi.
 It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
@@ -281,7 +283,7 @@ It now uses signorm to produce vectors of length 1 rather than rely on relative 
      If all 3 are found, returns Nothing.
      If none or one found this is an error (a non tile-connected face)
 -}
-thirdVertexLoc:: TileFace -> Map.Map Vertex (Point V2 Double) -> Maybe (Vertex, Point V2 Double)        
+thirdVertexLoc:: TileFace -> VertexLocMap -> Maybe (Vertex, Point V2 Double)        
 thirdVertexLoc fc@(LD _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
@@ -310,7 +312,18 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
 
+{- *  Drawing (located) Edges
+-}
 
+-- |produce a diagram of a list of edges (given a mapping of vertices to locations)
+drawEdges :: VertexLocMap -> [(Vertex,Vertex)] -> Diagram B
+drawEdges vpMap = foldMap (drawEdge vpMap)
+
+-- |produce a diagram of a single edge (given a mapping of vertices to locations)
+drawEdge :: VertexLocMap -> (Vertex,Vertex) -> Diagram B
+drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
+                         (Just pa, Just pb) -> pa ~~ pb
+                         _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
  
 
 {- *  Drawing SubTgraphs
@@ -346,13 +359,12 @@ drawSubTgraph2 = drawSubTgraph [ drawPatch
                                , patchWith (fillDK black black)
                                ]
 
-
 {- *  Touching Vertex global check
 -}
 
 {-| A TESTING function
 for use if the touching vertex check is switched off in forcing.  This is a reptrospective check.
-touchingVertices checks that no vertices are too close to each other by making a VPatch of a Tgraph.
+touchingVertices checks that no vertices are too close to each other using createVPoints.
 If vertices are too close that indicates we may have the same point with two different vertex numbers
 arising from the touching vertex problem. 
 It returns pairs of vertices that are too close 
@@ -361,10 +373,10 @@ An empty list is returned if there is no touching vertex problem.
 Complexity has order of the square of the number of vertices (calculates distance between all pairs)
 -}
 touchingVertices:: Tgraph -> [(Vertex,Vertex)]
-touchingVertices g = check $ vertexLocs $ makeVPatch g where
+touchingVertices g = check vpAssoc where
+  vpAssoc = VMap.toList $ createVPoints (faces g)  
   check [] = []
   check ((v,p):more) = [(v,v1) | (v1,p1) <- more, touching p p1 ] ++ check more
---  tooClose p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
 
 {-|touching checks if two points are considered close.
 Close means the square of the distance between them is less than 0.25 so they cannot be

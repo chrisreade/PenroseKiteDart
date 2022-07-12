@@ -8,15 +8,16 @@ Stability   : experimental
 
 This module includes force plus related operations for testing and experimenting.
 It also exposes the calculation of relative angle of edges at vertices used to find existing edges.
+It uses a touching check for adding new vertices (using Tgraph.Convert.creatVPoints for vertex locations)
 -}
 module Tgraph.Force  where
 
--- import Data.Maybe (listToMaybe,mapMaybe)
 import Data.List ((\\), intersect, nub, find)
-import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, (!), elems, fromList, delete, filterWithKey, alter, assocs)
+import qualified Data.Map.Strict as Map (Map, empty, delete, elems, assocs,insert) -- used for UpdateMap
+import qualified Data.IntMap.Strict as VMap (IntMap, elems,filterWithKey,insert,empty,alter,delete,lookup)-- used for Boundaries
 import Control.Arrow(second) -- used in makeGenerator
 
-import Diagrams.Prelude      -- necessary for New createVPoints and for Located boundaries
+import Diagrams.Prelude (Point, V2) -- necessary for touch check in tryUnsafeUpdate and in touchCheck
 import Tgraph.Convert(touching, createVPoints,addVPoints)
 import Tgraph.Prelude
 
@@ -35,10 +36,9 @@ Touching vertex checking
 {-|
     touchCheckOn is a global variable used to switch on/off
     checks for touching vertices when new vertices are added to a graph.
-    Used by touchCheck. 
-    This should be True for safety.
-    If it is switched to False, all results of forcing need to be checked
-    for touching vertices.
+    This should be True to avoid creating non-planar Tgraphs.
+    However it can be changed to False to make forcing more efficient but then any
+    result of forcing needs to be checked for touching vertices using touchCheck.
 -}
 touchCheckOn::Bool
 touchCheckOn = True
@@ -46,11 +46,15 @@ touchCheckOn = True
 *************************             
 Touching vertex checking 
 ********************************************
-requires Diagrams.Prelude for points and V2
+requires Diagrams.Prelude for Point and V2
 --------------------------------------------}
+
+-- |Abbreviation for Mapping with Vertex keys (used for Boundaries)
+type VertexMap a = VMap.IntMap a
+
 -- |check if a vertex location touches (is too close to) any other vertex location in the mapping
-touchCheck:: Point V2 Double -> Map.Map a (Point V2 Double) -> Bool
-touchCheck p vpMap = touchCheckOn && any (touching p) (Map.elems vpMap)
+touchCheck:: Point V2 Double -> VertexMap (Point V2 Double) -> Bool
+touchCheck p vpMap = touchCheckOn && any (touching p) (VMap.elems vpMap)
 
 {-
 -- |check if two vertex locatioons are too close (indicating touching vertices)
@@ -76,8 +80,8 @@ Similarly for bvLocMap.
 data Boundary 
   = Boundary
     { bDedges:: [DEdge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
-    , bvFacesMap:: Map.Map Vertex [TileFace] -- ^faces at each boundary vertex
-    , bvLocMap:: Map.Map Vertex (Point V2 Double)  -- ^ position of each boundary vertex
+    , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex
+    , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex
     , allFaces:: [TileFace] -- ^ all the tile faces
     , allVertices:: [Vertex] -- ^ all the vertices
     , nextVertex::  Vertex -- ^ next vertex number
@@ -88,11 +92,11 @@ makeBoundary:: Tgraph -> Boundary
 makeBoundary g = 
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
-      bvLocs = Map.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints $ faces g
-      addFacesAt v = Map.insert v $ filter (isAtV v) (faces g) 
+      bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints $ faces g
+      addFacesAt v = VMap.insert v $ filter (isAtV v) (faces g) 
   in Boundary
       { bDedges = bdes
-      , bvFacesMap = foldr addFacesAt Map.empty bvs
+      , bvFacesMap = foldr addFacesAt VMap.empty bvs
       , bvLocMap = bvLocs 
       , allFaces = faces g
       , allVertices = vertices g
@@ -107,22 +111,22 @@ recoverGraph bd =
         }
 
 -- |changeVFMap f vfmap vs - adds f to the list of faces associated with each v in vs and updates vfmap
-changeVFMap::  TileFace -> Map.Map Vertex [TileFace] -> [Vertex] -> Map.Map Vertex [TileFace]
-changeVFMap f = foldr (Map.alter addf) where
+changeVFMap::  TileFace -> VertexMap [TileFace] -> [Vertex] -> VertexMap [TileFace]
+changeVFMap f = foldr (VMap.alter addf) where
    addf Nothing = Just [f]
    addf (Just fs) = Just (f:fs)
    
    
 -- |facesAtBV bd v - returns the faces found at v (which must be a boundary vertex)
 facesAtBV:: Boundary -> Vertex -> [TileFace]
-facesAtBV bd v = case Map.lookup v (bvFacesMap bd) of
+facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
             Just fcs -> fcs
             Nothing -> error ("facesAtBV: no faces found at boundary vertex " ++ show v)
 
 
 -- |return the (set of) faces which have a boundary vertex from boundary information
 boundaryFaces :: Boundary -> [TileFace]
-boundaryFaces = nub . concat . Map.elems . bvFacesMap
+boundaryFaces = nub . concat . VMap.elems . bvFacesMap
 
 {- *
 Updates and ForceState types
@@ -312,7 +316,7 @@ doSafeUpdate bd (Just v, makeFace) =
                    { bDedges = newDedges ++ (bDedges bd \\ matchedDedges)
                    , bvFacesMap = changeVFMap newFace (bvFacesMap bd) (faceVList newFace)
                    , allFaces = newFace:allFaces bd
-                   , bvLocMap = Map.delete removedBV (bvLocMap bd)  --remove vertex no longer on boundary
+                   , bvLocMap = VMap.delete removedBV (bvLocMap bd)  --remove vertex no longer on boundary
                    , allVertices = allVertices bd
                    , nextVertex = nextVertex bd
                    }
@@ -352,7 +356,7 @@ tryUnsafeUpdate bd (Nothing, makeFace) =
        newFace = makeFace v
        oldVPoints = bvLocMap bd
        newVPoints = addVPoints [newFace] [] oldVPoints
-       Just vPosition = Map.lookup v newVPoints
+       Just vPosition = VMap.lookup v newVPoints
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd -- singleton
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
