@@ -13,7 +13,6 @@ Stability   : experimental
 -}
 module GraphFigExamples where
 
---import qualified Data.Map as Map (Map, lookup, insert, empty, fromList,union)
 -- temp for testing
 import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
 
@@ -45,7 +44,7 @@ foolD = decomposeG fool
 foolDs :: [Tgraph]
 foolDs = decompositionsG fool
 
--- |foolDminus: 3 faces removed from foolD
+-- |foolDminus: 3 faces removed from foolD - still a valid Tgraph
 foolDminus = removeFaces [RD(6,12,11), LD(6,14,12), RK(5,10,2)] foolD --removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
 
 -- | diagram of just fool

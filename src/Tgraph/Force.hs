@@ -12,13 +12,11 @@ It uses a touching check for adding new vertices (using Tgraph.Convert.creatVPoi
 -}
 module Tgraph.Force  where
 
-import Data.List ((\\), intersect, nub, find)
-import qualified Data.Map.Strict as Map (Map, empty, delete, elems, assocs,insert) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (IntMap, elems,filterWithKey,insert,empty,alter,delete,lookup)-- used for Boundaries
-import Control.Arrow(second) -- used in makeGenerator
-
-import Diagrams.Prelude (Point, V2) -- necessary for touch check in tryUnsafeUpdate and in touchCheck
-import Tgraph.Convert(touching, createVPoints,addVPoints)
+import Data.List ((\\), intersect, nub, find,foldl')
+import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert) -- used for UpdateMap
+import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, delete, lookup)-- used for Boundaries
+import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
+import Tgraph.Convert(touching, createVPoints, addVPoints)
 import Tgraph.Prelude
 
 {-
@@ -134,16 +132,19 @@ Updates and ForceState types
 
 -- |An Update is a pair of
 -- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
--- and a makeFace function to create the new face when given a third vertex.
+-- and a makeFace function to create the new face when given the third vertex.
 type Update = (Maybe Vertex, Vertex -> TileFace)
+
 -- |UpdateMap: partial map associating updates with (some) boundary directed edges.
 type UpdateMap = Map.Map DEdge Update
+
 -- |ForceState: The force state records information between executing single face updates during forcing
 -- (a Boundary and an UpdateMap).
 data ForceState = ForceState 
                    { boundaryState:: Boundary
                    , updateMap:: UpdateMap 
                    }
+
 {-|UpdateGenerator is the type of functions which can change the UpdateMap when given
 a Boundary and a focus list of particular directed boundary edges.  
 Such functions should add particular updates for those focus edges which match a rule. 
@@ -461,10 +462,8 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
      supplied boundary and focus edge list arguments                        
 -}
 allUGenerator :: UpdateGenerator 
-allUGenerator bd focus = link generators id where
-    link [] g = g
-    link (gen:more) g = link more (gen bd focus . g)
-
+allUGenerator bd focus = foldl' link id generators where
+    link combined g = g bd focus . combined
     generators = [ wholeTileUpdates          -- (1)
                  , kiteBelowDartUpdates      -- (2)
                  , kiteWingDartOriginUpdates -- (3)
@@ -477,7 +476,6 @@ allUGenerator bd focus = link generators id where
                  , queenKiteUpdates          -- (10)
                  ]
 
-
 -- |UFinder (Update case finder function). Given a Boundary and a list of (focus) boundary directed edges,
 -- such a function returns each focus edge satisfying the particular update case paired with the tileface
 -- matching that edge. For example, if the function is looking for dart short edges on the boundary,
@@ -486,27 +484,28 @@ allUGenerator bd focus = link generators id where
 type UFinder = Boundary -> [DEdge] -> [(DEdge,TileFace)]
 
 -- |UMaker (Update creator function). Given a Boundary and a particular tileface (on the boundary),
--- such a function produces a unique update for that edge.
--- For example, if the function is looking to add half-kites to dart short edges it will 
--- produce the appropriate update when given a Boundary and half-dart tileface
--- (whose short edge must be on the boundary).
+-- such functions produce particular updates on the boundary edge of the given tileface.
+-- For example, addKitreShortE will produce an update to add a half-kite with short edge against the boundary.
+-- It can be used with a UFinder that either returns dart halves with short edge on the boundary
+-- (nonKDarts in rule 2) or returns kite halves with short edge on the boundary
+-- (kitesWingDartOrigin in rule 3).
 type UMaker = Boundary -> TileFace -> Update
 
 {-|This is a general purpose filter used to create UFinder functions for each force rule.
  It requires a face predicate.
- The face predicate takes a Boundary bd, a boundary DEdge (a,b) and a TileFace at a
- (the first vertex of the directed edge)
+ The face predicate takes a Boundary bd, a boundary DEdge (a,b) and the TileFace with the edge (b,a)
  and decides whether the face is wanted or not (True = wanted)
  This will be used to filter all the faces at the focus edges 
  (when given a Boundary and list of focus edges).
  For some predicates the boundary argument is not used (eg boundaryJoin in incompleteHalves), 
- but for others it is used to look at all the faces at b or at other faces at a besides the supplied fc 
+ but for others it is used to look at other faces at b or at a besides the supplied fc 
  (eg kiteWDO in kitesWingDartOrigin) 
 -}
 boundaryFilter::  (Boundary -> DEdge -> TileFace -> Bool) -> UFinder
 boundaryFilter predF bd focus = 
     [ (e,fc) | e <- focus 
              , fc <- facesAtBV bd (fst e)
+             , fc `elem` facesAtBV bd (snd e)
              , predF bd e fc
              ]
 
@@ -516,20 +515,23 @@ boundaryFilter predF bd focus =
 -}
 
 
-{-| makeGenerator combines an update creator (UMaker) with its corresponding update case finder (UFinder)
-     to create an update generator function.
-     This is used to make all of the 10 update generators corresponding to 10 rules 
+{-| makeGenerator combines an update case finder (UFinder) with its corresponding update creator (UMaker)
+    to produce an update generator function.
+    This is used to make all of the 10 update generators corresponding to 10 rules 
     
-    When given a boundary, list of focus edges and an update map,
-    the finder produces a list of new pairs of dEdge and face,
+    When the generator is given a boundary, list of focus edges and an update map,
+    the finder produces a list of new pairs of dedge and face,
     the maker is used to convert the face in each pair to an update,
-    the new (dedge,update) pairs are added to the final update map
+    and the updates are added to the final update map (with the dedge as key)
 -}
 makeGenerator :: UMaker -> UFinder -> UpdateGenerator
-makeGenerator maker finder bd edges umap = umap' where 
-    umap' = foldr insertPair umap newPairs
-    newPairs = fmap (second (maker bd)) (finder bd edges)
-    insertPair = uncurry Map.insert
+makeGenerator maker finder = gen where
+    gen bd edges umap = foldr addU umap (finder bd edges) where
+                        addU (e,fc) ump =  Map.insert e (maker bd fc) ump
+{-
+    gen bd edges umap = foldl' addU umap (finder bd edges) where
+                        addU ump (e,fc) =  Map.insert e (maker bd fc) ump
+-}
 
 {- *
 Ten Update Generators (with corresponding Finders)
@@ -544,6 +546,7 @@ incompleteHalves :: UFinder
 incompleteHalves = boundaryFilter boundaryJoin where
     boundaryJoin bd (a,b) fc = joinE fc == (b,a)
 
+
 -- |Update generator for rule (2)
 kiteBelowDartUpdates :: UpdateGenerator
 kiteBelowDartUpdates = makeGenerator addKiteShortE nonKDarts
@@ -552,6 +555,7 @@ kiteBelowDartUpdates = makeGenerator addKiteShortE nonKDarts
 nonKDarts :: UFinder            
 nonKDarts = boundaryFilter bShortDarts where
     bShortDarts bd (a,b) fc = isDart fc && shortE fc == (b,a)
+
 
 -- |Update generator for rule (3)
  -- queen and king vertices add a missing kite half
@@ -590,7 +594,6 @@ kiteGaps = boundaryFilter kiteGap where
 secondTouchingDartUpdates :: UpdateGenerator
 secondTouchingDartUpdates = makeGenerator addDartShortE noTouchingDarts
 
-
 -- |Find kite halves with a short edge on the boundary (a,b) where oppV is a largeDartBase vertex
 -- (oppV is a for left kite and b for right kite).
 -- The function mustbeLDB determines if a vertex must be a a largeDartBase
@@ -617,7 +620,6 @@ hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
 hasAnyMatchingE [] = False
 
 
- 
 {-| Update generator for rule (6)
 sunStarUpdates is for vertices that must be either sun or star 
 almostSunStar finds half-kites/half-darts with a long edge on the boundary
@@ -631,7 +633,7 @@ sunStarUpdates = makeGenerator completeSunStar almostSunStar
 
 -- |Find a boundary long edge of either
 -- a dart where there are at least 7 dart origins, or
--- a kite where there are at least 6 kite origins
+-- a kite where there are at least 5 kite origins
 almostSunStar :: UFinder                  
 almostSunStar = boundaryFilter multiples57 where
     multiples57 bd (a,b) fc =               
@@ -647,6 +649,7 @@ almostSunStar = boundaryFilter multiples57 where
             dartOriginsAta = filter ((==a) . originV) (filter isDart fcsAta)             
             dartOriginsAtb = filter ((==b) . originV) (filter isDart fcsAtb)             
 
+
 -- |Update generator for rule (7)
 -- jack vertices (largeDartBases) with dart long edge on boundary - add missing kite top
 dartKiteTopUpdates :: UpdateGenerator
@@ -658,14 +661,14 @@ noKiteTopDarts = boundaryFilter dartsWingDB where
     dartsWingDB bd (a,b) fc = (isLD fc && longE fc == (b,a) && mustbeLDB bd b) ||
                               (isRD fc && longE fc == (b,a) && mustbeLDB bd a)
 
+
 -- |Update generator for rule (8)
 -- king vertices with 2 of the 3 darts  - add another half dart on a boundary long edge of existing darts
 thirdDartUpdates :: UpdateGenerator
 thirdDartUpdates = makeGenerator addDartLongE missingThirdDarts
 
-
 -- |Find king vertices with 2 of the 3 darts (a kite wing and 4 dart origins present)
--- and a kite long edge on the boundary
+-- and a dart long edge on the boundary
 missingThirdDarts :: UFinder                    
 missingThirdDarts = boundaryFilter pred where
     pred bd (a,b) fc = (isLD fc && longE fc == (b,a) && aHasKiteWing && length dartOriginsAta ==4) ||
@@ -691,6 +694,7 @@ queenMissingDarts = boundaryFilter pred where
                        (isRK fc && longE fc == (b,a) && length (kiteWingsAt b) ==4)
                         where
                           kiteWingsAt x = filter ((==x) . wingV) $ filter isKite (facesAtBV bd x)
+
 
 
 -- |Update generator for rule (10)
@@ -892,8 +896,6 @@ mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
 mustFind p ls err = case find p ls of
                      Just a  -> a
                      Nothing -> err
-
-
 
 
 
