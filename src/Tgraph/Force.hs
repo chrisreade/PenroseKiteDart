@@ -13,7 +13,7 @@ It uses a touching check for adding new vertices (using Tgraph.Convert.creatVPoi
 module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
-import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert) -- used for UpdateMap
+import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, delete, lookup)-- used for Boundaries
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Convert(touching, createVPoints, addVPoints)
@@ -145,12 +145,12 @@ data ForceState = ForceState
                    , updateMap:: UpdateMap 
                    }
 
-{-|UpdateGenerator is the type of functions which can change the UpdateMap when given
-a Boundary and a focus list of particular directed boundary edges.  
-Such functions should add particular updates for those focus edges which match a rule. 
-So such functions implement the forcing rules.
+{-|UpdateGenerator abbreviates the type of functions which implement the forcing rules.
+They produce an UpdateMap when given a Boundary and a focus list of particular directed boundary edges.  
+Each forcing rule has a particular UpdateGenerator,
+but they can also be combined in sequence (e.g. allUgenerator).
 -}
-type UpdateGenerator = Boundary -> [DEdge] -> UpdateMap -> UpdateMap
+type UpdateGenerator = Boundary -> [DEdge] -> UpdateMap
 
 {-| BoundaryChange records the new boundary after an update (by either doSafeUpdate or tryUnsafeUpdate)
      along with a list of directed edges which are no longer on the boundary,
@@ -210,19 +210,19 @@ forceAll uGen = retry where
                       Nothing  -> fs           -- no more updates
 
 {-| initForceState uGen g calculates an initial force state with boundary information from g
-     and uses uGen on all boundary edges to initialise updateMap.
+     and uses uGen on all boundary edges to initialise the updateMap.
 -}
 initForceState :: UpdateGenerator -> Tgraph -> ForceState
 initForceState uGen g = ForceState { boundaryState = bd , updateMap = umap } where
      bd = makeBoundary g
-     umap = uGen bd (bDedges bd) Map.empty 
+     umap = uGen bd (bDedges bd) 
 
 -- |reviseUpdates uGen bdChange: updates the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
 reviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> UpdateMap
-reviseUpdates uGen bdChange umap = umap'' where
+reviseUpdates uGen bdChange umap = Map.union umap'' umap' where
   umap' = foldr Map.delete umap (removedEdges bdChange)
-  umap'' = uGen (newBoundary bdChange) (revisedEdges bdChange) umap' 
+  umap'' = uGen (newBoundary bdChange) (revisedEdges bdChange) 
 
 -- |safe updates are those which do not require a new vertex, 
 -- so have an identified existing vertex (Just v)
@@ -458,12 +458,16 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
 -}
 
 {-| allUGenerator combines all the 10 update generators.
-     They are composed (keeping the order) after applying each to the
-     supplied boundary and focus edge list arguments                        
+     They are combined in sequence (keeping the rule order) after applying each to the
+     supplied boundary and a focus edge list.
+    New version reduces the focus edge list by removing those dedges that have been given an update
+    by an earlier generator in the list.                        
 -}
 allUGenerator :: UpdateGenerator 
-allUGenerator bd focus = foldl' link id generators where
-    link combined g = g bd focus . combined
+allUGenerator bd focus = snd $ foldr addGen (focus,Map.empty) (reverse generators) where
+    addGen gen (es,umap) = let umap' = gen bd es
+                               es' = es \\ Map.keys umap'
+                           in (es',Map.union umap' umap) 
     generators = [ wholeTileUpdates          -- (1)
                  , kiteBelowDartUpdates      -- (2)
                  , kiteWingDartOriginUpdates -- (3)
@@ -519,20 +523,16 @@ boundaryFilter predF bd focus =
     to produce an update generator function.
     This is used to make all of the 10 update generators corresponding to 10 rules 
     
-    When the generator is given a boundary, list of focus edges and an update map,
-    the finder produces a list of new pairs of dedge and face,
+    When the generator is given a boundary and list of focus edges,
+    the finder produces a list of pairs of dedge and face,
     the maker is used to convert the face in each pair to an update,
-    and the updates are added to the final update map (with the dedge as key)
+    and the new updates are returned as a map (with the dedges as key)
 -}
 makeGenerator :: UMaker -> UFinder -> UpdateGenerator
 makeGenerator maker finder = gen where
-    gen bd edges umap = foldr addU umap (finder bd edges) where
-                        addU (e,fc) ump =  Map.insert e (maker bd fc) ump
-{-
-    gen bd edges umap = foldl' addU umap (finder bd edges) where
-                        addU ump (e,fc) =  Map.insert e (maker bd fc) ump
--}
-
+    gen bd edges = foldr addU Map.empty (finder bd edges) where
+                         addU (e,fc) ump =  Map.insert e (maker bd fc) ump
+                         
 {- *
 Ten Update Generators (with corresponding Finders)
 -}
