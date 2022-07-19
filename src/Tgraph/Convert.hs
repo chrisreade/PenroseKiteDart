@@ -16,7 +16,7 @@ Includes functions to calculate (relative) locations of vertices (createVPoints,
 
 module Tgraph.Convert where
 
-import Data.List ((\\), find, partition)
+import Data.List ((\\), find, partition, nub)
 import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, toList, fromList)
 import Data.Maybe (mapMaybe)
 
@@ -105,13 +105,33 @@ dashJGraph = dashJPatch . makePatch
 drawVGraph:: Tgraph -> Diagram B
 drawVGraph = drawVPatch . makeVPatch
 
+-- |simplest drawing with vertex labels and dashed joins
+dashJVGraph:: Tgraph -> Diagram B
+dashJVGraph = dashJVPatch . makeVPatch
+
 -- |convert a VPatch to a diagram with vertex labels
 drawVPatch:: VPatch -> Diagram B
-drawVPatch = drawVPatchWith dashJPiece
+drawVPatch = drawVPatchWith drawPiece
+
+-- |convert a VPatch to a diagram with vertex labels and dashed joins
+dashJVPatch:: VPatch -> Diagram B
+dashJVPatch = drawVPatchWith dashJPiece
 
 -- |drawVPatchWith pd vp - convert VPatch vp to a diagram with vertex labels using pd to draw pieces
 drawVPatchWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
 drawVPatchWith pd vp = drawVlabels (lVertices vp) <> patchWith pd (dropVertices vp)
+
+-- |relevantVPatchWith pd vp - convert VPatch vp to a diagram with vertex labels using pd to draw pieces
+-- BUT drop drawing of vertices that are not mentioned in Hybrids/Faces
+relevantVPatchWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
+relevantVPatchWith pd vp = drawVlabels locVs <> patchWith pd (dropVertices vp) where
+     vs = nub $ concatMap faceVList (dropVectors vp)
+     locVs = filterVLocs (`elem` vs) $ lVertices vp
+
+-- | filter a list of located vertices using a predicate on the vertices
+filterVLocs :: (Vertex -> Bool) -> [Located Vertex] -> [Located Vertex]
+filterVLocs pred =  fmap locateV . filter (pred . fst) . fmap ((\(p,v)->(v,p)) . viewLoc) where
+                     locateV (v,p) = v `at` p
 
 -- |make a diagram of vertex labels given located vertices (used by drawVPatch and drawVPatchWith)
 drawVlabels :: [Located Vertex] -> Diagram B
@@ -331,7 +351,7 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                      
                      
 {-|
-    To draw a SubTgraph, we need a list of functions turning patches into diagrams
+    To draw a SubTgraph without vertex labels, we use a list of functions turning patches into diagrams
     The first function is applied to a patch for untracked faces
     Subsequent functions are applied to the respective tracked subsets
     (Each patch is atop earlier ones, so the untracked patch is at the bottom)
@@ -344,6 +364,21 @@ drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
           drawAll [] _ = mempty
           drawAll _ [] = mempty
           drawAll (f:fmore)(p:pmore) =  drawAll fmore pmore <> f p
+
+{-|
+    To draw a SubTgraph, we use a list of functions turning VPatches into diagrams
+    The first function is applied to a VPatch for untracked faces
+    Subsequent functions are applied to the respective tracked subsets as VPatches
+    (Each VPatch is atop earlier ones, so the untracked VPatch is at the bottom)
+-}
+drawSubTgraphV:: [VPatch -> Diagram B] -> SubTgraph -> Diagram B
+drawSubTgraphV drawList sub = drawAll drawList (vpUntracked:vpTrackedList) where
+          vpFull = makeVPatch (fullGraph sub)
+          vpTrackedList = fmap (`selectFacesVP` vpFull) (trackedSubsets sub)
+          vpUntracked = removeFacesVP (concat (trackedSubsets sub)) vpFull
+          drawAll [] _ = mempty
+          drawAll _ [] = mempty
+          drawAll (f:fmore)(vp:vpmore) =  drawAll fmore vpmore <> f vp
 
 -- |special case of drawSubTgraph using 1 subset (and 2 patchdrawing functions):
 -- normal (black), then red

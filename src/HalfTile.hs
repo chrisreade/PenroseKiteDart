@@ -9,6 +9,7 @@ Stability   : experimental
 -}
 module HalfTile where
 
+
 {-|
 Representing Half Tile Pieces Polymorphicly.
 Common code for both graphs and vector representations of tilings. 

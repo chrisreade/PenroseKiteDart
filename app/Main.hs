@@ -31,7 +31,7 @@ import Tgraphs
 
                 
 fig::Diagram B
-fig =  moreChoicesFig --
+fig =  artFig2b --moreChoicesFig0
 
 
 main = mainWith fig

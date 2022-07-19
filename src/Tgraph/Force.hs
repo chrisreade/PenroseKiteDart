@@ -464,8 +464,9 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
     by an earlier generator in the list.                        
 -}
 allUGenerator :: UpdateGenerator 
-allUGenerator bd focus = snd $ foldr addGen (focus,Map.empty) (reverse generators) where
-    addGen gen (es,umap) = let umap' = gen bd es
+allUGenerator bd focus = umap where
+    (_ , umap) = foldl' addGen (focus,Map.empty) generators
+    addGen (es,umap) gen = let umap' = gen bd es
                                es' = es \\ Map.keys umap'
                            in (es',Map.union umap' umap) 
     generators = [ wholeTileUpdates          -- (1)
@@ -802,9 +803,6 @@ Other Forcing operations
 -}
 
 
--- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
-forceSub :: SubTgraph -> SubTgraph
-forceSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph (force g) tlist
 
 
 {-
@@ -899,9 +897,27 @@ mustFind p ls err = case find p ls of
 
 
 
+{- *
+Forcing SubTgraphs
+-}
 
+-- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
+forceSub :: SubTgraph -> SubTgraph
+forceSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph (force g) tlist
 
+-- |aaddHalfDartSub sub e - add a half dart to the fullGraph of sub on the given edge e,
+-- and push the new singleton face list onto the tracked list.
+addHalfDartSub sub e = SubTgraph{ fullGraph = g', trackedSubsets = fcs:trackedSubsets sub} where
+    g = fullGraph sub
+    g' = addHalfDart g e
+    fcs = faces g' \\ faces g
 
+-- |addHalfKiteSub sub e - add a half kite to the fullGraph of sub on the given edge e,
+-- and push the new singleton face list onto the tracked list.
+addHalfKiteSub sub e = SubTgraph{ fullGraph = g', trackedSubsets = fcs:trackedSubsets sub} where
+    g = fullGraph sub
+    g' = addHalfKite g e
+    fcs = faces g' \\ faces g
 
 {- *
 Adding faces (Auxiliary operations)

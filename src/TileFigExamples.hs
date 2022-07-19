@@ -162,7 +162,7 @@ exampleTriple2 =  position $ zip [ p2(-2.55,-0.75), p2(0.0,1.0), p2(2.0,-1.2)] $
 Swatches and Samples for colour-filled patches
 -}
 
--- |A sample abbreviates triples of colours (used for Dart,Kite,Grout (Edges) respectively
+-- |Type Sample abbreviates a triple of colours (used for Dart,Kite,Grout (Edges) respectively.
 type Sample = (Colour Double,Colour Double,Colour Double)
 
 -- |The sample is used to fill a 6 times decomposed sun

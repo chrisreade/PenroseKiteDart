@@ -474,6 +474,15 @@ data SubTgraph = SubTgraph{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
 makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
 makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
 
+-- |pushSub f sub - pushes a new tracked subset of tilefaces onto the tracked subsets of sub
+-- calculated with f sub
+pushSub:: (SubTgraph -> [TileFace]) -> SubTgraph -> SubTgraph
+pushSub f sub = SubTgraph{fullGraph = g, trackedSubsets = f sub `intersect` faces g:trackedSubsets sub} where
+    g = fullGraph sub
+
+
+
+
 {- * Error reporting (for partial operations) -}
 
 -- | Abbreviation for use of Either String.  Used for results of partial functions
