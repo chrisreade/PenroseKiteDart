@@ -260,12 +260,15 @@ sun =  penta [rkite `at` origin, lkite `at` origin]
 -- |star is a patch with five darts sharing common origin (tip of dart)
 star = penta [rdart `at` origin, ldart `at` origin]
 
+-- |rotateTT n a - rotate a transformable item (a) by n multiples of a tenth turn
+rotateTT :: (Transformable a, V a ~ V2, N a ~ Double) => Int -> a -> a
+rotateTT n a = rotate (ttangle n) a
 
 -- |rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
 -- This includes Diagrams, Patches, VPatches
 -- The integer list can be shorter than the list of items - the remaining items are left unrotated.
 rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
-rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
+rotations (n:ns) (d:ds) = rotateTT n d: rotations ns ds
 rotations [] ds = ds
 rotations _  [] = error "rotations: too many rotation integers"
 

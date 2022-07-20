@@ -845,7 +845,8 @@ emplaceProblemFig = drawForceEmplace sunPlus3Dart'
 Esoteric diagrams
 -}
 
--- | a partially coloured tiling
+-- | a partially coloured tiling figure
+artFig1 :: Diagram B
 artFig1 = padBorder $ (lw thin $ colourDKG (darkmagenta, indigo, gold) p1) <> (lw ultraThin $ drawPatch $ dropVertices vp2) where 
             g1 = addHalfDart (force $ dartDs !!4) (233,201)
             g2 = force g1
@@ -876,8 +877,8 @@ type Sample = (Colour Double,Colour Double,Colour Double)
 
 -- | a function to generate diagrams in two versions. The second argument is a triple of colours
 -- used for the filled part of the diagram.
--- The boolean argument chooses between two diagram versions (using an added Dart when True
--- and an added Kite when false).
+-- The boolean argument chooses between two diagram versions (using an added half dart when True
+-- and an added half kite when False).
 makeArt:: Bool -> Sample -> Diagram B
 makeArt b sample = 
   padBorder $ lw ultraThin $ drawSubTgraphV
@@ -885,12 +886,13 @@ makeArt b sample =
        , colourDKG sample . dropVertices
        , relevantVPatchWith dashJPiece -- vertex labels for these faces only
        , colourDKG sample . dropVertices
-       ] sub3 where 
+       ] 0 sub3 where 
     g = force dartGraph -- fool's kite
     sub1 = makeSubTgraph g [faces g]
     sub2 = pushSub (faces . fullGraph) $ (forceSub . decomposeSub . decomposeSub . decomposeSub . decomposeSub) sub1
     addDartOrKite = if b then addHalfDartSub else addHalfKiteSub
     sub3 = forceSub $ addDartOrKite sub2 (354,293)
+--    n = if b then 0 else 1
 
 
 artFig2a, artFig2b :: Diagram B
@@ -898,7 +900,9 @@ artFig2a, artFig2b :: Diagram B
 artFig2a = makeArt True  (goldenrod, blend 0.7 lime blue, saddlebrown)
 -- | an example figure using makeArt False    
 artFig2b = makeArt False (goldenrod, blend 0.7 lime blue, saddlebrown)
-    
+
+artFig2c = makeArt True (fuchsia, aquamarine, blue) 
+-- (blue, violet, yellow)  (cornflowerblue, cyan, darkblue)    
 {-
     padBorder $ drawSubTgraph' [ lw ultraThin $ dashJPatch . dropVertices
                                      , lw thin $ colourDKG (goldenrod, blend 0.7 lime blue, saddlebrown) . dropVertices

@@ -353,7 +353,7 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
 {-|
     To draw a SubTgraph without vertex labels, we use a list of functions turning patches into diagrams
     The first function is applied to a patch for untracked faces
-    Subsequent functions are applied to the respective tracked subsets
+    Subsequent functions are applied to the respective tracked subsets.
     (Each patch is atop earlier ones, so the untracked patch is at the bottom)
 -}
 drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
@@ -361,24 +361,23 @@ drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
           vpFull = makeVPatch (fullGraph sub)
           pTrackedList = fmap (dropVertices . (`selectFacesVP` vpFull)) (trackedSubsets sub)
           pUntracked = dropVertices $ removeFacesVP (concat (trackedSubsets sub)) vpFull
-          drawAll [] _ = mempty
-          drawAll _ [] = mempty
-          drawAll (f:fmore)(p:pmore) =  drawAll fmore pmore <> f p
+          drawAll fs ps = mconcat $ reverse $ zipWith ($) fs ps
 
 {-|
-    To draw a SubTgraph, we use a list of functions turning VPatches into diagrams
+    To draw a SubTgraph with possible vertex labels,
+    we use a list of functions turning VPatches into diagrams.
     The first function is applied to a VPatch for untracked faces
     Subsequent functions are applied to the respective tracked subsets as VPatches
-    (Each VPatch is atop earlier ones, so the untracked VPatch is at the bottom)
+    (Each VPatch is atop earlier ones, so the untracked VPatch is at the bottom).
+    The integer argument n is used for n mutiples of a tenth turn rotation
+    (done before converting to a diagram to ensure labels are not rotated).
 -}
-drawSubTgraphV:: [VPatch -> Diagram B] -> SubTgraph -> Diagram B
-drawSubTgraphV drawList sub = drawAll drawList (vpUntracked:vpTrackedList) where
-          vpFull = makeVPatch (fullGraph sub)
+drawSubTgraphV:: [VPatch -> Diagram B] -> Int -> SubTgraph -> Diagram B
+drawSubTgraphV drawList n sub = drawAll drawList (vpUntracked:vpTrackedList) where
+          vpFull = rotateTT n $ makeVPatch (fullGraph sub)
           vpTrackedList = fmap (`selectFacesVP` vpFull) (trackedSubsets sub)
           vpUntracked = removeFacesVP (concat (trackedSubsets sub)) vpFull
-          drawAll [] _ = mempty
-          drawAll _ [] = mempty
-          drawAll (f:fmore)(vp:vpmore) =  drawAll fmore vpmore <> f vp
+          drawAll fs vps = mconcat $ reverse $ zipWith ($) fs vps
 
 -- |special case of drawSubTgraph using 1 subset (and 2 patchdrawing functions):
 -- normal (black), then red
