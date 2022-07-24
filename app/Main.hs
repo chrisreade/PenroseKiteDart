@@ -31,7 +31,7 @@ import Tgraphs
 
                 
 fig::Diagram B
-fig =  artFig2b --moreChoicesFig0
+fig =  halfWholeFig --moreChoicesFig0
 
 
 main = mainWith fig

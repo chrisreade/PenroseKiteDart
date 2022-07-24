@@ -346,7 +346,7 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
  
 
-{- *  Drawing SubTgraphs
+{- *  Drawing with SubTgraphs
 -}
                      
                      
@@ -369,12 +369,12 @@ drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
     The first function is applied to a VPatch for untracked faces
     Subsequent functions are applied to the respective tracked subsets as VPatches
     (Each VPatch is atop earlier ones, so the untracked VPatch is at the bottom).
-    The integer argument n is used for n mutiples of a tenth turn rotation
-    (done before converting to a diagram to ensure labels are not rotated).
+    The second argument is a rotation angle
+    (applied before converting to a diagram to ensure labels are not rotated).
 -}
-drawSubTgraphV:: [VPatch -> Diagram B] -> Int -> SubTgraph -> Diagram B
-drawSubTgraphV drawList n sub = drawAll drawList (vpUntracked:vpTrackedList) where
-          vpFull = rotateTT n $ makeVPatch (fullGraph sub)
+drawSubTgraphV:: [VPatch -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
+drawSubTgraphV drawList a sub = drawAll drawList (vpUntracked:vpTrackedList) where
+          vpFull = rotate a $ makeVPatch (fullGraph sub)
           vpTrackedList = fmap (`selectFacesVP` vpFull) (trackedSubsets sub)
           vpUntracked = removeFacesVP (concat (trackedSubsets sub)) vpFull
           drawAll fs vps = mconcat $ reverse $ zipWith ($) fs vps

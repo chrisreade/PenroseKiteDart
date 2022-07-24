@@ -13,7 +13,7 @@ Stability   : experimental
 -}
 module GraphFigExamples where
 
--- temp for testing
+-- used for testing
 import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
 
 -- partition find used for testing (relabelWatchStep)
@@ -846,8 +846,8 @@ Esoteric diagrams
 -}
 
 -- | a partially coloured tiling figure
-artFig1 :: Diagram B
-artFig1 = padBorder $ (lw thin $ colourDKG (darkmagenta, indigo, gold) p1) <> (lw ultraThin $ drawPatch $ dropVertices vp2) where 
+artFigTest :: Diagram B
+artFigTest = padBorder $ (lw thin $ colourDKG (darkmagenta, indigo, gold) p1) <> (lw ultraThin $ drawPatch $ dropVertices vp2) where 
             g1 = addHalfDart (force $ dartDs !!4) (233,201)
             g2 = force g1
             p1 = makePatch g1
@@ -875,58 +875,49 @@ artFig3 = padBorder $ drawSubTgraph [ lw ultraThin $ dashJPatch
 -- |Type Sample abbreviates a triple of colours (used for Dart,Kite,Grout (Edges) respectively.
 type Sample = (Colour Double,Colour Double,Colour Double)
 
--- | a function to generate diagrams in two versions. The second argument is a triple of colours
+-- |A function to generate A4 portrait art diagrams (half dart adding). The argument is a triple of colours
 -- used for the filled part of the diagram.
--- The boolean argument chooses between two diagram versions (using an added half dart when True
--- and an added half kite when False).
-makeArt:: Bool -> Sample -> Diagram B
-makeArt b sample = 
-  padBorder $ lw ultraThin $ drawSubTgraphV
+makeArtD:: Sample -> Diagram B
+makeArtD sample = strutY 2 === mainG where
+    mainG = padBorder $ lw ultraThin $ lc black $ drawSubTgraphV
        [ dashJPatch . dropVertices
        , colourDKG sample . dropVertices
        , relevantVPatchWith dashJPiece -- vertex labels for these faces only
        , colourDKG sample . dropVertices
-       ] 0 sub3 where 
+       ] (0@@deg) sub3 where 
     g = force dartGraph -- fool's kite
     sub1 = makeSubTgraph g [faces g]
     sub2 = pushSub (faces . fullGraph) $ (forceSub . decomposeSub . decomposeSub . decomposeSub . decomposeSub) sub1
-    addDartOrKite = if b then addHalfDartSub else addHalfKiteSub
-    sub3 = forceSub $ addDartOrKite sub2 (354,293)
---    n = if b then 0 else 1
+    sub3 = forceSub $ addHalfDartSub sub2 (354,293)
 
+-- |A function to generate A3 art diagrams (half kite adding). The argument is a triple of colours
+-- used for the filled part of the diagram.
+makeArtK:: Sample -> Diagram B
+makeArtK sample = strutY 6 === mainG where
+    mainG = padBorder $ lw ultraThin $ lc black $ drawSubTgraphV
+       [ dashJPatch . dropVertices
+       , colourDKG sample . dropVertices
+       , relevantVPatchWith dashJPiece -- vertex labels for these faces only
+       , colourDKG sample . dropVertices
+       ] (108@@deg) sub3 
+    g = force dartGraph -- fool's kite
+    sub1 = makeSubTgraph g [faces g]
+    sub2 = pushSub (faces . fullGraph) $ (forceSub . decomposeSub . decomposeSub . decomposeSub . decomposeSub) sub1
+    sub3 = forceSub $ addHalfKiteSub sub2 (354,293)
 
-artFig2a, artFig2b :: Diagram B
--- | an example figure using makeArt True    
-artFig2a = makeArt True  (goldenrod, blend 0.7 lime blue, saddlebrown)
--- | an example figure using makeArt False    
-artFig2b = makeArt False (goldenrod, blend 0.7 lime blue, saddlebrown)
+-- | an example figure using makeArtD   
+artFigD = makeArtD (goldenrod, blend 0.7 lime blue, saddlebrown)
+artFigDPrint = makeArtD (darken 0.8 goldenrod, blend 0.1 white $ blend 0.7 lime blue, saddlebrown)
+-- | an example figure using makeArtK    
+artFigK = makeArtK (goldenrod, blend 0.7 lime blue, saddlebrown)
+artFigKPrint = makeArtK (darken 0.8 goldenrod, blend 0.1 white $ blend 0.7 lime blue, saddlebrown)
+-- | an example figure using makeArtD   
+artFigD1 = makeArtD (cornflowerblue, turquoise, darkblue)
+artFigD1Print = makeArtD (darken 0.8 cornflowerblue, blend 0.1 white turquoise, darkblue)
+-- | an example figure using makeArtD   
+artFigD2 = makeArtD (coral, goldenrod, darkmagenta)
+artFigD2Print = makeArtD (coral, darken 0.6 goldenrod, darkmagenta)
 
-artFig2c = makeArt True (fuchsia, aquamarine, blue) 
--- (blue, violet, yellow)  (cornflowerblue, cyan, darkblue)    
-{-
-    padBorder $ drawSubTgraph' [ lw ultraThin $ dashJPatch . dropVertices
-                                     , lw thin $ colourDKG (goldenrod, blend 0.7 lime blue, saddlebrown) . dropVertices
-                                     , lw ultraThin $ relevantVPatchWith dashJPiece
-                                     , lw thin $ colourDKG (goldenrod, blend 0.7 lime blue, saddlebrown) . dropVertices
-                                     --(peachpuff, powderblue, mediumvioletred) . dropVertices
-                                     ] sub3 where 
-            g = force dartGraph
-            sub1 = makeSubTgraph g [faces g]
-            sub2 = pushSub (faces . fullGraph) $ (forceSub . decomposeSub . decomposeSub . decomposeSub . decomposeSub) sub1
-            sub3 = forceSub $ addHalfDartSub sub2 (354,293)
--}
-{-
-artFig4 = padBorder $ drawSubTgraph' [ lw ultraThin $ dashJPatch . dropVertices 
-                                     , lw ultraThin $ relevantVPatchWith dashJPiece
-                                     , lw thin $ colourDKG (goldenrod, blend 0.7 lime blue, saddlebrown) . dropVertices
-                                     --(peachpuff, powderblue, mediumvioletred) . dropVertices
-                                     ] sub3 where 
-            g = force dartGraph
-            sub1 = makeSubTgraph g [faces g]
-            sub2 = (forceSub . decomposeSub . decomposeSub . decomposeSub . decomposeSub) sub1
-            g' = addHalfDart (fullGraph sub2) (354,293)
-            sub3 = forceSub $ makeSubTgraph g' (faces g' : trackedSubsets sub2)
--}
 
 {- *
 Testing Relabelling
