@@ -483,9 +483,9 @@ pushSub f sub = SubTgraph{fullGraph = g, trackedSubsets = f sub `intersect` face
 
 
 
-{- * Error reporting (for partial operations) -}
+{- * Failure reporting (for partial operations) -}
 
--- | Abbreviation for use of Either String.  Used for results of partial functions
+-- | ReportFail is a synonym for Either String.  Used for results of partial functions
 -- which return either Right something when defined or Laft string when there is a problem
 -- where string is a failure report.
 type ReportFail a = Either String a
@@ -495,13 +495,13 @@ onFail:: String -> ReportFail a -> ReportFail a
 onFail s = either (Left . (s++)) Right
 
 -- | Converts a Maybe Result into a ReportFail result by treating Nothing as a failure
--- (the string s is prepended to the failure report on failure).
+-- (the string s is the failure report on failure).
 -- Usually used as infix (exp `nothingFail` s)
 nothingFail :: Maybe b -> String -> ReportFail b
 nothingFail a s = maybe (Left s) Right a
 
 -- |Extract the (Right) result from a ReportFail, producing an error if the ReportFail is Left s.
--- the failure report is passed to error for an error report.
+-- The failure report is passed to error for an error report.
 getResult:: ReportFail a -> a
 getResult = either error id
 

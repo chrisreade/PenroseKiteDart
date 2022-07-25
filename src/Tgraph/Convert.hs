@@ -17,7 +17,7 @@ Includes functions to calculate (relative) locations of vertices (createVPoints,
 module Tgraph.Convert where
 
 import Data.List ((\\), find, partition, nub)
-import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, toList, fromList)
+import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, toList, fromList, keys)
 import Data.Maybe (mapMaybe)
 
 import Diagrams.Prelude
@@ -61,11 +61,35 @@ data VPatch = VPatch {lVertices :: [Located Vertex],  lHybrids::[Located Hybrid]
 type instance N VPatch = Double
 type instance V VPatch = V2
 
-
 instance Transformable VPatch where 
     transform t (VPatch {lVertices = lvs,  lHybrids = lhs})
          =  VPatch {lVertices = fmap (\lv -> unLoc lv `at` transform t (loc lv)) lvs,  lHybrids = transform t lhs}
 
+{-| For converting a Tgraph to a VPatch.
+This uses createVPoints to form a mapping of vertices to positions.
+This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
+-}
+makeVPatch::Tgraph -> VPatch
+makeVPatch g = makeVPatchWith (createVPoints $ fcs) fcs where fcs = faces g
+
+{-|Auxilliary function For converting a list of TileFaces to a VPatch givne a VertexLocMap
+The VertexLocMap argument must contain locations for all the Tgraph vertices.
+The alignement is dictated by the VertexLocMap.
+This function is intended to save recreating a VertexLocMap for several VPatches
+with different subsets of the vertices.
+(e.g in displaying partial composition and SubTgraphs)
+-}
+makeVPatchWith:: VertexLocMap -> [TileFace] -> VPatch
+makeVPatchWith vpMap fcs = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
+                                , lHybrids  = makeLHyb <$> fcs
+                                } where
+    locateV (v,p) = v `at` p
+    makeLHyb fc = case (VMap.lookup (originV fc) vpMap , VMap.lookup (oppV fc) vpMap) of
+                  (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
+                  _ -> error ("makeVPatchWith: Vertex location not found for some vertices:\n" 
+                               ++ show (faceVList fc \\ VMap.keys vpMap))
+
+{-
 {-| For converting a Tgraph to a VPatch.
 This uses Tgraph.Prelude.createVPoints to form a mapping of vertices to positions.
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
@@ -79,12 +103,19 @@ makeVPatch g = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
     makeLHyb fc = case (VMap.lookup (originV fc) vpMap , VMap.lookup (oppV fc) vpMap) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatch: " ++ show fc)
+-}
 {- |
 makePatch uses makeVPatch first then the Hybrids are converted to Pieces
 and the Located Vertex information is dropped
 -}
 makePatch:: Tgraph -> Patch
 makePatch = dropVertices . makeVPatch
+
+{- |
+Auxilliary function to create a Patch from a Tgraph given a VertexlocMap
+-}
+makePatchWith :: VertexLocMap -> [TileFace] -> Patch
+makePatchWith vpMap = dropVertices . makeVPatchWith vpMap
 
 -- |An inverse to makeVPatch which checks for connected and no crossing boundaries
 graphFromVP:: VPatch -> Tgraph
@@ -126,12 +157,8 @@ drawVPatchWith pd vp = drawVlabels (lVertices vp) <> patchWith pd (dropVertices 
 relevantVPatchWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
 relevantVPatchWith pd vp = drawVlabels locVs <> patchWith pd (dropVertices vp) where
      vs = nub $ concatMap faceVList (dropVectors vp)
-     locVs = filterVLocs (`elem` vs) $ lVertices vp
-
--- | filter a list of located vertices using a predicate on the vertices
-filterVLocs :: (Vertex -> Bool) -> [Located Vertex] -> [Located Vertex]
-filterVLocs pred =  fmap locateV . filter (pred . fst) . fmap ((\(p,v)->(v,p)) . viewLoc) where
-                     locateV (v,p) = v `at` p
+     locVs = filter ((`elem` vs) . snd . viewLoc) $ lVertices vp
+--     locVs = filterVLocs (`elem` vs) $ lVertices vp
 
 -- |make a diagram of vertex labels given located vertices (used by drawVPatch and drawVPatchWith)
 drawVlabels :: [Located Vertex] -> Diagram B
@@ -139,21 +166,26 @@ drawVlabels locvs = position $ fmap (viewLoc . mapLoc label) locvs
     where label n = baselineText (show n) # fontSize (global 0.3) # fc red
 {- Alternative to global is normalized:
    Best results with global 0.3, normalized 0.25, output 10
-   local - same as global for unscaled examples
-          label n = baselineText (show n) # fontSize (normalized 0.02) # fc red
 -}
+
 -- |remove a list of faces from a VPatch
 removeFacesVP :: [TileFace] -> VPatch -> VPatch
+removeFacesVP fcs = withHybs $ filter (not . (`elem` fcs) . asFace . unLoc)
+{-
 removeFacesVP fcs vp = foldr removeFace vp fcs where
     removeFace fc = withHybs (filter (not . matchingF fc))
     matchingF fc lhyb = asFace (unLoc lhyb) == fc
+-}
 
 -- |make a new VPatch with a list of selected faces from a VPatch
 selectFacesVP:: [TileFace] -> VPatch -> VPatch
+selectFacesVP fcs = withHybs $ filter ((`elem` fcs) . asFace . unLoc)
+{-
 selectFacesVP fcs = withHybs (findAll fcs) where
     findAll fcs lfaces = mapMaybe (findIn lfaces) fcs 
     findIn lfaces fc = find (matchingF fc) lfaces
     matchingF fc lhyb = asFace (unLoc lhyb) == fc
+-}
 
 -- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
 selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
@@ -167,7 +199,7 @@ removeFacesGtoVP fcs g = removeFacesVP fcs (makeVPatch g)
 {- * Alignment with Vertices
 -}
 
--- |center a VPatch on a particular vertex
+-- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
 centerOn :: Vertex -> VPatch -> VPatch
 centerOn a vp = 
     case findLoc a vp of
@@ -176,6 +208,7 @@ centerOn a vp =
 
 -- |alignXaxis takes a vertex pair (a,b) and a VPatch vp
 -- for centering vp on a and rotating the result so that b is on the positive X axis.
+-- (Raises an error if either a or b are not in the VPatch vertices)
 alignXaxis :: (Vertex, Vertex) -> VPatch -> VPatch    
 alignXaxis (a,b) vp =  rotate angle newvp
   where newvp = centerOn a vp

@@ -96,26 +96,23 @@ dartDs =  decompositionsG dartGraph
 {- * Partial Compositions figures
 -}
 
--- |Shows labelled vertices For checking partCompose to get alignment vertices
-checkPCompose :: Tgraph -> Diagram B
-checkPCompose g = 
-        padBorder $ hsep 1 [dashJVPatch $ selectFacesGtoVP fcs g, scale phi $ dashJVGraph g'] where
-        (fcs,g') = partCompose g
-
-{-| showPCompose g (a,b)  applies partCompose to g, then aligns and draws the composed graph with the remainder faces (in lime)
-It can cope with an empty composed graph.
-Vertices a and b must be common to composed g and g
-(use checkPCompose to choose vertices)                               
--}
-showPCompose ::  Tgraph -> (Vertex, Vertex) -> Diagram B
-showPCompose g (a,b) = case nullGraph g' of
-    True -> lc lime $ dashJPatch $ dropVertices remg
-    False -> lw ultraThin (drawPatch $ dropVertices compg)
-             <> lc lime (dashJPatch $ dropVertices remainder)
-                 where [remainder,compg] = alignAll (a,b) [remg , scale phi $ makeVPatch g']
+-- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
+-- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
+drawPCompose ::  Tgraph -> Diagram B
+drawPCompose g = (lw ultraThin $ drawPatch $ makePatchWith vpMap $ faces g')
+                  <> (lw thin $ lc lime $ dashJPatch $ makePatchWith vpMap fcs)
   where (fcs,g') = partCompose g
-        remg = selectFacesGtoVP fcs g
+        vpMap = createVPoints $ faces g
+
  
+-- |diagrams showing partial compositions (with ignored faces in pale green)
+pCompFig1,pCompFig2,pCompFig:: Diagram B
+pCompFig1 = hsep 5 $ rotations [1,1] [drawGraph fd3 # lw ultraThin, drawPCompose fd3]
+            where fd3 = force $ dartDs !! 3
+pCompFig2 = hsep 5 $ rotations [] [drawGraph fk3 # lw ultraThin, drawPCompose fk3]
+            where fk3 = force $ kiteDs !! 3
+pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
+{-
 -- |diagrams showing partial compositions (with ignored faces in pale green)
 pCompFig1,pCompFig2,pCompFig:: Diagram B
 pCompFig1 = hsep 5 $ rotations [1] [drawGraph fd3 # lw ultraThin, showPCompose fd3 (1,3)]
@@ -123,6 +120,7 @@ pCompFig1 = hsep 5 $ rotations [1] [drawGraph fd3 # lw ultraThin, showPCompose f
 pCompFig2 = hsep 5 $ rotations [] [drawGraph fk3 # lw ultraThin, showPCompose fk3 (1,2)]
             where fk3 = force $ kiteDs !! 3
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
+-}
 
 
 {- * Forced Tgraph figures
@@ -476,20 +474,19 @@ gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
 -}
 bigPic0,bigPic :: Diagram B
 bigPic0 = padBorder $ position $ concat
-          [ zip pointsR1 partComps
+          [ zip pointsR1 $ rotations [0,1,1] partComps
           , zip pointsR2 $ zipWith named ["a4", "a3","a2","a1","a0"] (dots : rotations [1,1] forceDs)
           , zip pointsR3 $ zipWith named ["b4", "b3","b2","b1","b0"] (dots : rotations [1,1] drts)
           ]
           where
-              partComps = phiScales $ reverse $ take 5 $ fmap pCompAlign (emplacements dartGraph)
-              pCompAlign g = showPCompose g (1,3)
+              partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ emplacements dartGraph
+           --   pCompAlign g = showPCompose g (1,3)
               forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce dartDs
               drts  = fmap (center . lw thin) $ phiScaling phi $ reverse $ take 4 $ fmap dashJGraph dartDs
               dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
-              pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]
-   
+              pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]    
 bigPic = 
     bigPic0  # composeArc "a3" "a2"
              # composeArc "a2" "a1"
@@ -879,7 +876,7 @@ type Sample = (Colour Double,Colour Double,Colour Double)
 -- used for the filled part of the diagram.
 makeArtD:: Sample -> Diagram B
 makeArtD sample = strutY 2 === mainG where
-    mainG = padBorder $ lw ultraThin $ lc black $ drawSubTgraphV
+    mainG = padBorder $ lw ultraThin $ drawSubTgraphV
        [ dashJPatch . dropVertices
        , colourDKG sample . dropVertices
        , relevantVPatchWith dashJPiece -- vertex labels for these faces only
