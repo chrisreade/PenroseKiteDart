@@ -29,9 +29,10 @@ import GraphFigExamples
 import TileLib
 import Tgraphs
 
-                
+import ArtWork
+               
 fig::Diagram B
-fig =  pCompFig --artFigD --halfWholeFig --moreChoicesFig0
+fig = drawSwatch 2 dianeSwatch -- a4Small (lavender,lavenderblush,salmon) --nestedDart --artFigD --halfWholeFig --moreChoicesFig0
 
 
 main = mainWith fig

@@ -88,11 +88,11 @@ wholeTileEdges (RK v) = wholeTileEdges (LK v)
 drawPiece:: Piece -> Diagram B
 drawPiece = strokeLine . fromOffsets . pieceEdges
 
--- |fillDK' dcol kcol pc fills the whole tile when pc is a left half-tile,
+-- |leftFillDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.
 -- (Right half-tiles produce nothing, so whole tiles are not drawn twice)
-fillDK':: Colour Double -> Colour Double -> Piece -> Diagram B
-fillDK' dcol kcol pc =
+leftFillDK:: Colour Double -> Colour Double -> Piece -> Diagram B
+leftFillDK dcol kcol pc =
      case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc dcol
                 (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc kcol
                 _      -> mempty
@@ -260,15 +260,11 @@ sun =  penta [rkite `at` origin, lkite `at` origin]
 -- |star is a patch with five darts sharing common origin (tip of dart)
 star = penta [rdart `at` origin, ldart `at` origin]
 
--- |rotateTT n a - rotate a transformable item (a) by n multiples of a tenth turn
-rotateTT :: (Transformable a, V a ~ V2, N a ~ Double) => Int -> a -> a
-rotateTT n a = rotate (ttangle n) a
-
 -- |rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
 -- This includes Diagrams, Patches, VPatches
 -- The integer list can be shorter than the list of items - the remaining items are left unrotated.
 rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
-rotations (n:ns) (d:ds) = rotateTT n d: rotations ns ds
+rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
 rotations [] ds = ds
 rotations _  [] = error "rotations: too many rotation integers"
 
@@ -290,5 +286,27 @@ phiScaling s [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
 
 
+-- |Center a diagram in a rectangle (A series ratio, portrait) .
+-- The first argument is a padding ratio for margins (usually 1.2)
+centerAPortrait :: Double -> Diagram B -> Diagram B
+centerAPortrait pd a = padded <> centerXY box  
+  where box = phantom $ (rect w (w * sqrt 2) :: D V2 Double)
+        padded   = pad pd $ centerXY a
+        w = width padded  
+
+-- |Center a diagram in a rectangle (A series ratio, landscape).
+-- The first argument is a padding ratio for margins (usually 1.2)
+centerALandscape :: Double -> Diagram B -> Diagram B
+centerALandscape pd a = padded <> centerXY box  
+  where box = phantom $ (rect (h * sqrt 2) h :: D V2 Double)
+        padded   = pad pd $ centerXY a
+        h = height padded  
+
+-- |crop a diagram to half width and centred with A series portrait dimensions (A0,A1,,..).
+-- Ideal for decomposed suns.
+cropAPortrait ::Diagram B -> Diagram B
+cropAPortrait  d = clipTo aPortrait (d # centerXY) where -- clipped a4 ... seems slow
+                   w = width d /2
+                   aPortrait = rect w (w * sqrt 2) # centerXY
 
 

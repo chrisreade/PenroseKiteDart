@@ -43,7 +43,6 @@ type instance N Vertex = Double
 -- |needed for making VPatch an instance of Show
 type instance V Vertex = V2
 
-
 -- |making DualRep (and hence VPatch) transformable
 instance Transformable DualRep where 
     transform t (DualRep {vector = v, face = vs}) = DualRep {vector = transform t v, face = vs}
@@ -55,7 +54,7 @@ dualRep vec vs = DualRep{vector = vec, face = vs}
 -- |A hybrid is a HalfTile with the dual representation of the face vertices and the join vector  
 type Hybrid = HalfTile DualRep
 
--- |A VPatch (vertex patch) is a patch with both face and vertex and vector information.
+-- |A VPatch (vertex patch) is a patch with both face (vertex) and vector information.
 -- It contains a list of Located vertices and a list of Located Hybrids
 data VPatch = VPatch {lVertices :: [Located Vertex],  lHybrids::[Located Hybrid]} deriving Show
 type instance N VPatch = Double
@@ -74,10 +73,10 @@ makeVPatch g = makeVPatchWith (createVPoints $ fcs) fcs where fcs = faces g
 
 {-|Auxilliary function For converting a list of TileFaces to a VPatch givne a VertexLocMap
 The VertexLocMap argument must contain locations for all the Tgraph vertices.
-The alignement is dictated by the VertexLocMap.
+The alignment is dictated by the VertexLocMap.
 This function is intended to save recreating a VertexLocMap for several VPatches
 with different subsets of the vertices.
-(e.g in displaying partial composition and SubTgraphs)
+(E.g. in displaying partial composition.)
 -}
 makeVPatchWith:: VertexLocMap -> [TileFace] -> VPatch
 makeVPatchWith vpMap fcs = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
@@ -88,25 +87,9 @@ makeVPatchWith vpMap fcs = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                   _ -> error ("makeVPatchWith: Vertex location not found for some vertices:\n" 
                                ++ show (faceVList fc \\ VMap.keys vpMap))
-
-{-
-{-| For converting a Tgraph to a VPatch.
-This uses Tgraph.Prelude.createVPoints to form a mapping of vertices to positions.
-This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
--}
-makeVPatch::Tgraph -> VPatch
-makeVPatch g = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
-                      , lHybrids  = makeLHyb <$> faces g
-                      } where
-    vpMap = createVPoints $ faces g
-    locateV (v,p) = v `at` p
-    makeLHyb fc = case (VMap.lookup (originV fc) vpMap , VMap.lookup (oppV fc) vpMap) of
-                  (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
-                  _ -> error ("makeVPatch: " ++ show fc)
--}
 {- |
-makePatch uses makeVPatch first then the Hybrids are converted to Pieces
-and the Located Vertex information is dropped
+makePatch uses makeVPatch first then the Hybrids are converted to located Pieces,
+dropping the Vertices information.
 -}
 makePatch:: Tgraph -> Patch
 makePatch = dropVertices . makeVPatch
@@ -128,7 +111,7 @@ graphFromVP = checkedTgraph . dropVectors
 drawGraph:: Tgraph -> Diagram B
 drawGraph = drawPatch . makePatch
 
--- |simplest drawing without vertex labels
+-- |simplest drawing with dashed join edges but without vertex labels
 dashJGraph:: Tgraph -> Diagram B
 dashJGraph = dashJPatch . makePatch
 
@@ -136,7 +119,7 @@ dashJGraph = dashJPatch . makePatch
 drawVGraph:: Tgraph -> Diagram B
 drawVGraph = drawVPatch . makeVPatch
 
--- |simplest drawing with vertex labels and dashed joins
+-- |simplest drawing with dashed join edges and vertex labels
 dashJVGraph:: Tgraph -> Diagram B
 dashJVGraph = dashJVPatch . makeVPatch
 
@@ -158,7 +141,6 @@ relevantVPatchWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
 relevantVPatchWith pd vp = drawVlabels locVs <> patchWith pd (dropVertices vp) where
      vs = nub $ concatMap faceVList (dropVectors vp)
      locVs = filter ((`elem` vs) . snd . viewLoc) $ lVertices vp
---     locVs = filterVLocs (`elem` vs) $ lVertices vp
 
 -- |make a diagram of vertex labels given located vertices (used by drawVPatch and drawVPatchWith)
 drawVlabels :: [Located Vertex] -> Diagram B
@@ -171,21 +153,10 @@ drawVlabels locvs = position $ fmap (viewLoc . mapLoc label) locvs
 -- |remove a list of faces from a VPatch
 removeFacesVP :: [TileFace] -> VPatch -> VPatch
 removeFacesVP fcs = withHybs $ filter (not . (`elem` fcs) . asFace . unLoc)
-{-
-removeFacesVP fcs vp = foldr removeFace vp fcs where
-    removeFace fc = withHybs (filter (not . matchingF fc))
-    matchingF fc lhyb = asFace (unLoc lhyb) == fc
--}
 
 -- |make a new VPatch with a list of selected faces from a VPatch
 selectFacesVP:: [TileFace] -> VPatch -> VPatch
 selectFacesVP fcs = withHybs $ filter ((`elem` fcs) . asFace . unLoc)
-{-
-selectFacesVP fcs = withHybs (findAll fcs) where
-    findAll fcs lfaces = mapMaybe (findIn lfaces) fcs 
-    findIn lfaces fc = find (matchingF fc) lfaces
-    matchingF fc lhyb = asFace (unLoc lhyb) == fc
--}
 
 -- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
 selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
@@ -240,13 +211,16 @@ alignAll (a,b) = fmap (alignXaxis (a,b))
 -}
 
 
--- |makes an association list of vertex to location from a VPatch
+-- |extracts a vertex to location map from a VPatch
 vertexLocs :: VPatch -> VertexLocMap
 vertexLocs = VMap.fromList . fmap ((\(p,v)->(v,p)) . viewLoc) . lVertices
 
--- |find the location of a specific vertex in a VPatch
+-- |find the location of a single vertex in a VPatch
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
-findLoc v vp = VMap.lookup v (vertexLocs vp)
+findLoc v vp = case filter ((v==) . snd) $ fmap viewLoc $ lVertices vp of
+                  [] -> Nothing
+                  ((p,_):_) -> Just p
+-- findLoc v vp = VMap.lookup v (vertexLocs vp)
  
 -- |Apply a function to just the list of located hybrids in a VPatch (leaving located vertices untouched)
 withHybs:: ([Located Hybrid]->[Located Hybrid]) -> VPatch -> VPatch

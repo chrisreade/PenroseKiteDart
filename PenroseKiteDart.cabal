@@ -38,6 +38,7 @@ library
       GraphFigExamples
       DecompExplain
       ChosenBackend
+      ArtWork
   other-modules:
       Paths_PenroseKiteDart
   hs-source-dirs:

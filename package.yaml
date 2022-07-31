@@ -42,6 +42,7 @@ library:
     - GraphFigExamples
     - DecompExplain
     - ChosenBackend
+    - ArtWork
 executables:
   PenroseKiteDart-exe:
     main:                Main.hs
