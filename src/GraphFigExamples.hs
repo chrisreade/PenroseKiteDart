@@ -461,11 +461,11 @@ gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
     ] where g = boundaryGapFDart5
 
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
--- using stepForce 600
+-- using stepForce 600 (finished at 820)
 gapProgress4 :: Diagram B
 gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
     [ dashJGraph g
-    , drawGraph $ recoverGraph $ boundaryState $ stepForce 600 g
+    , drawGraph $ recoverGraph $ boundaryState $ stepForce 820 g --600
     ] where g = boundaryGapFDart4
 
 
@@ -771,6 +771,18 @@ moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSubTgraph2 more
 moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 moreChoices1
 moreChoicesFig  =  vsep 1 [moreChoicesFig0,moreChoicesFig1]  
 
+
+-- |What happens if you take only the added faces of (the first of) twoChoices and force from there?
+-- It does not quite complete the original faces    
+forcedNewFaces:: Diagram B
+forcedNewFaces = padBorder $ lw thin $ (drawPatch p2 # lc lime) <> drawPatch p3 where
+    g1 = addHalfDart (force $ dartDs !!4) (233,201)
+    g2 = removeFaces (faces g1) (force g1)
+    g3 = force g2
+    vpMap = createVPoints $ faces g3
+    p2 = makePatchWith vpMap $ faces g2
+    p3 = makePatchWith vpMap $ faces g3
+                       
 -- |Trying to find which extensions to the starting dart correspond to the twoChoicesFig
 dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite :: Tgraph
 -- |a dart with another half dart on a long edge

@@ -115,6 +115,18 @@ fillDK dcol kcol piece = drawPiece piece <> fillPiece col piece where
                         (LK _) -> kcol
                         (RK _) -> kcol
 
+-- |fillMaybeDK d k piece - draws the half-tile piece and possibly fills as well:
+-- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
+-- Nothing indicates no fill for either darts or kites or both
+fillMaybeDK:: Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram B
+fillMaybeDK d k piece = drawPiece piece <> filler where
+    maybeFill (Just c) = fillPiece c piece
+    maybeFill  Nothing = mempty
+    filler = case piece of (LD _) -> maybeFill d
+                           (RD _) -> maybeFill d
+                           (LK _) -> maybeFill k
+                           (RK _) -> maybeFill k
+
 -- |same as drawPiece but with join edge added as dashed-line
 dashJPiece:: Piece -> Diagram B
 dashJPiece piece = drawPiece piece <> (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
@@ -285,28 +297,5 @@ phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
 phiScaling s [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
 
-
--- |Center a diagram in a rectangle (A series ratio, portrait) .
--- The first argument is a padding ratio for margins (usually 1.2)
-centerAPortrait :: Double -> Diagram B -> Diagram B
-centerAPortrait pd a = padded <> centerXY box  
-  where box = phantom $ (rect w (w * sqrt 2) :: D V2 Double)
-        padded   = pad pd $ centerXY a
-        w = width padded  
-
--- |Center a diagram in a rectangle (A series ratio, landscape).
--- The first argument is a padding ratio for margins (usually 1.2)
-centerALandscape :: Double -> Diagram B -> Diagram B
-centerALandscape pd a = padded <> centerXY box  
-  where box = phantom $ (rect (h * sqrt 2) h :: D V2 Double)
-        padded   = pad pd $ centerXY a
-        h = height padded  
-
--- |crop a diagram to half width and centred with A series portrait dimensions (A0,A1,,..).
--- Ideal for decomposed suns.
-cropAPortrait ::Diagram B -> Diagram B
-cropAPortrait  d = clipTo aPortrait (d # centerXY) where -- clipped a4 ... seems slow
-                   w = width d /2
-                   aPortrait = rect w (w * sqrt 2) # centerXY
 
 

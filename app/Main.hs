@@ -31,11 +31,17 @@ import Tgraphs
 
 import ArtWork
                
-fig::Diagram B
-fig = drawSwatch 2 dianeSwatch -- a4Small (lavender,lavenderblush,salmon) --nestedDart --artFigD --halfWholeFig --moreChoicesFig0
+figs::[(String,Diagram B)]
+figs = trial 
 
+main = mainWith figs
+
+{-
+fig::Diagram B
+fig = testOldanim 
 
 main = mainWith fig
+-}
 
 {-
 For profiling - non diagram output
