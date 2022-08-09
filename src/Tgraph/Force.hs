@@ -180,9 +180,9 @@ affectedBoundary bd edges = filter incidentEdge (bDedges bd) where
 forcing operations
 -}
 
--- |The main force function using allUGenerator representing all 10 rules for updates
+-- |The main force function using alternateAllUGen representing all 10 rules for updates
 force:: Tgraph -> Tgraph
-force = forceWith allUGenerator
+force = forceWith alternateAllUGen
 
 -- |special case of forcing only half tiles to whole tiles
 wholeTiles:: Tgraph -> Tgraph
@@ -246,7 +246,7 @@ instance Show ForceState where
                ++ show (fmap (\(e,(mv,_)) -> (e,(mv,"fn"))) $ Map.assocs $ updateMap fs) ++ " }\n"
 -- |stepForce  produces an intermediate state after a given number of steps (face additions)
 stepForce :: Int -> Tgraph -> ForceState
-stepForce n g = stepForceWith allUGenerator n $ initForceState allUGenerator g
+stepForce n g = stepForceWith alternateAllUGen n $ initForceState alternateAllUGen g
 
 
 -- |do a number of force steps using a given UpdateGenerator (used by stepForce)
@@ -276,7 +276,7 @@ oneStepWith uGen fs =
 
 -- |oneStepF is a special case of oneStepWith only used for debugging
 oneStepF :: ForceState -> Maybe (ForceState,BoundaryChange)
-oneStepF = oneStepWith allUGenerator
+oneStepF = oneStepWith alternateAllUGen
 
 
 
@@ -415,14 +415,14 @@ noConflict fc fcs = null (faceDedges fc `intersect` concatMap faceDedges fcs) &&
 
 
 {- *
-Forcing Rules become Update Generators
+Forcing Rules and Individual Update Generators (for each rule)
 -}
                                     
 {- $rules
 Forcing rules
 
 1. (wholeTileUpdates) When a join edge is on the boundary - add the missing half tile to make a whole tile.    
-2. (kiteBelowDartUpdates) When a half dart has its short edge on the boundary
+2. (deuceKiteUpdates) When a half dart has its short edge on the boundary
    add the half kite that must be on the short edge
    (this is at ace vertices but also helps with jack and deuce vertices).  
 3. (queenOrKingUpdates) When a vertex is both a dart origin and a kite wing it must be a queen or king vertex.
@@ -455,10 +455,12 @@ Forcing rules
 7 vertex types are:
 sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, star
 -}
+                
+
 
 {-| allUGenerator combines all the 10 update generators.
-     They are combined in sequence (keeping the rule order) after applying each to the
-     supplied boundary and a focus edge list.
+    They are combined in sequence (keeping the rule order) after applying each to the
+    supplied boundary and a focus edge list.
     New version reduces the focus edge list by removing those dedges that have been given an update
     by an earlier generator in the list.                        
 -}
@@ -468,16 +470,16 @@ allUGenerator bd focus = umap where
     addGen (es,umap) gen = let umap' = gen bd es
                                es' = es \\ Map.keys umap'
                            in (es',Map.union umap' umap) 
-    generators = [ wholeTileUpdates          -- (1)
-                 , kiteBelowDartUpdates      -- (2)
-                 , queenOrKingUpdates -- (3)
-                 , deuceDartUpdates          -- (4)
-                 , jackDartUpdates -- (5)
-                 , sunStarUpdates            -- (6)
-                 , jackKiteUpdates        -- (7)
-                 , kingDartUpdates          -- (8)
-                 , queenDartUpdates          -- (9)
-                 , queenKiteUpdates          -- (10)
+    generators = [ wholeTileUpdates          -- (rule 1)
+                 , deuceKiteUpdates      -- (rule 2)
+                 , queenOrKingUpdates        -- (rule 3)
+                 , deuceDartUpdates          -- (rule 4)
+                 , jackDartUpdates           -- (rule 5)
+                 , sunStarUpdates            -- (rule 6)
+                 , jackKiteUpdates           -- (rule 7)
+                 , kingDartUpdates           -- (rule 8)
+                 , queenDartUpdates          -- (rule 9)
+                 , queenKiteUpdates          -- (rule 10)
                  ]
 
 -- |UFinder (Update case finder function). Given a Boundary and a list of (focus) boundary directed edges,
@@ -513,9 +515,8 @@ boundaryFilter predF bd focus =
              , predF bd e fc
              ]
 
-
-{-
-------------------  FORCING CASES  ----------------------------
+{- *
+Boundary vertex predicates and properties
 -}
          
 -- |A vertex on the boundary must be a star if it has 7 or more dart origins
@@ -582,7 +583,9 @@ hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
 hasAnyMatchingE [] = False
 
 
-
+{- *
+Individual Forcing cases (for each rule)
+-}
 
 
 {-| makeGenerator combines an update case finder (UFinder) with its corresponding update creator (UMaker)
@@ -614,8 +617,8 @@ incompleteHalves = boundaryFilter boundaryJoin where
 
 
 -- |Update generator for rule (2)
-kiteBelowDartUpdates :: UpdateGenerator
-kiteBelowDartUpdates = makeGenerator addKiteShortE nonKDarts
+deuceKiteUpdates :: UpdateGenerator
+deuceKiteUpdates = makeGenerator addKiteShortE nonKDarts
 
 -- |Find half darts with boundary short edge
 nonKDarts :: UFinder            
@@ -719,14 +722,6 @@ kingMissingThirdDart :: UFinder
 kingMissingThirdDart = boundaryFilter pred where
     pred bd (a,b) fc = longE fc == (b,a) &&
         isDart fc && mustbeKing bd (originV fc)
-{-
-        hasKiteWing && length dartOrigins ==4
-        where
-            orig = originV fc
-            faces = facesAtBV bd orig      
-            dartOrigins = filter ((==orig) . originV) $ filter isDart $ faces
-            hasKiteWing = orig `elem` (fmap wingV $ filter isKite $ faces)
--}
 
 
 -- |Update generator for rule (9)
@@ -838,9 +833,41 @@ addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
   makeFace v = LD(c,v,a)
   x = findThirdV bd (a,c) anglesForLongLD
 
-{-
-------------------  END OF FORCING CASES  ----------------------------
--}
+
+
+-- |An alternative to allUGenerator, using the same rules but making decisions based on
+-- the type of the boundary edge (instead of trying each rule in turn)
+alternateAllUGen :: UpdateGenerator
+alternateAllUGen bd es = mconcat $ fmap (decider bd) (inspector bd es)  where 
+  inspector bd focus = 
+    [ (e,fc,edgeType (reverseD e) fc) 
+    | e <- focus 
+    , fc <- facesAtBV bd (fst e)
+    , fc `elem` facesAtBV bd (snd e)
+    ]
+  decider bd (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
+  decider bd (e,fc,Short) | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2
+                          | otherwise = kiteShortDecider bd e fc 
+  decider bd (e,fc,Long)  | isDart fc = dartLongDecider bd e fc
+                          | otherwise = kiteLongDecider bd e fc 
+  dartLongDecider bd e fc = 
+    if mustbeStar bd (originV fc) then mapItem e (completeSunStar bd fc) else -- rule 6 (star)
+    if mustbeKing bd (originV fc) then mapItem e (addDartLongE bd fc) else -- rule 8
+    if mustbeJack bd (wingV fc)   then mapItem e (addKiteLongE bd fc) else -- rule 7
+    Map.empty
+  kiteLongDecider bd e fc = 
+    if mustbeSun bd (originV fc)  then mapItem e (completeSunStar bd fc) else-- rule 6 (sun)
+    if mustbeQueen4Kite bd (wingV fc) then mapItem e (addDartLongE bd fc) else -- rule 9
+    Map.empty
+  kiteShortDecider bd e fc = 
+    if mustbeDeuce bd (oppV fc) then mapItem e (addDartShortE bd fc) else -- rule 4
+    if mustbeJack bd  (oppV fc) then mapItem e (addDartShortE bd fc) else -- rule 5
+    if mustbeQueen3Kite bd (wingV fc) then mapItem e (addKiteShortE bd fc) else -- rule 10
+    if isDartOrigin bd (wingV fc) then mapItem e (addKiteShortE bd fc) else -- rule 3
+    Map.empty
+  mapItem e u = Map.insert e u Map.empty
+
+
 
 {- *
 Other Forcing operations
