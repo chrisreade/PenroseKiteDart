@@ -31,20 +31,27 @@ import Tgraphs
 
 import ArtWork
                
+{-
+
+-- To produce executable which can output multiple diagrams 
 figs::[(String,Diagram B)]
 figs = trial 
 
 main = mainWith figs
 
-{-
-fig::Diagram B
-fig = testOldanim 
-
-main = mainWith fig
 -}
 
+
+-- normal executable
+fig::Diagram B
+fig = checker
+
+main = mainWith fig
+
+
+
 {-
-For profiling - non diagram output
+-- For profiling - non diagram output
 
 main = putStrLn $ "Number of Faces of force (dartDs!!6) is: " ++ show (length $ faces $ force (dartDs!!6))
 -}

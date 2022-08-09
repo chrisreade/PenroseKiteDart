@@ -849,8 +849,11 @@ emplaceProblemFig:: Diagram B
 emplaceProblemFig = drawForceEmplace sunPlus3Dart'
 
 
-
-
+-- |6 times forced and decomposed kingGraph. Has 53574 faces (takes 1 hour to calculate in ghci)
+-- 2906 faces for kingD6 with no forcing.
+kingFD6:: Diagram B
+kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makePatch $
+          forceDecomps kingGraph !!6
 
 
 {- *
@@ -983,4 +986,6 @@ eitherMaybeExample a | a<1 = Right Nothing
 
 
 
+
+checker = padBorder $ lw ultraThin $ drawGraph $ forceDecomps kingGraph !!3
 

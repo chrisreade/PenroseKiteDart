@@ -104,6 +104,10 @@ maxCompose, maxFCompose:: Tgraph -> Tgraph
 maxCompose g = last $ allComps g
 maxFCompose g = force $ last $ allCompFs g
 
+-- | produces an infinite list of forced decompositions
+forceDecomps:: Tgraph -> [Tgraph]
+forceDecomps = iterate (force . decomposeG)
+
 -- |remove halftile faces that do not have their matching half tile
 removeIncompleteTiles:: Tgraph -> Tgraph
 removeIncompleteTiles g = removeFaces halfTiles g
