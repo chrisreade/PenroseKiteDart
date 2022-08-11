@@ -216,7 +216,12 @@ illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fc
 -- |crossingBVs g returns a list of vertices with crossing boundaries
 -- (which should be null).               
 crossingBVs :: Tgraph -> [Vertex]
-crossingBVs g = duplicates $ fst <$> boundaryDedges g
+crossingBVs g = crossingVertices $ boundaryDedges g
+
+-- |crossingVertices returns a list of vertices occurring more than one at the start
+-- or more than once at the end of the directed edges in a list
+crossingVertices:: [DEdge] -> [Vertex]
+crossingVertices bdes = duplicates (fmap fst bdes) ++ duplicates (fmap snd bdes)
 
 -- |There are crossing boundaries if vertices occur more than once
 -- at the start of all boundary directed edges

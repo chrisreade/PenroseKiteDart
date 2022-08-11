@@ -985,6 +985,3 @@ eitherMaybeExample a | a<1 = Right Nothing
 
 
 
-
-checker = padBorder $ lw ultraThin $ drawGraph $ forceDecomps kingGraph !!3
-

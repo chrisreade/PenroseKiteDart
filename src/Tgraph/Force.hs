@@ -86,13 +86,16 @@ data Boundary
     } deriving (Show)
 
 -- |Calculates Boundary information from a Tgraph
+-- also checks for no crossing boundaries as these could cause difficult to trace errors in forcing.
 makeBoundary:: Tgraph -> Boundary
 makeBoundary g = 
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints $ faces g
       addFacesAt v = VMap.insert v $ filter (isAtV v) (faces g) 
-  in Boundary
+  in if not $ null $ crossingVertices bdes then error $ "makeBoundary found crossing boundary in Tgraph:\n"++show g
+     else
+      Boundary
       { bDedges = bdes
       , bvFacesMap = foldr addFacesAt VMap.empty bvs
       , bvLocMap = bvLocs 
@@ -100,7 +103,7 @@ makeBoundary g =
       , allVertices = vertices g
       , nextVertex = makeNewV (vertices g)
       }
- 
+      
 -- |Converts a Boundary back to a Tgraph
 recoverGraph:: Boundary -> Tgraph
 recoverGraph bd = 
@@ -422,7 +425,7 @@ Forcing Rules and Individual Update Generators (for each rule)
 Forcing rules
 
 1. (wholeTileUpdates) When a join edge is on the boundary - add the missing half tile to make a whole tile.    
-2. (deuceKiteUpdates) When a half dart has its short edge on the boundary
+2. (aceKiteUpdates) When a half dart has its short edge on the boundary
    add the half kite that must be on the short edge
    (this is at ace vertices but also helps with jack and deuce vertices).  
 3. (queenOrKingUpdates) When a vertex is both a dart origin and a kite wing it must be a queen or king vertex.
@@ -458,11 +461,9 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
                 
 
 
-{-| allUGenerator combines all the 10 update generators.
+{-| allUGenerator combines all the 10 rule update generators.
     They are combined in sequence (keeping the rule order) after applying each to the
-    supplied boundary and a focus edge list.
-    New version reduces the focus edge list by removing those dedges that have been given an update
-    by an earlier generator in the list.                        
+    supplied boundary and a focus edge list. (See also alternateAllUGen)
 -}
 allUGenerator :: UpdateGenerator 
 allUGenerator bd focus = umap where
@@ -471,7 +472,7 @@ allUGenerator bd focus = umap where
                                es' = es \\ Map.keys umap'
                            in (es',Map.union umap' umap) 
     generators = [ wholeTileUpdates          -- (rule 1)
-                 , deuceKiteUpdates      -- (rule 2)
+                 , aceKiteUpdates            -- (rule 2)
                  , queenOrKingUpdates        -- (rule 3)
                  , deuceDartUpdates          -- (rule 4)
                  , jackDartUpdates           -- (rule 5)
@@ -554,7 +555,7 @@ isKiteOppV bd v = v `elem` fmap oppV (filter isKite (facesAtBV bd v))
 isDartOrigin:: Boundary -> Vertex -> Bool
 isDartOrigin bd v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
 
--- |A boundary vertex with 4 kite wings is a queen vertex (maybe needing darts)
+-- |A boundary vertex with 4 kite wings is a queen vertex (maybe needing a dart)
 mustbeQueen4Kite:: Boundary -> Vertex -> Bool
 mustbeQueen4Kite bd v = kiteWingCount bd v ==4
 
@@ -617,8 +618,8 @@ incompleteHalves = boundaryFilter boundaryJoin where
 
 
 -- |Update generator for rule (2)
-deuceKiteUpdates :: UpdateGenerator
-deuceKiteUpdates = makeGenerator addKiteShortE nonKDarts
+aceKiteUpdates :: UpdateGenerator
+aceKiteUpdates = makeGenerator addKiteShortE nonKDarts
 
 -- |Find half darts with boundary short edge
 nonKDarts :: UFinder            
@@ -833,18 +834,31 @@ addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
   makeFace v = LD(c,v,a)
   x = findThirdV bd (a,c) anglesForLongLD
 
+-- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
+anglesForJoinRD,anglesForJoinLD,anglesForJoinRK,anglesForJoinLK::(Int,Int)
+anglesForJoinRD = (3,1)
+anglesForJoinLD = (1,3)
+anglesForJoinRK = (1,2)
+anglesForJoinLK = (2,1)
+-- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
+anglesForLongLD,anglesForLongRD,anglesForLongRK,anglesForLongLK::(Int,Int)
+anglesForLongLD = (1,1)
+anglesForLongRD = (1,1)
+anglesForLongRK = (2,1)
+anglesForLongLK = (1,2)
+-- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
+anglesForShortLD,anglesForShortRD,anglesForShortLK,anglesForShortRK::(Int,Int)
+anglesForShortLD = (3,1)
+anglesForShortRD = (1,3)
+anglesForShortLK = (2,2)
+anglesForShortRK = (2,2)
 
 
 -- |An alternative to allUGenerator, using the same rules but making decisions based on
 -- the type of the boundary edge (instead of trying each rule in turn)
 alternateAllUGen :: UpdateGenerator
-alternateAllUGen bd es = mconcat $ fmap (decider bd) (inspector bd es)  where 
-  inspector bd focus = 
-    [ (e,fc,edgeType (reverseD e) fc) 
-    | e <- focus 
-    , fc <- facesAtBV bd (fst e)
-    , fc `elem` facesAtBV bd (snd e)
-    ]
+alternateAllUGen bd es = mconcat $ fmap decide es  where 
+  decide e = decider bd (e,fc,etype) where (fc,etype) = inspectBDedge bd e
   decider bd (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
   decider bd (e,fc,Short) | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2
                           | otherwise = kiteShortDecider bd e fc 
@@ -867,6 +881,13 @@ alternateAllUGen bd es = mconcat $ fmap (decider bd) (inspector bd es)  where
     Map.empty
   mapItem e u = Map.insert e u Map.empty
 
+-- |Given a Boundary and a directed boundary edge, this returns the same edge with
+-- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
+inspectBDedge:: Boundary -> DEdge -> (TileFace, EdgeType)
+inspectBDedge bd e = (fc,edgeType (reverseD e) fc) where
+    fc = case facesAtBV bd (fst e) `intersect` facesAtBV bd (snd e) of
+         [fc] -> fc
+         _ -> error $ "inspectBDedge: Not a boundary directed edge " ++ show e
 
 
 {- *
@@ -895,11 +916,12 @@ addHalfKite g e = recoverGraph $ newBoundary $ doUpdate bd u where
   de = case [e, reverseD e] `intersect` bDedges bd of
          [de] -> de
          _ -> error ("addHalfKite:  on non-boundary edge " ++ show e)
-  [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
-  u | longE fc == reverseD de = addKiteLongE bd fc
-    | shortE fc == reverseD de = addKiteShortE bd fc
-    | joinE fc == reverseD de && isKite fc = completeHalf bd fc
+  (fc,etype) = inspectBDedge bd de
+  u | etype == Long = addKiteLongE bd fc
+    | etype == Short = addKiteShortE bd fc
+    | etype == Join && isKite fc = completeHalf bd fc
     | otherwise = error "addHalfKite: applied to dart join (not possible)"
+
 
 -- |addHalfDart is for adding a single half dart on a chosen DEdge of a Tgraph.
 -- The DEdge must be a boundary edge but the direction is not important as
@@ -911,12 +933,12 @@ addHalfDart g e = recoverGraph $ newBoundary $ doUpdate bd u where
   de = case [e, reverseD e] `intersect` bDedges bd of
          [de] -> de
          _ -> error ("addHalfDart:  on non-boundary edge " ++ show e)
-  [fc] = facesAtBV bd (fst de) `intersect` facesAtBV bd (snd de)
-  u | longE fc == reverseD de = addDartLongE bd fc
-    | shortE fc == reverseD de && isKite fc = addDartShortE bd fc
-    | joinE fc == reverseD de && isDart fc = completeHalf bd fc
-    | otherwise
-    = error "addHalfDart: applied to short edge of dart or to kite join (not possible)"
+  (fc,etype) = inspectBDedge bd de
+  u | etype == Long = addDartLongE bd fc
+    | etype == Short && isKite fc = addDartShortE bd fc
+    | etype == Join && isDart fc = completeHalf bd fc
+    | otherwise = error "addHalfDart: applied to short edge of dart or to kite join (not possible)"
+
 
 
 -- |For an unclassifiable dart wing v in a Tgraph, force it to become a large dart base (largeDartBase) by
@@ -991,11 +1013,8 @@ addHalfKiteSub sub e = SubTgraph{ fullGraph = g', trackedSubsets = fcs:trackedSu
     fcs = faces g' \\ faces g
 
 {- *
-Adding faces (Auxiliary operations)
+Adding faces (findThirdV)
 -}
-
-
-
 
 {-------------------------------------------
 ****************************
@@ -1003,221 +1022,60 @@ ADDING FACES with findThirdV
 ****************************
   
 The difficulty is determining if any edges of a new face already exist.
-This goes beyond a simple graph operation and requires use of the geometry of the faces.
-However, we do not need to go to a full conversion to vectors (which would have equality test problems anyway).
-Instead we introduce a representation of relative directions of edges at a vertex with an equality test.
-All directions are integer multiples of 1/10th turn (mod 10) so we use these integers for comparing directions.
-IntAngle n where n is 0..9
+This goes beyond a simple graph operation and requires use of the internal angles of the faces.
+We use a representation of angles which allows an equality test.
+All angles are integer multiples of 1/10th turn (mod 10) so we use
+these integers for comparing angles n where n is 0..9
+
 
 No crossing boundary property:
-Going round a vertex starting from a boundary edge and starting towards the interior, 
-there will be a boundary and gap after the last face encountered.
-If there is an extra gap - i.e. faces left over when no face is found attached to the last found edge, this
-indicates a crossing boundary so an error is reported as it is unsafe to assume the sought edge does not already exist.
+It is important that there are no crossing boundaries, otherwise external angle calculations can be wrong.
 
 Possible Touching Vertices.
-When searchThirdV / findThirdV return Nothing, this means a new vertex needs to be created.
+When findThirdV returns Nothing, this means a new vertex needs to be created.
 This will need to have its position checked against other (boundary) vertices to avoid
-creating touching vertices/crossing boundary. (Taken care of in tryUnsafeUpdate)
+creating a touching vertex/crossing boundary. (Taken care of in tryUnsafeUpdate)
 ---------------------------------}
 
--- |findThirdV is the main exported interface to find a third vertex for a face added to
--- the RIGHT HAND SIDE of a directed boundary edge.
--- It is a simpler interface for searchThirdV (which it uses).
--- In findThirdV bd (a,b) (n,m), the two integer arguments n and m are the INTERNAL angles
--- for the new face on the boundary edge (a,b)
--- (for a and b respectively) expressed as multiples of tt (tt being a tenth turn) and must both be either 1,2, or 3 
--- It converts n and m to the correct IntAngles,
--- subtracting n from 10 to get the antiClockwise (external) angle on the first vertex (a),
--- before calling searchThirdV to return a Maybe Vertex. (See also searchThirdV)
+{-|findThirdV finds a third vertex (if it is in the Tgraph) for a face added to
+   the RIGHT HAND SIDE of a directed boundary edge.
+   In findThirdV bd (a,b) (n,m), the two integer arguments n and m are the INTERNAL angles
+   for the new face on the boundary directed edge (a,b)
+   (for a and b respectively) expressed as multiples of tt (tt being a tenth turn) and must both be either 1,2, or 3.
+   findThirdV compares these internal angles with the external angles of the boundary calculated at a and b.
+   If one of them matches, then an adjacent boundary edge will lead to the required vertex.
+   If either n or m is too large this raises an error indicating an incorrect graph (stuck tiling)
+-}
 findThirdV:: Boundary -> DEdge -> (Int,Int) -> Maybe Vertex
-findThirdV bd (a,b) (n,m) = searchThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
-{-
-findThirdV bd (a,b) (n,m) = checkAngleNumbers $ searchThirdV bd (a,b) (IntAngle (10-n)) (IntAngle m)
-  where checkAngleNumbers x = if n `elem` [1,2,3] && m `elem` [1,2,3]
-                              then x
-                              else error ("findThirdV angles should be 1,2 or 3 but found "++ show(n,m))
--}
+findThirdV bd (a,b) (n,m) = maybeV where
+    aAngle = externalAngle bd a
+    bAngle = externalAngle bd b
+    maybeV | aAngle < n = err
+           | bAngle < m = err
+           | aAngle == n = Just (fst $ mustFind ((==a) . snd) (bDedges bd) err)
+           | bAngle == m = Just (snd $ mustFind ((==b) . fst) (bDedges bd) err)
+           | otherwise = Nothing
+    err = error $ "findThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " ++ show (a,b)
+                     ++ "\nwith graph:\n " ++ show (recoverGraph bd)
 
--- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
-anglesForJoinRD,anglesForJoinLD,anglesForJoinRK,anglesForJoinLK::(Int,Int)
-anglesForJoinRD = (3,1)
-anglesForJoinLD = (1,3)
-anglesForJoinRK = (1,2)
-anglesForJoinLK = (2,1)
--- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
-anglesForLongLD,anglesForLongRD,anglesForLongRK,anglesForLongLK::(Int,Int)
-anglesForLongLD = (1,1)
-anglesForLongRD = (1,1)
-anglesForLongRK = (2,1)
-anglesForLongLK = (1,2)
--- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
-anglesForShortLD,anglesForShortRD,anglesForShortLK,anglesForShortRK::(Int,Int)
-anglesForShortLD = (3,1)
-anglesForShortRD = (1,3)
-anglesForShortLK = (2,2)
-anglesForShortRK = (2,2)
-
--- |IntAngles are Ints mod 10
-newtype IntAngle = IntAngle Int deriving(Eq,Show)
-
--- |make an IntAngle from an Int (using `mod` 10)
-intAngle :: Int -> IntAngle
-intAngle n = IntAngle (n `mod` 10)
--- |from IntAngle n, turn clockwise/anticlockwise by IntAngle m to get a new IntAngle
-anti,clock:: IntAngle -> IntAngle -> IntAngle
-anti  (IntAngle n) (IntAngle m) = intAngle (n+m)
-clock (IntAngle n) (IntAngle m) = intAngle (n-m)
-
-{- | searchThirdV is the main function for constructing a new face.
-searchThirdV bd (a,b) nAnti nClock will find the third vertex of a face to be added to
-the RIGHT HAND SIDE of boundary directed edge (a,b) by inspecting the edges found at a and b.
-(To add to the LHS of (a,b) then the boundary direction must be (b,a) so add to the right of (b,a))
-
-nAnti is the IntAngle searched for at vertex a going anticlockwise (starting with (a,b) as IntAngle 0).
-nAnti should be formed from integers 7, 8, or 9 for the face to be on RHS.
-
-nClock is the IntAngle searched for at vertex b going clockwise (starting with (b,a) as IntAngle 0).
-nClock should be formed from integers 1,2, or 3 for the face to be on RHS.
-
-If existing edges are found in the specified directions
-they are used and the associated third vertex is returned (Just v). 
-If nothing is found, Nothing is returned - indicating that a new vertex is needed.
-
-A gap in faces processed round a and b (i.e. a boundary edge before all faces are checked) will indicate
-a *crossing boundary* error
-where it is unsafe to conclude the edges do not exist.
-This problem should be detected by findClockAt and findAntiAt.
--} 
-searchThirdV:: Boundary -> DEdge -> IntAngle -> IntAngle -> Maybe Vertex
-searchThirdV bd (a,b) nAnti nClock  = 
-    case (findAntiAt bd nAnti (a,b) (facesAtBV bd a), findClockAt bd nClock (b,a) (facesAtBV bd b)) of
-         (Just c, Just d ) -> if c==d then Just c else error "searchThirdV: non-matching end-points"
-         (Just c, Nothing) -> Just c
-         (Nothing, Just c) -> Just c
-         (Nothing, Nothing)-> Nothing
-
-
-{-| findClockAt, findAntiAt
-For a boundary bd and boundary directed edge (a,b) 
-findAntiAt bd n (a,b) fcs will look at directed edges from a of fcs going anti-clockwise round a with
-their direction starting with (a,b) in direction 0.
-fcs must be the faces at a. It then returns Just c if (a,c) is found in direction n on the boundary.
-It will return Nothing if no such edge (a,c) is found BUT a *crossing boundary* error
-if a boundary edge is found before the sought angle.
-It also produces an error if the last angle found is beyond the one searched for.
-This indicates an incorrect graph, and the boundary argument is used just for reporting the error
-in such cases.
-Similarly findClockAt in the clockwise direction but called with the reverse directed edge,
-so fcs must be faces at b.
--}
-findClockAt, findAntiAt :: Boundary -> IntAngle -> (Vertex, Vertex) -> [TileFace] -> Maybe Vertex
-{-| findAntiAt bd n (a,b) fcs
-(for a boundary bd and boundary directed edge (a,b) and faces at a fcs)
-will look at directed edges from a of fcs going anti-clockwise round a with
-their direction starting with (a,b) in direction 0.
-It then returns Just c if (a,c) is found in direction n on the boundary.
-It will return Nothing if no such edge (a,c) is found BUT a *crossing boundary* error
-if a boundary edge is found before the sought angle.
-It also produces an error if the last angle found is beyond the one searched for.
-This indicates an incorrect graph, and the boundary argument is used just for reporting the error
-in such cases.
--}
-findAntiAt  bd n (a,b) fcs = errorCheckAnti bd a n  $ allAnglesAnti  [(intAngle 0,b)] fcs
-{-| findClockAt bd n (a,b) fcs
-(for a boundary bd and boundary directed edge (a,b) and faces at b fcs)
-findClockAt bd n (a,b) fcs will look at directed edges from b of fcs going anti-clockwise round b with
-their direction starting with (b,a) in direction 0.
-It then returns Just c if (b,c) is found in direction n on the boundary.
-It will return Nothing if no such edge (b,c) is found BUT a *crossing boundary* error
-if a boundary edge is found before the sought angle.
-It also produces an error if the last angle found is below the one searched for.
-This indicates an incorrect graph, and the boundary argument is used just for reporting the error
-in such cases.
--}
-findClockAt bd n (a,b) fcs = errorCheckClock bd a n $ allAnglesClock [(intAngle 0,b)] fcs
-
--- |errorCheckAnti bd v n and errorCheckClock bd v n are used instead of just lookup n, 
--- because the search for n should find it in the front pair on the list or not at all.
--- However if the first angle is smaller than n for checkClockFor or bigger than n for checkAntiFor,
--- there is an incorrect graph.  The first 2 arguments are passed only to report such errors.
-errorCheckAnti,errorCheckClock::Boundary -> Vertex -> IntAngle -> [(IntAngle,Vertex)] -> Maybe Vertex
-errorCheckAnti bd v n [] = Nothing
-errorCheckAnti bd v n ms@((m, a) : _)
-  | m == n = Just a
-  | m `smallerAngle` n = Nothing
-  | otherwise
-    = error ("errorcheckAnti:  Found incorrect graph\nConflict at vertex: "
-            ++ show v
-            ++ "\nChecking (anticlockwise) for angle "
-            ++ show n
-            ++ " but found "
-            ++ show ms
-            ++ "\n In graph:\n"
-            ++ show (recoverGraph bd))
-
-errorCheckClock bd v n [] = Nothing
-errorCheckClock bd v n ms@((m, a) : _)
-    | m == n = Just a
-    | n `smallerAngle` m = Nothing
-    | otherwise
-    = error ("errorcheckClock:  Found incorrect graph\nConflict at vertex: "
-            ++ show v
-            ++ "\nChecking (clockwise) for angle "
-            ++ show n
-            ++ " but found "
-            ++ show ms
-            ++ "\n In graph:\n"
-            ++ show (recoverGraph bd))
-
--- | x is a smaller IntAngle than y if the (mod 10) integer of x is smaller than the (mod 10) integer of y
-(IntAngle m) `smallerAngle`  (IntAngle n) = m<n-- only valid up to n==9
-
-
-{-| allAnglesClock and allAnglesAnti are used by findClockAt and findAntiAt.
-The second argument is the unprocessed list of faces attached to a common vertex a.
-The first argument is the accumulated list of directions found so far with last one at the front of the list
-e.g (n,last) means the last edge found was (a,last) at angle n.
-It looks for another face sharing vertex last (and therefore edge (a,last)) and uses this
-to get the next angle and edge. The found face is removed from the list of faces to be processed in the recursive call.
-If there is no such face, it will return the whole (angle,vertex) list found so far provided
-there are no faces left over.
-Faces left over indicate a crossing boundary at the vertex and therefore an error should be reported
-(because the angle list is incomplete and unsafe to use).
--}
-allAnglesClock,allAnglesAnti:: [(IntAngle,Vertex)] -> [TileFace] -> [(IntAngle,Vertex)]
-allAnglesClock la@((n,last):_) fcs = case filter (isAtV last) fcs of  
-    [fc] ->  allAnglesClock ((clock n (intAngleAt (prevV last fc) fc), nextV last fc) :la)  $ fcs\\[fc]
-    []   -> if null fcs then la else error ("allAnglesClock: crossing boundaries?\nGap after "++ show last ++ " before " ++ show fcs)
-    other    -> error ("allAnglesClock: Conflicting faces found: " ++ show other)
-
-allAnglesAnti la@((n,last):_) fcs = case filter (isAtV last) fcs of  
-    [fc] ->  allAnglesAnti ((anti n (intAngleAt (nextV last fc) fc), prevV last fc) :la)  $ fcs\\[fc]
-    []    -> if null fcs then la else error ("allAnglesAnti: crossing boundaries?\nGap after "++ show last ++ " before " ++ show fcs)
-    other    -> error ("allAnglesAnti: Conflicting faces found: " ++ show other)
-
+-- |externalAngle bd v - calculates the external angle at boundary vertex v in Boundary bd as an
+-- integer multiple of tt (tenth turn), so 1..9 
+externalAngle:: Boundary -> Vertex -> Int
+externalAngle bd v = check $ 10 - (sum $ map (intAngleAt v) $ facesAtBV bd v) where
+  check n | n>9 || n<1 = error $ "externalAngle: vertex not on boundary "++show v
+  check n | otherwise = n
+  
 -- |intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
--- returning an IntAngle (1,2,or 3).
-intAngleAt :: Vertex -> TileFace -> IntAngle
-intAngleAt v fc = faceAngles fc !! indexV v fc
+-- in terms of tenth turns, so returning an Int (1,2,or 3).
+intAngleAt :: Vertex -> TileFace -> Int
+intAngleAt v fc = faceIntAngles fc !! indexV v fc
 
--- |faceAngles returns a list of the three internal angles of a face (clockwise from originV)
--- represented as IntAngles - always 1 or 2 for kites and 1 or 3 for darts
-faceAngles :: TileFace -> [IntAngle]
-faceAngles (LD _) = fmap intAngle [1,3,1]
-faceAngles (RD _) = fmap intAngle [1,1,3]
-faceAngles _      = fmap intAngle [1,2,2] -- LK and RK
-
-
-{-|
-For testing  allAnglesAnti and allAnglesClock on a boundary directed edge.
-The RHS of directed edge (a,b) should be the exterior side.
--}
-testAngles g (a,b) = (allAnglesAnti  [(intAngle 0,b)] $ filter (isAtV a) (faces g),
-                      allAnglesClock [(intAngle 0,a)] $ filter (isAtV b) (faces g))
-
-
-
+-- |faceIntAngles returns a list of the three internal angles of a face (clockwise from originV)
+-- in terms of tenth turns - always 1 or 2 for kites and 1 or 3 for darts.
+faceIntAngles :: TileFace -> [Int]
+faceIntAngles (LD _) = [1,3,1]
+faceIntAngles (RD _) = [1,1,3]
+faceIntAngles _      = [1,2,2] -- LK and RK
 
 
 
