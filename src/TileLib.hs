@@ -248,16 +248,8 @@ compChoices lp = case viewLoc lp of
 compNChoices :: Int -> Located Piece -> [Located Piece]
 compNChoices 0 lp = [lp]
 compNChoices n lp = do
-    lp' <- inflate lp
+    lp' <- compChoices lp
     compNChoices (n-1) lp'
-
--- |inflate is a deprecated name for what is now compChoices
-inflate :: Located Piece -> [Located Piece]
-inflate = compChoices
-
--- |a deprecated name for what is now compNChoices
-inflations :: Int -> Located Piece -> [Located Piece]
-inflations = compNChoices
                                 
 -- |combine 5 copies of a patch (each rotated by ttangle 2 successively)
 -- (ttAngle 2 is 72 degrees) 

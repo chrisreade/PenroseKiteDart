@@ -761,40 +761,40 @@ Six Update Makers
 completeHalf :: UMaker      
 completeHalf bd (LD(a,b,_)) = (x, makeFace) where
         makeFace v = RD(a,v,b)
-        x = findThirdV bd (b,a) anglesForJoinRD
+        x = findThirdV bd (b,a) (3,1) --anglesForJoinRD
 completeHalf bd (RD(a,_,b)) = (x, makeFace) where
         makeFace v = LD(a,b,v)
-        x = findThirdV bd (a,b) anglesForJoinLD
+        x = findThirdV bd (a,b) (1,3) --anglesForJoinLD
 completeHalf bd (LK(a,_,b)) = (x, makeFace) where
         makeFace v = RK(a,b,v)
-        x = findThirdV bd (a,b) anglesForJoinRK
+        x = findThirdV bd (a,b) (1,2) --anglesForJoinRK
 completeHalf bd (RK(a,b,_)) = (x, makeFace) where
         makeFace v = LK(a,v,b)
-        x = findThirdV bd (b,a) anglesForJoinLK
+        x = findThirdV bd (b,a) (2,1) --anglesForJoinLK
 
 -- |add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE :: UMaker         
 addKiteShortE bd (RD(_,b,c)) = (x, makeFace) where
     makeFace v = LK(v,c,b)
-    x = findThirdV bd (c,b) anglesForShortLK
+    x = findThirdV bd (c,b) (2,2) --anglesForShortLK
 addKiteShortE bd (LD(_,b,c)) = (x, makeFace) where
     makeFace v = RK(v,c,b)
-    x = findThirdV bd (c,b) anglesForShortRK
+    x = findThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (LK(_,b,c)) = (x, makeFace) where
     makeFace v = RK(v,c,b)
-    x = findThirdV bd (c,b) anglesForShortRK
+    x = findThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (RK(_,b,c)) = (x, makeFace) where
     makeFace v = LK(v,c,b)
-    x = findThirdV bd (c,b) anglesForShortLK
+    x = findThirdV bd (c,b) (2,2) --anglesForShortLK
 
 -- |add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: UMaker         
 addDartShortE bd (RK(_,b,c)) = (x, makeFace) where
         makeFace v = LD(v,c,b)
-        x = findThirdV bd (c,b) anglesForShortLD
+        x = findThirdV bd (c,b) (3,1) --anglesForShortLD
 addDartShortE bd (LK(_,b,c)) = (x, makeFace) where
         makeFace v = RD(v,c,b)
-        x = findThirdV bd (c,b) anglesForShortRD
+        x = findThirdV bd (c,b) (1,3) --anglesForShortRD
 addDartShortE bd _ = error "addDartShortE applied to non-kite face"
 
 -- |add a kite half to a kite long edge or dart half to a dart long edge
@@ -807,32 +807,32 @@ completeSunStar bd fc = if isKite fc
 addKiteLongE :: UMaker            
 addKiteLongE bd (LD(a,_,c)) = (x, makeFace) where
     makeFace v = RK(c,v,a)
-    x = findThirdV bd (a,c) anglesForLongRK
+    x = findThirdV bd (a,c) (2,1) -- anglesForLongRK
 addKiteLongE bd (RD(a,b,_)) = (x, makeFace) where
     makeFace v = LK(b,a,v)
-    x = findThirdV bd (b,a) anglesForLongLK
+    x = findThirdV bd (b,a) (1,2) -- anglesForLongLK
 addKiteLongE bd (RK(a,_,c)) = (x, makeFace) where
   makeFace v = LK(a,c,v)
-  x = findThirdV bd (a,c) anglesForLongLK
+  x = findThirdV bd (a,c) (1,2) -- anglesForLongLK
 addKiteLongE bd (LK(a,b,_)) = (x, makeFace) where
   makeFace v = RK(a,v,b)
-  x = findThirdV bd (b,a) anglesForLongRK
+  x = findThirdV bd (b,a) (2,1) -- anglesForLongRK
 
 -- |add a half dart on a boundary long edge of a dart or kite
 addDartLongE :: UMaker            
 addDartLongE bd (LD(a,_,c)) = (x, makeFace) where
   makeFace v = RD(a,c,v)
-  x = findThirdV bd (a,c) anglesForLongRD
+  x = findThirdV bd (a,c) (1,1) -- anglesForLongRD
 addDartLongE bd (RD(a,b,_)) = (x, makeFace) where
   makeFace v = LD(a,v,b)
-  x = findThirdV bd (b,a) anglesForLongLD
+  x = findThirdV bd (b,a) (1,1) -- anglesForLongLD
 
 addDartLongE bd (LK(a,b,_)) = (x, makeFace) where
   makeFace v = RD(b,a,v)
-  x = findThirdV bd (b,a) anglesForLongRD
+  x = findThirdV bd (b,a) (1,1) -- anglesForLongRD
 addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
   makeFace v = LD(c,v,a)
-  x = findThirdV bd (a,c) anglesForLongLD
+  x = findThirdV bd (a,c) (1,1) -- anglesForLongLD
 
 -- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
 anglesForJoinRD,anglesForJoinLD,anglesForJoinRK,anglesForJoinLK::(Int,Int)
@@ -1037,14 +1037,16 @@ This will need to have its position checked against other (boundary) vertices to
 creating a touching vertex/crossing boundary. (Taken care of in tryUnsafeUpdate)
 ---------------------------------}
 
-{-|findThirdV finds a third vertex (if it is in the Tgraph) for a face added to
+{-|findThirdV finds a neighbouring third vertex (if it is in the Tgraph) for a face added to
    the RIGHT HAND SIDE of a directed boundary edge.
    In findThirdV bd (a,b) (n,m), the two integer arguments n and m are the INTERNAL angles
    for the new face on the boundary directed edge (a,b)
-   (for a and b respectively) expressed as multiples of tt (tt being a tenth turn) and must both be either 1,2, or 3.
+   (for a and b respectively) expressed as multiples of tt (tt being a tenth turn)
+   and must both be either 1,2, or 3.
    findThirdV compares these internal angles with the external angles of the boundary calculated at a and b.
    If one of them matches, then an adjacent boundary edge will lead to the required vertex.
-   If either n or m is too large this raises an error indicating an incorrect graph (stuck tiling)
+   If either n or m is too large this raises an error indicating an incorrect graph (stuck tiling).
+   If n and m are smaller than the respective external angles, Nothing is returned.
 -}
 findThirdV:: Boundary -> DEdge -> (Int,Int) -> Maybe Vertex
 findThirdV bd (a,b) (n,m) = maybeV where
@@ -1059,7 +1061,8 @@ findThirdV bd (a,b) (n,m) = maybeV where
                      ++ "\nwith graph:\n " ++ show (recoverGraph bd)
 
 -- |externalAngle bd v - calculates the external angle at boundary vertex v in Boundary bd as an
--- integer multiple of tt (tenth turn), so 1..9 
+-- integer multiple of tt (tenth turn), so 1..9.  It relies on there being no crossing boundaries,
+-- so that there is a single external angle at each boundary vertex. 
 externalAngle:: Boundary -> Vertex -> Int
 externalAngle bd v = check $ 10 - (sum $ map (intAngleAt v) $ facesAtBV bd v) where
   check n | n>9 || n<1 = error $ "externalAngle: vertex not on boundary "++show v

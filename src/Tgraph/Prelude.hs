@@ -15,7 +15,7 @@ This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, nub, elemIndex,foldl')
+import Data.List ((\\), intersect, nub, elemIndex,foldl', sort)
 
 import HalfTile
 import TileLib (ttangle,phi) -- necessary for New createVPoints
@@ -157,7 +157,7 @@ conflictingDedges = duplicates . facesDedges
 -- |Returns the list of all directed edges (clockwise round) a list of tile faces
 facesDedges :: [TileFace] -> [(Vertex, Vertex)]
 facesDedges = concatMap faceDedges
-
+---[(a,b),(b,c),(c,a)] where (a,b,c) = tileRep face
 -- | type used to classify edges of faces 
 data EdgeType = Short | Long | Join deriving (Show,Eq)
 
@@ -245,7 +245,9 @@ connectedBy edges v verts = dfs [] [v] (verts \\[v]) where
   dfs done (x:visited) unvisited 
      = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
        where nextVs = map snd $ filter ((== x) . fst) edges
-             newVs = nextVs \\ (done++visited) -- assumes no self-loops
+             newVs = filter (not . (`elem` done)) $ 
+                     filter (not . (`elem` visited)) nextVs -- assumes no self-loops
+--             newVs = nextVs \\ (done++visited) -- assumes no self-loops
 
 
 
@@ -320,7 +322,8 @@ prevV v fc = case indexV v fc of
 
 -- |isAtV v fc asks if a face fc has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool           
-isAtV v face  =  v `elem` faceVList face
+isAtV v face  =  v==a || v==b || v==c where (a,b,c) = tileRep face
+--isAtV v face  =  v `elem` faceVList face
 
 -- |hasVIn vs fc - asks if face fc has an element of vs as a vertex
 hasVIn:: [Vertex] -> TileFace -> Bool           
@@ -344,7 +347,7 @@ we will refer to this as an edge list rather than a directed edge list.
 
 -- |directed edges (clockwise) round a face
 faceDedges::TileFace -> [DEdge]
-faceDedges face = [(a,b),(b,c),(c,a)] where (a,b,c) = faceVs face
+faceDedges face = [(a,b),(b,c),(c,a)] where (a,b,c) = tileRep face
 
 -- |opposite directed edge
 reverseD:: DEdge -> DEdge
@@ -434,18 +437,49 @@ graphEdges :: Tgraph -> [(Vertex, Vertex)]
 graphEdges = bothDir . graphDedges
 
 -- |bothDir adds missing reverse directed edges to a list of directed edges and then removes duplicates
+
 bothDir:: [DEdge] -> [DEdge]
 bothDir = nub . bothDir'
+{- bad performance
+bothDir es = bothDir' missing ++ found where
+  (missing,found) = missingCompleteRevs [] [] es
+-}
 
 -- |bothDir' adds the reverse directed edges to a list of directed edges without checking for duplicates 
 bothDir':: [DEdge] -> [DEdge]
-bothDir' = concatMap (\e -> [e,reverseD e])
+bothDir' = concatMap (\(a,b) -> [(a,b),(b,a)])
 
 -- |boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
 boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
+{- original
 boundaryDedges g = bothDir des \\ des where 
     des = graphDedges g
+-}
+boundaryDedges g = norev des where
+    des = graphDedges g
+    norev [] = []
+    norev ((a,b):es) = let revD = (b,a) in
+                       if revD `elem` des then norev es else revD:norev es
+
+
+{- bad performance
+boundaryDedges g = missing where
+    (missing,_) = missingCompleteRevs [] [] des
+    des = graphDedges g
+
+missingCompleteRevs:: [DEdge] -> [DEdge] -> [DEdge] -> ([DEdge],[DEdge])
+missingCompleteRevs needed complete [] = (needed\\complete,complete)
+missingCompleteRevs needed complete ((a,b):es) =
+  let revD = (b,a) 
+  in if revD `elem` complete then missingCompleteRevs needed complete es else
+     if (a,b) `elem` needed then missingCompleteRevs needed ((a,b):revD:complete) es else 
+     missingCompleteRevs (revD:needed) complete es
+-}
+
+
+
+
 
 
 -- |boundary edges are face edges not shared by 2 faces (but both directions).

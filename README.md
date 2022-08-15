@@ -11,7 +11,7 @@ See LICENSE file
 A library for drawing and experimenting with finite tilings of Penrose\'s kite and dart tiles.
 (These are parts of potentially infinite non-periodic tilings).
 
-For just displaying tilings (Patches) plus decompose/inflate operations you only need modules TileLib, HalfTile, ChosenBackend and possibly TileFigExamples, and a version of Main that only imports what you need.
+For just displaying tilings (Patches) plus decompose/compChoice operations you only need modules TileLib, HalfTile, ChosenBackend and possibly TileFigExamples, and a version of Main that only imports what you need.
 TileLib contains the main drawing tools for Patches.
 
 For a description of TileLib see 

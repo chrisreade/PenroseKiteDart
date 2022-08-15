@@ -68,3 +68,14 @@ tests:
     dependencies:
     - PenroseKiteDart
     - hspec
+benchmarks:
+  PenroseKiteDart-bench:
+    main:                Bench.hs
+    source-dirs:         benchmark
+    ghc-options:
+    - -O2 
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - PenroseKiteDart

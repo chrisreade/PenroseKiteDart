@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = curioPic --dartChoiceLimeGold
+fig = sunWeb2 --dartChoiceLimeGold
 
 main = mainWith fig
 

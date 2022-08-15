@@ -9,7 +9,6 @@ Stability   : experimental
 -}
 module HalfTile where
 
-
 {-|
 Representing Half Tile Pieces Polymorphicly.
 Common code for both graphs and vector representations of tilings. 
@@ -28,6 +27,7 @@ instance Functor HalfTile where
     fmap f (LK rep) = LK (f rep)
     fmap f (RK rep) = RK (f rep)
 
+{-# INLINE tileRep #-}
 -- |return the representation of a half-tile
 tileRep:: HalfTile rep -> rep
 tileRep (LD r) = r

@@ -85,3 +85,21 @@ test-suite PenroseKiteDart-test
     , diagrams-svg
     , hspec
   default-language: Haskell2010
+
+benchmark PenroseKiteDart-bench
+  type: exitcode-stdio-1.0
+  main-is: Bench.hs
+  other-modules:
+      Paths_PenroseKiteDart
+  hs-source-dirs:
+      benchmark
+  ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      PenroseKiteDart
+    , base >=4.7 && <5
+    , containers
+    , diagrams-contrib
+    , diagrams-lib
+    , diagrams-postscript
+    , diagrams-svg
+  default-language: Haskell2010

@@ -9,7 +9,7 @@ Restructured modules:
       ChosenBackend.hs         -- switch between e.g. SVG or PostScript
       TileLib.hs               -- Drawing of Patches
       TileFigExamples.hs
-      Tgraphs.hs               -- Main Graph Ops (imports and reexports all modules in Tgraph except Tgraph.Convert)
+      Tgraphs.hs               -- Main Graph Ops (imports and reexports all modules in Tgraph except Tgraph.Convert
       Tgraph/
          Tgraph.Prelude.hs     -- (imports and reexports HalfTile)
          Tgraph.Decompose.hs
@@ -21,7 +21,7 @@ Restructured modules:
 Graphs and Graph ops are collected in Tgraphs.hs
 Converting functions (and VPatch definition) are in Tgraph.Convert.hs
 Graph example figures are in GraphFigExamples.hs
-Tile Patch drawing figures, swatches, etc are in TileFigExamples.hs
+Tile Patch drawing figures are in TileFigExamples.hs
 
 Original underlying Tile ops and tile drawing are in TileLib.hs
 

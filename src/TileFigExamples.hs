@@ -73,7 +73,7 @@ tileIntro:: Diagram B
 tileIntro = hsep 1 [markedTiles2, newPiecesFig]
 
 {-*
-Figures for decompositions and inflations
+Figures for decompositions and compChoices
 -}
 
 -- |figure showing 4 decompositions in a column for each of the four pieces

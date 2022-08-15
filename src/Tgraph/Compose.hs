@@ -105,14 +105,45 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing tips
 -- gps is a mapping of dart wing tips to the group of faces found at that vertex
-  processD g (kcs, dbs, unks, gps) rd@(RD (orig, w, _))-- classify wing tip w
-    | valencyD g w == 2 = (kcs, dbs, w : unks, gps) -- lone dart wing => unknown
-    | w `elem` kcs || w `elem` dbs = (kcs, dbs, unks, gps) -- already classified
-    | otherwise
-    = let
+  processD g (kcs, dbs, unks, gps) rd@(RD (orig, w, _)) = -- classify wing tip w
+    if w `elem` kcs || w `elem` dbs then (kcs, dbs, unks, gps) else-- already classified
+    let
         fcs = filter (isAtV w) (faces g)  -- faces at w
         newgps = Map.insert w fcs gps -- (w,fcs):gps
-      in
+    in
+       if length fcs ==1 then (kcs, dbs, w : unks, gps) else -- lone dart wing => unknown
+       if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
+                -- wing is a half kite origin => largeDartBases
+        if (w,orig) `elem` fmap longE (filter isLD fcs) then (w:kcs,dbs,unks,newgps) else 
+                -- long edge rd shared with an ld => largeKiteCentres
+        case findFarK rd fcs of
+        Nothing -> (kcs,dbs,w:unks,gps) -- unknown if incomplete kite attached to short edge of rd
+        Just rk@(RK _)  ->  
+            case find (matchingShortE rk) fcs of
+            Just (LK _) -> (w:kcs,dbs,unks,newgps) -- short edge rk shared with an lk => largeKiteCentres
+            Just (LD _) -> (kcs,w:dbs,unks,newgps) -- short edge rk shared with an ld => largeDartBases
+            _ -> let 
+                     newfcs = filter (isAtV (wingV rk)) (faces g)   -- faces at rk wing    
+                 in
+                 case find (matchingLongE rk) newfcs of  -- short edge rk has nothing attached
+                 Nothing -> (kcs,dbs,w:unks,gps)  -- long edge of rk has nothing attached => unknown
+                 Just (LD _) -> (w:kcs,dbs,unks,newgps) -- long edge rk shared with ld => largeKiteCentres
+                 Just lk@(LK _) ->               -- long edge rk shared with lk
+                      case find (matchingShortE lk) newfcs of
+                      Just (RK _) -> (w:kcs,dbs,unks,newgps)
+                              -- short edge of this lk shared with another rk => largeKiteCentres
+                      Just (RD _) -> (kcs,w:dbs,unks,newgps) 
+                              -- short edge of this lk shared with rd => largeDartBases
+                      _ -> (kcs,dbs,w:unks,gps) 
+                              -- short edge of this lk has nothing attached => unknown
+{-
+  processD g (kcs, dbs, unks, gps) rd@(RD (orig, w, _)) = -- classify wing tip w
+    if w `elem` kcs || w `elem` dbs then (kcs, dbs, unks, gps) else -- already classified
+    let
+        fcs = filter (isAtV w) (faces g)  -- faces at w
+        newgps = Map.insert w fcs gps -- (w,fcs):gps
+    in
+        if length fcs ==1 then (kcs, dbs, w : unks, gps) else -- lone dart wing => unknown
         if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
                 -- wing is a half kite origin => largeDartBases
         if (w,orig) `elem` fmap longE (filter isLD fcs) then (w:kcs,dbs,unks,newgps) else 
@@ -137,15 +168,15 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
                               -- short edge of this lk shared with rd => largeDartBases
                       _ -> (kcs,dbs,w:unks,gps) 
                               -- short edge of this lk has nothing attached => unknown
+-}
 
-  processD g (kcs, dbs, unks, gps) ld@(LD (orig, _, w))-- classify wing tip w
-    | valencyD g w == 2 = (kcs, dbs, w : unks, gps) -- lone dart wing => unknown
-    | w `elem` kcs || w `elem` dbs = (kcs, dbs, unks, gps) -- already classified
-    | otherwise
-    = let
+  processD g (kcs, dbs, unks, gps) ld@(LD (orig, _, w)) = -- classify wing tip w
+    if w `elem` kcs || w `elem` dbs then (kcs, dbs, unks, gps) else  -- already classified
+    let
         fcs = filter (isAtV w) (faces g) -- faces at w
         newgps = Map.insert w fcs gps -- (w,fcs):gps
-      in
+    in
+        if length fcs ==1 then (kcs, dbs, w : unks, gps) else -- lone dart wing => unknown
         if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else
                    -- wing is a half kite origin => nodeDB
         if (w,orig) `elem` fmap longE (filter isRD fcs) then (w:kcs,dbs,unks,newgps) else
@@ -169,6 +200,7 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
                      Just (LD _) -> (kcs,w:dbs,unks,newgps)
                              -- short edge of this rk shared with ld => largeDartBases
                      _ -> (kcs,dbs,w:unks,gps) -- short edge of this rk has nothing attached => unknown
+
 
 
     -- find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
