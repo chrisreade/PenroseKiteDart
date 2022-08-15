@@ -15,7 +15,7 @@ This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, nub, elemIndex,foldl', sort)
+import Data.List ((\\), intersect, nub, elemIndex,foldl')
 
 import HalfTile
 import TileLib (ttangle,phi) -- necessary for New createVPoints
@@ -231,6 +231,26 @@ crossingBoundaries g = not $ null $ crossingBVs g
 
 -- |Predicate to check a Tgraph is a connected graph. 
 connected :: Tgraph -> Bool
+connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs) vs)
+                   where vs = vertices g
+
+-- |Auxiliary function for calculating connectedness by depth first search.
+-- connectedBy edges v verts returns the sublist of verts connected to v 
+-- by a chain of edges, paired with a list of vertices not connected
+connectedBy :: Eq a => [(a, a)] -> a -> [a] -> ([a],[a])
+connectedBy edges v verts = dfs [] [v] (verts \\[v]) where 
+-- depth first search arguments:  done (=processed), visited, unvisited.
+  dfs done visited [] = (visited++done,[])
+  dfs done [] unvisited = (done,unvisited) -- any unvisited are not connected
+  dfs done (x:visited) unvisited 
+     = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
+       where nextVs = map snd $ filter ((== x) . fst) edges
+             newVs = filter (not . (`elem` done)) $ 
+                     filter (not . (`elem` visited)) nextVs -- assumes no self-loops
+--             newVs = nextVs \\ (done++visited) -- assumes no self-loops
+{-
+-- |Predicate to check a Tgraph is a connected graph. 
+connected :: Tgraph -> Bool
 connected g =   nullGraph g || null (vs \\ connectedBy (graphEdges g) (head vs) vs)
                    where vs = vertices g
 
@@ -248,6 +268,7 @@ connectedBy edges v verts = dfs [] [v] (verts \\[v]) where
              newVs = filter (not . (`elem` done)) $ 
                      filter (not . (`elem` visited)) nextVs -- assumes no self-loops
 --             newVs = nextVs \\ (done++visited) -- assumes no self-loops
+-}
 
 
 
@@ -322,8 +343,11 @@ prevV v fc = case indexV v fc of
 
 -- |isAtV v fc asks if a face fc has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool           
-isAtV v face  =  v==a || v==b || v==c where (a,b,c) = tileRep face
---isAtV v face  =  v `elem` faceVList face
+-- isAtV v face  =  v==a || v==b || v==c where (a,b,c) = tileRep face
+isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
+isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
+isAtV v (LK(a,b,c))  =  v==a || v==b || v==c
+isAtV v (RK(a,b,c))  =  v==a || v==b || v==c
 
 -- |hasVIn vs fc - asks if face fc has an element of vs as a vertex
 hasVIn:: [Vertex] -> TileFace -> Bool           
@@ -347,7 +371,11 @@ we will refer to this as an edge list rather than a directed edge list.
 
 -- |directed edges (clockwise) round a face
 faceDedges::TileFace -> [DEdge]
-faceDedges face = [(a,b),(b,c),(c,a)] where (a,b,c) = tileRep face
+--faceDedges face = [(a,b),(b,c),(c,a)] where (a,b,c) = tileRep face
+faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
+faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
+faceDedges (LK(a,b,c)) = [(a,b),(b,c),(c,a)]
+faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
 
 -- |opposite directed edge
 reverseD:: DEdge -> DEdge
@@ -395,7 +423,6 @@ facePhiEdges fc        = [e, reverseD e, j, reverseD j]
 -- which is short edges for kites, and join and short edges for darts
 faceNonPhiEdges fc = bothDir' (faceDedges fc) \\ facePhiEdges fc
 
-
 -- |matchingE eselect fc is a predicate on tile faces 
 -- where eselect selects a particular edge type of a face
 -- (eselect could be joinE or longE or shortE for example).
@@ -405,6 +432,7 @@ matchingE eselect fc = (== reverseD (eselect fc)) . eselect
 
 -- |special cases of matchingE eselect 
 -- where eselect is longE, shortE, and joinE
+-- Used in Compose.processD
 matchingLongE,matchingShortE,matchingJoinE ::  TileFace -> TileFace -> Bool
 matchingLongE  = matchingE longE
 matchingShortE = matchingE shortE
@@ -447,7 +475,9 @@ bothDir es = bothDir' missing ++ found where
 
 -- |bothDir' adds the reverse directed edges to a list of directed edges without checking for duplicates 
 bothDir':: [DEdge] -> [DEdge]
-bothDir' = concatMap (\(a,b) -> [(a,b),(b,a)])
+--bothDir' = concatMap (\(a,b) -> [(a,b),(b,a)])
+bothDir' [] = []
+bothDir' ((e@(a,b)):es)= e:(b,a):bothDir' es
 
 -- |boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
@@ -462,19 +492,17 @@ boundaryDedges g = norev des where
     norev ((a,b):es) = let revD = (b,a) in
                        if revD `elem` des then norev es else revD:norev es
 
-
-{- bad performance
+{- Bad performance
 boundaryDedges g = missing where
     (missing,_) = missingCompleteRevs [] [] des
     des = graphDedges g
 
 missingCompleteRevs:: [DEdge] -> [DEdge] -> [DEdge] -> ([DEdge],[DEdge])
 missingCompleteRevs needed complete [] = (needed\\complete,complete)
-missingCompleteRevs needed complete ((a,b):es) =
-  let revD = (b,a) 
-  in if revD `elem` complete then missingCompleteRevs needed complete es else
-     if (a,b) `elem` needed then missingCompleteRevs needed ((a,b):revD:complete) es else 
-     missingCompleteRevs (revD:needed) complete es
+missingCompleteRevs needed complete ((e@(a,b)):es)
+  | e `elem` needed = missingCompleteRevs needed (e:revD:complete) es
+  | otherwise = missingCompleteRevs (revD:needed) complete es
+ where revD = (b,a) 
 -}
 
 

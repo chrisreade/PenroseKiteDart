@@ -409,7 +409,7 @@ Conflict Test
 -- of neighbouring faces fcs (in the same direction)
 -- and the edge length types (phi/nonPhi) do not conflict.
 noConflict :: TileFace -> [TileFace] -> Bool
-noConflict fc fcs = null (faceDedges fc `intersect` concatMap faceDedges fcs) &&
+noConflict fc fcs = null (faceDedges fc `intersect` facesDedges fcs) &&
                     null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
                     null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
 
