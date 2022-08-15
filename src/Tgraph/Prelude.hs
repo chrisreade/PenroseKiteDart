@@ -17,6 +17,8 @@ module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, nub, elemIndex,foldl')
 
+import qualified Data.IntMap.Strict as VMap (fromListWith, lookup)-- used for Boundaries
+
 import HalfTile
 import TileLib (ttangle,phi) -- necessary for New createVPoints
 
@@ -421,7 +423,7 @@ facePhiEdges fc        = [e, reverseD e, j, reverseD j]
 
 -- |The non-phi edges of a face (both directions)
 -- which is short edges for kites, and join and short edges for darts
-faceNonPhiEdges fc = bothDir' (faceDedges fc) \\ facePhiEdges fc
+faceNonPhiEdges fc = bothDirOneWay (faceDedges fc) \\ facePhiEdges fc
 
 -- |matchingE eselect fc is a predicate on tile faces 
 -- where eselect selects a particular edge type of a face
@@ -464,61 +466,57 @@ nonPhiEdges g = bothDir $ concatMap faceNonPhiEdges $ faces g
 graphEdges :: Tgraph -> [(Vertex, Vertex)]
 graphEdges = bothDir . graphDedges
 
--- |bothDir adds missing reverse directed edges to a list of directed edges and then removes duplicates
-
+-- |bothDir adds missing reverse directed edges to a list of directed edges
+-- to complete edges (Result is a complete edge list)
+-- It assumes no duplicates in argument.
 bothDir:: [DEdge] -> [DEdge]
-bothDir = nub . bothDir'
-{- bad performance
-bothDir es = bothDir' missing ++ found where
-  (missing,found) = missingCompleteRevs [] [] es
--}
+bothDir es = missingRevs es ++ es
+-- bothDir = nub . bothDirOneWay
 
--- |bothDir' adds the reverse directed edges to a list of directed edges without checking for duplicates 
-bothDir':: [DEdge] -> [DEdge]
---bothDir' = concatMap (\(a,b) -> [(a,b),(b,a)])
-bothDir' [] = []
-bothDir' ((e@(a,b)):es)= e:(b,a):bothDir' es
+-- |bothDirOneWay adds all the reverse directed edges to a list of directed edges
+-- without checking for duplicates.
+-- Should be used on lists with single directions only.
+-- If the argument may contain reverse directions, use bothDir to avoid duplicates.
+bothDirOneWay:: [DEdge] -> [DEdge]
+--bothDirOneWay = concatMap (\(a,b) -> [(a,b),(b,a)])
+bothDirOneWay [] = []
+bothDirOneWay ((e@(a,b)):es)= e:(b,a):bothDirOneWay es
 
 -- |boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
 boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
+boundaryDedges g = missingRevs (graphDedges g) where
 {- original
 boundaryDedges g = bothDir des \\ des where 
     des = graphDedges g
 -}
-boundaryDedges g = norev des where
-    des = graphDedges g
-    norev [] = []
-    norev ((a,b):es) = let revD = (b,a) in
-                       if revD `elem` des then norev es else revD:norev es
 
-{- Bad performance
-boundaryDedges g = missing where
-    (missing,_) = missingCompleteRevs [] [] des
-    des = graphDedges g
-
-missingCompleteRevs:: [DEdge] -> [DEdge] -> [DEdge] -> ([DEdge],[DEdge])
-missingCompleteRevs needed complete [] = (needed\\complete,complete)
-missingCompleteRevs needed complete ((e@(a,b)):es)
-  | e `elem` needed = missingCompleteRevs needed (e:revD:complete) es
-  | otherwise = missingCompleteRevs (revD:needed) complete es
- where revD = (b,a) 
--}
-
-
-
-
-
+-- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
+missingRevs:: [DEdge] -> [DEdge]
+missingRevs es = revUnmatched es where
+    imap = VMap.fromListWith (++) $ map singleton es
+    singleton (a,b) = (a,[b])
+    seekR (a,b) = case VMap.lookup b imap of
+                   Nothing -> False
+                   Just vs -> a `elem` vs
+                    
+    revUnmatched [] = []
+    revUnmatched (e@(a,b):es) | seekR e = revUnmatched es
+                              | otherwise = (b,a):revUnmatched es
 
 -- |boundary edges are face edges not shared by 2 faces (but both directions).
 boundaryEdges :: Tgraph -> [(Vertex, Vertex)]
-boundaryEdges  = bothDir' . boundaryDedges
+boundaryEdges  = bothDirOneWay . boundaryDedges
 
 -- |internal edges are shared by two faces = all edges except boundary edges
 internalEdges :: Tgraph -> [(Vertex, Vertex)]
+internalEdges g =  des \\ fmap reverseD (missingRevs des) where
+    des = graphDedges g
+{-
 internalEdges g = des \\ fmap reverseD bdes where
     des = graphDedges g
     bdes = bothDir des \\ des
+-}
 
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool

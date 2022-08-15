@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = sunWeb2 --dartChoiceLimeGold
+fig = nestedKing --dartChoiceLimeGold
 
 main = mainWith fig
 
