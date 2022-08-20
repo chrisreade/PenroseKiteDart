@@ -18,7 +18,7 @@ import Data.List ((\\), intersect, nub, find,foldl')
 import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, delete, lookup)-- used for Boundaries
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
-import Tgraph.Convert(touching, createVPoints, addVPoints)
+import Tgraph.Convert(touching, createVPoints, addVPoint)
 import Tgraph.Prelude
 
 {-
@@ -369,7 +369,8 @@ tryUnsafeUpdate bd (Nothing, makeFace) =
    let v = nextVertex bd       
        newFace = makeFace v
        oldVPoints = bvLocMap bd
-       newVPoints = addVPoints [newFace] [] oldVPoints
+       newVPoints = addVPoint newFace oldVPoints
+--       newVPoints = addVPoints [newFace] [] oldVPoints
        Just vPosition = VMap.lookup v newVPoints
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd -- singleton

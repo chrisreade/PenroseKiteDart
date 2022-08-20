@@ -16,9 +16,10 @@ Includes functions to calculate (relative) locations of vertices (createVPoints,
 
 module Tgraph.Convert where
 
-import Data.List ((\\), find, partition, nub)
+import Data.List ((\\), find, partition, nub, intersect)
 import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, toList, fromList, keys)
-import Data.Maybe (mapMaybe)
+import qualified Data.Map.Strict as Map (Map, lookup, fromList) -- used for createVPoints
+import Data.Maybe (mapMaybe, catMaybes)
 
 import Diagrams.Prelude
 import TileLib
@@ -248,6 +249,39 @@ dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
 {-| createVPoints: processes a list of faces to associate points for each vertex.
      Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
       Returns a vertex-to-point Map.
+  This version is made more efficient by calculating an edge to face map.
+-}
+createVPoints:: [TileFace] -> VertexLocMap
+createVPoints [] = VMap.empty
+createVPoints faces = fastAddVPoints [face] more (axisJoin face) where
+    (face:more) = lowestJoinFirst faces
+    efMap = buildEFMap faces
+
+    fastAddVPoints [] [] vpMap = vpMap 
+    fastAddVPoints [] fcOther vpMap = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (nbs++fcs) fcOther' vpMap' where
+        nbs = edgeNbs efMap fc `intersect` fcOther
+        fcOther' = fcOther\\nbs
+        vpMap' = case thirdVertexLoc fc vpMap of
+                       Just (v,p) -> VMap.insert v p vpMap
+                       Nothing -> vpMap
+
+-- |Build a Map from directed edges to faces (the unique face containing the directed edge)
+buildEFMap:: [TileFace] -> Map.Map DEdge TileFace
+buildEFMap = mconcat . fmap processFace where
+  processFace fc = Map.fromList $ fmap (\e -> (e,fc)) $ faceDedges fc
+ 
+-- |Given a map from each directed edge to the tileface containing it (efMap), a tileface (fc)
+-- return the list of edge neighbours of fc.
+edgeNbs:: Map.Map DEdge TileFace -> TileFace -> [TileFace]
+edgeNbs efMap fc = catMaybes $ fmap getNbr edges where
+    getNbr e = Map.lookup e efMap
+    edges = fmap reverseD (faceDedges fc) 
+
+{- OLDER VERSION
+{-| createVPoints: processes a list of faces to associate points for each vertex.
+     Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
+      Returns a vertex-to-point Map.
 -}
 createVPoints:: [TileFace] -> VertexLocMap
 createVPoints [] = VMap.empty
@@ -271,6 +305,8 @@ addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
              Nothing -> vpMap
   (fcs', fcOther')   = partition (edgeNb fc) fcOther
 
+-}
+
 -- |For a non-empty list of tile faces
 -- find the face with lowest originV (and then lowest oppV).
 -- Move this face to the front of the returned list of faces.
@@ -283,6 +319,14 @@ lowestJoinFirst fcs = face:(fcs\\[face]) where
     face = case filter (((a,b)==) . joinOfTile) aFs of  -- should be find
            (face:_) -> face
            []       -> error "lowestJoinFirst: empty graph?"
+
+-- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tilface vertices
+-- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
+addVPoint:: TileFace -> VertexLocMap -> VertexLocMap
+addVPoint fc vpMap = 
+  case thirdVertexLoc fc vpMap of
+    Just (v,p) -> VMap.insert v p vpMap
+    Nothing -> vpMap
 
 -- |axisJoin fc 
 -- initialises a vertex to point mapping with locations for the join edge vertices of fc
