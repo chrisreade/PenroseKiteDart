@@ -1,0 +1,60 @@
+Retainer Profiling: 0, at 0.452409 seconds
+	Max auxiliary stack size = 1748
+	Average number of visits per object = 2.649304
+Retainer Profiling: 1, at 0.582628 seconds
+	Max auxiliary stack size = 3551
+	Average number of visits per object = 2.165905
+Retainer Profiling: 2, at 0.746181 seconds
+	Max auxiliary stack size = 5356
+	Average number of visits per object = 2.164975
+Retainer Profiling: 3, at 0.882894 seconds
+	Max auxiliary stack size = 6889
+	Average number of visits per object = 2.370411
+Retainer Profiling: 4, at 1.036258 seconds
+	Max auxiliary stack size = 8542
+	Average number of visits per object = 2.369089
+Retainer Profiling: 5, at 1.202525 seconds
+	Max auxiliary stack size = 10198
+	Average number of visits per object = 2.375906
+Retainer Profiling: 6, at 1.335191 seconds
+	Max auxiliary stack size = 7409
+	Average number of visits per object = 2.397173
+Retainer Profiling: 7, at 1.482684 seconds
+	Max auxiliary stack size = 7415
+	Average number of visits per object = 2.377369
+Retainer Profiling: 8, at 1.667416 seconds
+	Max auxiliary stack size = 7412
+	Average number of visits per object = 2.359866
+Retainer Profiling: 9, at 1.897506 seconds
+	Max auxiliary stack size = 8891
+	Average number of visits per object = 2.193900
+Retainer Profiling: 10, at 2.029701 seconds
+	Max auxiliary stack size = 7397
+	Average number of visits per object = 2.191151
+
+Retainer sets created during profiling:
+SET 2 = {<SYSTEM.SYSTEM>}
+SET 3 = {<GHC.Conc.Signal.CAF>}
+SET 4 = {<>}
+SET 31 = {<GHC.IO.Handle.FD.CAF>}
+SET 33 = {<GHC.IO.Encoding.CAF>}
+SET 50 = {<GHC.IO.Encoding.CAF>, <GHC.IO.Handle.FD.CAF>}
+SET 51 = {<GHC.Event.Thread.CAF>}
+SET 53 = {<>, <SYSTEM.SYSTEM>}
+SET 55 = {<GHC.Conc.Sync.CAF>, <SYSTEM.SYSTEM>}
+SET 81 = {<GHC.Event.Thread.CAF>, <>}
+SET 102 = {<Main.main>}
+SET 103 = {<GHC.IO.Handle.FD.CAF>, <SYSTEM.SYSTEM>}
+SET 105 = {<Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>}
+SET 114 = {<Tgraph.Force.tryUnsafeUpdate,Tgraph.Force.tryUnsafes.tryList,Tgraph.Force.tryUnsafes,Tgraph.Force.forceAll.retry,Tgraph.Force.forceAll,Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>}
+SET 124 = {<SYSTEM.SYSTEM>, <Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>}
+SET 125 = {<SYSTEM.SYSTEM>, <Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>, <Tgraph.Force.tryUnsafeUpdate,Tgraph.Force.tryUnsafes.tryList,Tgraph.Force.tryUnsafes,Tgraph.Force.forceAll.retry,Tgraph.Force.forceAll,Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>}
+SET 156 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.crossingVertices,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 157 = {<Tgraph.Prelude.facesDedges,Tgraph.Prelude.graphDedges,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 158 = {<SYSTEM.SYSTEM>, <Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>, <Tgraph.Force.tryUnsafeUpdate,Tgraph.Force.tryUnsafes.tryList,Tgraph.Force.tryUnsafes,Tgraph.Force.forceAll.retry,Tgraph.Force.forceAll,Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>, <Tgraph.Prelude.facesDedges,Tgraph.Prelude.graphDedges,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 159 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.facesDedges,Tgraph.Prelude.graphDedges,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 165 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.missingRevs.imap,Tgraph.Prelude.missingRevs,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 166 = {<Tgraph.Prelude.missingRevs.imap,Tgraph.Prelude.missingRevs,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 167 = {<SYSTEM.SYSTEM>, <Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>, <Tgraph.Force.tryUnsafeUpdate,Tgraph.Force.tryUnsafes.tryList,Tgraph.Force.tryUnsafes,Tgraph.Force.forceAll.retry,Tgraph.Force.forceAll,Tgraph.Force.forceWith,Tgraph.Force.force,Main.main.fkD,Main.main,Main.CAF:main_fkD>, <Tgraph.Prelude.facesDedges,Tgraph.Prelude.graphDedges,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>, <Tgraph.Prelude.missingRevs.imap,Tgraph.Prelude.missingRevs,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 174 = {<GHC.Conc.Signal.CAF>, <>}
+SET 195 = {<GHC.Conc.Sync.CAF>, <GHC.IO.Handle.FD.CAF>, <SYSTEM.SYSTEM>}

@@ -239,31 +239,33 @@ connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs
 -- |Auxiliary function for calculating connectedness by depth first search.
 -- connectedBy edges v verts returns the sublist of verts connected to v 
 -- by a chain of edges, paired with a list of vertices not connected
-connectedBy :: Eq a => [(a, a)] -> a -> [a] -> ([a],[a])
+connectedBy :: [DEdge] -> Vertex -> [Vertex] -> ([Vertex],[Vertex])
 connectedBy edges v verts = dfs [] [v] (verts \\[v]) where 
+  nextMap = VMap.fromListWith (++) $ map singleton edges
+  singleton (a,b) = (a,[b])
 -- depth first search arguments:  done (=processed), visited, unvisited.
   dfs done visited [] = (visited++done,[])
   dfs done [] unvisited = (done,unvisited) -- any unvisited are not connected
   dfs done (x:visited) unvisited 
      = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
-       where nextVs = map snd $ filter ((== x) . fst) edges
+       where Just nextVs = VMap.lookup x nextMap
              newVs = filter (not . (`elem` done)) $ 
                      filter (not . (`elem` visited)) nextVs -- assumes no self-loops
---             newVs = nextVs \\ (done++visited) -- assumes no self-loops
+
 {-
 -- |Predicate to check a Tgraph is a connected graph. 
 connected :: Tgraph -> Bool
-connected g =   nullGraph g || null (vs \\ connectedBy (graphEdges g) (head vs) vs)
+connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs) vs)
                    where vs = vertices g
 
 -- |Auxiliary function for calculating connectedness by depth first search.
--- connectedBy edges v verts returns the sublist of verts connected to v
--- by a chain of edges
-connectedBy :: Eq a => [(a, a)] -> a -> [a] -> [a]
+-- connectedBy edges v verts returns the sublist of verts connected to v 
+-- by a chain of edges, paired with a list of vertices not connected
+connectedBy :: Eq a => [(a, a)] -> a -> [a] -> ([a],[a])
 connectedBy edges v verts = dfs [] [v] (verts \\[v]) where 
--- depth first search arguments:  done (=processed), visited, unvisited
-  dfs done visited [] = visited++done
-  dfs done [] unvisited = done -- any unvisited are not connected
+-- depth first search arguments:  done (=processed), visited, unvisited.
+  dfs done visited [] = (visited++done,[])
+  dfs done [] unvisited = (done,unvisited) -- any unvisited are not connected
   dfs done (x:visited) unvisited 
      = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
        where nextVs = map snd $ filter ((== x) . fst) edges

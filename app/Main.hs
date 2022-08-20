@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = nestedKing --dartChoiceLimeGold
+fig = curioPic
 
 main = mainWith fig
 

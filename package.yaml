@@ -56,7 +56,16 @@ executables:
     when:        
     - condition: false        
       other-modules: Paths_PenroseKiteDart
-
+  PKDbench-exe:          # the actual executable name
+    main:               Bench.hs  # modulde must be 'Main'
+    source-dirs:        benchmark
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies: 
+    - PenroseKiteDart
+    
 tests:
   PenroseKiteDart-test:
     main:                Spec.hs

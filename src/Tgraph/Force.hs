@@ -10,6 +10,8 @@ This module includes force plus related operations for testing and experimenting
 It also exposes the calculation of relative angle of edges at vertices used to find existing edges.
 It uses a touching check for adding new vertices (using Tgraph.Convert.creatVPoints for vertex locations)
 -}
+-- {-# LANGUAGE BangPatterns #-}
+
 module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
@@ -82,7 +84,7 @@ data Boundary
     , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex
     , allFaces:: [TileFace] -- ^ all the tile faces
     , allVertices:: [Vertex] -- ^ all the vertices
-    , nextVertex::  Vertex -- ^ next vertex number
+    , nextVertex::  !Vertex -- ^ next vertex number
     } deriving (Show)
 
 -- |Calculates Boundary information from a Tgraph
@@ -92,11 +94,13 @@ makeBoundary g =
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints $ faces g
+--      insertFaces vmap v = VMap.insert v (filter (isAtV v) (faces g)) vmap
       addFacesAt v = VMap.insert v $ filter (isAtV v) (faces g) 
   in if not $ null $ crossingVertices bdes then error $ "makeBoundary found crossing boundary in Tgraph:\n"++show g
      else
       Boundary
       { bDedges = bdes
+--      , bvFacesMap = foldl' insertFaces VMap.empty bvs
       , bvFacesMap = foldr addFacesAt VMap.empty bvs
       , bvLocMap = bvLocs 
       , allFaces = faces g
@@ -113,9 +117,10 @@ recoverGraph bd =
 
 -- |changeVFMap f vfmap vs - adds f to the list of faces associated with each v in vs and updates vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> [Vertex] -> VertexMap [TileFace]
-changeVFMap f = foldr (VMap.alter addf) where
-   addf Nothing = Just [f]
-   addf (Just fs) = Just (f:fs)
+changeVFMap f  = foldl' insertf where
+   insertf vmap v = VMap.alter consf v vmap
+   consf Nothing = Just [f]
+   consf (Just fs) = Just (f:fs)
    
    
 -- |facesAtBV bd v - returns the faces found at v (which must be a boundary vertex)
@@ -226,6 +231,11 @@ reviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> UpdateMap
 reviseUpdates uGen bdChange umap = Map.union umap'' umap' where
   umap' = foldr Map.delete umap (removedEdges bdChange)
   umap'' = uGen (newBoundary bdChange) (revisedEdges bdChange) 
+{-
+  !umap' = foldl' deleteFrom umap (removedEdges bdChange)
+  !umap'' = uGen (newBoundary bdChange) (revisedEdges bdChange) 
+  deleteFrom !ump !e = Map.delete e ump
+-}
 
 -- |safe updates are those which do not require a new vertex, 
 -- so have an identified existing vertex (Just v)

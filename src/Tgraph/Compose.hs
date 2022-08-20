@@ -108,11 +108,11 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
   processD g (kcs, dbs, unks, gps) rd@(RD (orig, w, _)) = -- classify wing tip w
     if w `elem` kcs || w `elem` dbs then (kcs, dbs, unks, gps) else-- already classified
     let
-        fcs = filter (isAtV w) (faces g)  -- faces at w
+        fcs = filter (isAtV w) (faces g) -- faces at w
         newgps = Map.insert w fcs gps -- (w,fcs):gps
     in
-       if length fcs ==1 then (kcs, dbs, w : unks, gps) else -- lone dart wing => unknown
-       if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
+        if length fcs ==1 then (kcs, dbs, w:unks, gps) else -- lone dart wing => unknown
+        if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else 
                 -- wing is a half kite origin => largeDartBases
         if (w,orig) `elem` fmap longE (filter isLD fcs) then (w:kcs,dbs,unks,newgps) else 
                 -- long edge rd shared with an ld => largeKiteCentres
@@ -143,7 +143,7 @@ classifyDartWings g = DWClass {largeKiteCentres = kcs, largeDartBases = dbs, unk
         fcs = filter (isAtV w) (faces g) -- faces at w
         newgps = Map.insert w fcs gps -- (w,fcs):gps
     in
-        if length fcs ==1 then (kcs, dbs, w : unks, gps) else -- lone dart wing => unknown
+        if length fcs ==1 then (kcs, dbs, w:unks, gps) else -- lone dart wing => unknown
         if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks,newgps) else
                    -- wing is a half kite origin => nodeDB
         if (w,orig) `elem` fmap longE (filter isRD fcs) then (w:kcs,dbs,unks,newgps) else
