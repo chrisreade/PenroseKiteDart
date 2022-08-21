@@ -247,7 +247,6 @@ dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
 
 {- * Vertex Location Calculation -}
 
-{- LATESTVERSION (SAME) ERROR
 
 {-| createVPoints: processes a list of faces to associate points for each vertex.
      Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
@@ -260,86 +259,19 @@ createVPoints [] = VMap.empty
 createVPoints faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
     (face:more) = lowestJoinFirst faces
     efMap = buildEFMap faces
-
-    fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPoints [] fcOther vpMap | otherwise = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
-    fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (nbs++fcs) fcOther' vpMap' where
-        nbs = filter (\f -> Set.member f fcOther) (edgeNbs efMap fc)
-        fcOther' = foldr Set.delete fcOther nbs
---        fcOther' = Set.filter (`notElem` nbs) fcOther
-        vpMap' = case thirdVertexLoc fc vpMap of
-                       Just (v,p) -> VMap.insert v p vpMap
-                       Nothing -> vpMap
--}
-
-
-{-
--- NEXT VERSION (ERROR)
-{-| createVPoints: processes a list of faces to associate points for each vertex.
-     Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
-      Returns a vertex-to-point Map.
-  This version is made more efficient by calculating an edge to face map.
--}
-
-createVPoints:: [TileFace] -> VertexLocMap
-createVPoints [] = VMap.empty
-createVPoints faces = fastAddVPoints [face] more (axisJoin face) where
-    (face:more) = lowestJoinFirst faces
-    efMap = buildEFMap faces
-
-    fastAddVPoints [] [] vpMap = vpMap 
-    fastAddVPoints [] fcOther vpMap = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
-    fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (nbs++fcs) fcOther' vpMap' where
-        nbs = edgeNbs efMap fc `intersect` fcOther
-        fcOther' = fcOther\\nbs
-        vpMap' = case thirdVertexLoc fc vpMap of
-                       Just (v,p) -> VMap.insert v p vpMap
-                       Nothing -> vpMap
-
--}
-
-
-
--- |Build a Map from directed edges to faces (the unique face containing the directed edge)
-buildEFMap:: [TileFace] -> Map.Map DEdge TileFace
-buildEFMap = mconcat . fmap processFace where
-  processFace fc = Map.fromList $ fmap (\e -> (e,fc)) $ faceDedges fc
- 
--- |Given a map from each directed edge to the tileface containing it (efMap), a tileface (fc)
--- return the list of edge neighbours of fc.
-edgeNbs:: Map.Map DEdge TileFace -> TileFace -> [TileFace]
-edgeNbs efMap fc = catMaybes $ fmap getNbr edges where
-    getNbr e = Map.lookup e efMap
-    edges = fmap reverseD (faceDedges fc) 
-
-{-| createVPoints: processes a list of faces to associate points for each vertex.
-     Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
-      Returns a vertex-to-point Map.
--}
-createVPoints:: [TileFace] -> VertexLocMap
-createVPoints [] = VMap.empty
-createVPoints faces = addVPoints [face] more (axisJoin face) where
-    (face:more) = lowestJoinFirst faces
-
-{-| addVPoints readyfaces fcOther vpMap.
+{- fastAddVPoints readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
-each will have at least two known vertex locations.
-The second argument list of faces (fcOther) are faces that have not yet been added
+each will have at least two known vertex locations in vpMap.
+The second argument Set of faces (fcOther) are faces that have not yet been added
 and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
-This is used in tryUpdate as well as createVPoints.
 -}
-addVPoints:: [TileFace] -> [TileFace] -> VertexLocMap -> VertexLocMap
-addVPoints [] [] vpMap = vpMap 
-addVPoints [] fcOther vpMap = error ("addVPoints: Faces not tile-connected " ++ show fcOther)
-addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
-  vpMap' = case thirdVertexLoc fc vpMap of
-             Just (v,p) -> VMap.insert v p vpMap
-             Nothing -> vpMap
-  (fcs', fcOther')   = partition (edgeNb fc) fcOther
-
-
-
+    fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
+    fastAddVPoints [] fcOther vpMap | otherwise = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
+        nbs = filter (\f -> Set.member f fcOther) (edgeNbs efMap fc)
+        fcOther' = foldr Set.delete fcOther nbs
+        vpMap' = addVPoint fc vpMap
 
 -- |For a non-empty list of tile faces
 -- find the face with lowest originV (and then lowest oppV).
@@ -361,6 +293,18 @@ addVPoint fc vpMap =
   case thirdVertexLoc fc vpMap of
     Just (v,p) -> VMap.insert v p vpMap
     Nothing -> vpMap
+
+-- |Build a Map from directed edges to faces (the unique face containing the directed edge)
+buildEFMap:: [TileFace] -> Map.Map DEdge TileFace
+buildEFMap = mconcat . fmap processFace where
+  processFace fc = Map.fromList $ fmap (\e -> (e,fc)) $ faceDedges fc
+ 
+-- |Given a map from each directed edge to the tileface containing it (efMap), a tileface (fc)
+-- return the list of edge neighbours of fc.
+edgeNbs:: Map.Map DEdge TileFace -> TileFace -> [TileFace]
+edgeNbs efMap fc = catMaybes $ fmap getNbr edges where
+    getNbr e = Map.lookup e efMap
+    edges = fmap reverseD (faceDedges fc) 
 
 -- |axisJoin fc 
 -- initialises a vertex to point mapping with locations for the join edge vertices of fc
