@@ -45,7 +45,8 @@ foolDs :: [Tgraph]
 foolDs = decompositionsG fool
 
 -- |foolDminus: 3 faces removed from foolD - still a valid Tgraph
-foolDminus = removeFaces [RD(6,12,11), LD(6,14,12), RK(5,10,2)] foolD --removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
+foolDminus = removeFaces [RD(6,15,13), LD(6,17,15), RK(5,11,2)] foolD
+-- [RD(6,12,11), LD(6,14,12), RK(5,10,2)] foolD --removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
 
 -- | diagram of just fool
 foolFig :: Diagram B
@@ -221,7 +222,8 @@ dartD4 = dartDs!!4
 -- |brokenDart gets repaired by forcing but can also be composed to a maximal graph
 brokenDart :: Tgraph
 brokenDart = removeFaces deleted dartD4 where
-  deleted = [RK(2,14,26),LD(13,26,14),RK(14,45,13),LK(14,46,45),LK(5,13,45)] 
+  deleted = [RK(2,16,33),LD(15,33,16),RK(16,66,15),LK(16,67,66),LK(5,15,66)]
+  --[RK(2,14,26),LD(13,26,14),RK(14,45,13),LK(14,46,45),LK(5,13,45)] 
   -- [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
 
 {-| badlyBrokenDart gets repaired by forcing but will fail to produce a valid graph
@@ -231,10 +233,13 @@ brokenDart = removeFaces deleted dartD4 where
      Tgraph {vertices = [4,6,3,1,5], faces = [LD (4,6,3),LK (1,5,3)]}
 -}
 badlyBrokenDart :: Tgraph
-badlyBrokenDart = removeFaces deleted dartD4 where
-  deleted = [RK(2,14,26),LD(13,26,14),RK(14,45,13),LK(14,46,45),LK(5,13,45)]
-            ++[LK(7,21,43),RK(7,43,40),LD(9,40,43),RD(9,43,44),LK(22,44,43),RK(22,43,21),RK(6,22,38)]
+badlyBrokenDart = removeFaces deleted brokenDart where
+  deleted = RK(6,28,54):filter (isAtV 63) (faces brokenDart)
 {-
+        
+        [RK(2,14,26),LD(13,26,14),RK(14,45,13),LK(14,46,45),LK(5,13,45)]
+                    ++[LK(7,21,43),RK(7,43,40),LD(9,40,43),RD(9,43,44),LK(22,44,43),RK(22,43,21),RK(6,22,38)]
+        
       [RK(2,15,31),LD(20,31,15),RK(15,41,20),LK(15,30,41),LK(5,20,41)] 
             ++[LK(11,21,44),RK(11,44,34),LD(9,34,44),RD(9,44,35),LK(17,35,44),RK(17,44,21),RK(6,17,33)]
 -}
@@ -260,7 +265,10 @@ brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap dashJVPatch $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPatch 
                   [decomposeG kitePlusKite, brokenKites, composeG brokenKites, emplace brokenKites]
 -- |2 adjacent kites decomposed then the top half kite components removed (3 of them)
-brokenKites = removeFaces [LD(1,11,10),LK(6,5,10),RK(6,10,11)] $ decomposeG kitePlusKite
+brokenKites = removeFaces deleted kPlusKD where
+                      kPlusKD = decomposeG kitePlusKite
+                      deleted = filter (hasVIn [6,14]) (faces kPlusKD)
+--[LD(1,11,10),LK(6,5,10),RK(6,10,11)]
     -- removeFaces [LD(1,7,10),LK(6,5,10),RK(6,10,7)] $  decomposeG kitePlusKite
 
 -- |diagram of touching vertex situation and forced result
@@ -276,7 +284,8 @@ touchingTestFig =
       vp = makeVPatch $ sunD2
       sunD2 = sunDs!!2
       deleted = filter ((==1).originV) (faces sunD2) ++
-                [LD(20,26,21),RK(21,50,20),LK(10,20,50),RK(10,50,48)]
+                [LD(29,41,31),RK(31,79,29),LK(10,29,79),RK(10,79,75)]
+                --[LD(20,26,21),RK(21,50,20),LK(10,20,50),RK(10,50,48)]
                 --[LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
 
 
@@ -288,9 +297,11 @@ Incorrect Tgraphs (and other problem Tgraphs)
 -- |faces removed from foolD to illustrate crossing boundary and non tile-connected VPatches
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
-       where d1 = dashJVPatch $ removeFacesGtoVP [LK(3,11,12), RK(3,12,4), RK(3,10,11)] foolD
+       where d1 = dashJVPatch $ removeFacesGtoVP [RK(3,11,13), LK(3,13,15), RK(3,15,4)] foolD
+       --[LK(3,11,12), RK(3,12,4), RK(3,10,11)] foolD
        --[LK(3,11,14), RK(3,14,4), RK(3,13,11)] foolD
-             d2 = dashJVPatch $ removeFacesGtoVP [RK(5,10,2), LD(6,11,10), RD(6,12,11), LD(6,14,12)] foolD
+             d2 = dashJVPatch $ removeFacesGtoVP [RK(5,11,2), LD(6,13,11), RD(6,15,13), LD(6,17,15)] foolD
+             --[RK(5,10,2), LD(6,11,10), RD(6,12,11), LD(6,14,12)] foolD
              -- [RK(5,13,2), LD(6,11,13), RD(6,14,11), LD(6,12,14)] foolD
 
 -- |mistake is a legal but incorrect graph with a kite bordered by 2 darts
@@ -444,8 +455,8 @@ boundaryFDart5Fig = padBorder $ lw ultraThin $ dashJVGraph boundaryFDart5
 
 -- |graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
-boundaryGapFDart4 = checkedTgraph $ filter ((/=332).originV)  (faces boundaryFDart4)
-boundaryGapFDart5 = checkedTgraph $ filter ((/=1287).originV) (faces boundaryFDart5)
+boundaryGapFDart4 = checkedTgraph $ filter ((/=354).originV)  (faces boundaryFDart4)
+boundaryGapFDart5 = checkedTgraph $ filter ((/=1467).originV) (faces boundaryFDart5)
 
 -- |figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
@@ -750,7 +761,7 @@ forceDartD4Fig:: Diagram B
 forceDartD4Fig = padBorder $ lw ultraThin $ dashJVGraph $ force $ dartDs !! 4          
 -- |Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [SubTgraph]
-twoChoices = trackTwoChoices (force $ dartDs !!4) (233,201) --(233,202)
+twoChoices = trackTwoChoices (force $ dartDs !!4) (223,255) --(233,201) 
          
 -- |show the (tracked) twoChoices with drawSubTgraph2 (tracked faces in red, new face filled black)  
 twoChoicesFig:: Diagram B
@@ -758,11 +769,11 @@ twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 twoChoi
 
 -- |track two further choices with the first of twoChoices (fullgraph)  
 moreChoices0:: [SubTgraph]
-moreChoices0 = trackTwoChoices (fullGraph $ twoChoices !! 0) (178,219)
+moreChoices0 = trackTwoChoices (fullGraph $ twoChoices !! 0) (200,241) --(178,219)
 
 -- |track two further choices with the second of twoChoices (fullgraph)  
 moreChoices1:: [SubTgraph]
-moreChoices1 = trackTwoChoices (fullGraph $ twoChoices !! 1) (178,219)
+moreChoices1 = trackTwoChoices (fullGraph $ twoChoices !! 1) (200,241) --(178,219)
 
 -- |figures for 4 further choices
 moreChoicesFig0,moreChoicesFig1,moreChoicesFig:: Diagram B
@@ -775,7 +786,7 @@ moreChoicesFig  =  vsep 1 [moreChoicesFig0,moreChoicesFig1]
 -- It does not quite complete the original faces    
 forcedNewFaces:: Diagram B
 forcedNewFaces = padBorder $ lw thin $ (drawPatch p2 # lc lime) <> drawPatch p3 where
-    g1 = addHalfDart (force $ dartDs !!4) (233,201)
+    g1 = addHalfDart (force $ dartDs !!4) (223,255)--(233,201)
     g2 = removeFaces (faces g1) (force g1)
     g3 = force g2
     vpMap = createVPoints $ faces g3

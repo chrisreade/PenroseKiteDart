@@ -44,7 +44,8 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = nestedKing
+fig =  incorrectAndFullUnionFig
+
     --padBorder $ lw veryThin $ drawGraph $ force (decompositionsG kingGraph !! 3)
 
 main = mainWith fig
