@@ -19,6 +19,7 @@ module Tgraph.Convert where
 import Data.List ((\\), find, partition, nub, intersect)
 import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, toList, fromList, keys)
 import qualified Data.Map.Strict as Map (Map, lookup, fromList) -- used for createVPoints
+import qualified Data.Set as Set  (fromList,member,null,delete)-- used for createVPoints
 import Data.Maybe (mapMaybe, catMaybes)
 
 import Diagrams.Prelude
@@ -249,19 +250,21 @@ dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
 {-| createVPoints: processes a list of faces to associate points for each vertex.
      Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
       Returns a vertex-to-point Map.
-  This version is made more efficient by calculating an edge to face map.
+  This version is made more efficient by calculating an edge to face map
+  and also using Sets for 2nd arg of fastAddVPoints.
 -}
 createVPoints:: [TileFace] -> VertexLocMap
 createVPoints [] = VMap.empty
-createVPoints faces = fastAddVPoints [face] more (axisJoin face) where
+createVPoints faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
     (face:more) = lowestJoinFirst faces
     efMap = buildEFMap faces
 
-    fastAddVPoints [] [] vpMap = vpMap 
-    fastAddVPoints [] fcOther vpMap = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
+    fastAddVPoints [] fcOther vpMap | otherwise = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
     fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (nbs++fcs) fcOther' vpMap' where
-        nbs = edgeNbs efMap fc `intersect` fcOther
-        fcOther' = fcOther\\nbs
+        nbs = filter (\f -> Set.member f fcOther) (edgeNbs efMap fc)
+        fcOther' = foldr Set.delete fcOther nbs
+--        fcOther' = Set.filter (`notElem` nbs) fcOther
         vpMap' = case thirdVertexLoc fc vpMap of
                        Just (v,p) -> VMap.insert v p vpMap
                        Nothing -> vpMap

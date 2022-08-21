@@ -21,6 +21,11 @@ data HalfTile rep = LD rep -- ^ Left Dart
                   | RK rep -- ^ Right Kite
                   deriving (Show,Eq)
 
+-- | Note this ignores the labels when comparing.
+-- However we should never have 2 differnt HalfTiles with the same rep
+instance Ord a => Ord (HalfTile a) where
+    compare t1 t2 = compare (tileRep t1) (tileRep t2)
+
 instance Functor HalfTile where
     fmap f (LD rep) = LD (f rep)
     fmap f (RD rep) = RD (f rep)
