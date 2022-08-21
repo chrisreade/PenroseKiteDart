@@ -247,6 +247,8 @@ dropVectors vp = fmap (asFace . unLoc) (lHybrids vp)
 
 {- * Vertex Location Calculation -}
 
+{- LATESTVERSION (SAME) ERROR
+
 {-| createVPoints: processes a list of faces to associate points for each vertex.
      Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
       Returns a vertex-to-point Map.
@@ -268,6 +270,35 @@ createVPoints faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) 
         vpMap' = case thirdVertexLoc fc vpMap of
                        Just (v,p) -> VMap.insert v p vpMap
                        Nothing -> vpMap
+-}
+
+
+{-
+-- NEXT VERSION (ERROR)
+{-| createVPoints: processes a list of faces to associate points for each vertex.
+     Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
+      Returns a vertex-to-point Map.
+  This version is made more efficient by calculating an edge to face map.
+-}
+
+createVPoints:: [TileFace] -> VertexLocMap
+createVPoints [] = VMap.empty
+createVPoints faces = fastAddVPoints [face] more (axisJoin face) where
+    (face:more) = lowestJoinFirst faces
+    efMap = buildEFMap faces
+
+    fastAddVPoints [] [] vpMap = vpMap 
+    fastAddVPoints [] fcOther vpMap = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (nbs++fcs) fcOther' vpMap' where
+        nbs = edgeNbs efMap fc `intersect` fcOther
+        fcOther' = fcOther\\nbs
+        vpMap' = case thirdVertexLoc fc vpMap of
+                       Just (v,p) -> VMap.insert v p vpMap
+                       Nothing -> vpMap
+
+-}
+
+
 
 -- |Build a Map from directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: [TileFace] -> Map.Map DEdge TileFace
@@ -281,7 +312,6 @@ edgeNbs efMap fc = catMaybes $ fmap getNbr edges where
     getNbr e = Map.lookup e efMap
     edges = fmap reverseD (faceDedges fc) 
 
-{- OLDER VERSION
 {-| createVPoints: processes a list of faces to associate points for each vertex.
      Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
       Returns a vertex-to-point Map.
@@ -308,7 +338,8 @@ addVPoints (fc:fcs) fcOther vpMap = addVPoints (fcs++fcs') fcOther' vpMap' where
              Nothing -> vpMap
   (fcs', fcOther')   = partition (edgeNb fc) fcOther
 
--}
+
+
 
 -- |For a non-empty list of tile faces
 -- find the face with lowest originV (and then lowest oppV).
