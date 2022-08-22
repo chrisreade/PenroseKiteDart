@@ -851,7 +851,7 @@ drawForceEmplace g = padBorder $ hsep 1 $ fmap dashJVGraph
 
 -- | force after adding half dart (rocket cone) to sunPlus3Dart'.
 -- Adding a kite half gives an incorrect graph discovered by forcing.
-rocketCone = padBorder $ dashJVGraph $ force $ addHalfDart (force $ decomposeG sunPlus3Dart') (50,51)
+rocketCone = padBorder $ dashJVGraph $ force $ addHalfDart (force $ decomposeG sunPlus3Dart') (59,60)
 -- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
 -- This example has an emplacement that does not include the original but is still a correct Tgraph.
 -- The figure shows the force and emplace difference.
@@ -870,14 +870,14 @@ kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ mak
 Testing Relabelling
 -}
 
-{-|A diagram testing matchByEdges.
+{-|A diagram testing matchByEdges and simpleUnion.
 The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
 The next row has: (left) a relabelling of g2 leaving (37,35) 
 which is a preparation step to avoid accidental clashes with g1,
 (middle) a further relabelling of g2 by matching against g1 using (37,35)
-as the edge to match with (1,13),
+as the edge to match with (1,15),
 (right) the union of this relabelled graph with g1.
-The bottom row is as for the row above but using (37,40) as the edge to match with (1,13)
+The bottom row is as for the row above but using (37,40) as the edge to match with (1,15)
 resulting in a different union.
 -}
 testRelabellingFig:: Diagram B
@@ -889,15 +889,15 @@ testRelabellingFig = padBorder $ lw ultraThin $ vsep 1
      eight = fmap dashJVGraph [ g1
                               , g2
                               , g2_3735
-                              , matchByEdges (g1, (1,13)) (g2,(37,35))
-                              , simpleUnion (g1, (1,13)) (g2,(37,35))
+                              , matchByEdges (g1, (1,15)) (g2,(37,35))
+                              , simpleUnion (g1, (1,15)) (g2,(37,35))
                               , g2_3740
-                              , matchByEdges (g1, (1,13)) (g2,(37,40))
-                              , simpleUnion (g1, (1,13)) (g2,(37,40))
+                              , matchByEdges (g1, (1,15)) (g2,(37,40))
+                              , simpleUnion (g1, (1,15)) (g2,(37,40))
                               ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
-     g1 = removeFaces [RK(1,21,26)] (removeVertices [20,47,50,44,48] sunD2)
+     g1 = removeFaces [RK(1,31,41)] (removeVertices [74,79,29] sunD2)
      reduced2 = removeVertices [8,7,6] fsunD2
      g2 = relabelAny reduced2
      g2_3735 = prepareFixAvoid [37,35] (vertices g1) g2
@@ -905,12 +905,30 @@ testRelabellingFig = padBorder $ lw ultraThin $ vsep 1
 
 {-| Example showing match relabelling failing as well as a successful fullUnion of graphs.
 The top right graph g2 is matched against the top left graph g1 
-with g2 edge (37,40) matching g1 edge (1,13).
+with g2 edge (37,40) matching g1 edge (1,15).
 The bottom left shows the relabelling to match, but this is not correct because the overlap of
 g2 on g1 is not a single tile connected region.
-(In the bottom left relabelled graph, vertex 101 does not get matched to 15 in g1, for exmple)
+(In the bottom left relabelled graph, vertex 58 does not get matched to 26 in g1, for exmple)
 The simpleUnion will raise an error but the result of a fullUnion is shown (bottom right)
 -}
+incorrectAndFullUnionFig:: Diagram B
+incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1 
+                            [ hsep 1 $ center <$> take 2 thelist
+                            , hsep 1 $ center <$> drop 2 thelist
+                            ] where
+     thelist = fmap dashJVPatch $ rotations [0,7] $ fmap makeVPatch 
+                 [ g1
+                 , g2
+                 , matchByEdges (g1, (1,15)) (g2,(37,40))
+                 , fullUnion  (g1, (1,15)) (g2,(37,40))
+                 ]
+     sunD2 = sunDs!!2
+     fsunD2 = force sunD2
+     g1 = removeFaces [RK(1,31,41)] (removeVertices [74,79,29] sunD2)
+         --removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
+     reduced2 = removeVertices [8,7,6,23] fsunD2
+     g2 = relabelAny reduced2
+{-
 incorrectAndFullUnionFig:: Diagram B
 incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1 
                             [ hsep 1 $ center <$> take 2 thelist
@@ -928,6 +946,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
          --removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [8,7,6,17] fsunD2
      g2 = relabelAny reduced2
+-}
 
 
 
