@@ -2,7 +2,6 @@ import Tgraphs
 import GraphFigExamples
 import Diagrams.Prelude
 
-
 main :: IO ()
 main = 
   do putStrLn $ "Number of faces of a " ++ sn ++ " times decomposed King is " 

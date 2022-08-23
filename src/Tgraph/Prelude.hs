@@ -16,11 +16,8 @@ This module re-exports module HalfTile.
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, nub, elemIndex,foldl')
-
-import qualified Data.IntMap.Strict as VMap (fromListWith, lookup)-- used for Boundaries
-
+import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, delete, lookup,fromList,fromListWith)
 import HalfTile
-import TileLib (ttangle,phi) -- necessary for New createVPoints
 
 {---------------------
 *********************
@@ -524,6 +521,21 @@ internalEdges g = des \\ fmap reverseD bdes where
 edgeNb::TileFace -> TileFace -> Bool
 edgeNb fc = any (`elem` edges) . faceDedges where
       edges = fmap reverseD (faceDedges fc)
+
+
+-- |Abbreviation for Mapping with Vertex keys (used for Boundaries)
+type VertexMap a = VMap.IntMap a
+
+{- |
+Given list of vertices and list of faces
+create an IntMap from each vertex to the list of faces (from the list) that are at that vertex
+-}
+makeVFMapFor:: [Vertex] -> [TileFace] -> VertexMap [TileFace]
+makeVFMapFor vs = foldl' insertf start where
+    start = VMap.fromList $ fmap (\v -> (v,[])) vs
+    insertf vfmap f = foldr (VMap.alter addf) vfmap (faceVList f)
+                      where addf Nothing = Nothing
+                            addf (Just fs) = Just (f:fs)
 
 
 {- * SubTgraphs -}

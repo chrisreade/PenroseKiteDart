@@ -288,6 +288,7 @@ lowestJoinFirst fcs = face:(fcs\\[face]) where
 
 -- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tilface vertices
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
+-- It will raise an error if there are less than 2 tileface vertices with a location in the map.
 addVPoint:: TileFace -> VertexLocMap -> VertexLocMap
 addVPoint fc vpMap = 
   case thirdVertexLoc fc vpMap of

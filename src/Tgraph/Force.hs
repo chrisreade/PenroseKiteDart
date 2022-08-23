@@ -16,7 +16,8 @@ module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
 import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert, union, keys) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, delete, lookup)-- used for Boundaries
+import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, insert, empty, alter, delete, lookup)
+            -- used for Boundary locations AND faces at boundary vertices
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Convert(touching, createVPoints, addVPoint)
 import Tgraph.Prelude
@@ -48,9 +49,6 @@ Touching vertex checking
 ********************************************
 requires Diagrams.Prelude for Point and V2
 --------------------------------------------}
-
--- |Abbreviation for Mapping with Vertex keys (used for Boundaries)
-type VertexMap a = VMap.IntMap a
 
 -- |check if a vertex location touches (is too close to) any other vertex location in the mapping
 touchCheck:: Point V2 Double -> VertexMap (Point V2 Double) -> Bool
@@ -100,8 +98,8 @@ makeBoundary g =
      else
       Boundary
       { bDedges = bdes
---      , bvFacesMap = foldl' insertFaces VMap.empty bvs
-      , bvFacesMap = foldr addFacesAt VMap.empty bvs
+      , bvFacesMap = makeVFMapFor bvs (faces g)
+--      , bvFacesMap = foldr addFacesAt VMap.empty bvs
       , bvLocMap = bvLocs 
       , allFaces = faces g
       , allVertices = vertices g

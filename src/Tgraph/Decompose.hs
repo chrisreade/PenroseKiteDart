@@ -30,37 +30,25 @@ decomposeG :: Tgraph -> Tgraph
 decomposeG g = Tgraph{ vertices = newVs++vertices g
                      , faces = newFaces
                      } where
-    (newVs , newVFor) = newVPhiMap g
+    (newVs , newVFor) = newPhiVMap g
     newFaces = concatMap (decompFace newVFor) (faces g)
 
--- |newVPhiMap g produces newVs - a list of new vertices (one for each phi edge of v)
+-- |newPhiVMap g produces newVs - a list of new vertices (one for each phi edge of v)
 --   and a function mapping each phi edge to its assigned vertex in newVs.
 --  Both (a,b) and (b,a) get the same v.
 -- (Also sorted phiEdges to reduce arbitrariness of numbering).  
-newVPhiMap :: Tgraph -> ([Vertex], (Vertex, Vertex) -> Vertex)
-
-newVPhiMap g = (newVs, (Map.!) $ edgeVMap) where
+newPhiVMap :: Tgraph -> ([Vertex], DEdge -> Vertex)
+newPhiVMap g = (newVs, (Map.!) edgeVMap) where
   phiReps = sort [(a,b) | (a,b) <- phiEdges g, a<b]
   newVs = makeNewVs (length phiReps) (vertices g)
+--BEWARE: Changing foldl' may alter the order of numbering
   (_, edgeVMap) = foldl' insert2 (newVs, Map.empty) phiReps
   insert2 (v:vs,emap) e = (vs, Map.insert e v $ Map.insert (reverseD e) v emap)
 
 
-{-
-newVPhiMap g = (newVs, (Map.!) $ buildMap allPhi newVs Map.empty) where
-  allPhi = phiEdges g
-  newVs = makeNewVs (length allPhi `div` 2) (vertices g)
-  buildMap [] vs m = m
-  buildMap ((a,b):more) vs m = case Map.lookup (a,b) m  of
-    Just _  -> buildMap more vs m
-    Nothing -> buildMap more (tail vs) (Map.insert (a,b) v (Map.insert (b,a) v m))
-               where v = head vs
--}
-
-
 -- |Decompose a face producing new faces. 
 -- This requires a function to get the unique vertex assigned to each phi edge
--- (as created by newVPhiMap)
+-- (as created by newPhiVMap)
 decompFace:: ((Vertex,Vertex)->Vertex) -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
@@ -74,9 +62,6 @@ decompFace newVFor fc = case fc of
       LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
         where x = newVFor (a,c)
      
-
-           
-
 -- |infinite list of decompositions of a Tgraph     
 decompositionsG :: Tgraph -> [Tgraph]
 decompositionsG = iterate decomposeG
@@ -87,7 +72,7 @@ decomposeSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph
    g' = Tgraph{ vertices = newVs++vertices g
               , faces = newFaces
               }
-   (newVs , newVFor) = newVPhiMap g
+   (newVs , newVFor) = newPhiVMap g
    newFaces = concatMap (decompFace newVFor) (faces g)
    tlist' = fmap (concatMap (decompFace newVFor)) tlist
 
