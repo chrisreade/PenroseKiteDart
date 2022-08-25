@@ -92,14 +92,11 @@ makeBoundary g =
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints $ faces g
---      insertFaces vmap v = VMap.insert v (filter (isAtV v) (faces g)) vmap
-      addFacesAt v = VMap.insert v $ filter (isAtV v) (faces g) 
   in if not $ null $ crossingVertices bdes then error $ "makeBoundary found crossing boundary in Tgraph:\n"++show g
      else
       Boundary
       { bDedges = bdes
       , bvFacesMap = makeVFMapFor bvs (faces g)
---      , bvFacesMap = foldr addFacesAt VMap.empty bvs
       , bvLocMap = bvLocs 
       , allFaces = faces g
       , allVertices = vertices g
@@ -169,8 +166,8 @@ data BoundaryChange = BoundaryChange
                        , revisedEdges :: [DEdge]  -- ^ boundary edges requiring new update calculations
                        } deriving (Show)
 
-{-| Given a Boundary with a list of boundary edges that have been newly added,
-     it creates a list of boundary edges
+{-| Given a Boundary with a list of one boundary edge or two adjacent boundary edges that have been newly added,
+     it creates a list of adjacent boundary edges (3 or 4)
      that are affected. Namely, the boundary edges sharing a vertex with a new edge.
      For a safe update this will be
      the single new edge + edges either side on the boundary.
@@ -178,9 +175,19 @@ data BoundaryChange = BoundaryChange
      4 edges including the 2 new ones. (Used to make revisedEdges in a BoundaryChange)
 -}
 affectedBoundary :: Boundary -> [DEdge] -> [DEdge]
-affectedBoundary bd edges = filter incidentEdge (bDedges bd) where
-      bvs = nub (fmap fst edges ++ fmap snd edges) -- boundary vertices affected
-      incidentEdge (a,b) = a `elem` bvs || b `elem` bvs
+affectedBoundary bd [(a,b)] = [(x,a),(a,b),(b,y)] where
+           bdry = bDedges bd
+           (x,_) = mustFind ((==a). snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a)
+           (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b)
+affectedBoundary bd [(a,b),(c,d)] | b==c = [(x,a),(a,b),(c,d),(d,y)] where
+           bdry = bDedges bd
+           (x,_) = mustFind ((==a). snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a)
+           (_,y) = mustFind ((==d).fst) bdry  (error $ "affectedBoundary: boundary edge not found with fst = " ++ show d)
+affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
+           bdry = bDedges bd
+           (x,_) = mustFind ((==c). snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show c)
+           (_,y) = mustFind ((==b).fst) bdry  (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b)
+affectedBoundary _ edges = error $ "affectedBoundary: unexpected new boundary edges " ++ show edges
 
 {- *
 forcing operations
@@ -988,7 +995,7 @@ forceLKC v g = recoverGraph bd3 where
     newk = head (vFaces2 \\ vFaces1)
     bd3 = newBoundary $ doUpdate bd2 (completeHalf bd2 newk)
 
-{-| mustFind is used to search (in forceLKC and forceLDB)
+{-| mustFind is used to search with definite result.
 mustFind p ls err returns the first item in ls satisfying predicate p and returns
 err argument when none found       
 -}

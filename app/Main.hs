@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig =  pCompFig
+fig =  inspectForce5 1800
 
     --padBorder $ lw veryThin $ drawGraph $ force (decompositionsG kingGraph !! 3)
 

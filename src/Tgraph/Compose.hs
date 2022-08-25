@@ -37,12 +37,12 @@ composeG = snd . partCompose
 partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = (remainder,g')
   where
-    g' = getResult $ checkConnectedNoCross $ makeUncheckedTgraph newFaces
+    g' = getResult $ checkConnectedNoCross $ 
+          makeUncheckedTgraph newFaces
     darts  = filter isDart (faces g)
     dwFMap = makeVFMapFor (nub $ fmap wingV darts) (faces g)
     dwClass = classifyWith g dwFMap darts
---    dwClass = classifyDartWings g
--- ignores unknowns
+    -- ignore unknowns
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
     remainder = faces g \\ concat (groupRDs ++ groupLDs ++ groupRKs ++ groupLKs)
 

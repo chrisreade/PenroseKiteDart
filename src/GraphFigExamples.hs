@@ -113,15 +113,6 @@ pCompFig1 = hsep 5 $ rotations [1,1] [drawGraph fd3 # lw ultraThin, drawPCompose
 pCompFig2 = hsep 5 $ rotations [] [drawGraph fk3 # lw ultraThin, drawPCompose fk3]
             where fk3 = force $ kiteDs !! 3
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
-{-
--- |diagrams showing partial compositions (with ignored faces in pale green)
-pCompFig1,pCompFig2,pCompFig:: Diagram B
-pCompFig1 = hsep 5 $ rotations [1] [drawGraph fd3 # lw ultraThin, showPCompose fd3 (1,3)]
-            where fd3 = force $ dartDs !! 3
-pCompFig2 = hsep 5 $ rotations [] [drawGraph fk3 # lw ultraThin, showPCompose fk3 (1,2)]
-            where fk3 = force $ kiteDs !! 3
-pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
--}
 
 
 {- * Forced Tgraph figures
