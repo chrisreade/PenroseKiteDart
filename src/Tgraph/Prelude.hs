@@ -246,8 +246,9 @@ connectedBy edges v verts = dfs [] [v] (verts \\[v]) where
   dfs done (x:visited) unvisited 
      = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
        where Just nextVs = VMap.lookup x nextMap
-             newVs = filter (not . (`elem` done)) $ 
-                     filter (not . (`elem` visited)) nextVs -- assumes no self-loops
+             newVs =  filter (`notElem` done) $ 
+                      filter (`notElem` visited) nextVs -- assumes no self-loops
+
 
 {-
 -- |Predicate to check a Tgraph is a connected graph. 

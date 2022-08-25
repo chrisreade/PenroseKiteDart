@@ -18,11 +18,11 @@ main =
   where
        sn = show n
        n = 4
-       kD = decompositionsG kingGraph !! n
-       fkD = force kD
-       cfkD = last $ allComps fkD
+       kD = {-# SCC "decomposing" #-} decompositionsG kingGraph !! n
+       fkD ={-# SCC "forcing" #-} force kD
+       cfkD = {-# SCC "composing" #-} last $ allComps fkD
 
-       fig = drawGraph fkD
+       fig = {-# SCC "drawing" #-} drawGraph fkD
        w = width fig
 
 

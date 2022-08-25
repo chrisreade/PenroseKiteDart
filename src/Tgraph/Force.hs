@@ -166,13 +166,16 @@ data BoundaryChange = BoundaryChange
                        , revisedEdges :: [DEdge]  -- ^ boundary edges requiring new update calculations
                        } deriving (Show)
 
-{-| Given a Boundary with a list of one boundary edge or two adjacent boundary edges that have been newly added,
-     it creates a list of adjacent boundary edges (3 or 4)
+{-| Given a Boundary with a list of one boundary edge or
+     two adjacent boundary edges (or exceptionally no boundary edges)
+     that have been newly added,
+     it creates a list of adjacent boundary edges (3 or 4 or none)
      that are affected. Namely, the boundary edges sharing a vertex with a new edge.
-     For a safe update this will be
-     the single new edge + edges either side on the boundary.
      For an unsafe update this will be
      4 edges including the 2 new ones. (Used to make revisedEdges in a BoundaryChange)
+     For a safe update this will be
+     the single new edge + edges either side on the boundary, or exceptionally no edges.
+     (When a face is fitted in to a hole with 3 sides there is no new boundary.)
 -}
 affectedBoundary :: Boundary -> [DEdge] -> [DEdge]
 affectedBoundary bd [(a,b)] = [(x,a),(a,b),(b,y)] where
@@ -187,6 +190,7 @@ affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
            bdry = bDedges bd
            (x,_) = mustFind ((==c). snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show c)
            (_,y) = mustFind ((==b).fst) bdry  (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b)
+affectedBoundary bd [] = []
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected new boundary edges " ++ show edges
 
 {- *
@@ -321,6 +325,8 @@ tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
      revised boundary edge list).
      It checks that the new face is not in conflict with existing faces,
      raising an error if there is a conflict.
+    It should cater for the exceptional case where the update removes 3 boundary edges
+    in a triangle (and removes 3 boundary vertices)
 -}
 doSafeUpdate:: Boundary -> Update -> BoundaryChange
 doSafeUpdate bd (Nothing, makeFace) = error "doSafeUpdate: applied to non-safe update "
@@ -328,14 +334,15 @@ doSafeUpdate bd (Just v, makeFace) =
    let newFace = makeFace v
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd -- list of 2
-       removedBV = commonV matchedDedges -- vertex no longer on boundary
+       removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
-       nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace)
+       nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = Boundary 
                    { bDedges = newDedges ++ (bDedges bd \\ matchedDedges)
                    , bvFacesMap = changeVFMap newFace (bvFacesMap bd) (faceVList newFace)
                    , allFaces = newFace:allFaces bd
-                   , bvLocMap = VMap.delete removedBV (bvLocMap bd)  --remove vertex no longer on boundary
+                   , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
+                               --remove vertex/vertices no longer on boundary
                    , allVertices = allVertices bd
                    , nextVertex = nextVertex bd
                    }
@@ -353,13 +360,15 @@ doSafeUpdate bd (Just v, makeFace) =
              ++ show (recoverGraph resultBd)
             )
 
--- | given 2 adjacent directed edges, this returns the common vertex.
--- Raises an error if the argument is not 2 adjacent directed edges
-commonV :: [DEdge] -> Vertex
-commonV [(a,b),(c,d)] | b==c = b 
-                      | d==a = a
-                      | otherwise = error $ "commonV: directed edges not adjacent: " ++ show [(a,b),(c,d)]
-commonV es = error $ "commonV: argument is not 2 adjacent directed edges: " ++ show es
+-- | given 2 adjacent directed edges, this returns the common vertex (as a singleton list).
+-- | Exceptionally it may be given a triangle of 3 directed edges and returns the 3 vertices of the triangle.
+-- Raises an error if the argument is not one of these 2 cases.
+commonVs :: [DEdge] -> [Vertex]
+commonVs [(a,b),(c,d)] | b==c = [b] 
+                       | d==a = [a]
+                       | otherwise = error $ "commonV: directed edges not adjacent: " ++ show [(a,b),(c,d)]
+commonVs [(a,b),(c,d),(e,f)] | length (nub [a,b,c,d,e,f]) == 3 = [a,c,e] 
+commonVs es = error $ "commonVs: unexpected argument edges (not 2 adjacent directed edges or 3 round triangle): " ++ show es
 
 {-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
      (raising an error if u is a safe update).
@@ -380,7 +389,9 @@ tryUnsafeUpdate bd (Nothing, makeFace) =
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd -- singleton
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
-       nbrFaces = nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
+       nbrFaces = facesAtBV bd x `intersect` facesAtBV bd y where 
+                    [x,y] = faceVList newFace \\ [v]
+           --nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
        resultBd = Boundary 
                     { bDedges = newDedges ++ (bDedges bd \\ matchedDedges)
                     , bvFacesMap = changeVFMap newFace (bvFacesMap bd) (faceVList newFace)

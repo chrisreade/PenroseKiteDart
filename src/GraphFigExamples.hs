@@ -439,6 +439,9 @@ boundaryFDart4, boundaryFDart5 :: Tgraph
 boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!4)
 boundaryFDart5 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!5)
 
+-- | figure to check that force can complete a hole
+forceHoleTest = padBorder $ lw ultraThin $ drawGraph $ force boundaryFDart5
+
 -- |figures of the boundary faces only of a forced graph
 boundaryFDart4Fig,boundaryFDart5Fig:: Diagram B
 boundaryFDart4Fig = padBorder $ lw ultraThin $ dashJVGraph boundaryFDart4

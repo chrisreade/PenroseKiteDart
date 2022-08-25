@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig =  inspectForce5 1800
+fig =  forceHoleTest
 
     --padBorder $ lw veryThin $ drawGraph $ force (decompositionsG kingGraph !! 3)
 
