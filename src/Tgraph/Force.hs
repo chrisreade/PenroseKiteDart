@@ -16,8 +16,8 @@ module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
 import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert, union, keys) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, insert, empty, alter, delete, lookup)
-            -- used for Boundary locations AND faces at boundary vertices
+import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, insert, empty, alter, delete, lookup, fromList, null, findMin)
+            -- used for Boundary locations AND faces at boundary vertices AND boudaryLoops
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Convert(touching, createVPoints, addVPoint)
 import Tgraph.Prelude
@@ -122,7 +122,7 @@ changeVFMap f  = foldl' insertf where
 facesAtBV:: Boundary -> Vertex -> [TileFace]
 facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
             Just fcs -> fcs
-            Nothing -> error ("facesAtBV: no faces found at boundary vertex " ++ show v)
+            Nothing -> error ("facesAtBV: Not a boundary vertex? No faces found at " ++ show v)
 
 
 -- |return the (set of) faces which have a boundary vertex from boundary information
@@ -1015,6 +1015,41 @@ mustFind p ls err = case find p ls of
                      Just a  -> a
                      Nothing -> err
 
+
+
+-- |Break the boundary edges of a Tgraph into constituent looping trails.
+-- Each edge is followed by its next adjacent edge, and the trail starts with the lowest numbered vertex.
+-- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
+boundaryLoopsG:: Tgraph -> [[DEdge]] 
+boundaryLoopsG = findLoops . boundaryDedges
+
+-- |Break the boundary edges of a Boundary into constituent looping trails.
+-- Each edge is followed by its next adjacent edge, and the trail starts with the lowest numbered vertex.
+-- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
+boundaryLoops:: Boundary -> [[DEdge]]
+boundaryLoops = findLoops . bDedges
+
+-- |Break a list of boundary directed edges into constituent looping trails.
+-- Each edge is followed by its next adjacent edge, and the trail starts with the lowest numbered vertex.
+-- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
+findLoops:: [DEdge] -> [[DEdge]]                       
+findLoops es = collectLoops $ VMap.fromList es where
+                     -- make a map from the directed edges then
+   collectLoops vmap -- delete items from the map as the trail is followed
+     | VMap.null vmap = []
+     | otherwise  = chase start vmap [] 
+         where
+         (start,_) = VMap.findMin vmap
+         chase a vm sofar -- sofar is the collected trail in reverse order.
+            = case VMap.lookup a vm of
+                Just b -> chase b (VMap.delete a vm) ((a,b):sofar)
+                Nothing -> if a == start 
+                           then reverse sofar: collectLoops vm 
+                           else error $ "boundaryLoops: non looping boundary component, starting at "
+                                        ++show start++
+                                        " and finishing at "
+                                        ++ show a ++ 
+                                        "\nwith edges "++ show es
 
 
 {- *

@@ -16,7 +16,8 @@ This module re-exports module HalfTile.
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, nub, elemIndex,foldl')
-import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, delete, lookup,fromList,fromListWith)
+import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith)
+--import qualified Data.Set as Set (fromList,toList,delete,null)
 import HalfTile
 
 {---------------------
@@ -90,12 +91,13 @@ checkTgraphProps fcs
 -- (No crossing boundaries and connected implies tile-connected)
 -- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
-checkConnectedNoCross:: Tgraph -> ReportFail Tgraph
 checkConnectedNoCross g
   | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
   | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
                                   "Crossing boundaries found at " ++ show (crossingBVs g) ++ "\n"
   | otherwise            = Right g 
+
+
   
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for required properties
@@ -228,14 +230,16 @@ crossingVertices bdes = duplicates (fmap fst bdes) ++ duplicates (fmap snd bdes)
 crossingBoundaries :: Tgraph -> Bool
 crossingBoundaries g = not $ null $ crossingBVs g
 
--- |Predicate to check a Tgraph is a connected graph. 
-connected :: Tgraph -> Bool
+
+-- |Predicate to check a Tgraph is a connected graph.
 connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs) vs)
                    where vs = vertices g
 
 -- |Auxiliary function for calculating connectedness by depth first search.
 -- connectedBy edges v verts returns the sublist of verts connected to v 
--- by a chain of edges, paired with a list of vertices not connected
+-- by a chain of edges, paired with a list of vertices not connected.
+-- This version uses an IntMap to represent edges (Vertex to [Vertex])
+-- and uses a depth first search algorithm.
 connectedBy :: [DEdge] -> Vertex -> [Vertex] -> ([Vertex],[Vertex])
 connectedBy edges v verts = dfs [] [v] (verts \\[v]) where 
   nextMap = VMap.fromListWith (++) $ map singleton edges
@@ -244,37 +248,10 @@ connectedBy edges v verts = dfs [] [v] (verts \\[v]) where
   dfs done visited [] = (visited++done,[])
   dfs done [] unvisited = (done,unvisited) -- any unvisited are not connected
   dfs done (x:visited) unvisited 
-     = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
-       where Just nextVs = VMap.lookup x nextMap
-             newVs =  filter (`notElem` done) $ 
-                      filter (`notElem` visited) nextVs -- assumes no self-loops
-
-
-{-
--- |Predicate to check a Tgraph is a connected graph. 
-connected :: Tgraph -> Bool
-connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs) vs)
-                   where vs = vertices g
-
--- |Auxiliary function for calculating connectedness by depth first search.
--- connectedBy edges v verts returns the sublist of verts connected to v 
--- by a chain of edges, paired with a list of vertices not connected
-connectedBy :: Eq a => [(a, a)] -> a -> [a] -> ([a],[a])
-connectedBy edges v verts = dfs [] [v] (verts \\[v]) where 
--- depth first search arguments:  done (=processed), visited, unvisited.
-  dfs done visited [] = (visited++done,[])
-  dfs done [] unvisited = (done,unvisited) -- any unvisited are not connected
-  dfs done (x:visited) unvisited 
-     = dfs (x:done) (newVs ++ visited) (unvisited \\ newVs)
-       where nextVs = map snd $ filter ((== x) . fst) edges
-             newVs = filter (not . (`elem` done)) $ 
-                     filter (not . (`elem` visited)) nextVs -- assumes no self-loops
---             newVs = nextVs \\ (done++visited) -- assumes no self-loops
--}
-
-
-
-
+     = dfs (x:done) (nextVs ++ visited) (unvisited \\ nextVs)
+       where nextVs = case VMap.lookup x nextMap of
+                       Just vs -> filter (`notElem` done) $ filter (`notElem` visited) vs
+                       Nothing -> error $ "connectedBy: vertex missing from edge map: " ++ show x
 
 
        

@@ -1,42 +1,27 @@
-Retainer Profiling: 0, at 0.427974 seconds
-	Max auxiliary stack size = 2284
-	Average number of visits per object = 2.632909
-Retainer Profiling: 1, at 0.578190 seconds
-	Max auxiliary stack size = 4165
-	Average number of visits per object = 2.172923
-Retainer Profiling: 2, at 0.725987 seconds
-	Max auxiliary stack size = 5901
-	Average number of visits per object = 2.160333
-Retainer Profiling: 3, at 0.847819 seconds
-	Max auxiliary stack size = 7636
-	Average number of visits per object = 2.155456
-Retainer Profiling: 4, at 1.057182 seconds
-	Max auxiliary stack size = 9404
-	Average number of visits per object = 2.117169
-Retainer Profiling: 5, at 1.170378 seconds
-	Max auxiliary stack size = 78859
-	Average number of visits per object = 2.528429
-Retainer Profiling: 6, at 1.314173 seconds
-	Max auxiliary stack size = 27149
-	Average number of visits per object = 2.193508
-Retainer Profiling: 7, at 1.442644 seconds
-	Max auxiliary stack size = 16486
-	Average number of visits per object = 2.041091
-Retainer Profiling: 8, at 1.806365 seconds
-	Max auxiliary stack size = 10887
-	Average number of visits per object = 2.383314
-Retainer Profiling: 9, at 2.002031 seconds
-	Max auxiliary stack size = 10893
-	Average number of visits per object = 2.363888
-Retainer Profiling: 10, at 2.158719 seconds
-	Max auxiliary stack size = 10893
-	Average number of visits per object = 2.346202
-Retainer Profiling: 11, at 2.344663 seconds
-	Max auxiliary stack size = 10876
-	Average number of visits per object = 2.175367
-Retainer Profiling: 12, at 2.613836 seconds
-	Max auxiliary stack size = 337
-	Average number of visits per object = 3.925956
+Retainer Profiling: 0, at 0.439396 seconds
+	Max auxiliary stack size = 3069
+	Average number of visits per object = 2.184425
+Retainer Profiling: 1, at 0.566047 seconds
+	Max auxiliary stack size = 5871
+	Average number of visits per object = 2.160221
+Retainer Profiling: 2, at 0.705645 seconds
+	Max auxiliary stack size = 8388
+	Average number of visits per object = 2.153649
+Retainer Profiling: 3, at 0.879444 seconds
+	Max auxiliary stack size = 78841
+	Average number of visits per object = 2.552283
+Retainer Profiling: 4, at 0.920025 seconds
+	Max auxiliary stack size = 20310
+	Average number of visits per object = 2.162099
+Retainer Profiling: 5, at 1.258166 seconds
+	Max auxiliary stack size = 12023
+	Average number of visits per object = 1.974278
+Retainer Profiling: 6, at 1.550759 seconds
+	Max auxiliary stack size = 10878
+	Average number of visits per object = 2.176544
+Retainer Profiling: 7, at 1.898683 seconds
+	Max auxiliary stack size = 185
+	Average number of visits per object = 2.029780
 
 Retainer sets created during profiling:
 SET 2 = {<SYSTEM.SYSTEM>}
@@ -51,15 +36,11 @@ SET 55 = {<GHC.Conc.Sync.CAF>, <SYSTEM.SYSTEM>}
 SET 81 = {<GHC.Event.Thread.CAF>, <>}
 SET 102 = {<Main.main>}
 SET 103 = {<GHC.IO.Handle.FD.CAF>, <SYSTEM.SYSTEM>}
-SET 135 = {<SYSTEM.SYSTEM>, <Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 136 = {<Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 140 = {<SYSTEM.SYSTEM>, <Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 141 = {<SYSTEM.SYSTEM>, <Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 142 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.rdarts,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 148 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.ldarts,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>, <Tgraph.Prelude.rdarts,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 154 = {<SYSTEM.SYSTEM>, <Tgraph.Compose.classifyDartWings.processD,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>, <Tgraph.Prelude.ldarts,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>, <Tgraph.Prelude.rdarts,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 155 = {<Tgraph.Compose.classifyDartWings.processD,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 156 = {<SYSTEM.SYSTEM>, <Tgraph.Compose.classifyDartWings.processD,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 161 = {<SYSTEM.SYSTEM>, <Tgraph.Compose.classifyDartWings.processD,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>, <Tgraph.Prelude.rdarts,Tgraph.Compose.classifyDartWings.(...),Tgraph.Compose.classifyDartWings,Tgraph.Compose.partCompose.dwClass,Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
-SET 167 = {<GHC.Conc.Signal.CAF>, <>}
-SET 187 = {<GHC.Conc.Sync.CAF>, <GHC.IO.Handle.FD.CAF>, <SYSTEM.SYSTEM>}
+SET 132 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.crossingVertices,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.composing,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 133 = {<Tgraph.Prelude.facesDedges,Tgraph.Prelude.graphDedges,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.composing,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 134 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.facesDedges,Tgraph.Prelude.graphDedges,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.composing,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 140 = {<Tgraph.Prelude.missingRevs.imap,Tgraph.Prelude.missingRevs,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.composing,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 142 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.facesDedges,Tgraph.Prelude.graphDedges,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.composing,Main.main.cfkD,Main.main,Main.CAF:main_ds>, <Tgraph.Prelude.missingRevs.imap,Tgraph.Prelude.missingRevs,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.composing,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 146 = {<SYSTEM.SYSTEM>, <Tgraph.Prelude.missingRevs.imap,Tgraph.Prelude.missingRevs,Tgraph.Prelude.boundaryDedges,Tgraph.Prelude.crossingBVs,Tgraph.Prelude.crossingBoundaries,Tgraph.Prelude.checkConnectedNoCross,Tgraph.Compose.partCompose.g',Tgraph.Compose.partCompose,Tgraph.Compose.composeG,Tgraphs.allComps,Main.composing,Main.main.cfkD,Main.main,Main.CAF:main_ds>}
+SET 152 = {<GHC.Conc.Signal.CAF>, <>}
+SET 172 = {<GHC.Conc.Sync.CAF>, <GHC.IO.Handle.FD.CAF>, <SYSTEM.SYSTEM>}
