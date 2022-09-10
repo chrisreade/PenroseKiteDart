@@ -15,12 +15,18 @@ main =
      putStrLn $ "Number of faces of recomposed force (" ++ sn ++ " times decomposed King) is " 
                             ++ show (length (faces cfkD))
 
+{-
+     putStrLn $ "Number of faces of reforced force (" ++ sn ++ " times decomposed King) is " 
+                            ++ show (length (faces rcfkD))
+-}
+
   where
        sn = show n
        n = 4
        kD = {-# SCC "decomposing" #-} decompositionsG kingGraph !! n
        fkD ={-# SCC "forcing" #-} force kD
        cfkD = {-# SCC "composing" #-} last $ allComps fkD
+--       rcfkD = {-# SCC "reforced" #-} force fkD
 
        fig = {-# SCC "drawing" #-} drawGraph fkD
        w = width fig

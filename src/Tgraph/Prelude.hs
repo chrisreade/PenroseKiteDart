@@ -16,8 +16,8 @@ This module re-exports module HalfTile.
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, nub, elemIndex,foldl')
-import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith)
---import qualified Data.Set as Set (fromList,toList,delete,null)
+import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith, (!))
+import qualified Data.Set as Set (empty,singleton,insert,delete,fromList,toList,null,(\\),union,notMember,deleteMin,findMin)
 import HalfTile
 
 {---------------------
@@ -235,6 +235,25 @@ crossingBoundaries g = not $ null $ crossingBVs g
 connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs) vs)
                    where vs = vertices g
 
+-- |Auxiliary function for calculating connectedness.
+-- connectedBy edges v verts returns the sublist of verts connected to v 
+-- by a chain of edges, paired with a list of vertices that are not connected to v.
+-- This version uses an IntMap to represent edges (Vertex to [Vertex])
+-- and uses Sets for the search algorithm arguments.
+connectedBy :: [DEdge] -> Vertex -> [Vertex] -> ([Vertex],[Vertex])
+connectedBy edges v verts = search Set.empty (Set.singleton v) (Set.delete v $ Set.fromList verts) where 
+  nextMap = VMap.fromListWith (++) $ map (\(a,b)->(a,[b])) edges
+-- search arguments (sets):  done (=processed), visited, unvisited.
+  search done visited unvisited 
+    | Set.null unvisited = (Set.toList visited ++ Set.toList done,[])
+    | Set.null visited = (Set.toList done, Set.toList unvisited)  -- any unvisited are not connected
+    | otherwise =
+        search (Set.insert x done) (Set.union newVs visited') (unvisited Set.\\ newVs)
+        where x = Set.findMin visited
+              visited' = Set.deleteMin visited
+              newVs = Set.fromList $ filter (`Set.notMember` done) $ nextMap VMap.! x 
+
+{- Older Version without sets
 -- |Auxiliary function for calculating connectedness by depth first search.
 -- connectedBy edges v verts returns the sublist of verts connected to v 
 -- by a chain of edges, paired with a list of vertices not connected.
@@ -252,7 +271,7 @@ connectedBy edges v verts = dfs [] [v] (verts \\[v]) where
        where nextVs = case VMap.lookup x nextMap of
                        Just vs -> filter (`notElem` done) $ filter (`notElem` visited) vs
                        Nothing -> error $ "connectedBy: vertex missing from edge map: " ++ show x
-
+-}
 
        
 {- *

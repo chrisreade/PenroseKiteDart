@@ -44,8 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig =  touchingTestFig
-
+fig =  halfWholeFig
     --padBorder $ lw veryThin $ drawGraph $ force (decompositionsG kingGraph !! 3)
 
 main = mainWith fig

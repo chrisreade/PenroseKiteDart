@@ -845,7 +845,17 @@ drawForceEmplace g = padBorder $ hsep 1 $ fmap dashJVGraph
 
 -- | force after adding half dart (rocket cone) to sunPlus3Dart'.
 -- Adding a kite half gives an incorrect graph discovered by forcing.
-rocketCone = padBorder $ dashJVGraph $ force $ addHalfDart (force $ decomposeG sunPlus3Dart') (59,60)
+rocketCone:: Tgraph
+rocketCone =  force $ addHalfDart (force $ decomposeG sunPlus3Dart') (59,60)
+
+-- | figure for rocketCone
+rocketConeFig:: Diagram B
+rocketConeFig = padBorder $ lw thin $ dashJVGraph rocketCone
+
+-- | figure for rocketCone after 4 more decompositions and forcing
+rocketConeFig2:: Diagram B
+rocketConeFig2 = padBorder $ lw  ultraThin $ drawGraph $ (forceDecomps rocketCone) !!4
+
 -- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
 -- This example has an emplacement that does not include the original but is still a correct Tgraph.
 -- The figure shows the force and emplace difference.
