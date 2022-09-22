@@ -44,8 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig =  largeLinearGrad2
-    --padBorder $ lw veryThin $ drawGraph $ force (decompositionsG kingGraph !! 3)
+fig =  moreChoicesFig
 
 main = mainWith fig
 

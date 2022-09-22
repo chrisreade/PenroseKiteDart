@@ -17,7 +17,7 @@ module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, nub, elemIndex,foldl',group,sort)
 import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith, (!),fromAscList)
-import qualified Data.IntSet as IntSet (empty,singleton,insert,delete,fromList,toList,null,(\\),union,notMember,deleteMin,findMin)
+import qualified Data.IntSet as IntSet (IntSet,empty,singleton,insert,delete,fromList,toList,null,(\\),union,notMember,deleteMin,findMin,unions,findMax)
 import HalfTile
 
 {---------------------
@@ -34,18 +34,23 @@ Tgraphs
 type Vertex = Int
 -- | directed edge
 type DEdge = (Vertex,Vertex)
-
+-- | Vertex Sets
+type VertexSet = IntSet.IntSet
 
 -- |Tgraph faces  (vertices clockwise starting with tile origin vertex)
 -- a specialisation of HalfTile
 type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
--- |A Tgraph contains vertices, and faces (each are lists treated as sets with no repetitions).
--- Every vertex must be a face vertex and vice versa.
+-- |A Tgraph is a list of faces along with the maximum value used for a vertex in the faces (0 for an empty list).
+-- (0 is not used as a vertex label throughout)
 -- Valid Tgraphs should be constructed with checkedTgraph to ensure required properties are checked.
-data Tgraph = Tgraph { vertices :: [Vertex]
+data Tgraph = Tgraph { maxV :: !Vertex  -- 0 for empty graph
                      , faces    :: [TileFace]
                      } deriving (Show)
+
+-- |the set of vertices of a graph
+vertices:: Tgraph -> VertexSet
+vertices = facesVSet . faces
 
 {-------------------------------------------
 ********************************************
@@ -55,12 +60,13 @@ Basic Tgraph, vertex, edge, face operations
 
 
 
--- |Creates a (possibly invalid) Tgraph from a list of faces by calculating vertices.
+-- |Creates a (possibly invalid) Tgraph from a list of faces by calculating maxV.
 -- It does not perform checks on the faces. Use checkedTgraph to perform checks.
--- This is intended for use only in testing and in checkTgraphProps
+-- This is intended for use only in testing
 makeUncheckedTgraph:: [TileFace] -> Tgraph
+makeUncheckedTgraph [] = Tgraph { maxV = 0, faces = []} -- 0 never used as a vertex number
 makeUncheckedTgraph fcs =
-    Tgraph { vertices = nub $ concatMap faceVList fcs
+    Tgraph { maxV = facesMaxV fcs
            , faces = fcs
            }
 
@@ -110,6 +116,28 @@ selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 Required Tgraph properties
 -}
 
+-- |Checks a list of faces for edge loops, edge conflicts (illegal tilings)
+-- vertices not >0 and
+-- crossing boundaries and connectedness.
+-- (No crossing boundaries and connected implies tile-connected)
+-- Returns Right g where g is a Tgraph on passing checks.
+-- Returns Left lines if a test fails, where lines describes the problem found.
+checkTgraphProps:: [TileFace] -> ReportFail Tgraph
+checkTgraphProps []       =  Right $ Tgraph{faces = [], maxV = 0} 
+checkTgraphProps fcs
+      | hasEdgeLoops fcs  =  Left $ "Non-valid tile-face(s)\n" ++
+                                      "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
+      | illegalTiling fcs =  Left $ "Non-legal tiling\n" ++
+                                      "Conflicting face edges (non-planar tiling): "
+                                      ++ show (conflictingDedges fcs) ++
+                                      "\nIllegal tile juxtapositions: "
+                                      ++ show (illegals fcs) ++ "\n"
+      | otherwise         = let vs = facesVSet fcs
+                            in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
+                               then Left $ "Vertex numbers not >0: " ++ show (IntSet.toList vs)
+                               else checkConnectedNoCross $ Tgraph{faces = fcs, maxV = IntSet.findMax vs} 
+
+{-
 -- |Checks a list of faces for edge loops, edge conflicts (illegal tilings) and
 -- crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
@@ -125,6 +153,7 @@ checkTgraphProps fcs
                                       "\nIllegal tile juxtapositions: "
                                       ++ show (illegals fcs) ++ "\n"
       | otherwise            = checkConnectedNoCross $ makeUncheckedTgraph fcs 
+-}
 
 -- |Checks a Tgraph for crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
@@ -239,16 +268,16 @@ crossingBoundaries g = not $ null $ crossingBVs g
 
 -- |Predicate to check a Tgraph is a connected graph.
 connected:: Tgraph -> Bool
-connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs) vs)
+connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (IntSet.findMin vs) vs)
                    where vs = vertices g
 
 -- |Auxiliary function for calculating connectedness.
--- connectedBy edges v verts returns the sublist of verts connected to v 
+-- connectedBy edges v verts returns a list of vertices from the set verts that are connected to v 
 -- by a chain of edges, paired with a list of vertices that are not connected to v.
 -- This version uses an IntMap to represent edges (Vertex to [Vertex])
--- and uses Sets for the search algorithm arguments.
-connectedBy :: [DEdge] -> Vertex -> [Vertex] -> ([Vertex],[Vertex])
-connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.delete v $ IntSet.fromList verts) where 
+-- and uses IntSets for the search algorithm arguments.
+connectedBy :: [DEdge] -> Vertex -> VertexSet -> ([Vertex],[Vertex])
+connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.delete v verts) where 
   nextMap = VMap.fromListWith (++) $ map (\(a,b)->(a,[b])) edges
 -- search arguments (sets):  done (=processed), visited, unvisited.
   search done visited unvisited 
@@ -259,26 +288,6 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
         where x = IntSet.findMin visited
               visited' = IntSet.deleteMin visited
               newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x 
-
-{- Older Version without sets
--- |Auxiliary function for calculating connectedness by depth first search.
--- connectedBy edges v verts returns the sublist of verts connected to v 
--- by a chain of edges, paired with a list of vertices not connected.
--- This version uses an IntMap to represent edges (Vertex to [Vertex])
--- and uses a depth first search algorithm.
-connectedBy :: [DEdge] -> Vertex -> [Vertex] -> ([Vertex],[Vertex])
-connectedBy edges v verts = dfs [] [v] (verts \\[v]) where 
-  nextMap = VMap.fromListWith (++) $ map singleton edges
-  singleton (a,b) = (a,[b])
--- depth first search arguments:  done (=processed), visited, unvisited.
-  dfs done visited [] = (visited++done,[])
-  dfs done [] unvisited = (done,unvisited) -- any unvisited are not connected
-  dfs done (x:visited) unvisited 
-     = dfs (x:done) (nextVs ++ visited) (unvisited \\ nextVs)
-       where nextVs = case VMap.lookup x nextMap of
-                       Just vs -> filter (`notElem` done) $ filter (`notElem` visited) vs
-                       Nothing -> error $ "connectedBy: vertex missing from edge map: " ++ show x
--}
 
        
 {- *
@@ -299,7 +308,20 @@ faceVs = tileRep
 -- |list of (three) face vertices in order clockwise
 faceVList::TileFace -> [Vertex]
 faceVList = (\(x,y,z) -> [x,y,z]) . faceVs
---faceVList fc = [x,y,z] where (x,y,z) =  faceVs fc
+
+-- |the set of vertices of a face
+faceVSet :: TileFace -> VertexSet
+faceVSet = IntSet.fromList . faceVList
+
+-- |the set of vertices of a list of faces
+facesVSet:: [TileFace] -> VertexSet
+facesVSet = IntSet.unions . fmap faceVSet
+
+-- |find the maximum vertex for a non-empty list of faces
+facesMaxV :: [TileFace] -> Vertex
+facesMaxV = IntSet.findMax . facesVSet
+
+
 
 -- |Whilst first, second and third vertex of a face are obvious (clockwise), 
 -- it is often more convenient to refer to the originV (=firstV),
@@ -355,12 +377,19 @@ isAtV v (RK(a,b,c))  =  v==a || v==b || v==c
 hasVIn:: [Vertex] -> TileFace -> Bool           
 hasVIn vs fc = not $ null $ faceVList fc `intersect` vs
 
+-- |n `newVsAfter` v - given existing maxV v, create a list of n new vertices [v+1..v+n]
+newVsAfter :: Int -> Vertex -> [Vertex]
+n `newVsAfter` v = [v+1..v+n]
+
+{-
 -- |given existing vertices vs, create n new vertices
 makeNewVs :: Int -> [Vertex] -> [Vertex]
 makeNewVs n vs = [k+1..k+n] where k = maximum vs
+
 -- |return one new vertex
 makeNewV :: [Vertex] -> Vertex
 makeNewV vs = 1+maximum vs
+-}
 
 -- |graphValency of a vertex in a graph is the number of edges incident with the vertex.
 -- (Unmatched directed edges are completed, then the total count for directed edges is divided by 2)

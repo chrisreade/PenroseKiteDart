@@ -15,7 +15,7 @@ module Tgraph.Relabelling  where
 import Data.List (intersect, (\\), union,find,partition)
 --import qualified Data.Map.Strict as Map (Map, findWithDefault, lookup, insert, empty, fromList, union)
 import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, lookup, insert, empty, fromList, union)
-
+import qualified Data.IntSet as IntSet (IntSet,fromList,union,intersection,findMax,toList, (\\),size)
 import Tgraph.Prelude
 import Tgraph.Convert (makeVPatch, touching, vertexLocs) -- used for fullUnion
 
@@ -50,33 +50,33 @@ relabelV:: Relabelling -> Vertex -> Vertex
 relabelV rlab v = VMap.findWithDefault v v rlab
 
 -- |relabelAvoid vs g - produces a new Tgraph from g by relabelling.
--- Any vertex in g that is in the list vs will be changed to a new vertex that is
--- neither in g nor in the list vs. Vertices in g that are not in vs will remain the same.
-relabelAvoid :: [Vertex] -> Tgraph -> Tgraph
+-- Any vertex in g that is in the set vs will be changed to a new vertex that is
+-- neither in g nor in the set vs. Vertices in g that are not in vs will remain the same.
+relabelAvoid :: VertexSet -> Tgraph -> Tgraph
 relabelAvoid avoid g = relabelGraph rlab g where
   gverts = vertices g
-  avoidTarget = gverts `union` avoid
-  vertsToChange = gverts `intersect` avoid
-  newvs = makeNewVs (length vertsToChange) avoidTarget
-  rlab = VMap.fromList $ zip vertsToChange newvs
+  avoidTarget = gverts `IntSet.union` avoid
+  vertsToChange = gverts `IntSet.intersection` avoid
+  newvs = (IntSet.size vertsToChange) `newVsAfter` (IntSet.findMax avoidTarget)
+  rlab = VMap.fromList $ zip (IntSet.toList vertsToChange) newvs
 
 {-|prepareFixAvoid fix avoid g - produces a new Tgraph from g by relabelling.
- Any vertex in g that is in the list avoid but not in the list fix will be changed to a new vertex that is
- neither in g nor in the list avoid \\\\ fix.
+ Any vertex in g that is in the set avoid but not in the list fix will be changed to a new vertex that is
+ neither in g nor in the set (avoid with fix removed).
  All other vertices of g (including those in fix) will remain the same.
- Usage: This is used to prepare a graph by avoiding accidental label clashes with the avoid list
+ Usage: This is used to prepare a graph by avoiding accidental label clashes with the avoid set
  (usually vertices of another graph).
   However we fix a list of vertices which we intend to control in a subsequent relabelling.
   (this is usually a pair of vertices from a directed edge that will get a specific subsequent relabelling).
 -}
-prepareFixAvoid :: [Vertex] -> [Vertex] -> Tgraph -> Tgraph
-prepareFixAvoid fix avoid = relabelAvoid (avoid\\fix)
+prepareFixAvoid :: [Vertex] -> VertexSet -> Tgraph -> Tgraph
+prepareFixAvoid fix avoid = relabelAvoid (avoid IntSet.\\ IntSet.fromList fix)
 
 -- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
 relabelAny :: Tgraph -> Tgraph
 relabelAny g = relabelGraph rlab g where
    vs = vertices g
-   rlab = VMap.fromList $ zip vs [1..length vs]
+   rlab = VMap.fromList $ zip (IntSet.toList vs) [1.. IntSet.size vs]
 
 
 
@@ -213,8 +213,8 @@ It returns the result of applying this further relabelling to g2.
 relabelTouching :: Tgraph -> Tgraph -> Tgraph
 relabelTouching g1 g2 = relabelGraph (VMap.fromList $ overlaps) g2 where
       overlaps = [ (v2,v1) 
-                 | v2 <- vertices g2 \\ vertices g1
-                 , v1 <- vertices g1
+                 | v2 <- IntSet.toList $ vertices g2 IntSet.\\ vertices g1
+                 , v1 <- IntSet.toList $ vertices g1
                  , let Just p1 = VMap.lookup v1 vlocs
                  , let Just p2 = VMap.lookup v2 vlocs
                  , touching p1 p2

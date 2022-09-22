@@ -876,12 +876,12 @@ Testing Relabelling
 
 {-|A diagram testing matchByEdges and simpleUnion.
 The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
-The next row has: (left) a relabelling of g2 leaving (37,35) 
+The next row has: (left) a relabelling of g2 leaving (1,17) 
 which is a preparation step to avoid accidental clashes with g1,
-(middle) a further relabelling of g2 by matching against g1 using (37,35)
+(middle) a further relabelling of g2 by matching against g1 using (1,17)
 as the edge to match with (1,15),
 (right) the union of this relabelled graph with g1.
-The bottom row is as for the row above but using (37,40) as the edge to match with (1,15)
+The bottom row is as for the row above but using (1,10) as the edge to match with (1,15)
 resulting in a different union.
 -}
 testRelabellingFig:: Diagram B
@@ -892,27 +892,27 @@ testRelabellingFig = padBorder $ lw ultraThin $ vsep 1
                        ] where
      eight = fmap dashJVGraph [ g1
                               , g2
-                              , g2_3735
-                              , matchByEdges (g1, (1,15)) (g2,(37,35))
-                              , simpleUnion (g1, (1,15)) (g2,(37,35))
-                              , g2_3740
-                              , matchByEdges (g1, (1,15)) (g2,(37,40))
-                              , simpleUnion (g1, (1,15)) (g2,(37,40))
+                              , g2_A
+                              , matchByEdges (g1, (1,15)) (g2,(1,18))
+                              , simpleUnion (g1, (1,15)) (g2,(1,18))
+                              , g2_B
+                              , matchByEdges (g1, (1,15)) (g2,(1,10))
+                              , simpleUnion (g1, (1,15)) (g2,(1,10))
                               ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
      g1 = removeFaces [RK(1,31,41)] (removeVertices [74,79,29] sunD2)
      reduced2 = removeVertices [8,7,6] fsunD2
      g2 = relabelAny reduced2
-     g2_3735 = prepareFixAvoid [37,35] (vertices g1) g2
-     g2_3740 = prepareFixAvoid [37,40] (vertices g1) g2
+     g2_A = prepareFixAvoid [1,18] (vertices g1) g2
+     g2_B = prepareFixAvoid [1,10] (vertices g1) g2
 
 {-| Example showing match relabelling failing as well as a successful fullUnion of graphs.
 The top right graph g2 is matched against the top left graph g1 
-with g2 edge (37,40) matching g1 edge (1,15).
+with g2 edge (1,10) matching g1 edge (1,15).
 The bottom left shows the relabelling to match, but this is not correct because the overlap of
 g2 on g1 is not a single tile connected region.
-(In the bottom left relabelled graph, vertex 58 does not get matched to 26 in g1, for exmple)
+(In the bottom left relabelled graph, vertex 41 does not get matched to 22 in g1, for exmple)
 The simpleUnion will raise an error but the result of a fullUnion is shown (bottom right)
 -}
 incorrectAndFullUnionFig:: Diagram B
@@ -923,8 +923,8 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
      thelist = fmap dashJVPatch $ rotations [0,7] $ fmap makeVPatch 
                  [ g1
                  , g2
-                 , matchByEdges (g1, (1,15)) (g2,(37,40))
-                 , fullUnion  (g1, (1,15)) (g2,(37,40))
+                 , matchByEdges (g1, (1,15)) (g2,(1,10))
+                 , fullUnion  (g1, (1,15)) (g2,(1,10))
                  ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2

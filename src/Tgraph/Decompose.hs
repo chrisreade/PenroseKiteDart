@@ -27,20 +27,22 @@ DECOMPOSING - decomposeG
 
 -- |Decompose a Tgraph. This is uniquely determined.
 decomposeG :: Tgraph -> Tgraph
-decomposeG g = Tgraph{ vertices = newVs++vertices g
+decomposeG g = Tgraph{ maxV = newMax
                      , faces = newFaces
                      } where
-    (newVs , newVFor) = newPhiVMap g
+    (newMax , newVFor) = maxAndPhiVMap g
     newFaces = concatMap (decompFace newVFor) (faces g)
 
--- |newPhiVMap g produces newVs - a list of new vertices (one for each phi edge of v)
---   and a function mapping each phi edge to its assigned vertex in newVs.
---  Both (a,b) and (b,a) get the same v.
+-- |maxAndPhiVMap g produces a new maxV and
+-- a function mapping each phi edge to an assigned new vertex.
+-- Both (a,b) and (b,a) get the same v.
 -- (Also sorted phiEdges to reduce arbitrariness of numbering).  
-newPhiVMap :: Tgraph -> ([Vertex], DEdge -> Vertex)
-newPhiVMap g = (newVs, (Map.!) edgeVMap) where
+maxAndPhiVMap :: Tgraph -> (Vertex, DEdge -> Vertex)
+maxAndPhiVMap g = (oldMax+sizeNew, (Map.!) edgeVMap) where
   phiReps = sort [(a,b) | (a,b) <- phiEdges g, a<b]
-  newVs = makeNewVs (length phiReps) (vertices g)
+  oldMax = maxV g
+  sizeNew = length phiReps
+  newVs = sizeNew `newVsAfter` oldMax
 --BEWARE: Changing foldl' may alter the order of numbering
   (_, edgeVMap) = foldl' insert2 (newVs, Map.empty) phiReps
   insert2 (v:vs,emap) e = (vs, Map.insert e v $ Map.insert (reverseD e) v emap)
@@ -69,10 +71,10 @@ decompositionsG = iterate decomposeG
 -- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph
 decomposeSub :: SubTgraph -> SubTgraph
 decomposeSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph g' tlist' where
-   g' = Tgraph{ vertices = newVs++vertices g
+   g' = Tgraph{ maxV = newMax
               , faces = newFaces
               }
-   (newVs , newVFor) = newPhiVMap g
+   (newMax , newVFor) = maxAndPhiVMap g
    newFaces = concatMap (decompFace newVFor) (faces g)
    tlist' = fmap (concatMap (decompFace newVFor)) tlist
 

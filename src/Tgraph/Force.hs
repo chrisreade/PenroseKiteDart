@@ -69,21 +69,20 @@ the boundary directed edges (directed so that faces are on LHS and exterior is o
 plus 
 a mapping of boundary vertices to their incident faces, plus
 a mapping of boundary vertices to positions (using Tgraph.Prelude.createVPoints).
-It also keeps track of all the faces and vertices, 
+It also keeps track of all the faces
 and the next vertex label to be used when adding a new vertex.
 Note that bvFacesMap is initially only defined for boundary vertices,
 but the information is not removed when a vertex is no longer on the boundary (after an update).
 Similarly for bvLocMap.
 -}
 data Boundary 
-  = Boundary
-    { bDedges:: [DEdge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
-    , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex
-    , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex
-    , allFaces:: [TileFace] -- ^ all the tile faces
-    , allVertices:: [Vertex] -- ^ all the vertices
-    , nextVertex::  !Vertex -- ^ next vertex number
-    } deriving (Show)
+   = Boundary
+     { bDedges:: [DEdge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
+     , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex
+     , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex
+     , allFaces:: [TileFace] -- ^ all the tile faces
+     , nextVertex::  !Vertex -- ^ next vertex number
+     } deriving (Show)
 
 -- |Calculates Boundary information from a Tgraph
 -- also checks for no crossing boundaries as these could cause difficult to trace errors in forcing.
@@ -99,15 +98,14 @@ makeBoundary g =
       , bvFacesMap = makeVFMapFor bvs (faces g)
       , bvLocMap = bvLocs 
       , allFaces = faces g
-      , allVertices = vertices g
-      , nextVertex = makeNewV (vertices g)
+      , nextVertex = 1+ maxV g
       }
       
 -- |Converts a Boundary back to a Tgraph
 recoverGraph:: Boundary -> Tgraph
 recoverGraph bd = 
   Tgraph{ faces = allFaces bd
-        , vertices = allVertices bd
+        , maxV = nextVertex bd -1
         }
 
 -- |changeVFMap f vfmap vs - adds f to the list of faces associated with each v in vs and updates vfmap
@@ -343,7 +341,6 @@ doSafeUpdate bd (Just v, makeFace) =
                    , allFaces = newFace:allFaces bd
                    , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
                                --remove vertex/vertices no longer on boundary
-                   , allVertices = allVertices bd
                    , nextVertex = nextVertex bd
                    }
        bdChange = BoundaryChange 
@@ -397,7 +394,6 @@ tryUnsafeUpdate bd (Nothing, makeFace) =
                     , bvFacesMap = changeVFMap newFace (bvFacesMap bd) (faceVList newFace)
                     , bvLocMap = newVPoints
                     , allFaces = newFace:allFaces bd
-                    , allVertices = v:allVertices bd
                     , nextVertex = v+1
                     }
        bdChange = BoundaryChange 
