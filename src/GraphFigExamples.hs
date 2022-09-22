@@ -878,7 +878,7 @@ Testing Relabelling
 The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
 The next row has: (left) a relabelling of g2 leaving (1,17) 
 which is a preparation step to avoid accidental clashes with g1,
-(middle) a further relabelling of g2 by matching against g1 using (1,17)
+(middle) a further relabelling of g2 by matching against g1 using (1,18)
 as the edge to match with (1,15),
 (right) the union of this relabelled graph with g1.
 The bottom row is as for the row above but using (1,10) as the edge to match with (1,15)

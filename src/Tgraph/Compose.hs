@@ -38,13 +38,15 @@ partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = (remainder,g')
   where
     g' = getResult $ checkConnectedNoCross $ 
-          makeUncheckedTgraph newFaces
+          Tgraph { faces = newFaces, maxV = maxVertex }
+    newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
+    remainder = faces g \\ concat (groupRDs ++ groupLDs ++ groupRKs ++ groupLKs)
+    maxVertex = if null newFaces then 0 else facesMaxV newFaces
+
     darts  = filter isDart (faces g)
     dwFMap = makeVFMapFor (nub $ fmap wingV darts) (faces g)
     dwClass = classifyWith g dwFMap darts
     -- ignore unknowns
-    newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
-    remainder = faces g \\ concat (groupRDs ++ groupLDs ++ groupRKs ++ groupLKs)
 
     newRDs = fmap makeRD groupRDs 
     groupRDs = mapMaybe groupRD (largeDartBases dwClass)

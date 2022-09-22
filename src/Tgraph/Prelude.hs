@@ -48,6 +48,10 @@ data Tgraph = Tgraph { maxV :: !Vertex  -- 0 for empty graph
                      , faces    :: [TileFace]
                      } deriving (Show)
 
+-- |The empty Tgraph
+emptyTgraph :: Tgraph
+emptyTgraph = Tgraph { maxV = 0, faces = []} -- 0 never used as a vertex number
+
 -- |the set of vertices of a graph
 vertices:: Tgraph -> VertexSet
 vertices = facesVSet . faces
@@ -64,7 +68,7 @@ Basic Tgraph, vertex, edge, face operations
 -- It does not perform checks on the faces. Use checkedTgraph to perform checks.
 -- This is intended for use only in testing
 makeUncheckedTgraph:: [TileFace] -> Tgraph
-makeUncheckedTgraph [] = Tgraph { maxV = 0, faces = []} -- 0 never used as a vertex number
+makeUncheckedTgraph [] = emptyTgraph
 makeUncheckedTgraph fcs =
     Tgraph { maxV = facesMaxV fcs
            , faces = fcs
@@ -78,13 +82,20 @@ checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph fcs = getResult $ onFail report (checkTgraphProps fcs)
  where report = "checkedTgraph:\nFailed for faces: \n" ++ show fcs ++ "\n"
 
--- |is the graph empty?
+-- |is the Tgraph empty?
 nullGraph:: Tgraph -> Bool
 nullGraph g = null (faces g)
 
 {- *
-Face removal/selection
+Basic Tgraph face operations
 -}
+
+-- | selecting left darts, right darts, left kite, right kites from a Tgraph
+ldarts,rdarts,lkites,rkites :: Tgraph -> [TileFace]
+ldarts g = filter isLD (faces g)
+rdarts g = filter isRD (faces g)
+lkites g = filter isLK (faces g)
+rkites g = filter isRK (faces g) 
 
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for required properties
@@ -123,7 +134,7 @@ Required Tgraph properties
 -- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
 checkTgraphProps:: [TileFace] -> ReportFail Tgraph
-checkTgraphProps []       =  Right $ Tgraph{faces = [], maxV = 0} 
+checkTgraphProps []       =  Right $ emptyTgraph 
 checkTgraphProps fcs
       | hasEdgeLoops fcs  =  Left $ "Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
@@ -136,24 +147,6 @@ checkTgraphProps fcs
                             in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
                                then Left $ "Vertex numbers not >0: " ++ show (IntSet.toList vs)
                                else checkConnectedNoCross $ Tgraph{faces = fcs, maxV = IntSet.findMax vs} 
-
-{-
--- |Checks a list of faces for edge loops, edge conflicts (illegal tilings) and
--- crossing boundaries and connectedness.
--- (No crossing boundaries and connected implies tile-connected)
--- Returns Right g where g is a Tgraph on passing checks.
--- Returns Left lines if a test fails, where lines describes the problem found.
-checkTgraphProps:: [TileFace] -> ReportFail Tgraph
-checkTgraphProps fcs
-      | hasEdgeLoops fcs  =    Left $ "Non-valid tile-face(s)\n" ++
-                                      "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | illegalTiling fcs   =  Left $ "Non-legal tiling\n" ++
-                                      "Conflicting face edges (non-planar tiling): "
-                                      ++ show (conflictingDedges fcs) ++
-                                      "\nIllegal tile juxtapositions: "
-                                      ++ show (illegals fcs) ++ "\n"
-      | otherwise            = checkConnectedNoCross $ makeUncheckedTgraph fcs 
--}
 
 -- |Checks a Tgraph for crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
@@ -183,7 +176,6 @@ duplicates = fst . foldl' check ([],[]) where
  check (dups,seen) x | x `elem` dups = (dups,seen)
                      | x `elem` seen = (x:dups,seen)
                      | otherwise = (dups,x:seen)
---    duplicates es = nub $ es \\ nub es
 
 -- |conflictingDedges fcs returns a list of conflicting directed edges in fcs
 -- (which should be null for a Tgraph)
@@ -193,7 +185,7 @@ conflictingDedges = duplicates . facesDedges
 -- |Returns the list of all directed edges (clockwise round) a list of tile faces
 facesDedges :: [TileFace] -> [(Vertex, Vertex)]
 facesDedges = concatMap faceDedges
----[(a,b),(b,c),(c,a)] where (a,b,c) = tileRep face
+
 -- | type used to classify edges of faces 
 data EdgeType = Short | Long | Join deriving (Show,Eq)
 
@@ -265,15 +257,15 @@ crossingVertices bdes = duplicates (fmap fst bdes) ++ duplicates (fmap snd bdes)
 crossingBoundaries :: Tgraph -> Bool
 crossingBoundaries g = not $ null $ crossingBVs g
 
-
 -- |Predicate to check a Tgraph is a connected graph.
 connected:: Tgraph -> Bool
 connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (IntSet.findMin vs) vs)
                    where vs = vertices g
 
 -- |Auxiliary function for calculating connectedness.
--- connectedBy edges v verts returns a list of vertices from the set verts that are connected to v 
--- by a chain of edges, paired with a list of vertices that are not connected to v.
+-- connectedBy edges v verts returns a pair of lists of vertices (conn,unconn)
+-- where conn is a list of vertices from the set verts that are connected to v by a chain of edges,
+-- and unconn is a list of vertices from set verts that are not connected to v.
 -- This version uses an IntMap to represent edges (Vertex to [Vertex])
 -- and uses IntSets for the search algorithm arguments.
 connectedBy :: [DEdge] -> Vertex -> VertexSet -> ([Vertex],[Vertex])
@@ -291,15 +283,8 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
 
        
 {- *
-Face and Vertex Operations
+Other Face and Vertex Operations
 -}
--- | selecting left darts, right darts, left kite, right kites from a Tgraph
-ldarts,rdarts,lkites,rkites :: Tgraph -> [TileFace]
-ldarts g = filter isLD (faces g)
-rdarts g = filter isRD (faces g)
-lkites g = filter isLK (faces g)
-rkites g = filter isRK (faces g) 
-
 
 -- |triple of face vertices in order clockwise - tileRep specialised to TileFace
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
@@ -321,31 +306,33 @@ facesVSet = IntSet.unions . fmap faceVSet
 facesMaxV :: [TileFace] -> Vertex
 facesMaxV = IntSet.findMax . facesVSet
 
-
-
--- |Whilst first, second and third vertex of a face are obvious (clockwise), 
+-- Whilst first, second and third vertex of a face are obvious (clockwise), 
 -- it is often more convenient to refer to the originV (=firstV),
 -- oppV (the vertex at the other end of the join edge), and
 -- wingV (the remaining vertex not on the join edge)
-firstV,secondV,thirdV,originV,wingV,oppV:: TileFace -> Vertex
+
+-- |firstV, secondV and thirdV vertices of a face are counted clockwise starting with the origin
+firstV,secondV,thirdV:: TileFace -> Vertex
 firstV  fc = a where (a,_,_) = faceVs fc
 secondV fc = b where (_,b,_) = faceVs fc
 thirdV  fc = c where (_,_,c) = faceVs fc
 
+originV,wingV,oppV:: TileFace -> Vertex
+-- |the origin vertex of a face (firstV)
 originV = firstV
-
+-- |wingV returns the vertex not on the join edge of a face
 wingV (LD(_,_,c)) = c
 wingV (RD(_,b,_)) = b
 wingV (LK(_,b,_)) = b
 wingV (RK(_,_,c)) = c
-
+-- |oppV returns the vertex at the other end of the join edge from the origin of a face
 oppV (LD(_,b,_)) = b
 oppV (RD(_,_,c)) = c
 oppV (LK(_,_,c)) = c
 oppV (RK(_,b,_)) = b
 
 -- |indexV finds the index of a vertex in a face (firstV -> 0, secondV -> 1, thirdV -> 2)
-indexV :: Int -> TileFace -> Int
+indexV :: Vertex -> TileFace -> Int
 indexV v fc = case elemIndex v (faceVList fc) of
                   Just i -> i
                   _      -> error ("indexV: " ++ show v ++ " not found in " ++ show fc)                
@@ -367,7 +354,6 @@ prevV v fc = case indexV v fc of
 
 -- |isAtV v fc asks if a face fc has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool           
--- isAtV v face  =  v==a || v==b || v==c where (a,b,c) = tileRep face
 isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (LK(a,b,c))  =  v==a || v==b || v==c
@@ -381,16 +367,6 @@ hasVIn vs fc = not $ null $ faceVList fc `intersect` vs
 newVsAfter :: Int -> Vertex -> [Vertex]
 n `newVsAfter` v = [v+1..v+n]
 
-{-
--- |given existing vertices vs, create n new vertices
-makeNewVs :: Int -> [Vertex] -> [Vertex]
-makeNewVs n vs = [k+1..k+n] where k = maximum vs
-
--- |return one new vertex
-makeNewV :: [Vertex] -> Vertex
-makeNewV vs = 1+maximum vs
--}
-
 -- |graphValency of a vertex in a graph is the number of edges incident with the vertex.
 -- (Unmatched directed edges are completed, then the total count for directed edges is divided by 2)
 graphValency:: Tgraph -> Vertex -> Int
@@ -401,7 +377,7 @@ graphValency g = (valencyMap VMap.!) where
     count _ = error "valency: count found empty list of verticies - impossible"
 
 
-{- * Edge Operations -}
+{- * Other Edge Operations -}
 {-
 (a,b) is regarded as a directed edge from a to b.
 A list of such pairs will usually be regarded as a list of directed edges.
@@ -411,7 +387,6 @@ we will refer to this as an edge list rather than a directed edge list.
 
 -- |directed edges (clockwise) round a face
 faceDedges::TileFace -> [DEdge]
---faceDedges face = [(a,b),(b,c),(c,a)] where (a,b,c) = tileRep face
 faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (LK(a,b,c)) = [(a,b),(b,c),(c,a)]
@@ -421,33 +396,36 @@ faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
 reverseD:: DEdge -> DEdge
 reverseD (a,b) = (b,a)
 
--- |Whilst first, second and third edges are obvious (always clockwise), 
+-- Whilst first, second and third edges are obvious (always clockwise), 
 -- it is often more convenient to refer to the joinE (join edge),
 -- shortE (the short edge which is not a join edge), and
 -- longE (the long edge which is not a join edge).
 -- These are also directed clockwise.
 -- joinOfTile also returns the join edge but in the direction away from the origin
-firstE,secondE,thirdE, joinE, shortE, longE, joinOfTile:: TileFace -> DEdge
+
+-- |firstE, secondE and thirdE are the directed edges of a face counted clockwise from the origin, 
+firstE,secondE,thirdE:: TileFace -> DEdge
 firstE = head . faceDedges
 secondE = head . tail . faceDedges
 thirdE = head . tail . tail . faceDedges
 
--- |the join edge of a face in the clockwise direction going round the face (see also joinOfTile).
+joinE, shortE, longE, joinOfTile:: TileFace -> DEdge
+-- |the join directed edge of a face in the clockwise direction going round the face (see also joinOfTile).
 joinE (LD(a,b,_)) = (a,b)
 joinE (RD(a,_,c)) = (c,a)
 joinE (LK(a,_,c)) = (c,a)
 joinE (RK(a,b,_)) = (a,b)
--- |The short edge of a face in the clockwise direction going round the face.
+-- |The short directed edge of a face in the clockwise direction going round the face.
 -- This is the non-join short edge for darts.
 shortE = secondE
--- |The long edge of a face in the clockwise direction going round the face.
+-- |The long directed edge of a face in the clockwise direction going round the face.
 -- This is the non-join long edge for kites.
 longE (LD(a,_,c)) = (c,a)
 longE (RD(a,b,_)) = (a,b)
 longE (LK(a,b,_)) = (a,b) 
 longE (RK(a,_,c)) = (c,a)
 
--- |The join edge of a face but directed from the origin (not clockwise for RD and LK)
+-- |The join edge of a face directed from the origin (not clockwise for RD and LK)
 joinOfTile fc = (originV fc, oppV fc)
 
 facePhiEdges, faceNonPhiEdges::  TileFace -> [DEdge]
@@ -516,7 +494,6 @@ bothDir es = missingRevs es ++ es
 -- Should be used on lists with single directions only.
 -- If the argument may contain reverse directions, use bothDir to avoid duplicates.
 bothDirOneWay:: [DEdge] -> [DEdge]
---bothDirOneWay = concatMap (\(a,b) -> [(a,b),(b,a)])
 bothDirOneWay [] = []
 bothDirOneWay ((e@(a,b)):es)= e:(b,a):bothDirOneWay es
 
@@ -524,10 +501,6 @@ bothDirOneWay ((e@(a,b)):es)= e:(b,a):bothDirOneWay es
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
 boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
 boundaryDedges g = missingRevs (graphDedges g) where
-{- original
-boundaryDedges g = bothDir des \\ des where 
-    des = graphDedges g
--}
 
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
 missingRevs:: [DEdge] -> [DEdge]
@@ -550,11 +523,6 @@ boundaryEdges  = bothDirOneWay . boundaryDedges
 internalEdges :: Tgraph -> [(Vertex, Vertex)]
 internalEdges g =  des \\ fmap reverseD (missingRevs des) where
     des = graphDedges g
-{-
-internalEdges g = des \\ fmap reverseD bdes where
-    des = graphDedges g
-    bdes = bothDir des \\ des
--}
 
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
@@ -562,12 +530,12 @@ edgeNb fc = any (`elem` edges) . faceDedges where
       edges = fmap reverseD (faceDedges fc)
 
 
--- |Abbreviation for Mapping with Vertex keys (used for Boundaries)
+-- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
 type VertexMap a = VMap.IntMap a
 
-{- |
-Given list of vertices and list of faces
-create an IntMap from each vertex to the list of faces (from the list) that are at that vertex
+{- |makeVFMapFor vs fcs -
+For list of vertices vs and list of faces fcs,
+create an IntMap from each vertex in vs to a list of those faces in fcs that are at that vertex
 -}
 makeVFMapFor:: [Vertex] -> [TileFace] -> VertexMap [TileFace]
 makeVFMapFor vs = foldl' insertf start where
@@ -595,10 +563,9 @@ makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`
 -- |pushSub f sub - pushes a new tracked subset of tilefaces onto the tracked subsets of sub
 -- calculated with f sub
 pushSub:: (SubTgraph -> [TileFace]) -> SubTgraph -> SubTgraph
-pushSub f sub = SubTgraph{fullGraph = g, trackedSubsets = f sub `intersect` faces g:trackedSubsets sub} where
+pushSub f sub = makeSubTgraph g trackedList where
     g = fullGraph sub
-
-
+    trackedList = f sub `intersect` faces g:trackedSubsets sub
 
 
 {- * Failure reporting (for partial operations) -}
