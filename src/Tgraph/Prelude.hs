@@ -15,9 +15,9 @@ This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, nub, elemIndex,foldl')
-import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith, (!))
-import qualified Data.Set as Set (empty,singleton,insert,delete,fromList,toList,null,(\\),union,notMember,deleteMin,findMin)
+import Data.List ((\\), intersect, nub, elemIndex,foldl',group,sort)
+import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith, (!),fromAscList)
+import qualified Data.IntSet as IntSet (empty,singleton,insert,delete,fromList,toList,null,(\\),union,notMember,deleteMin,findMin)
 import HalfTile
 
 {---------------------
@@ -54,6 +54,7 @@ Basic Tgraph, vertex, edge, face operations
 --------------------------------------------}
 
 
+
 -- |Creates a (possibly invalid) Tgraph from a list of faces by calculating vertices.
 -- It does not perform checks on the faces. Use checkedTgraph to perform checks.
 -- This is intended for use only in testing and in checkTgraphProps
@@ -71,34 +72,14 @@ checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph fcs = getResult $ onFail report (checkTgraphProps fcs)
  where report = "checkedTgraph:\nFailed for faces: \n" ++ show fcs ++ "\n"
 
--- |Checks a list of faces for edge loops, edge conflicts (illegal tilings) and
--- crossing boundaries and connectedness.
--- (No crossing boundaries and connected implies tile-connected)
--- Returns Right g where g is a Tgraph on passing checks.
--- Returns Left lines if a test fails, where lines describes the problem found.
-checkTgraphProps:: [TileFace] -> ReportFail Tgraph
-checkTgraphProps fcs
-      | hasEdgeLoops fcs  =    Left $ "Non-valid tile-face(s)\n" ++
-                                      "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | illegalTiling fcs   =  Left $ "Non-legal tiling\n" ++
-                                      "Conflicting face edges (non-planar tiling): "
-                                      ++ show (conflictingDedges fcs) ++
-                                      "\nIllegal tile juxtapositions: "
-                                      ++ show (illegals fcs) ++ "\n"
-      | otherwise            = checkConnectedNoCross $ makeUncheckedTgraph fcs 
+-- |is the graph empty?
+nullGraph:: Tgraph -> Bool
+nullGraph g = null (faces g)
 
--- |Checks a Tgraph for crossing boundaries and connectedness.
--- (No crossing boundaries and connected implies tile-connected)
--- Returns Right g where g is a Tgraph on passing checks.
--- Returns Left lines if a test fails, where lines describes the problem found.
-checkConnectedNoCross g
-  | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
-  | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
-                                  "Crossing boundaries found at " ++ show (crossingBVs g) ++ "\n"
-  | otherwise            = Right g 
+{- *
+Face removal/selection
+-}
 
-
-  
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for required properties
 -- e.g. connectedness and no crossing boundaries.
@@ -123,14 +104,39 @@ removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
 selectVertices :: [Vertex] -> Tgraph -> Tgraph
 selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 
--- |is the graph empty?
-nullGraph:: Tgraph -> Bool
-nullGraph g = null (faces g)
 
 
 {- *
-Tests and Tgraph properties
+Required Tgraph properties
 -}
+
+-- |Checks a list of faces for edge loops, edge conflicts (illegal tilings) and
+-- crossing boundaries and connectedness.
+-- (No crossing boundaries and connected implies tile-connected)
+-- Returns Right g where g is a Tgraph on passing checks.
+-- Returns Left lines if a test fails, where lines describes the problem found.
+checkTgraphProps:: [TileFace] -> ReportFail Tgraph
+checkTgraphProps fcs
+      | hasEdgeLoops fcs  =    Left $ "Non-valid tile-face(s)\n" ++
+                                      "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
+      | illegalTiling fcs   =  Left $ "Non-legal tiling\n" ++
+                                      "Conflicting face edges (non-planar tiling): "
+                                      ++ show (conflictingDedges fcs) ++
+                                      "\nIllegal tile juxtapositions: "
+                                      ++ show (illegals fcs) ++ "\n"
+      | otherwise            = checkConnectedNoCross $ makeUncheckedTgraph fcs 
+
+-- |Checks a Tgraph for crossing boundaries and connectedness.
+-- (No crossing boundaries and connected implies tile-connected)
+-- Returns Right g where g is a Tgraph on passing checks.
+-- Returns Left lines if a test fails, where lines describes the problem found.
+checkConnectedNoCross:: Tgraph -> ReportFail Tgraph
+checkConnectedNoCross g
+  | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
+  | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
+                                  "Crossing boundaries found at " ++ show (crossingBVs g) ++ "\n"
+  | otherwise            = Right g 
+
 
 -- |Returns any repeated vertices in a single tileface for a list of tilefaces.
 findEdgeLoops:: [TileFace] -> [Vertex]
@@ -232,6 +238,7 @@ crossingBoundaries g = not $ null $ crossingBVs g
 
 
 -- |Predicate to check a Tgraph is a connected graph.
+connected:: Tgraph -> Bool
 connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs) vs)
                    where vs = vertices g
 
@@ -241,17 +248,17 @@ connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (head vs
 -- This version uses an IntMap to represent edges (Vertex to [Vertex])
 -- and uses Sets for the search algorithm arguments.
 connectedBy :: [DEdge] -> Vertex -> [Vertex] -> ([Vertex],[Vertex])
-connectedBy edges v verts = search Set.empty (Set.singleton v) (Set.delete v $ Set.fromList verts) where 
+connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.delete v $ IntSet.fromList verts) where 
   nextMap = VMap.fromListWith (++) $ map (\(a,b)->(a,[b])) edges
 -- search arguments (sets):  done (=processed), visited, unvisited.
   search done visited unvisited 
-    | Set.null unvisited = (Set.toList visited ++ Set.toList done,[])
-    | Set.null visited = (Set.toList done, Set.toList unvisited)  -- any unvisited are not connected
+    | IntSet.null unvisited = (IntSet.toList visited ++ IntSet.toList done,[])
+    | IntSet.null visited = (IntSet.toList done, IntSet.toList unvisited)  -- any unvisited are not connected
     | otherwise =
-        search (Set.insert x done) (Set.union newVs visited') (unvisited Set.\\ newVs)
-        where x = Set.findMin visited
-              visited' = Set.deleteMin visited
-              newVs = Set.fromList $ filter (`Set.notMember` done) $ nextMap VMap.! x 
+        search (IntSet.insert x done) (IntSet.union newVs visited') (unvisited IntSet.\\ newVs)
+        where x = IntSet.findMin visited
+              visited' = IntSet.deleteMin visited
+              newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x 
 
 {- Older Version without sets
 -- |Auxiliary function for calculating connectedness by depth first search.
@@ -284,9 +291,6 @@ rdarts g = filter isRD (faces g)
 lkites g = filter isLK (faces g)
 rkites g = filter isRK (faces g) 
 
--- |directed edge valency of a vertex
-valencyD :: Tgraph -> Vertex -> Int                  
-valencyD g v = length $ filter (\(a,b) -> a==v || b==v) (graphDedges g) -- assumes no self-loops
 
 -- |triple of face vertices in order clockwise - tileRep specialised to TileFace
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
@@ -357,6 +361,15 @@ makeNewVs n vs = [k+1..k+n] where k = maximum vs
 -- |return one new vertex
 makeNewV :: [Vertex] -> Vertex
 makeNewV vs = 1+maximum vs
+
+-- |graphValency of a vertex in a graph is the number of edges incident with the vertex.
+-- (Unmatched directed edges are completed, then the total count for directed edges is divided by 2)
+graphValency:: Tgraph -> Vertex -> Int
+graphValency g = (valencyMap VMap.!) where
+    valencyMap = VMap.fromAscList $ fmap count $ group $ sort (fmap fst edges ++ fmap snd edges)
+    edges = graphEdges g
+    count as@(a:_) = (a,length as `div` 2)
+    count _ = error "valency: count found empty list of verticies - impossible"
 
 
 {- * Edge Operations -}

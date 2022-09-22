@@ -82,8 +82,8 @@ with different subsets of the vertices.
 -}
 makeVPatchWith:: VertexLocMap -> [TileFace] -> VPatch
 makeVPatchWith vpMap fcs = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
-                                , lHybrids  = makeLHyb <$> fcs
-                                } where
+                                  , lHybrids  = makeLHyb <$> fcs
+                                  } where
     locateV (v,p) = v `at` p
     makeLHyb fc = case (VMap.lookup (originV fc) vpMap , VMap.lookup (oppV fc) vpMap) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap

@@ -25,7 +25,6 @@ import Tgraph.Force
 import Tgraph.Convert
 import Tgraph.Relabelling
 
-
 {----------------------------
 ********************************************
 EXPERIMENTAL BITS
@@ -69,14 +68,13 @@ emplaceChoices g =
 {-| makeChoices is a temporary tool which does not attempt to analyse choices for correctness.
 It can thus create some choices which will be incorrect.
 The unknowns returned from classifyDartWings can become largeKiteCentres or largeDartBases.
-This produces 2^n choices where n is the number of unknowns (excluding lone dart wing tips with valencyD 2).
+This produces 2^n choices where n is the number of unknowns (excluding lone dart wing tips with valency 2).
 -}
 makeChoices :: Tgraph -> [Tgraph]
 makeChoices g = choices unks [g] where
-    unks = filter ((>2).valencyD g) (unknowns (classifyDartWings g))
+    unks = filter ((>2).graphValency g) (unknowns (classifyDartWings g))
     choices [] gs = gs
-    choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)              
-
+    choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
 
 
 {-------------------------------------------------------------------------
