@@ -876,12 +876,12 @@ Testing Relabelling
 
 {-|A diagram testing matchByEdges with a single tile-connected overlap.
 The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
-The next row has: (left) a relabelling of g2 leaving (1,17) 
+The next row has: (left) a relabelling of g2 leaving (1,10) 
 which is a preparation step to avoid accidental clashes with g1,
-(middle) a further relabelling of g2 by matching against g1 using (1,18)
+(middle) a further relabelling of g2 by matching against g1 using (1,10)
 as the edge to match with (1,15),
 (right) the union of this relabelled graph with g1.
-The bottom row is as for the row above but using (1,10) as the edge to match with (1,15)
+The bottom row is as for the row above but using (1,18) as the edge to match with (1,15)
 resulting in a different union.
 -}
 testRelabellingFig:: Diagram B
@@ -893,19 +893,19 @@ testRelabellingFig = padBorder $ lw ultraThin $ vsep 1
      eight = fmap dashJVGraph [ g1
                               , g2
                               , g2_A
-                              , matchByEdges (g1, (1,15)) (g2,(1,18))
-                              , fullUnion (g1, (1,15)) (g2,(1,18))
-                              , g2_B
                               , matchByEdges (g1, (1,15)) (g2,(1,10))
                               , fullUnion (g1, (1,15)) (g2,(1,10))
+                              , g2_B
+                              , matchByEdges (g1, (1,15)) (g2,(1,18))
+                              , fullUnion (g1, (1,15)) (g2,(1,18))
                               ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
      g1 = removeFaces [RK(1,31,41)] (removeVertices [74,79,29] sunD2)
      reduced2 = removeVertices [8,7,6] fsunD2
      g2 = relabelContig reduced2
-     g2_A = prepareFixAvoid [1,18] (vertices g1) g2
-     g2_B = prepareFixAvoid [1,10] (vertices g1) g2
+     g2_A = prepareFixAvoid [1,10] (vertices g1) g2
+     g2_B = prepareFixAvoid [1,18] (vertices g1) g2
 
 {-| Example showing match relabelling failing as well as a successful fullUnion of graphs.
 The top right graph g2 is matched against the top left graph g1 

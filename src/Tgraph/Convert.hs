@@ -426,21 +426,23 @@ drawSubTgraph2 = drawSubTgraph [ drawPatch
 {- *  Touching Vertex global check
 -}
 
-{-| A TESTING function
-for use if the touching vertex check is switched off in forcing.  This is a reptrospective check.
+{-| 
 touchingVertices checks that no vertices are too close to each other using createVPoints.
 If vertices are too close that indicates we may have the same point with two different vertex numbers
 arising from the touching vertex problem. 
 It returns pairs of vertices that are too close 
 (i.e less than 0.5 where 1.0 would be the length of short edges)
 An empty list is returned if there is no touching vertex problem.
-Complexity has order of the square of the number of vertices (calculates distance between all pairs)
+Complexity has order of the square of the number of vertices (calculates distance between all pairs).
+                           
+This is used in fullUnion, but can also be used as a reptrospective check if the touching vertex check 
+is switched off in forcing.                          
 -}
-touchingVertices:: Tgraph -> [(Vertex,Vertex)]
-touchingVertices g = check vpAssoc where
-  vpAssoc = VMap.toList $ createVPoints (faces g)  
+touchingVertices:: [TileFace] -> [(Vertex,Vertex)]
+touchingVertices fcs = check vpAssoc where
+  vpAssoc = VMap.toList $ createVPoints fcs  
   check [] = []
-  check ((v,p):more) = [(v,v1) | (v1,p1) <- more, touching p p1 ] ++ check more
+  check ((v,p):more) = [(v1,v) | (v1,p1) <- more, touching p p1 ] ++ check more
 
 {-|touching checks if two points are considered close.
 Close means the square of the distance between them is less than 0.25 so they cannot be

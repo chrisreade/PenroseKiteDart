@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig =  incorrectAndFullUnionFig
+fig =  testRelabellingFig
 
 main = mainWith fig
 

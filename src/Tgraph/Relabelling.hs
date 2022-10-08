@@ -12,12 +12,12 @@ to implement a guided union of Tgraphs (fullUnion and tryFullUnion)
 module Tgraph.Relabelling  where
 
 
-import Data.List (intersect, (\\), union,find,partition)
+import Data.List (intersect, (\\), union,find,partition,nub)
 --import qualified Data.Map.Strict as Map (Map, findWithDefault, lookup, insert, empty, fromList, union)
 import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, lookup, insert, empty, fromList, union)
 import qualified Data.IntSet as IntSet (IntSet,fromList,union,intersection,findMax,toList, (\\),size,null)
 import Tgraph.Prelude
-import Tgraph.Convert (createVPoints, touching, vertexLocs) -- used for fullUnion
+import Tgraph.Convert (createVPoints, touchingVertices, vertexLocs) -- used for fullUnion
 
 
 -- |relabelAvoid vs g - produces a new Tgraph from g by relabelling.
@@ -100,11 +100,29 @@ fullUnion (g1,e1) (g2,e2) = getResult $ tryFullUnion (g1,e1) (g2,e2)
     of tiles in g1 and relabelled g2             
 -}
 tryFullUnion:: (Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
+tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
+  do g3 <- tryMatchByEdges (g1,e1) (g2,e2)
+     correctTouchingVs $ faces g1 `union` faces g3
+
+{-
+tryFullUnion:: (Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
 tryFullUnion (g1,e1) (g2,e2) =
   do g3 <- tryMatchByEdges (g1,e1) (g2,e2)
      let g4 = relabelTouching g1 g3  
      checkTgraphProps $ faces g1 `union` faces g4
+-}
 
+{-| correctTouchingVs fcs finds touching vertices by calculating locations for vertices
+    and then relabels to remove touching vertices then checks for Tgraph properties.
+    [fcs needs to be tile-connected before the relabelling]         
+-}
+correctTouchingVs ::  [TileFace] -> ReportFail Tgraph
+correctTouchingVs fcs = 
+    onFail ("correctTouchingVs:\n" ++ show touchVs) $ 
+    checkTgraphProps $ nub $ fmap (relabelFace $ VMap.fromList touchVs) fcs
+    where touchVs = touchingVertices fcs
+
+{-
 {-|relabelTouching is used by tryFullUnion (and fullUnion).
 relabelTouching g1 g2 assumes that there are vertex labels in g2 that match with vertex labels in g1
 in at least a matching tile-connected overlap region. It then identifies other vertices in g2 that need to be
@@ -124,6 +142,7 @@ relabelTouching g1 g2 = relabelGraph (VMap.fromList $ overlaps) g2 where
                  , touching p1 p2
                  ]
       vlocs = createVPoints $ faces g1 `union` faces g2 
+-}
 
 {-|matchByEdges (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
 consistent with g1 on their overlap.
@@ -139,13 +158,13 @@ matchByEdges:: (Tgraph,DEdge) -> (Tgraph,DEdge) -> Tgraph
 matchByEdges ge1 ge2 = getResult $ tryMatchByEdges ge1 ge2
  
 {-|tryMatchByEdges (g1,e1) (g2,e2) produces either Right g where g is a relabelled version of g2 that is
-consistent with g1 on their overlap or Left lines if there is a mismatch (lines explaining the problem).
+consistent with g1 on an overlapping tile-connected region or Left lines if there is a mismatch (lines explaining the problem).
 The overlapping region must contain the directed edge e1 in g1. The edge e2 in g2
 will be identified with e1 by the relabelling of g2.
 
-CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
-(If the overlap contains more than one tile-connected region the result may not be
-a correct relabelling of g2)    
+CAVEAT: The relabelling may not be complete if the overlap is not just a SINGLE tile-connected region in g1.
+If the overlap is more than a single tile-connected region, then the union of the relabelled faces with faces in g1
+will be tile-connected but may have touching vertices.    
 -}
 tryMatchByEdges :: (Tgraph,DEdge) -> (Tgraph,DEdge) -> ReportFail Tgraph
 tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $ 
