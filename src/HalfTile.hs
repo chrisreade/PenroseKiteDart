@@ -53,5 +53,14 @@ isRK _      = False
 isDart x = isLD x || isRD x
 isKite x = isLK x || isRK x
 
+-- | matchingHalfTile t1 t2 is True if t1 and t2 use the same constructor
+-- (i.e. both LD or both RD or both LK or both RK)
+matchingHalfTile :: HalfTile rep1 -> HalfTile rep2 -> Bool
+matchingHalfTile (LD _) t = isLD t
+matchingHalfTile (RD _) t = isRD t
+matchingHalfTile (LK _) t = isLK t
+matchingHalfTile (RK _) t = isRK t
+
+
 
 

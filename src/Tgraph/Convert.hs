@@ -71,7 +71,7 @@ This uses createVPoints to form a mapping of vertices to positions.
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
 -}
 makeVPatch::Tgraph -> VPatch
-makeVPatch g = makeVPatchWith (createVPoints $ fcs) fcs where fcs = faces g
+makeVPatch g = makeVPatchWith (createVPoints fcs) fcs where fcs = faces g
 
 {-|Auxilliary function For converting a list of TileFaces to a VPatch givne a VertexLocMap
 The VertexLocMap argument must contain locations for all the Tgraph vertices.

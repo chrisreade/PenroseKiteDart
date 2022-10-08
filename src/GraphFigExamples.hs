@@ -874,7 +874,7 @@ kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ mak
 Testing Relabelling
 -}
 
-{-|A diagram testing matchByEdges and simpleUnion.
+{-|A diagram testing matchByEdges with a single tile-connected overlap.
 The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
 The next row has: (left) a relabelling of g2 leaving (1,17) 
 which is a preparation step to avoid accidental clashes with g1,
@@ -894,16 +894,16 @@ testRelabellingFig = padBorder $ lw ultraThin $ vsep 1
                               , g2
                               , g2_A
                               , matchByEdges (g1, (1,15)) (g2,(1,18))
-                              , simpleUnion (g1, (1,15)) (g2,(1,18))
+                              , fullUnion (g1, (1,15)) (g2,(1,18))
                               , g2_B
                               , matchByEdges (g1, (1,15)) (g2,(1,10))
-                              , simpleUnion (g1, (1,15)) (g2,(1,10))
+                              , fullUnion (g1, (1,15)) (g2,(1,10))
                               ]
      sunD2 = sunDs!!2
      fsunD2 = force sunD2
      g1 = removeFaces [RK(1,31,41)] (removeVertices [74,79,29] sunD2)
      reduced2 = removeVertices [8,7,6] fsunD2
-     g2 = relabelAny reduced2
+     g2 = relabelContig reduced2
      g2_A = prepareFixAvoid [1,18] (vertices g1) g2
      g2_B = prepareFixAvoid [1,10] (vertices g1) g2
 
@@ -911,9 +911,9 @@ testRelabellingFig = padBorder $ lw ultraThin $ vsep 1
 The top right graph g2 is matched against the top left graph g1 
 with g2 edge (1,10) matching g1 edge (1,15).
 The bottom left shows the relabelling to match, but this is not correct because the overlap of
-g2 on g1 is not a single tile connected region.
-(In the bottom left relabelled graph, vertex 41 does not get matched to 22 in g1, for exmple)
-The simpleUnion will raise an error but the result of a fullUnion is shown (bottom right)
+g2 and g1 is not a simple tile connected region.
+(In the bottom left relabelled graph, vertex 41 does not get matched to 22 in g1, for example)
+A call to relabelTouching is essential to produce a valid Tgraph.
 -}
 incorrectAndFullUnionFig:: Diagram B
 incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1 
@@ -931,30 +931,10 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
      g1 = removeFaces [RK(1,31,41)] (removeVertices [74,79,29] sunD2)
          --removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [8,7,6,23] fsunD2
-     g2 = relabelAny reduced2
-{-
-incorrectAndFullUnionFig:: Diagram B
-incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1 
-                            [ hsep 1 $ center <$> take 2 thelist
-                            , hsep 1 $ center <$> drop 2 thelist
-                            ] where
-     thelist = fmap dashJVPatch $ rotations [0,7] $ fmap makeVPatch 
-                 [ g1
-                 , g2
-                 , matchByEdges (g1, (1,13)) (g2,(37,40))
-                 , fullUnion  (g1, (1,13)) (g2,(37,40))
-                 ]
-     sunD2 = sunDs!!2
-     fsunD2 = force sunD2
-     g1 = removeFaces [RK(1,21,26)] (removeVertices [20,47,50,44,48] sunD2)
-         --removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
-     reduced2 = removeVertices [8,7,6,17] fsunD2
-     g2 = relabelAny reduced2
--}
-
-
+     g2 = relabelContig reduced2
 
    
+{-
 -- |Test function designed to watch steps of matchByEdges using ghci.
 -- The result is a tuple of arguments for first call of addRelabel (not in order)
 -- Use:  relabelWatchStep it on the result to step through.
@@ -982,6 +962,7 @@ relabelWatchStep (vMap, fc:fcs, tried, awaiting, g) =
                         where (fcs', awaiting') = partition (edgeNb fc) awaiting
                               vMap' = VMap.union (initRelabelling orig fc) vMap
     Left lines -> error lines
+-}
 
 
 {- *
