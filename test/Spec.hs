@@ -75,9 +75,12 @@ graphPropSpec = describe "Test Properties of Tgraphs" $ do
     context "When a Tgraph has no illegal edge conflicts" $
       it "illegalTiling should return False" $
         illegalTiling x1 `shouldBe` False
+    context "When faces have a touching vertex" $
+      it "makeTgraph should throw an exception" $ do
+          evaluate (makeTgraph touchErrorFaces) `shouldThrow` anyException
     context "When faces do not form a valid Tgraph" $
-      it "checkedTgraph should throw an exception" $ do
-          evaluate (checkedTgraph testCrossingBoundary) `shouldThrow` anyException
+      it "makeTgraph should throw an exception" $ do
+          evaluate (makeTgraph testCrossingBoundary) `shouldThrow` anyException
 
 graphOpSpec :: Spec
 graphOpSpec = describe "Main Tgraph Operations Test" $ do

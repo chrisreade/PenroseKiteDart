@@ -35,7 +35,7 @@ Example Tgraphs with Figures
 -}
 fool, foolD, foolDminus:: Tgraph
 -- |fool: fool's kite - a decomposed left and right kite back-to-back (i.e. not sharing join edge)
-fool = checkedTgraph
+fool = makeTgraph
           [ RD(1,2,3), LD(1,3,4), RK(6,2,5), LK(6,3,2), RK(6,4,3), LK(6,7,4)]
 
 -- |a once decomposed fool (= foolDs!!1)
@@ -47,6 +47,19 @@ foolDs = decompositionsG fool
 -- |foolDminus: 3 faces removed from foolD - still a valid Tgraph
 foolDminus = removeFaces [RD(6,15,13), LD(6,17,15), RK(5,11,2)] foolD
 -- [RD(6,12,11), LD(6,14,12), RK(5,10,2)] foolD --removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
+
+{-|touchErrorFaces contains touching vertices which should produce an error using makeTgraph.
+*** Exception: makeTgraph: touching vertices [(19,7)]
+This error is not picked up by checkedTgraph and can be fixed using correctTouchingVs
+
+> checkedTgraph touchErrorFaces
+Tgraph {maxV = 19, faces = ...}
+
+> correctTouchingVs touchErrorFaces
+Right (Tgraph {maxV = 18, faces = [..., LK (7,17,18)]})
+-}
+touchErrorFaces::[TileFace]
+touchErrorFaces = faces foolD ++ [RD(6,18,17),LK(19,17,18)]
 
 -- | diagram of just fool
 foolFig :: Diagram B
@@ -61,7 +74,7 @@ foolAndFoolD = padBorder $ hsep 1 [(dashJVPatch . scale phi . makeVPatch) fool, 
 
 -- |Tgraph for a sun
 sunGraph :: Tgraph
-sunGraph = checkedTgraph
+sunGraph = makeTgraph
              [ RK(1,2,11), LK(1,3,2)
              , RK(1,4,3) , LK(1,5,4)
              , RK(1,6,5) , LK(1,7,6)
@@ -80,14 +93,14 @@ figSunD2D = padBorder  $ hsep 1 [dashJVGraph $ sunDs !! 2, scale phi $ dashJVGra
 
 -- |Tgraph for kite
 kiteGraph :: Tgraph
-kiteGraph = checkedTgraph [ RK(1,2,4), LK(1,3,2)]
+kiteGraph = makeTgraph [ RK(1,2,4), LK(1,3,2)]
 -- |All decompositions of a kite
 kiteDs :: [Tgraph]
 kiteDs = decompositionsG kiteGraph
 
 -- |Tgraph for a dart
 dartGraph :: Tgraph
-dartGraph =  checkedTgraph [ RD(1,2,3), LD(1,3,4)]
+dartGraph =  makeTgraph [ RD(1,2,3), LD(1,3,4)]
 -- |All decompositions of a dart
 dartDs :: [Tgraph]
 dartDs =  decompositionsG dartGraph
@@ -297,20 +310,20 @@ crossingBdryFig = padBorder $ hsep 1 [d1,d2]
 
 -- |mistake is a legal but incorrect graph with a kite bordered by 2 darts
 mistake:: Tgraph
-mistake = checkedTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1), LD(3,5,7), RD(4,8,6)]
+mistake = makeTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1), LD(3,5,7), RD(4,8,6)]
 
 -- |figure showing mistake Tgraph and the point at which forcing fails                
 pfMistakeFig :: Diagram B
 pfMistakeFig  = padBorder $ hsep 1 [dashJVGraph mistake, dashJVGraph partForcedMistake] where
-   partForcedMistake = 
-      checkedTgraph [RK (9,1,11),LK (9,10,7),RK (9,7,5),LK (9,5,1),RK (1,2,4)
-                    ,LK (1,3,2),RD (3,1,5),LD (4,6,1),LD (3,5,7),RD (4,8,6)
-                    ]
+   partForcedMistake = makeTgraph 
+                       [RK (9,1,11),LK (9,10,7),RK (9,7,5),LK (9,5,1),RK (1,2,4)
+                       ,LK (1,3,2),RD (3,1,5),LD (4,6,1),LD (3,5,7),RD (4,8,6)
+                       ]
    
 -- |decomposeG mistake and the point at which forcing fails  with  RK (6,26,1)              
 forcingDmistakeFig :: Diagram B
 forcingDmistakeFig = padBorder $ hsep 1 [dashJVGraph (decomposeG mistake), dashJVGraph part] where
-    part = checkedTgraph
+    part = makeTgraph
              [RK (26,24,1),RK (5,24,25),LK (5,1,24),RK (3,23,2),LK (3,22,23)
              ,RK (3,21,22),LK (3,15,21),LK (4,2,20),RK (4,20,19),LK (4,19,18),RK (4,18,17)
              ,LK (4,17,16),RK (4,16,12),LD (8,12,16),RK (3,14,15),LK (3,11,14),RD (7,14,11)
@@ -328,7 +341,7 @@ forcingDmistakeFig = padBorder $ hsep 1 [dashJVGraph (decomposeG mistake), dashJ
 -}
 forcingD2mistakeFig :: Diagram B
 forcingD2mistakeFig = padBorder $ dashJVGraph partF where
-  partF = checkedTgraph
+  partF = makeTgraph
             [LK (78,46,35),LK (78,47,45),RK (78,45,46),LK (7,77,73),RK (7,76,77),LK (7,75,76),RK (7,74,75)
             ,LK (7,47,74),RK (7,73,43),LD (44,43,73),RK (8,72,67),LK (8,71,72),RK (8,70,71),LK (8,69,70)
             ,RK (8,68,69),LK (8,42,68),RD (49,68,42),RK (62,40,67),LK (8,67,40),RD (66,35,39),LD (66,39,38)
@@ -352,12 +365,12 @@ forcingD2mistakeFig = padBorder $ dashJVGraph partF where
 
 -- |mistake1 is a kite bordered by 2 half kites (subgraph of mistake and still erroneous)
 mistake1:: Tgraph
-mistake1 = checkedTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1)]
+mistake1 = makeTgraph [RK(1,2,4), LK(1,3,2), RD(3,1,5), LD(4,6,1)]
 
 -- |partially forced mistake1 (at the point of discovery of incorrect graph
 partFMistake1Fig:: Diagram B
 partFMistake1Fig = padBorder $ dashJVGraph partF where
-  partF = checkedTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD (3,1,5),LD (4,6,1)]
+  partF = makeTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD (3,1,5),LD (4,6,1)]
 
 -- |decomposed mistake1 is no longer erroneous and can be forced and recomposed
 cdMistake1Fig :: Diagram B
@@ -386,24 +399,30 @@ labelD l d = baselineText l # fontSize (local 0.5) # fc blue <> d # moveTo (p2(0
     7 vertex types are, sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph=fool, deuceGraph
 -}
 jackGraph,kingGraph,queenGraph,aceGraph,deuceGraph,starGraph::Tgraph
-jackGraph = checkedTgraph [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
-                          ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
-                          ]
-kingGraph = checkedTgraph [LD (1,2,3),RD (1,11,2),LD (1,4,5),RD (1,3,4),LD (1,10,11)
-                          ,RD (1,9,10),LK (9,1,7),RK (9,7,8),RK (5,7,1),LK (5,6,7)
-                          ]
-queenGraph = checkedTgraph [LK (7,1,5),RK (3,5,1),LD (1,2,3),RK (7,9,1),LK (11,1,9)
-                           ,RD (1,11,2),RK (7,5,6),LK (7,8,9),LK (3,4,5),RK (11,9,10)
-                           ]
+jackGraph = makeTgraph 
+  [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
+  ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
+  ]
+kingGraph = makeTgraph 
+  [LD (1,2,3),RD (1,11,2),LD (1,4,5),RD (1,3,4),LD (1,10,11)
+  ,RD (1,9,10),LK (9,1,7),RK (9,7,8),RK (5,7,1),LK (5,6,7)
+  ]
+queenGraph = makeTgraph 
+  [LK (7,1,5),RK (3,5,1),LD (1,2,3),RK (7,9,1),LK (11,1,9)
+  ,RD (1,11,2),RK (7,5,6),LK (7,8,9),LK (3,4,5),RK (11,9,10)
+  ]
 
 aceGraph = fool -- centre 3
-deuceGraph = checkedTgraph [LK (7,8,2),RK (7,2,6),RK (5,2,4),LK (5,6,2),LD (1,4,2)
-                           ,RD (1,2,8),RD (1,3,4),LD (1,8,9)
-                           ] -- centre 2
 
-starGraph = checkedTgraph [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
-                          ,RD (1,7,8),LD (1,6,7),RD (1,5,6),LD (1,4,5),RD (1,3,4)
-                          ]
+deuceGraph = makeTgraph 
+  [LK (7,8,2),RK (7,2,6),RK (5,2,4),LK (5,6,2),LD (1,4,2)
+  ,RD (1,2,8),RD (1,3,4),LD (1,8,9)
+  ] -- centre 2
+
+starGraph = makeTgraph
+  [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
+  ,RD (1,7,8),LD (1,6,7),RD (1,5,6),LD (1,4,5),RD (1,3,4)
+  ]
 
 
 {-|forceVFigures is a list of 7 diagrams - force of 7 vertex types -}
@@ -608,7 +627,7 @@ graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
               dcftest = decomposeG cftest
               cftest = composeG ftest
               ftest = force test
-              test = checkedTgraph [RK (4,7,2),LK (4,5,7),RD (1,7,5),LK (3,2,7)
+              test = makeTgraph [RK (4,7,2),LK (4,5,7),RD (1,7,5),LK (3,2,7)
                                    ,RK (3,7,6),LD (1,6,7), LK(3,6,8)
                                    ]
 

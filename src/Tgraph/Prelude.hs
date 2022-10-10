@@ -65,7 +65,7 @@ Basic Tgraph, vertex, edge, face operations
 
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces by calculating maxV.
--- It does not perform checks on the faces. Use checkedTgraph to perform checks.
+-- It does not perform checks on the faces. Use makeTgraph or checkedTgraph to perform checks.
 -- This is intended for use only in testing
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph [] = emptyTgraph
@@ -74,13 +74,18 @@ makeUncheckedTgraph fcs =
            , faces = fcs
            }
 
--- |Creates a Tgraph from a list of faces AND checks for edge conflicts and
--- crossing boundaries and connectedness with checkTgraphProps.
--- (No crossing boundaries and connected implies tile-connected).
--- Produces an error if a check fails.
+{-| Creates a Tgraph from a list of faces AND checks for edge conflicts and
+crossing boundaries and connectedness with checkTgraphProps.
+(No crossing boundaries and connected implies tile-connected).
+Produces an error if a check fails.
+
+Note: This does not check for touching vertices (distinct labels for the same vertex).
+To perform this additional check use makeTgraph (which also calls checkTgraphProps) 
+-}
 checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph fcs = getResult $ onFail report (checkTgraphProps fcs)
  where report = "checkedTgraph:\nFailed for faces: \n" ++ show fcs ++ "\n"
+
 
 -- |is the Tgraph empty?
 nullGraph:: Tgraph -> Bool
@@ -246,10 +251,10 @@ illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fc
 crossingBVs :: Tgraph -> [Vertex]
 crossingBVs g = crossingVertices $ boundaryDedges g
 
--- |crossingVertices returns a list of vertices occurring more than one at the start
--- or more than once at the end of the directed edges in a list
+-- |crossingVertices returns a list of vertices occurring more than once at the start
+-- of the directed edges in a list
 crossingVertices:: [DEdge] -> [Vertex]
-crossingVertices bdes = duplicates (fmap fst bdes) ++ duplicates (fmap snd bdes)
+crossingVertices bdes = duplicates (fmap fst bdes) -- OR duplicates (fmap snd bdes)
 
 -- |There are crossing boundaries if vertices occur more than once
 -- at the start of all boundary directed edges

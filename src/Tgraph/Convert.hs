@@ -435,7 +435,7 @@ It returns pairs of vertices that are too close
 An empty list is returned if there is no touching vertex problem.
 Complexity has order of the square of the number of vertices (calculates distance between all pairs).
                            
-This is used in fullUnion, but can also be used as a reptrospective check if the touching vertex check 
+This is used in makeTgraph and fullUnion, but can also be used as a reptrospective check if the touching vertex check 
 is switched off in forcing.                          
 -}
 touchingVertices:: [TileFace] -> [(Vertex,Vertex)]

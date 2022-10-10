@@ -25,6 +25,38 @@ import Tgraph.Force
 import Tgraph.Convert
 import Tgraph.Relabelling
 
+
+
+{-|
+makeTgraph performs the same checks for Tgraph properties as checkedTgraph but in addition
+it also checks that there are no touching vertices (distinct labels for the same vertex)
+using Tgraph.Convert.touchingVertices (which calculates vertex locations).
+It produces an error if either check fails.
+Note that the other Tgraph properties are checked first, to ensure that calculation of 
+vertex locations can be done.
+-}
+makeTgraph :: [TileFace] -> Tgraph
+makeTgraph fcs = getResult $ onFail "makeTgraph: (failed):\n" $
+ do g <- checkTgraphProps fcs
+    let touchVs = touchingVertices (faces g)
+    if null touchVs 
+    then Right g 
+    else Left ("Found touching vertices: " 
+               ++ show touchVs
+               ++ "\n(To fix, use: correctTouchingVs)\n"
+              )
+
+{-
+makeTgraph :: [TileFace] -> Tgraph
+makeTgraph fcs =
+    g `seq` if null touchVs 
+            then g
+            else error $ "makeTgraph: touching vertices " ++ show touchVs
+                          ++ "\n(To fix, use: correctTouchingVs)\n"
+  where g = checkedTgraph fcs
+        touchVs = touchingVertices fcs
+-}
+
 {----------------------------
 ********************************************
 EXPERIMENTAL BITS
