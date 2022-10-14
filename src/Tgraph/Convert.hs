@@ -47,7 +47,8 @@ type instance V Vertex = V2
 
 -- |making DualRep (and hence VPatch) transformable
 instance Transformable DualRep where 
-    transform t (DualRep {vector = v, face = vs}) = DualRep {vector = transform t v, face = vs}
+    transform t (DualRep {vector = v, face = vs}) = dualRep (transform t v) vs
+    --DualRep {vector = transform t v, face = vs}
 
 -- |construct a dualRep from a vector and a vertex triple
 dualRep :: V2 Double -> (Vertex, Vertex, Vertex) -> DualRep
@@ -433,7 +434,7 @@ arising from the touching vertex problem.
 It returns pairs of vertices that are too close 
 (i.e less than 0.5 where 1.0 would be the length of short edges)
 An empty list is returned if there is no touching vertex problem.
-Complexity has order of the square of the number of vertices (calculates distance between all pairs).
+Complexity has order of the square of the number of vertices.
                            
 This is used in makeTgraph and fullUnion, but can also be used as a reptrospective check if the touching vertex check 
 is switched off in forcing.                          

@@ -181,7 +181,7 @@ drawMaxEmplace g produces the emplacement of g overlaid with the maximal (forced
 -}
 drawMaxEmplace :: Tgraph -> Diagram B
 drawMaxEmplace g =  drawEmbedVP overlay emp (lowestJoin maxg) where
-    compfs = allCompFs g
+    compfs = allCompForced g
     n = length compfs -1
     maxg = last compfs
     overlay = scale (phi^n) $ makeVPatch maxg
@@ -468,8 +468,10 @@ boundaryFDart5Fig = padBorder $ lw ultraThin $ dashJVGraph boundaryFDart5
 
 -- |graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
-boundaryGapFDart4 = checkedTgraph $ filter ((/=354).originV)  (faces boundaryFDart4)
-boundaryGapFDart5 = checkedTgraph $ filter ((/=1467).originV) (faces boundaryFDart5)
+boundaryGapFDart4 = removeVertices [354] boundaryFDart4
+    -- checkedTgraph $ filter ((/=354).originV)  (faces boundaryFDart4)
+boundaryGapFDart5 = removeVertices [1467] boundaryFDart5
+    -- checkedTgraph $ filter ((/=1467).originV) (faces boundaryFDart5)
 
 -- |figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
@@ -873,7 +875,7 @@ rocketConeFig = padBorder $ lw thin $ dashJVGraph rocketCone
 
 -- | figure for rocketCone after 4 more decompositions and forcing
 rocketConeFig2:: Diagram B
-rocketConeFig2 = padBorder $ lw  ultraThin $ drawGraph $ (forceDecomps rocketCone) !!4
+rocketConeFig2 = padBorder $ lw  ultraThin $ drawGraph $ (allForcedDecomps rocketCone) !!4
 
 -- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
 -- This example has an emplacement that does not include the original but is still a correct Tgraph.
@@ -886,7 +888,7 @@ emplaceProblemFig = drawForceEmplace sunPlus3Dart'
 -- There are 2906 faces for kingD6 before forcing.
 kingFD6:: Diagram B
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makePatch $
-          forceDecomps kingGraph !!6
+          allForcedDecomps kingGraph !!6
 
 
 {- *

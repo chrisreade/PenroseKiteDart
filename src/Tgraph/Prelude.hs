@@ -133,7 +133,7 @@ Required Tgraph properties
 -}
 
 -- |Checks a list of faces for edge loops, edge conflicts (illegal tilings)
--- vertices not >0 and
+-- vertices not >0 and no
 -- crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
 -- Returns Right g where g is a Tgraph on passing checks.

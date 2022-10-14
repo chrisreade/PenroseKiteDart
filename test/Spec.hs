@@ -34,6 +34,9 @@ x3 = [LK (3,8,1),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13)
 -- x4 has edge conflicts 
 x4 = [LD(1,2,3),RD(1,4,2),RD(4,1,5),LD(4,5,6)]
 
+-- x5 has enon-positive vertex number 
+x5 = [LD(0,1,2)]
+
 -- Test example Tgraphs
 
 -- g1 has crossing boundaries
@@ -48,38 +51,41 @@ dD6 = dartDs !!6
 
 graphPropSpec :: Spec
 graphPropSpec = describe "Test Properties of Tgraphs" $ do
-    context "When a list of tile-faces has any face with a repeated vertex" $
-      it "hasEdgeLoops should return True" $
+    context "When fcs (a list of tile-faces) has any face with a repeated vertex" $
+      it "hasEdgeLoops fcs should return True" $
         hasEdgeLoops x0 `shouldBe` True
-    context "When a list of tile-faces has no face with a repeated vertex" $
-      it "hasEdgeLoops should return False" $
+    context "When fcs has no face with a repeated vertex" $
+      it "hasEdgeLoops fcs should return False" $
         hasEdgeLoops x1 `shouldBe` False
-    context "When there are crossing boundaries" $
-      it "crossingBoundaries should return True" $
+    context "When fcs has crossing boundaries" $
+      it "crossingBoundaries fcs should return True" $
         crossingBoundaries g1 `shouldBe` True
-    context "When there are no crossing boundaries" $
-      it "crossingBoundaries should return False" $
+    context "When fcs has no crossing boundaries" $
+      it "crossingBoundaries fcs should return False" $
         crossingBoundaries foolD `shouldBe` False
-    context "When a Tgraph is connected" $
-      it "connected should return True" $
+    context "When a Tgraph g is connected" $
+      it "connected g should return True" $
         connected g1 `shouldBe` True
-    context "When a Tgraph is not connected" $
-      it "connected should return False" $
+    context "When a Tgraph g is not connected" $
+      it "connected g should return False" $
         connected g2 `shouldBe` False
-    context "When a Tgraph has illegal edge conflicts" $
-      it "illegalTiling should return True" $
+    context "When fcs has illegal edge conflicts" $
+      it "illegalTiling fcs should return True" $
         illegalTiling x3 `shouldBe` True
-    context "When a Tgraph has illegal edge conflicts" $
-      it "illegalTiling should return True" $
+    context "When fcs has illegal edge conflicts" $
+      it "illegalTiling fcs should return True" $
         illegalTiling x4 `shouldBe` True
-    context "When a Tgraph has no illegal edge conflicts" $
-      it "illegalTiling should return False" $
+    context "When fcs has no illegal edge conflicts" $
+      it "illegalTiling fcs should return False" $
         illegalTiling x1 `shouldBe` False
-    context "When faces have a touching vertex" $
-      it "makeTgraph should throw an exception" $ do
+    context "When fcs contains a non-positive vertex number" $
+      it "makeTgraph fcs should throw an exception" $ do
+          evaluate (makeTgraph x5) `shouldThrow` anyException
+    context "When fcs have a touching vertex" $
+      it "makeTgraph fcs should throw an exception" $ do
           evaluate (makeTgraph touchErrorFaces) `shouldThrow` anyException
-    context "When faces do not form a valid Tgraph" $
-      it "makeTgraph should throw an exception" $ do
+    context "When fcs do not form a valid Tgraph" $
+      it "makeTgraph fcs should throw an exception" $ do
           evaluate (makeTgraph testCrossingBoundary) `shouldThrow` anyException
 
 graphOpSpec :: Spec

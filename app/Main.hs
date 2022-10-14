@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig =  testRelabellingFig
+fig =  boundaryGap5Fig
 
 main = mainWith fig
 
