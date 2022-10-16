@@ -209,7 +209,7 @@ foolChoices = padBorder $ vsep 1
 emplaceFoolDChoices :: Diagram B
 emplaceFoolDChoices = padBorder $ hsep 1 $
         fmap (addFoolD . lw ultraThin . drawPatch . dropVertices) vpChoices where
-        (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(27,6)] --(29,6)] 
+        (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(28,6)] --(29,6)] 
                                          (fmap makeVPatch (foolD:emplaceChoices foolD))
         addFoolD fig = (lc red . dashJPatch . dropVertices) vpFoolD <> fig
 
@@ -293,6 +293,15 @@ touchingTestFig =
                 --[LD(20,36,16),RK(16,49,20),LK(8,20,49),RK(8,49,37)]
 
 
+-- |remove halftile faces that do not have their matching half tile
+removeIncompleteTiles:: Tgraph -> Tgraph
+removeIncompleteTiles g = removeFaces halfTiles g
+       where bdry = makeBoundary g
+             halfTiles = fmap snd $ incompleteHalves bdry $ bDedges bdry
+
+
+removeIncompletesFig::Diagram B
+removeIncompletesFig = padBorder $ dashJGraph $ removeIncompleteTiles  $ sunDs !! 3
 {- *
 Incorrect Tgraphs (and other problem Tgraphs)
 -}

@@ -6,11 +6,12 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This is the main module for Tgraphs which collects and exports the various other Tgraph modules 
-and includes a definition of emplace and other experimental combinations.
+This is the main module for Tgraph operations which collects and exports the other Tgraph modules. 
+It exports makeTgraph for constructing checked Tgraphs and excludes data constructor Tgraph.
+It also includes a definition of emplace and other experimental combinations.
 -}
 module Tgraphs ( module Tgraphs
-               , module Tgraph.Prelude
+               , module Tgraph.Prelude -- excludes data constructor Tgraph
                , module Tgraph.Decompose
                , module Tgraph.Compose
                , module Tgraph.Force
@@ -18,7 +19,8 @@ module Tgraphs ( module Tgraphs
                , module Tgraph.Relabelling
                ) where
 
-import Tgraph.Prelude
+import Tgraph.Prelude hiding (Tgraph(Tgraph)) -- hides Tgraph as type and data constructor
+import Tgraph.Prelude (Tgraph) -- re-includes Tgraph as type constructor only
 import Tgraph.Decompose
 import Tgraph.Compose
 import Tgraph.Force
@@ -26,30 +28,18 @@ import Tgraph.Convert
 import Tgraph.Relabelling
 
 {- *
-Making touching vertex checked Tgraphs
+Making valid Tgraphs (checked for no touching vertices).
 -}
 
 
 {-|
-makeTgraph performs a touching vertex check as well as using checkedTgraph.
+makeTgraph performs a touching vertex check as well as using checkedTgraph for other required properties.
 It produces an error if either check fails.
 Note that the other Tgraph properties are checked first, to ensure that calculation of 
 vertex locations can be done for a touching vertex check.
 -}
 makeTgraph :: [TileFace] -> Tgraph
 makeTgraph fcs = getResult $ onFail "makeTgraph: (failed):\n" $ touchCheckProps fcs
-{-
-makeTgraph :: [TileFace] -> Tgraph
-makeTgraph fcs = getResult $ onFail "makeTgraph: (failed):\n" $
- do g <- checkTgraphProps fcs
-    let touchVs = touchingVertices (faces g)
-    if null touchVs 
-    then Right g 
-    else Left ("Found touching vertices: " 
-               ++ show touchVs
-               ++ "\n(To fix, use: correctTouchingVs)\n"
-              )
--}
 
 {-|
 touchCheckProps performs the same checks for Tgraph properties as checkedTgraph but in addition
@@ -69,7 +59,6 @@ touchCheckProps fcs =
                ++ show touchVs
                ++ "\n(To fix, use: correctTouchingVs)\n"
               )
-
 
 {- *
 Combining force, composeG, decomposeG
@@ -121,7 +110,6 @@ emplace g | nullGraph g' = fg
 emplacements :: Tgraph -> [Tgraph]
 emplacements = iterate forcedDecomp . emplace -- was .force
 
-
 -- |a version of emplace using makeChoices at the top level.
 -- after makeChoices we use emplace to attempt further compositions but with no further choices
 emplaceChoices:: Tgraph -> [Tgraph]
@@ -142,16 +130,6 @@ makeChoices g = choices unks [g] where
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
 
 
-{- *
-Other experimental
--}
-
-
--- |remove halftile faces that do not have their matching half tile
-removeIncompleteTiles:: Tgraph -> Tgraph
-removeIncompleteTiles g = removeFaces halfTiles g
-       where bdry = makeBoundary g
-             halfTiles = fmap snd $ incompleteHalves bdry $ bDedges bdry
 
 
 

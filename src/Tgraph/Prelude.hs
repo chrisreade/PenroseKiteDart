@@ -43,7 +43,7 @@ type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
 -- |A Tgraph is a list of faces along with the maximum value used for a vertex in the faces (0 for an empty list).
 -- (0 is not used as a vertex label throughout)
--- Valid Tgraphs should be constructed with checkedTgraph to ensure required properties are checked.
+-- Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
 data Tgraph = Tgraph { maxV :: !Vertex  -- 0 for empty graph
                      , faces    :: [TileFace]
                      } deriving (Show)

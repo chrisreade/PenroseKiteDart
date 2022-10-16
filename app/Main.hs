@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig =  boundaryGap5Fig
+fig = emplaceFoolDChoices --curioPic --halfWholeFig --boundaryGap5Fig
 
 main = mainWith fig
 
