@@ -131,11 +131,17 @@ boundaryFaces = nub . concat . VMap.elems . bvFacesMap
 Updates and ForceState types
 -}
 
--- |An Update is a pair of
--- a Maybe Vertex identifying the third vertex for a face addition (Nothing means it needs to be created)
--- and a makeFace function to create the new face when given the third vertex.
-type Update = (Maybe Vertex, Vertex -> TileFace)
+-- |An Update is either safe or unsafe.
+-- A safe update has a new face involving 3 existing vertices.
+-- An unsafe update has a makeFace function to create the new face when given a fresh third vertex.
+data Update = SafeUpdate TileFace 
+            | UnsafeUpdate (Vertex -> TileFace)
 
+-- | 0 is used as a dummy variable to show unsafe updates
+instance Show Update where
+    show (SafeUpdate f) = "SafeUpdate (" ++ show f ++ ")"
+    show (UnsafeUpdate mf) = "UnsafeUpdate (\0 -> " ++ show (mf 0)++ ")"
+    
 -- |UpdateMap: partial map associating updates with (some) boundary directed edges.
 type UpdateMap = Map.Map DEdge Update
 
@@ -244,11 +250,10 @@ reviseUpdates uGen bdChange umap = Map.union umap'' umap' where
   deleteFrom !ump !e = Map.delete e ump
 -}
 
--- |safe updates are those which do not require a new vertex, 
--- so have an identified existing vertex (Just v)
+-- |True if an update is safe.
 isSafeUpdate :: Update -> Bool
-isSafeUpdate (Just _ , _ ) = True
-isSafeUpdate (Nothing, _ ) = False
+isSafeUpdate (SafeUpdate _ ) = True
+isSafeUpdate (UnsafeUpdate _ ) = False
 
 -- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
 findSafeUpdate:: UpdateMap -> Maybe Update 
@@ -258,12 +263,16 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
 {- *
 Inspecting Force Steps
 -}
--- |show applied to a ForceState suppresses the update functions in the updateMap with "fn".
+
+{- No longer needed now Updates are instances of Show
 instance Show ForceState where
     show fs = "ForceState{ boundaryState = ...\nbDedges = "
                ++ show (bDedges $ boundaryState fs) 
-               ++ ",\nupdateMap = "
-               ++ show (fmap (\(e,(mv,_)) -> (e,(mv,"fn"))) $ Map.assocs $ updateMap fs) ++ " }\n"
+               ++ ",\nupdateMap = {"
+               ++ show (Map.assocs $ updateMap fs)
+               ++ "}\n"
+-}
+
 -- |stepForce  produces an intermediate state after a given number of steps (face additions)
 stepForce :: Int -> Tgraph -> ForceState
 stepForce n g = stepForceWith alternateAllUGen n $ initForceState alternateAllUGen g
@@ -327,10 +336,9 @@ tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
     in a triangle (and removes 3 boundary vertices)
 -}
 doSafeUpdate:: Boundary -> Update -> BoundaryChange
-doSafeUpdate bd (Nothing, makeFace) = error "doSafeUpdate: applied to non-safe update "
-doSafeUpdate bd (Just v, makeFace) = 
-   let newFace = makeFace v
-       fDedges = faceDedges newFace
+doSafeUpdate bd (UnsafeUpdate _) = error "doSafeUpdate: applied to non-safe update "
+doSafeUpdate bd (SafeUpdate newFace) = 
+   let fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd -- list of 2
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
@@ -375,8 +383,8 @@ commonVs es = error $ "commonVs: unexpected argument edges (not 2 adjacent direc
      Otherwise it returns Just a boundary change.
 -}
 tryUnsafeUpdate:: Boundary -> Update -> Maybe BoundaryChange
-tryUnsafeUpdate bd (Just _ , makeFace) = error "tryUnsafeUpdate: applied to safe update "
-tryUnsafeUpdate bd (Nothing, makeFace) = 
+tryUnsafeUpdate bd (SafeUpdate _) = error "tryUnsafeUpdate: applied to safe update "
+tryUnsafeUpdate bd (UnsafeUpdate makeFace) = 
    let v = nextVertex bd       
        newFace = makeFace v
        oldVPoints = bvLocMap bd
@@ -415,13 +423,13 @@ tryUnsafeUpdate bd (Nothing, makeFace) =
                 )
 
 
--- |doUpdate: do a single update (safe or unsafe)
+-- |doUpdate: does a single update (safe or unsafe),
+-- raising an error if the update creates a touching vertex in the unsafe case
 doUpdate:: Boundary -> Update -> BoundaryChange
 doUpdate bd u = if isSafeUpdate u then doSafeUpdate bd u
                 else case tryUnsafeUpdate bd u of
                  Just bdC -> bdC
                  Nothing -> error "doUpdate: crossing boundary (touching vertices)"
-
 
 {- *
 Conflict Test
@@ -538,6 +546,11 @@ boundaryFilter predF bd focus =
              , fc `elem` facesAtBV bd (snd e)
              , predF bd e fc
              ]
+
+-- |makeUpdate x f constructs a safe update if x is Just .. and an unsafe update if x is Nothing
+makeUpdate:: Maybe Vertex -> (Vertex -> TileFace) -> Update
+makeUpdate (Just v) f = SafeUpdate (f v)
+makeUpdate Nothing  f = UnsafeUpdate f
 
 {- *
 Boundary vertex predicates and properties
@@ -782,40 +795,40 @@ Six Update Makers
 -- |completeHalf will make an update to
 --  add a symmetric (mirror) face for a given face at a boundary join edge.
 completeHalf :: UMaker      
-completeHalf bd (LD(a,b,_)) = (x, makeFace) where
+completeHalf bd (LD(a,b,_)) = makeUpdate x makeFace where
         makeFace v = RD(a,v,b)
         x = findThirdV bd (b,a) (3,1) --anglesForJoinRD
-completeHalf bd (RD(a,_,b)) = (x, makeFace) where
+completeHalf bd (RD(a,_,b)) = makeUpdate x makeFace where
         makeFace v = LD(a,b,v)
         x = findThirdV bd (a,b) (1,3) --anglesForJoinLD
-completeHalf bd (LK(a,_,b)) = (x, makeFace) where
+completeHalf bd (LK(a,_,b)) = makeUpdate x makeFace where
         makeFace v = RK(a,b,v)
         x = findThirdV bd (a,b) (1,2) --anglesForJoinRK
-completeHalf bd (RK(a,b,_)) = (x, makeFace) where
+completeHalf bd (RK(a,b,_)) = makeUpdate x makeFace where
         makeFace v = LK(a,v,b)
         x = findThirdV bd (b,a) (2,1) --anglesForJoinLK
 
 -- |add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE :: UMaker         
-addKiteShortE bd (RD(_,b,c)) = (x, makeFace) where
+addKiteShortE bd (RD(_,b,c)) = makeUpdate x makeFace where
     makeFace v = LK(v,c,b)
     x = findThirdV bd (c,b) (2,2) --anglesForShortLK
-addKiteShortE bd (LD(_,b,c)) = (x, makeFace) where
+addKiteShortE bd (LD(_,b,c)) = makeUpdate x makeFace where
     makeFace v = RK(v,c,b)
     x = findThirdV bd (c,b) (2,2) --anglesForShortRK
-addKiteShortE bd (LK(_,b,c)) = (x, makeFace) where
+addKiteShortE bd (LK(_,b,c)) = makeUpdate x makeFace where
     makeFace v = RK(v,c,b)
     x = findThirdV bd (c,b) (2,2) --anglesForShortRK
-addKiteShortE bd (RK(_,b,c)) = (x, makeFace) where
+addKiteShortE bd (RK(_,b,c)) = makeUpdate x makeFace where
     makeFace v = LK(v,c,b)
     x = findThirdV bd (c,b) (2,2) --anglesForShortLK
 
 -- |add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: UMaker         
-addDartShortE bd (RK(_,b,c)) = (x, makeFace) where
+addDartShortE bd (RK(_,b,c)) = makeUpdate x makeFace where
         makeFace v = LD(v,c,b)
         x = findThirdV bd (c,b) (3,1) --anglesForShortLD
-addDartShortE bd (LK(_,b,c)) = (x, makeFace) where
+addDartShortE bd (LK(_,b,c)) = makeUpdate x makeFace where
         makeFace v = RD(v,c,b)
         x = findThirdV bd (c,b) (1,3) --anglesForShortRD
 addDartShortE bd _ = error "addDartShortE applied to non-kite face"
@@ -828,32 +841,32 @@ completeSunStar bd fc = if isKite fc
 
 -- |add a kite to a long edge of a dart or kite
 addKiteLongE :: UMaker            
-addKiteLongE bd (LD(a,_,c)) = (x, makeFace) where
+addKiteLongE bd (LD(a,_,c)) = makeUpdate x makeFace where
     makeFace v = RK(c,v,a)
     x = findThirdV bd (a,c) (2,1) -- anglesForLongRK
-addKiteLongE bd (RD(a,b,_)) = (x, makeFace) where
+addKiteLongE bd (RD(a,b,_)) = makeUpdate x makeFace where
     makeFace v = LK(b,a,v)
     x = findThirdV bd (b,a) (1,2) -- anglesForLongLK
-addKiteLongE bd (RK(a,_,c)) = (x, makeFace) where
+addKiteLongE bd (RK(a,_,c)) = makeUpdate x makeFace where
   makeFace v = LK(a,c,v)
   x = findThirdV bd (a,c) (1,2) -- anglesForLongLK
-addKiteLongE bd (LK(a,b,_)) = (x, makeFace) where
+addKiteLongE bd (LK(a,b,_)) = makeUpdate x makeFace where
   makeFace v = RK(a,v,b)
   x = findThirdV bd (b,a) (2,1) -- anglesForLongRK
 
 -- |add a half dart on a boundary long edge of a dart or kite
 addDartLongE :: UMaker            
-addDartLongE bd (LD(a,_,c)) = (x, makeFace) where
+addDartLongE bd (LD(a,_,c)) = makeUpdate x makeFace where
   makeFace v = RD(a,c,v)
   x = findThirdV bd (a,c) (1,1) -- anglesForLongRD
-addDartLongE bd (RD(a,b,_)) = (x, makeFace) where
+addDartLongE bd (RD(a,b,_)) = makeUpdate x makeFace where
   makeFace v = LD(a,v,b)
   x = findThirdV bd (b,a) (1,1) -- anglesForLongLD
 
-addDartLongE bd (LK(a,b,_)) = (x, makeFace) where
+addDartLongE bd (LK(a,b,_)) = makeUpdate x makeFace where
   makeFace v = RD(b,a,v)
   x = findThirdV bd (b,a) (1,1) -- anglesForLongRD
-addDartLongE bd (RK(a,_,c)) = (x, makeFace) where
+addDartLongE bd (RK(a,_,c)) = makeUpdate x makeFace where
   makeFace v = LD(c,v,a)
   x = findThirdV bd (a,c) (1,1) -- anglesForLongLD
 
