@@ -151,9 +151,10 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 
 {- *
-Emplacements with figures
+Maximal (forced composed) and Emplacements
 -}
 
+{-
 -- |drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
 -- vertices a and b must be common to g1 and g2
 drawEmbed ::  Tgraph -> Tgraph -> (Vertex, Vertex) -> Diagram B
@@ -171,25 +172,21 @@ checkEmbed :: Tgraph -> Tgraph -> Diagram B
 checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
                    fmap dashJVGraph [g1, g2]
 
-
- 
--- |returns the join edge with lowest origin (and lowest oppV of faces with that origin)
-lowestJoin:: Tgraph -> (Vertex,Vertex)
-lowestJoin = joinOfTile . head . lowestJoinFirst . faces
-{- |
-drawMaxEmplace g produces the emplacement of g overlaid with the maximal (forced) composition of g
 -}
-drawMaxEmplace :: Tgraph -> Diagram B
-drawMaxEmplace g =  drawEmbedVP overlay emp (lowestJoin maxg) where
-    compfs = allCompForced g
-    n = length compfs -1
-    maxg = last compfs
-    overlay = scale (phi^n) $ makeVPatch maxg
-    emp = makeVPatch $ emplacements maxg !! n
 
+{- |
+drawWithMax g draws g and overlays the maximal forced composition of g in red
+-}
+drawWithMax :: Tgraph -> Diagram B
+drawWithMax g =  (lc red $ lw thin dmax) <> lw ultraThin dg where
+    maxg = maxCompose g
+    vpMap = createVPoints (faces g)
+    dg = drawPatch $ makePatchWith vpMap (faces g)
+    dmax = drawPatch $ makePatchWith vpMap (faces maxg)
+ 
 -- |an example showing the maximum composition (a kite) over 4 times decomposed pair of darts 
 maxEmplaceFig :: Diagram B
-maxEmplaceFig = padBorder $ drawMaxEmplace $ decompositionsG dartPlusDart !! 4
+maxEmplaceFig = padBorder $ drawWithMax $ emplace $ decompositionsG dartPlusDart !! 4
 
 {- *
 Multi emplace and choices
@@ -868,30 +865,42 @@ kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $
 maxShapesFig:: Diagram B
 maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 
--- |drawForceEmplace g is a diagram for g followed by force g followed by emplace g
-drawForceEmplace :: Tgraph -> Diagram B
-drawForceEmplace g = padBorder $ hsep 1 $ fmap dashJVGraph
-                     [g, force g, emplace g]
+-- |compareForceEmplace g is a diagram for g followed by force g followed by emplace g
+compareForceEmplace :: Tgraph -> Diagram B
+compareForceEmplace g = padBorder $ hsep 1 $ fmap dashJVGraph
+                        [g, force g, emplace g]
 
 -- | force after adding half dart (rocket cone) to sunPlus3Dart'.
 -- Adding a kite half gives an incorrect graph discovered by forcing.
-rocketCone:: Tgraph
-rocketCone =  force $ addHalfDart (force $ decomposeG sunPlus3Dart') (59,60)
+rocketCone1:: Tgraph
+rocketCone1 =  force $ addHalfDart (forcedDecomp sunPlus3Dart') (59,60)
 
 -- | figure for rocketCone
-rocketConeFig:: Diagram B
-rocketConeFig = padBorder $ lw thin $ dashJVGraph rocketCone
+rocketCone1Fig:: Diagram B
+rocketCone1Fig = padBorder $ lw thin $ dashJVGraph rocketCone1
 
--- | figure for rocketCone after 4 more decompositions and forcing
-rocketConeFig2:: Diagram B
-rocketConeFig2 = padBorder $ lw  ultraThin $ drawGraph $ (allForcedDecomps rocketCone) !!4
+-- | figure for rocket5 showing its maximal forced composition
+rocket5Fig:: Diagram B
+rocket5Fig = padBorder $ lw ultraThin  drawWithMax rocket5
+
+-- | rocket5 is the result of a chain of 5 forcedDecomps, each after
+-- adding a dart (cone) to the tip of the previous rocket starting with sunPlus3Dart'.
+-- As a quick check rocket5 was extends with both choices on a randomly chosen boundary edge (8414,8415)
+-- drawGraph $ force $ addHalfKite rocket5 (8414,8415)
+-- drawGraph $ force $ addHalfDart rocket5 (8414,8415)
+rocket5:: Tgraph
+rocket5 = forcedDecomp rc4 where
+  rc0 = sunPlus3Dart'
+  rc1 = force $ addHalfDart (forcedDecomp rc0) (59,60)
+  rc2 = force $ addHalfDart (forcedDecomp rc1) (326,327)
+  rc3 = force $ addHalfDart (forcedDecomp rc2) (1036,1037)
+  rc4 = force $ addHalfDart (forcedDecomp rc3) (3019,3020)
 
 -- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
 -- This example has an emplacement that does not include the original but is still a correct Tgraph.
 -- The figure shows the force and emplace difference.
 emplaceProblemFig:: Diagram B
-emplaceProblemFig = drawForceEmplace sunPlus3Dart'
-
+emplaceProblemFig = compareForceEmplace sunPlus3Dart'
 
 -- |6 times forced and decomposed kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
 -- There are 2906 faces for kingD6 before forcing.

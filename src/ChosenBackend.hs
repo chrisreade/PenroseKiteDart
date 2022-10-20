@@ -6,13 +6,16 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-Export mainWith and B for the chosen backend
+Export the chosen backend
 Currently  either
 SVG (Diagrams.Backend.SVG.CmdLine) or
 Postscript (Diagrams.Backend.Postscript.CmdLine)
 -}
-module ChosenBackend (B, mainWith) where
+module ChosenBackend (module Backend) where
 
-import Diagrams.Backend.SVG.CmdLine
--- import Diagrams.Backend.Postscript.CmdLine
--- import Diagrams.Backend.SVG.CmdLine
+-- Either
+-- import Diagrams.Backend.SVG.CmdLine as Backend
+-- OR 
+-- import Diagrams.Backend.Postscript.CmdLine as Backend
+import Diagrams.Backend.SVG.CmdLine as Backend
+

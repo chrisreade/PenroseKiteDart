@@ -159,7 +159,7 @@ but they can also be combined in sequence (e.g. allUgenerator).
 -}
 type UpdateGenerator = Boundary -> [DEdge] -> UpdateMap
 
-{-| BoundaryChange records the new boundary after an update (by either doSafeUpdate or tryUnsafeUpdate)
+{-| BoundaryChange records the new boundary after an update (by either trySafeUpdate or tryUnsafeUpdate)
      along with a list of directed edges which are no longer on the boundary,
      plus a list of boundary edges revised (and requiring updates to be recalculated)
      See affectedBoundary.
@@ -223,7 +223,7 @@ forceAll :: UpdateGenerator -> ForceState -> ForceState
 forceAll uGen = retry where
   retry fs = case findSafeUpdate (updateMap fs) of
                Just u -> retry $ ForceState{ boundaryState = newBoundary bdChange, updateMap = umap}
-                          where bdChange = doSafeUpdate (boundaryState fs) u
+                          where bdChange = trySafeUpdate (boundaryState fs) u
                                 umap = reviseUpdates uGen bdChange (updateMap fs)
                _  -> case tryUnsafes fs of
                       Just bdC -> retry $ ForceState{ boundaryState = newBoundary bdC, updateMap = umap}
@@ -296,7 +296,7 @@ oneStepWith :: UpdateGenerator -> ForceState -> Maybe (ForceState,BoundaryChange
 oneStepWith uGen fs = 
       case findSafeUpdate (updateMap fs) of
       Just u -> Just (ForceState{ boundaryState = newBoundary bdChange, updateMap = umap},bdChange)
-                where bdChange = doSafeUpdate (boundaryState fs) u
+                where bdChange = trySafeUpdate (boundaryState fs) u
                       umap = reviseUpdates uGen bdChange (updateMap fs)
       _  -> case tryUnsafes fs of
             Just bdC -> Just (ForceState{ boundaryState = newBoundary bdC, updateMap = umap},bdC)
@@ -326,7 +326,7 @@ tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
                           Just bdC -> Just bdC
 
 
-{-| doSafeUpdate bd u adds a new face by completing a safe update u on boundary bd
+{-| trySafeUpdate bd u adds a new face by completing a safe update u on boundary bd
     (raising an error if u is an unsafe update).
      It returns a BoundaryChange (containing a new Boundary, removed boundary edges and
      revised boundary edge list).
@@ -335,9 +335,9 @@ tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
     It should cater for the exceptional case where the update removes 3 boundary edges
     in a triangle (and removes 3 boundary vertices)
 -}
-doSafeUpdate:: Boundary -> Update -> BoundaryChange
-doSafeUpdate bd (UnsafeUpdate _) = error "doSafeUpdate: applied to non-safe update "
-doSafeUpdate bd (SafeUpdate newFace) = 
+trySafeUpdate:: Boundary -> Update -> BoundaryChange
+trySafeUpdate bd (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update "
+trySafeUpdate bd (SafeUpdate newFace) = 
    let fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` bDedges bd -- list of 2
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
@@ -357,7 +357,7 @@ doSafeUpdate bd (SafeUpdate newFace) =
                    , revisedEdges = affectedBoundary resultBd newDedges
                    }
    in if noConflict newFace nbrFaces then bdChange else
-      error ("doSafeUpdate:(incorrect tiling)\nConflicting new face  "
+      error ("trySafeUpdate:(incorrect tiling)\nConflicting new face  "
              ++ show newFace
              ++ "\nwith neighbouring faces\n"
              ++ show nbrFaces
@@ -426,7 +426,7 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
 -- |doUpdate: does a single update (safe or unsafe),
 -- raising an error if the update creates a touching vertex in the unsafe case
 doUpdate:: Boundary -> Update -> BoundaryChange
-doUpdate bd u = if isSafeUpdate u then doSafeUpdate bd u
+doUpdate bd u = if isSafeUpdate u then trySafeUpdate bd u
                 else case tryUnsafeUpdate bd u of
                  Just bdC -> bdC
                  Nothing -> error "doUpdate: crossing boundary (touching vertices)"
@@ -521,13 +521,13 @@ allUGenerator bd focus = umap where
 -- each paired with the corresponding half-dart.
 type UFinder = Boundary -> [DEdge] -> [(DEdge,TileFace)]
 
--- |UMaker (Update creator function). Given a Boundary and a particular tileface (on the boundary),
+-- |UChecker (Update creator function). Given a Boundary and a particular tileface (on the boundary),
 -- such functions produce particular updates on the boundary edge of the given tileface.
 -- For example, addKitreShortE will produce an update to add a half-kite with short edge against the boundary.
 -- It can be used with a UFinder that either returns dart halves with short edge on the boundary
 -- (nonKDarts in rule 2) or returns kite halves with short edge on the boundary
 -- (kitesWingDartOrigin in rule 3).
-type UMaker = Boundary -> TileFace -> Update
+type UChecker = Boundary -> TileFace -> Update
 
 {-|This is a general purpose filter used to create UFinder functions for each force rule.
  It requires a face predicate.
@@ -600,6 +600,7 @@ mustbeQueen3Kite:: Boundary -> Vertex -> Bool
 mustbeQueen3Kite bd v = kiteWingCount bd v ==3
 
 -- |kiteWingCount bd v - the number of kite wings at v in Boundary bd
+kiteWingCount:: Boundary -> Vertex -> Int
 kiteWingCount bd v = length $ filter ((==v) . wingV) $ filter isKite (facesAtBV bd v)
 
 -- |mustbeJack (large dart base / jack) is true of a boundary vertex if
@@ -625,7 +626,7 @@ Individual Forcing cases (for each rule)
 -}
 
 
-{-| makeGenerator combines an update case finder (UFinder) with its corresponding update creator (UMaker)
+{-| makeGenerator combines an update case finder (UFinder) with its corresponding update creator (UChecker)
     to produce an update generator function.
     This is used to make all of the 10 update generators corresponding to 10 rules 
     
@@ -634,7 +635,7 @@ Individual Forcing cases (for each rule)
     the maker is used to convert the face in each pair to an update,
     and the new updates are returned as a map (with the dedges as key)
 -}
-makeGenerator :: UMaker -> UFinder -> UpdateGenerator
+makeGenerator :: UChecker -> UFinder -> UpdateGenerator
 makeGenerator maker finder = gen where
     gen bd edges = foldr addU Map.empty (finder bd edges) where
                          addU (e,fc) ump =  Map.insert e (maker bd fc) ump
@@ -794,7 +795,7 @@ Six Update Makers
 
 -- |completeHalf will make an update to
 --  add a symmetric (mirror) face for a given face at a boundary join edge.
-completeHalf :: UMaker      
+completeHalf :: UChecker      
 completeHalf bd (LD(a,b,_)) = makeUpdate x makeFace where
         makeFace v = RD(a,v,b)
         x = findThirdV bd (b,a) (3,1) --anglesForJoinRD
@@ -809,7 +810,7 @@ completeHalf bd (RK(a,b,_)) = makeUpdate x makeFace where
         x = findThirdV bd (b,a) (2,1) --anglesForJoinLK
 
 -- |add a (missing) half kite on a (boundary) short edge of a dart or kite
-addKiteShortE :: UMaker         
+addKiteShortE :: UChecker         
 addKiteShortE bd (RD(_,b,c)) = makeUpdate x makeFace where
     makeFace v = LK(v,c,b)
     x = findThirdV bd (c,b) (2,2) --anglesForShortLK
@@ -824,7 +825,7 @@ addKiteShortE bd (RK(_,b,c)) = makeUpdate x makeFace where
     x = findThirdV bd (c,b) (2,2) --anglesForShortLK
 
 -- |add a half dart top to a boundary short edge of a half kite.
-addDartShortE :: UMaker         
+addDartShortE :: UChecker         
 addDartShortE bd (RK(_,b,c)) = makeUpdate x makeFace where
         makeFace v = LD(v,c,b)
         x = findThirdV bd (c,b) (3,1) --anglesForShortLD
@@ -834,13 +835,13 @@ addDartShortE bd (LK(_,b,c)) = makeUpdate x makeFace where
 addDartShortE bd _ = error "addDartShortE applied to non-kite face"
 
 -- |add a kite half to a kite long edge or dart half to a dart long edge
-completeSunStar :: UMaker
+completeSunStar :: UChecker
 completeSunStar bd fc = if isKite fc 
                         then addKiteLongE bd fc
                         else addDartLongE bd fc
 
 -- |add a kite to a long edge of a dart or kite
-addKiteLongE :: UMaker            
+addKiteLongE :: UChecker            
 addKiteLongE bd (LD(a,_,c)) = makeUpdate x makeFace where
     makeFace v = RK(c,v,a)
     x = findThirdV bd (a,c) (2,1) -- anglesForLongRK
@@ -855,7 +856,7 @@ addKiteLongE bd (LK(a,b,_)) = makeUpdate x makeFace where
   x = findThirdV bd (b,a) (2,1) -- anglesForLongRK
 
 -- |add a half dart on a boundary long edge of a dart or kite
-addDartLongE :: UMaker            
+addDartLongE :: UChecker            
 addDartLongE bd (LD(a,_,c)) = makeUpdate x makeFace where
   makeFace v = RD(a,c,v)
   x = findThirdV bd (a,c) (1,1) -- anglesForLongRD
@@ -940,7 +941,7 @@ addHalfKite, addHalfDart, forceLDB, forceLKC
 
 
 -- |[addHalfKite and addHalfDart are not efficient but used to tinker with a Tgraph by adding a single half tile
--- e.g. to see how it affects forcing. They use the update makers (UMaker).]
+-- e.g. to see how it affects forcing. They use the update makers (UChecker).]
 -- 
 -- addHalfKite is for adding a single half kite on a chosen DEdge of a Tgraph.
 -- The DEdge must be a boundary edge but the direction is not important as

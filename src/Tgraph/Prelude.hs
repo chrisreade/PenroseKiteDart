@@ -1,4 +1,5 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
+{-# LANGUAGE FlexibleInstances          #-} -- for Monoid Either String
 
 {-|
 Module      : Tgraph.Prelude
@@ -578,6 +579,7 @@ pushSub f sub = makeSubTgraph g trackedList where
 -- | ReportFail is a synonym for Either String.  Used for results of partial functions
 -- which return either Right something when defined or Laft string when there is a problem
 -- where string is a failure report.
+-- Note: Either String is a monad, and this is used frequently for combining  partial operations
 type ReportFail a = Either String a
 
 -- | onFail s exp - inserts s at the front of failure report if exp fails with Left report
@@ -595,4 +597,40 @@ nothingFail a s = maybe (Left s) Right a
 getResult:: ReportFail a -> a
 getResult = either error id
 
+-- |Combines a list of ReportFails into a single ReportFail, concatenating all failure reports.
+-- Returns Right [..] if there are no failures
+concatFail:: [ReportFail a] -> ReportFail [a]
+concatFail ls = case [x | Left x <- ls] of
+                 [] -> Right [x | Right x <- ls]
+                 other -> Left $ mconcat other
+                      
+                          
+{-
+Needs FlexibleInstances but still fails
 
+    • Overlapping instances for Semigroup (Either String a)
+        arising from a use of ‘GHC.Base.$dmsconcat’
+      Matching instances:
+        instance Semigroup (Either a b) -- Defined in ‘Data.Either’
+        instance Semigroup a => Semigroup (Either String a)
+          -- Defined at src/Tgraph/Prelude.hs:602:10
+    • In the expression: GHC.Base.$dmsconcat @(Either String a)
+      In an equation for ‘GHC.Base.sconcat’:
+          GHC.Base.sconcat = GHC.Base.$dmsconcat @(Either String a)
+      In the instance declaration for ‘Semigroup (Either String a)’
+    |
+602 | instance Semigroup a => Semigroup (Either String a) where
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+instance Semigroup a => Semigroup (Either String a) where
+    Left a <> Left b = Left (a++b)
+    Right a <> Right b = Right (a <> b)
+    Left a <> _ = Left a
+    _ <> Left b = Left b
+
+instance Monoid a => Monoid (Either String a) where
+    mempty = Right mempty
+
+
+-}
