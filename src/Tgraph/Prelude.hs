@@ -1,5 +1,4 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
-{-# LANGUAGE FlexibleInstances          #-} -- for Monoid Either String
 
 {-|
 Module      : Tgraph.Prelude
@@ -19,6 +18,7 @@ module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 import Data.List ((\\), intersect, nub, elemIndex,foldl',group,sort)
 import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith, (!),fromAscList)
 import qualified Data.IntSet as IntSet (IntSet,empty,singleton,insert,delete,fromList,toList,null,(\\),union,notMember,deleteMin,findMin,unions,findMax)
+import Control.Monad(liftM) -- for ReportFail
 import HalfTile
 
 {---------------------
@@ -603,7 +603,10 @@ concatFail:: [ReportFail a] -> ReportFail [a]
 concatFail ls = case [x | Left x <- ls] of
                  [] -> Right [x | Right x <- ls]
                  other -> Left $ mconcat other
-                      
+
+-- |tryWith f lifts f to work on a ReportFail argument                     
+tryWith :: (a -> r) -> ReportFail a -> ReportFail r
+tryWith = liftM 
                           
 {-
 Needs FlexibleInstances but still fails

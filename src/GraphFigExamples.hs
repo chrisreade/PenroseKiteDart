@@ -296,9 +296,10 @@ removeIncompleteTiles g = removeFaces halfTiles g
        where bdry = makeBoundary g
              halfTiles = fmap snd $ incompleteHalves bdry $ bDedges bdry
 
-
+-- |figure to test rremoveIncompleteTiles
 removeIncompletesFig::Diagram B
 removeIncompletesFig = padBorder $ dashJGraph $ removeIncompleteTiles  $ sunDs !! 3
+
 {- *
 Incorrect Tgraphs (and other problem Tgraphs)
 -}
