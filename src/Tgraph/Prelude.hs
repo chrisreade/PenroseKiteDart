@@ -577,9 +577,9 @@ pushSub f sub = makeSubTgraph g trackedList where
 {- * Failure reporting (for partial operations) -}
 
 -- | ReportFail is a synonym for Either String.  Used for results of partial functions
--- which return either Right something when defined or Laft string when there is a problem
+-- which return either Right something when defined or Left string when there is a problem
 -- where string is a failure report.
--- Note: Either String is a monad, and this is used frequently for combining  partial operations
+-- Note: Either String is a monad, and this is used frequently for combining  partial operations.
 type ReportFail a = Either String a
 
 -- | onFail s exp - inserts s at the front of failure report if exp fails with Left report
@@ -597,34 +597,22 @@ nothingFail a s = maybe (Left s) Right a
 getResult:: ReportFail a -> a
 getResult = either error id
 
--- |Combines a list of ReportFails into a single ReportFail, concatenating all failure reports.
--- Returns Right [..] if there are no failures
+-- |tryApply f lifts f to work on a ReportFail argument                     
+tryApply :: (a -> r) -> ReportFail a -> ReportFail r
+tryApply = liftM 
+
+-- |Combines a list of ReportFails into a single ReportFail.
+-- It concatenates all failure reports if there are any and returns a single Left r.
+-- Otherwise it produces Right rs where rs is the list of all (successful) results.
 concatFail:: [ReportFail a] -> ReportFail [a]
 concatFail ls = case [x | Left x <- ls] of
                  [] -> Right [x | Right x <- ls]
-                 other -> Left $ mconcat other
+                 other -> Left $ mconcat other -- concatenates strings for single report
 
--- |tryWith f lifts f to work on a ReportFail argument                     
-tryWith :: (a -> r) -> ReportFail a -> ReportFail r
-tryWith = liftM 
                           
 {-
-Needs FlexibleInstances but still fails
-
-    • Overlapping instances for Semigroup (Either String a)
-        arising from a use of ‘GHC.Base.$dmsconcat’
-      Matching instances:
-        instance Semigroup (Either a b) -- Defined in ‘Data.Either’
-        instance Semigroup a => Semigroup (Either String a)
-          -- Defined at src/Tgraph/Prelude.hs:602:10
-    • In the expression: GHC.Base.$dmsconcat @(Either String a)
-      In an equation for ‘GHC.Base.sconcat’:
-          GHC.Base.sconcat = GHC.Base.$dmsconcat @(Either String a)
-      In the instance declaration for ‘Semigroup (Either String a)’
-    |
-602 | instance Semigroup a => Semigroup (Either String a) where
-    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+Can't automate concatFail by making (ReportFail a) a monoid
+(because there is a conflicting instance of semigroup)
 
 instance Semigroup a => Semigroup (Either String a) where
     Left a <> Left b = Left (a++b)
