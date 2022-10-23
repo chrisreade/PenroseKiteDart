@@ -138,7 +138,7 @@ Updates and ForceState types
 data Update = SafeUpdate TileFace 
             | UnsafeUpdate (Vertex -> TileFace)
 
--- | 0 is used as a dummy variable to show unsafe updates
+-- | 0 is used as a dummy variable to show unsafe updates (to display the function explicitly)
 instance Show Update where
     show (SafeUpdate f) = "SafeUpdate (" ++ show f ++ ")"
     show (UnsafeUpdate mf) = "UnsafeUpdate (\0 -> " ++ show (mf 0)++ ")"
@@ -202,15 +202,15 @@ affectedBoundary _ edges = error $ "affectedBoundary: unexpected new boundary ed
 forcing operations
 -}
 
--- |The main force function using alternateAllUGen representing all 10 rules for updates.
+-- |The main force function using defaultAllUGen representing all 10 rules for updates.
 -- This raises an error on discovering a stuck/incorrect Tgraph.
 force:: Tgraph -> Tgraph
 force = getResult . tryForce
 
--- |A version of the main force function using alternateAllUGen representing all 10 rules for updates.
+-- |A version of the main force function using defaultAllUGen representing all 10 rules for updates.
 -- This returns Left report on discovering a stuck Tgraph and Right g (with g the resulting Tgraph) otherwise.
 tryForce:: Tgraph -> ReportFail Tgraph
-tryForce = tryForceWith alternateAllUGen
+tryForce = tryForceWith defaultAllUGen
 
 -- |special case of forcing only half tiles to whole tiles
 wholeTiles:: Tgraph -> Tgraph
@@ -271,11 +271,6 @@ reviseUpdates uGen bdChange umap =
   do let umap' = foldr Map.delete umap (removedEdges bdChange)
      umap'' <- uGen (newBoundary bdChange) (revisedEdges bdChange) 
      return (Map.union umap'' umap')
-{-
-  !umap' = foldl' deleteFrom umap (removedEdges bdChange)
-  !umap'' = uGen (newBoundary bdChange) (revisedEdges bdChange) 
-  deleteFrom !ump !e = Map.delete e ump
--}
 
 -- |True if an update is safe.
 isSafeUpdate :: Update -> Bool
@@ -293,27 +288,29 @@ Inspecting Force Steps
 
 -- |stepForce  produces an intermediate state after a given number of steps (face additions).
 -- It raises an error if it encounters a stuck/incorrect graph
-stepForce :: Int -> Tgraph -> ForceState
-stepForce n  = getResult . tryStepForce n
+-- (stepForce 0 g can be used to calculate the initial force state from g.)
+stepForce :: Tgraph -> Int -> ForceState
+stepForce g  = getResult . tryStepForce g
 
 -- |tryStepForce is a version of stepForce which produces Left report for a stuck/incorrect graph
-tryStepForce :: Int -> Tgraph -> ReportFail ForceState
-tryStepForce n g = do fs0 <- initForceState alternateAllUGen g
-                      tryStepForceWith alternateAllUGen n fs0
+-- (tryStepForce 0 g can be used to calculate the initial force state from g.)
+tryStepForce :: Tgraph -> Int -> ReportFail ForceState
+tryStepForce g n = do fs0 <- initForceState defaultAllUGen g
+                      tryStepForceFrom fs0 n
 
 -- |tryStepForceFrom advances a forcestate a given number of steps.
 -- It produces Left report for a stuck/incorrect graph
-tryStepForceFrom :: Int -> ForceState -> ReportFail ForceState
-tryStepForceFrom = tryStepForceWith alternateAllUGen
+tryStepForceFrom :: ForceState -> Int -> ReportFail ForceState
+tryStepForceFrom = tryStepForceWith defaultAllUGen
 
 -- |try a number of force steps using a given UpdateGenerator (used by tryStepForce)
-tryStepForceWith :: UpdateGenerator -> Int -> ForceState -> ReportFail ForceState
+tryStepForceWith :: UpdateGenerator -> ForceState -> Int -> ReportFail ForceState
 tryStepForceWith updateGen = count where
-  count 0 fs = return fs
-  count n fs = do result <- oneStepWith updateGen fs
+  count fs 0 = return fs
+  count fs n = do result <- oneStepWith updateGen fs
                   case result of
                    Nothing -> return fs
-                   Just (fs', _) ->  count (n-1) fs'
+                   Just (fs', _) ->  count fs' (n-1)
 
 {- *
 Single Force Steps
@@ -336,7 +333,7 @@ oneStepWith uGen fs =
 
 -- |oneStepF is a special case of oneStepWith only used for debugging
 oneStepF :: ForceState -> ReportFail (Maybe (ForceState,BoundaryChange))
-oneStepF = oneStepWith alternateAllUGen
+oneStepF = oneStepWith defaultAllUGen
 
 
 -- ------------------------------------------HERE
@@ -532,7 +529,7 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
 
 {-| allUGenerator combines all the 10 rule update generators.
     They are combined in sequence (keeping the rule order) after applying each to the
-    supplied boundary and a focus edge list. (See also alternateAllUGen).
+    supplied boundary and a focus edge list. (See also defaultAllUGen).
     This version returns a Left..(fail report) for the first generator that produces a Left..(fail report)
 -}
 allUGenerator :: UpdateGenerator 
@@ -940,12 +937,12 @@ anglesForShortLK = (2,2)
 anglesForShortRK = (2,2)
 
 
--- |An alternative to allUGenerator, using the same rules but making decisions based on
+-- |An alternative to allUGenerator, and used as the default. It uses the same rules but making decisions based on
 -- the EdgeType of the boundary edge (instead of trying each rule in turn).
--- This version returns a combined Left..(fail report) for
--- all edges producing  a Left..(fail report) if there are any.
-alternateAllUGen :: UpdateGenerator
-alternateAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
+-- This version combines Left..(fail reports) for
+-- all boundary edges passed as argument producing  a single Left..(fail report) if there are any.
+defaultAllUGen :: UpdateGenerator
+defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
   decide e = decider bd (e,fc,etype) where (fc,etype) = inspectBDedge bd e
   decider bd (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
   decider bd (e,fc,Short) | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2

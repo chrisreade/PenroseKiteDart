@@ -490,7 +490,7 @@ boundaryGap5Fig = lw ultraThin $ dashJVGraph boundaryGapFDart5
 gapProgress5 :: Diagram B
 gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
     [ dashJGraph g
-    , drawGraph $ recoverGraph $ boundaryState $ stepForce 2000 g
+    , drawGraph $ recoverGraph $ boundaryState $ stepForce g 2000
     ] where g = boundaryGapFDart5
 
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
@@ -498,7 +498,7 @@ gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
 gapProgress4 :: Diagram B
 gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
     [ dashJGraph g
-    , drawGraph $ recoverGraph $ boundaryState $ stepForce 820 g --600
+    , drawGraph $ recoverGraph $ boundaryState $ stepForce g 820 --600
     ] where g = boundaryGapFDart4
 
 
@@ -687,10 +687,10 @@ testViewBoundary bd =  lc lime (drawEdges vpMap bdE) <> dashJVGraph g where
 -- e.g. n = 1900 for inspectForce5 or 200 for inspectForce3
 inspectForce5,inspectForce3 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
-                  testViewBoundary $ boundaryState $ stepForce n boundaryGapFDart5
+                  testViewBoundary $ boundaryState $ stepForce boundaryGapFDart5 n
 
 inspectForce3 n = padBorder $ lw ultraThin $
-                  testViewBoundary $ boundaryState $ stepForce n $ dartDs !! 3
+                  testViewBoundary $ boundaryState $ stepForce (dartDs !! 3) n
 
 
 -- |figures showing boundary edges of the boundary gap graphs boundaryGapFDart4 and boundaryGapFDart5 
