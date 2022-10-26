@@ -21,7 +21,7 @@ data HalfTile rep = LD rep -- ^ Left Dart
                   | RK rep -- ^ Right Kite
                   deriving (Show,Eq)
 
--- | Note this ignores the labels when comparing.
+-- | Note this ignores the tileLabels when comparing.
 -- However we should never have 2 differnt HalfTiles with the same rep
 instance Ord a => Ord (HalfTile a) where
     compare t1 t2 = compare (tileRep t1) (tileRep t2)
@@ -53,14 +53,16 @@ isRK _      = False
 isDart x = isLD x || isRD x
 isKite x = isLK x || isRK x
 
--- | matchingHalfTile t1 t2 is True if t1 and t2 use the same constructor
--- (i.e. both LD or both RD or both LK or both RK)
-matchingHalfTile :: HalfTile rep1 -> HalfTile rep2 -> Bool
-matchingHalfTile (LD _) t = isLD t
-matchingHalfTile (RD _) t = isRD t
-matchingHalfTile (LK _) t = isLK t
-matchingHalfTile (RK _) t = isRK t
+-- |By having Unit as the half tile representation we treat the constructors as just labels
+type HalfTileLabel = HalfTile ()
+-- |convert a half tile to its label (HalfTileLabel can be compared for equality)
+tileLabel :: HalfTile a -> HalfTileLabel
+tileLabel = fmap (\_ -> ()) -- functor HalfTile
 
+-- | matchingHalfTile t1 t2 is True if t1 and t2 have the same HalfTileLabel 
+-- (i.e. use the same constructor - both LD or both RD or both LK or both RK)
+matchingHalfTile :: HalfTile rep1 -> HalfTile rep2 -> Bool
+matchingHalfTile t1 t2 = tileLabel t1 == tileLabel t2
 
 
 

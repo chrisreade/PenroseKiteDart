@@ -188,7 +188,7 @@ duplicates = fst . foldl' check ([],[]) where
 conflictingDedges :: [TileFace] -> [DEdge]
 conflictingDedges = duplicates . facesDedges
 
--- |Returns the list of all directed edges (clockwise round) a list of tile faces
+-- |Returns the list of all directed edges (clockwise round each) of a list of tile faces
 facesDedges :: [TileFace] -> [(Vertex, Vertex)]
 facesDedges = concatMap faceDedges
 
@@ -250,12 +250,13 @@ illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fc
 -- |crossingBVs g returns a list of vertices with crossing boundaries
 -- (which should be null).               
 crossingBVs :: Tgraph -> [Vertex]
-crossingBVs g = crossingVertices $ boundaryDedges g
+crossingBVs = crossingVertices . boundaryDedges 
 
--- |crossingVertices returns a list of vertices occurring more than once at the start
--- of the directed edges in a list
+-- |Given a list of directed boundary edges, crossingVertices returns a list of vertices occurring
+-- more than once at the start of the directed edges in the list.
+-- Used for finding crossing boundary vertices when the boundary is already calculated.
 crossingVertices:: [DEdge] -> [Vertex]
-crossingVertices bdes = duplicates (fmap fst bdes) -- OR duplicates (fmap snd bdes)
+crossingVertices des = duplicates (fmap fst des) -- OR duplicates (fmap snd des)
 
 -- |There are crossing boundaries if vertices occur more than once
 -- at the start of all boundary directed edges
@@ -272,7 +273,7 @@ connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (IntSet.
 -- connectedBy edges v verts returns a pair of lists of vertices (conn,unconn)
 -- where conn is a list of vertices from the set verts that are connected to v by a chain of edges,
 -- and unconn is a list of vertices from set verts that are not connected to v.
--- This version uses an IntMap to represent edges (Vertex to [Vertex])
+-- This version creates an IntMap to represent edges (Vertex to [Vertex])
 -- and uses IntSets for the search algorithm arguments.
 connectedBy :: [DEdge] -> Vertex -> VertexSet -> ([Vertex],[Vertex])
 connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.delete v verts) where 
@@ -292,11 +293,11 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
 Other Face and Vertex Operations
 -}
 
--- |triple of face vertices in order clockwise - tileRep specialised to TileFace
+-- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
 faceVs = tileRep
 
--- |list of (three) face vertices in order clockwise
+-- |list of (three) face vertices in order clockwise starting with origin
 faceVList::TileFace -> [Vertex]
 faceVList = (\(x,y,z) -> [x,y,z]) . faceVs
 
@@ -372,16 +373,6 @@ hasVIn vs fc = not $ null $ faceVList fc `intersect` vs
 -- |n `newVsAfter` v - given existing maxV v, create a list of n new vertices [v+1..v+n]
 newVsAfter :: Int -> Vertex -> [Vertex]
 n `newVsAfter` v = [v+1..v+n]
-
--- |graphValency of a vertex in a graph is the number of edges incident with the vertex.
--- (Unmatched directed edges are completed, then the total count for directed edges is divided by 2)
-graphValency:: Tgraph -> Vertex -> Int
-graphValency g = (valencyMap VMap.!) where
-    valencyMap = VMap.fromAscList $ fmap count $ group $ sort (fmap fst edges ++ fmap snd edges)
-    edges = graphEdges g
-    count as@(a:_) = (a,length as `div` 2)
-    count _ = error "valency: count found empty list of verticies - impossible"
-
 
 {- * Other Edge Operations -}
 {-

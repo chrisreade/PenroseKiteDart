@@ -113,19 +113,21 @@ emplacements = iterate forcedDecomp . emplace -- was .force
 -- |a version of emplace using makeChoices at the top level.
 -- after makeChoices we use emplace to attempt further compositions but with no further choices
 emplaceChoices:: Tgraph -> [Tgraph]
-emplaceChoices g | nullGraph g' = emplace <$> makeChoices g
+emplaceChoices g | nullGraph g' = emplace <$> makeChoices fg
                  | otherwise = forcedDecomp <$> emplaceChoices g'
   where fg = force g
         g' = composeG fg 
                                  
-{-| makeChoices is a temporary tool which does not attempt to analyse choices for correctness.
+{-| makeChoices should only be used on a forced Tgraph.
+It is a temporary tool which does not attempt to analyse choices for correctness.
 It can thus create some choices which will be incorrect.
 The unknowns returned from classifyDartWings can become largeKiteCentres or largeDartBases.
-This produces 2^n choices where n is the number of unknowns (excluding lone dart wing tips with valency 2).
+This produces 2^n choices where n is the number of unknowns.
+(There will not be any dart wing tips with valency 2 in a forced graph).
 -}
 makeChoices :: Tgraph -> [Tgraph]
 makeChoices g = choices unks [g] where
-    unks = filter ((>2).graphValency g) (unknowns (classifyDartWings g))
+    unks = unknowns (classifyDartWings g) -- g not forced may allow solitary wing tips which will fail
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
 
