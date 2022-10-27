@@ -61,6 +61,16 @@ touchCheckProps fcs =
               )
 
 {- *
+Used in drawing Tgraphs.
+-}
+
+-- |select the halftile faces of a Tgraph with a join edge on the boundary 
+boundaryJoinFaces :: Tgraph -> [TileFace]
+boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ bDedges bdry where
+    bdry = makeBoundary g
+
+
+{- *
 Combining force, composeG, decomposeG
 -}
 
@@ -130,8 +140,6 @@ makeChoices g = choices unks [g] where
     unks = unknowns (classifyDartWings g) -- g not forced may allow solitary wing tips which will fail
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
-
-
 
 
 

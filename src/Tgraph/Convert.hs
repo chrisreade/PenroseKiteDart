@@ -72,23 +72,23 @@ This uses createVPoints to form a mapping of vertices to positions.
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
 -}
 makeVPatch::Tgraph -> VPatch
-makeVPatch g = makeVPatchWith (createVPoints fcs) fcs where fcs = faces g
+makeVPatch g = subVPatch fcs (createVPoints fcs) where fcs = faces g
 
-{-|Auxilliary function For converting a list of TileFaces to a VPatch givne a VertexLocMap
-The VertexLocMap argument must contain locations for all the Tgraph vertices.
+{-|Auxilliary function For converting a list of TileFaces to a VPatch when given a suitable VertexLocMap
+The VertexLocMap argument must contain locations for all the TileFace vertices.
 The alignment is dictated by the VertexLocMap.
 This function is intended to save recreating a VertexLocMap for several VPatches
 with different subsets of the vertices.
 (E.g. in displaying partial composition.)
 -}
-makeVPatchWith:: VertexLocMap -> [TileFace] -> VPatch
-makeVPatchWith vpMap fcs = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
-                                  , lHybrids  = makeLHyb <$> fcs
-                                  } where
+subVPatch:: [TileFace] -> VertexLocMap -> VPatch
+subVPatch fcs vpMap = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
+                             , lHybrids  = makeLHyb <$> fcs
+                             } where
     locateV (v,p) = v `at` p
     makeLHyb fc = case (VMap.lookup (originV fc) vpMap , VMap.lookup (oppV fc) vpMap) of
                   (Just p, Just p') -> fmap (dualRep (p' .-. p)) fc `at` p -- using HalfTile functor fmap
-                  _ -> error ("makeVPatchWith: Vertex location not found for some vertices:\n" 
+                  _ -> error ("subVPatch: Vertex location not found for some vertices:\n" 
                                ++ show (faceVList fc \\ VMap.keys vpMap))
 {- |
 makePatch uses makeVPatch first then the Hybrids are converted to located Pieces,
@@ -98,10 +98,10 @@ makePatch:: Tgraph -> Patch
 makePatch = dropVertices . makeVPatch
 
 {- |
-Auxilliary function to create a Patch from a Tgraph given a VertexlocMap
+Auxilliary function to create a Patch from a selection of TilFaces given a suitable VertexlocMap
 -}
-makePatchWith :: VertexLocMap -> [TileFace] -> Patch
-makePatchWith vpMap = dropVertices . makeVPatchWith vpMap
+subPatch :: [TileFace] -> VertexLocMap -> Patch
+subPatch fcs = dropVertices . subVPatch fcs
 
 -- |An inverse to makeVPatch which checks for connected and no crossing boundaries
 graphFromVP:: VPatch -> Tgraph

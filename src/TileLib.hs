@@ -129,12 +129,16 @@ fillMaybeDK d k piece = drawPiece piece <> filler where
 
 -- |same as drawPiece but with join edge added as dashed-line
 dashJPiece:: Piece -> Diagram B
-dashJPiece piece = drawPiece piece <> (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
+dashJPiece piece = drawPiece piece <> dashJ piece
                                        -- (drawJ piece # dashingO [1,2] 0)
 
 -- |draw join edge only 
 drawJ:: Piece -> Diagram B
 drawJ piece = strokeLine (fromOffsets [getJVec piece]) 
+
+-- |draw join edge only 
+dashJ:: Piece -> Diagram B
+dashJ piece = (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
         
 -- |experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.

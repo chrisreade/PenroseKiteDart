@@ -105,7 +105,21 @@ dartGraph =  makeTgraph [ RD(1,2,3), LD(1,3,4)]
 dartDs :: [Tgraph]
 dartDs =  decompositionsG dartGraph
 
+subDrawGraph:: Tgraph -> VertexLocMap -> Diagram B
+subDrawGraph  g vpMap = (patchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
+                         <> drawPatch (subPatch (faces g) vpMap)
 
+subDrawVGraph:: Tgraph -> VertexLocMap -> Diagram B
+subDrawVGraph g vpMap = (patchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
+                         <> drawVPatch (subVPatch (faces g) vpMap)
+
+-- |same as drawGraph except adding dashed lines for boundary join edges 
+drawGraphSmart :: Tgraph -> Diagram B
+drawGraphSmart g = subDrawGraph  g $ createVPoints $ faces g
+
+-- |same as drawVGraph except adding dashed lines for boundary join edges 
+drawVGraphSmart :: Tgraph -> Diagram B
+drawVGraphSmart g = subDrawVGraph  g $ createVPoints $ faces g
 
 {- * Partial Compositions figures
 -}
@@ -113,8 +127,8 @@ dartDs =  decompositionsG dartGraph
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (lw ultraThin $ drawPatch $ makePatchWith vpMap $ faces g')
-                  <> (lw thin $ lc lime $ dashJPatch $ makePatchWith vpMap fcs)
+drawPCompose g = (lw ultraThin $ drawPatch $ subPatch (faces g') vpMap)
+                  <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vpMap)
   where (fcs,g') = partCompose g
         vpMap = createVPoints $ faces g
 
@@ -135,58 +149,38 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 forceFoolDminus :: Diagram B              
 forceFoolDminus = padBorder $ hsep 1 $ fmap dashJVGraph [foolDminus, force foolDminus]
 
--- |new version of drawForce using subTgraphs instead of alignments
+-- |drawForce g is a diagram showing the argument g in red overlayed on force g
+-- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
-drawForce g = drawSubTgraph [lw ultraThin . drawPatch, lc red .lw thin . drawPatch ]
-               $ forceSub $ makeSubTgraph g [faces g]
+drawForce g = (dg # lc red # lw thin) <> (dfg # lw ultraThin) where
+    fg = force g
+    vpMap = createVPoints (faces fg)
+    dfg = drawPatch $ subPatch (faces fg) vpMap 
+    dg = subDrawGraph g vpMap
 
 -- |diagrams of forced graphs (3 or 5 times decomposed kite or dart or sun)           
 forceDartD3Fig,forceDartD5Fig,forceKiteD3Fig,forceKiteD5Fig,forceSunD5Fig,forceFig:: Diagram B
 forceDartD3Fig = padBorder $ rotate (ttangle 1) $ drawForce $ dartDs !! 3
 forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
 forceKiteD3Fig = padBorder $ drawForce $ kiteDs !! 3
-forceKiteD5Fig = padBorder $ rotate (ttangle 9) $ drawForce $ kiteDs !! 5
+forceKiteD5Fig = padBorder $ rotate (ttangle 1) $ drawForce $ kiteDs !! 5
 forceSunD5Fig =  padBorder $ drawForce $ sunDs  !! 5
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
-
-{- *
-Maximal (forced composed) and Emplacements
--}
-
-{-
--- |drawEmbed (a,b) g1 g2 embeds  g1 (coloured red) onto g2, by aligning with (a,b)
--- vertices a and b must be common to g1 and g2
-drawEmbed ::  Tgraph -> Tgraph -> (Vertex, Vertex) -> Diagram B
-drawEmbed g1 g2 = drawEmbedVP (makeVPatch g1) (makeVPatch g2)
-
--- |drawEmbedVP (a,b) vp1 vp2 embeds  vp1 (coloured red) onto vp2, after aligning with (a,b)
--- vertices a and b must be common to vp1 and vp2
-drawEmbedVP ::  VPatch -> VPatch -> (Vertex, Vertex) -> Diagram B
-drawEmbedVP vp1 vp2 (a,b) = 
-    lc red (lw thin $ drawPatch $ dropVertices $ alignXaxis (a,b) vp1) 
-    <>      lw ultraThin (drawPatch $ dropVertices $ alignXaxis (a,b) vp2)
-
--- |use checkEmbed to find a common pair of vertices to align (for use with drawEmbed)
-checkEmbed :: Tgraph -> Tgraph -> Diagram B
-checkEmbed g1 g2 = padBorder $ lw ultraThin $ vsep 1 $
-                   fmap dashJVGraph [g1, g2]
-
--}
 
 {- |
 drawWithMax g draws g and overlays the maximal forced composition of g in red
 -}
 drawWithMax :: Tgraph -> Diagram B
 drawWithMax g =  (lc red $ lw thin dmax) <> lw ultraThin dg where
-    maxg = maxCompose g
     vpMap = createVPoints (faces g)
-    dg = drawPatch $ makePatchWith vpMap (faces g)
-    dmax = drawPatch $ makePatchWith vpMap (faces maxg)
+    dg = drawPatch $ subPatch (faces g) vpMap
+    maxg = maxCompose g
+    dmax = drawPatch $ subPatch (faces maxg) vpMap
  
 -- |an example showing the maximum composition (a kite) over 4 times decomposed pair of darts 
-maxEmplaceFig :: Diagram B
-maxEmplaceFig = padBorder $ drawWithMax $ emplace $ decompositionsG dartPlusDart !! 4
+maxExampleFig :: Diagram B
+maxExampleFig = padBorder $ drawWithMax $ decompositionsG dartPlusDart !! 4
 
 {- *
 Multi emplace and choices
@@ -812,8 +806,8 @@ forcedNewFaces = padBorder $ lw thin $ (drawPatch p2 # lc lime) <> drawPatch p3 
     g2 = removeFaces (faces g1) (force g1)
     g3 = force g2
     vpMap = createVPoints $ faces g3
-    p2 = makePatchWith vpMap $ faces g2
-    p3 = makePatchWith vpMap $ faces g3
+    p2 = subPatch (faces g2) vpMap
+    p3 = subPatch (faces g3) vpMap
                        
 -- |Trying to find which extensions to the starting dart correspond to the twoChoicesFig
 dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite :: Tgraph
