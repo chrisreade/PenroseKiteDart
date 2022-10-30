@@ -105,6 +105,10 @@ dartGraph =  makeTgraph [ RD(1,2,3), LD(1,3,4)]
 dartDs :: [Tgraph]
 dartDs =  decompositionsG dartGraph
 
+-- |Tgraph of 4 times decomposed dartGraph (used in several examples)
+dartD4 :: Tgraph
+dartD4 = dartDs!!4
+
 subDrawGraph:: Tgraph -> VertexLocMap -> Diagram B
 subDrawGraph  g vpMap = (patchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
                          <> drawPatch (subPatch (faces g) vpMap)
@@ -127,7 +131,7 @@ drawVGraphSmart g = subDrawVGraph  g $ createVPoints $ faces g
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (lw ultraThin $ drawPatch $ subPatch (faces g') vpMap)
+drawPCompose g = (drawPatch $ subPatch (faces g') vpMap)
                   <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vpMap)
   where (fcs,g') = partCompose g
         vpMap = createVPoints $ faces g
@@ -135,10 +139,10 @@ drawPCompose g = (lw ultraThin $ drawPatch $ subPatch (faces g') vpMap)
  
 -- |diagrams showing partial compositions (with ignored faces in pale green)
 pCompFig1,pCompFig2,pCompFig:: Diagram B
-pCompFig1 = hsep 5 $ rotations [1,1] [drawGraph fd3 # lw ultraThin, drawPCompose fd3]
-            where fd3 = force $ dartDs !! 3
-pCompFig2 = hsep 5 $ rotations [] [drawGraph fk3 # lw ultraThin, drawPCompose fk3]
-            where fk3 = force $ kiteDs !! 3
+pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [drawGraph fd3, drawPCompose fd3]
+            where fd3 = force $ dartDs!!3
+pCompFig2 = lw ultraThin $ hsep 5 $ rotations [] [drawGraph fk3, drawPCompose fk3]
+            where fk3 = force $ kiteDs!!3
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 
@@ -152,7 +156,7 @@ forceFoolDminus = padBorder $ hsep 1 $ fmap dashJVGraph [foolDminus, force foolD
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
 -- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
-drawForce g = (dg # lc red # lw thin) <> (dfg # lw ultraThin) where
+drawForce g = (dg # lc red) <> dfg where
     fg = force g
     vpMap = createVPoints (faces fg)
     dfg = drawPatch $ subPatch (faces fg) vpMap 
@@ -160,11 +164,11 @@ drawForce g = (dg # lc red # lw thin) <> (dfg # lw ultraThin) where
 
 -- |diagrams of forced graphs (3 or 5 times decomposed kite or dart or sun)           
 forceDartD3Fig,forceDartD5Fig,forceKiteD3Fig,forceKiteD5Fig,forceSunD5Fig,forceFig:: Diagram B
-forceDartD3Fig = padBorder $ rotate (ttangle 1) $ drawForce $ dartDs !! 3
-forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
-forceKiteD3Fig = padBorder $ drawForce $ kiteDs !! 3
-forceKiteD5Fig = padBorder $ rotate (ttangle 1) $ drawForce $ kiteDs !! 5
-forceSunD5Fig =  padBorder $ drawForce $ sunDs  !! 5
+forceDartD3Fig = padBorder $ lw thin $ rotate (ttangle 1) $ drawForce $ dartDs!!3
+forceDartD5Fig = padBorder $ lw ultraThin $ drawForce $ dartDs !! 5
+forceKiteD3Fig = padBorder $ lw thin $ drawForce $ kiteDs !! 3
+forceKiteD5Fig = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
+forceSunD5Fig =  padBorder $ lw ultraThin $ drawForce $ sunDs  !! 5
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 
@@ -172,7 +176,7 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 drawWithMax g draws g and overlays the maximal forced composition of g in red
 -}
 drawWithMax :: Tgraph -> Diagram B
-drawWithMax g =  (lc red $ lw thin dmax) <> lw ultraThin dg where
+drawWithMax g =  (dmax # lc red # lw thin) <> dg where
     vpMap = createVPoints (faces g)
     dg = drawPatch $ subPatch (faces g) vpMap
     maxg = maxCompose g
@@ -180,7 +184,7 @@ drawWithMax g =  (lc red $ lw thin dmax) <> lw ultraThin dg where
  
 -- |an example showing the maximum composition (a kite) over 4 times decomposed pair of darts 
 maxExampleFig :: Diagram B
-maxExampleFig = padBorder $ drawWithMax $ decompositionsG dartPlusDart !! 4
+maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForcedDecomps dartPlusDart !! 4
 
 {- *
 Multi emplace and choices
@@ -202,17 +206,12 @@ emplaceFoolDChoices = padBorder $ hsep 1 $
         fmap (addFoolD . lw ultraThin . drawPatch . dropVertices) vpChoices where
         (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(28,6)] --(29,6)] 
                                          (fmap makeVPatch (foolD:emplaceChoices foolD))
-        addFoolD fig = (lc red . dashJPatch . dropVertices) vpFoolD <> fig
-
-
+        addFoolD fig = (lc red . lw thin . dashJPatch . dropVertices) vpFoolD <> fig
 
 {- *
 Removed faces (forcing and composing)
 -}
 
--- |Tgraph of 4 times decomposed dartGraph
-dartD4 :: Tgraph
-dartD4 = dartDs!!4
 
 -- |brokenDart gets repaired by forcing but can also be composed to a maximal graph
 brokenDart :: Tgraph
@@ -260,6 +259,7 @@ brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap dashJVPatch $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPatch 
                   [decomposeG kitePlusKite, brokenKites, composeG brokenKites, emplace brokenKites]
 -- |2 adjacent kites decomposed then the top half kite components removed (3 of them)
+brokenKites::Tgraph
 brokenKites = removeFaces deleted kPlusKD where
                       kPlusKD = decomposeG kitePlusKite
                       deleted = filter (hasVIn [6,14]) (faces kPlusKD)
@@ -437,10 +437,10 @@ forceVsFig :: Diagram B
 forceVsFig = padBorder $ hsep 1 forceVFigures
 
 {-| relatedVTypeFig lays out figures from forceVFigures plus a kite as single diagram with 3 columns -}
-relatedVTypeFig = padBorder $
+relatedVTypeFig = padBorder $ lw thin $
  atPoints [p2(0,15),p2(0,10),   p2(8,15),p2(9,10),p2(9,1),  p2(18,15),p2(18,10),p2(20,1) ]
           [sunF,    starF,      aceF,    jackF,    kingF,     kite,     deuceF,   queenF]
- where kite = drawGraph kiteGraph # lw thin
+ where kite = drawGraph kiteGraph
        sunF = forceVFigures!!0
        starF = forceVFigures!!1
        jackF = forceVFigures!!2
@@ -456,7 +456,7 @@ Other miscelaneous Tgraphs and Diagrams
 
 -- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
-boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!4)
+boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartD4)
 boundaryFDart5 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!5)
 
 -- | figure to check that force can complete a hole
@@ -500,7 +500,7 @@ gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
      bigPic0 is main diagram for bigPic without the arrows
 -}
 bigPic0,bigPic :: Diagram B
-bigPic0 = padBorder $ position $ concat
+bigPic0 = padBorder $ lw ultraThin $ position $ concat
           [ zip pointsR1 $ rotations [0,1,1] partComps
           , zip pointsR2 $ zipWith named ["a4", "a3","a2","a1","a0"] (dots : rotations [1,1] forceDs)
           , zip pointsR3 $ zipWith named ["b4", "b3","b2","b1","b0"] (dots : rotations [1,1] drts)
@@ -509,7 +509,7 @@ bigPic0 = padBorder $ position $ concat
               partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ emplacements dartGraph
            --   pCompAlign g = showPCompose g (1,3)
               forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce dartDs
-              drts  = fmap (center . lw thin) $ phiScaling phi $ reverse $ take 4 $ fmap dashJGraph dartDs
+              drts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap dashJGraph dartDs
               dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
@@ -574,16 +574,16 @@ composeArc a b = connectPerim' arrowStyleC a b (1/10 @@ turn) (4/10 @@ turn) whe
 {-| curioPic0 is diagram curioPic without arrows
 -}
 curioPic0 :: Diagram B
-curioPic0 = padBorder $ position $ concat
-  [ zip pointsRa $ zipWith named ["a4","a3","a2","a1","a0"] (dots : fmap (center . lw thin) forceDs)
+curioPic0 = padBorder $ lw ultraThin $ position $ concat
+  [ zip pointsRa $ zipWith named ["a4","a3","a2","a1","a0"] (dots : fmap center forceDs)
   , zip pointsRb $ zipWith named ["b4", "b3","b2","b1"] (dots : fmap center forceXDs)
-  , zip pointsRc $ zipWith named ["c4", "c3","c2","c1","c0"] (dots : fmap (center . lw thin) xDs)
+  , zip pointsRc $ zipWith named ["c4", "c3","c2","c1","c0"] (dots : fmap center xDs)
   ] where
-    forceDs  = lw ultraThin <$> rotations [1,1]  $ phiScaling phi $ reverse $ take 4 $ fmap (drawGraph . force) dartDs
+    forceDs  = rotations [1,1]  $ phiScaling phi $ reverse $ take 4 $ fmap (drawGraph . force) dartDs
     forceXDs = rotations [9,9,8]  $ phiScaling phi $ reverse $ take 3 $ fmap drawForce xDGraphs
     xDGraphs = decompositionsG sunPlus3Dart'
-    xDs  = lw ultraThin <$> rotations [9,9,8] $  phiScaling phi $ reverse $
-           drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red # lw thin): 
+    xDs  = rotations [9,9,8] $  phiScaling phi $ reverse $
+           drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red): 
            take 2  (drop 1 $ fmap drawGraph xDGraphs)
     dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
     pointsRa = map p2 [ (0, 80), (42, 80), (95, 80), (150, 80), (200, 80)]
@@ -659,10 +659,15 @@ testForce5 = padBorder $ lw ultraThin $ dashJVGraph $ force boundaryGapFDart5
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  lc lime (drawEdges vpMap bd) <> dashJVPatch vp where
+drawGBoundary g =  (drawEdges vpMap bd # lc lime) <> (drawVPatch $ subVPatch (faces g) vpMap) where
+    vpMap  = createVPoints (faces g)
+    bd = boundaryDedges g
+
+{-
     vp = makeVPatch g
     vpMap = vertexLocs vp
     bd = boundaryDedges g
+-}
 
   
 {-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
@@ -684,7 +689,7 @@ inspectForce5 n = padBorder $ lw ultraThin $
                   testViewBoundary $ boundaryState $ stepForce boundaryGapFDart5 n
 
 inspectForce3 n = padBorder $ lw ultraThin $
-                  testViewBoundary $ boundaryState $ stepForce (dartDs !! 3) n
+                  testViewBoundary $ boundaryState $ stepForce (dartDs!!3) n
 
 
 -- |figures showing boundary edges of the boundary gap graphs boundaryGapFDart4 and boundaryGapFDart5 
@@ -716,40 +721,24 @@ dartsOnlyFig = padBorder $ lw thin $ drawPatch $ dropVertices $ selectFacesGtoVP
     darts = filter isDart $ faces g
 
 {- *
-Testing SubTgraphs
+Using SubTgraphs
 -}
--- |subExample is a SubTgraph of a forced 5 times decomposed dart with
--- tracked faces from a forced 2 times decomposed dart
-subExample:: SubTgraph
-subExample = iterate (forceSub . decomposeSub) (makeSubTgraph fD2 [faces fD2]) !! 3
-              where fD2 = force (dartDs !!2)
 
--- |subExampleFig draws subExample with the tracked faces in red
-subExampleFig:: Diagram B
-subExampleFig = padBorder $ lw thin drawSubTgraph1 subExample
-
--- |hollowGraph happens to be a valid Tgraph after removing the tracked faces from subExample
--- This is not generally the case
+-- |hollowgraph illustrates an essential use of SubTgraphs.
+-- Starting with fd2 = force (dartDs!!2) we want to make 3 further decompositions,
+-- but also make 3 forced decompositions and then subtract the former faces from the latter.
+-- The result happens to be a valid Tgraph but this is not generally the case.
+-- SubTgraphs are essential to ensure numbering of new vertices in decompositions
+-- match up in the 2 cases which they would not do if treated separately.
 hollowGraph::Tgraph
-hollowGraph = removeFaces (concat (trackedSubsets subExample)) (fullGraph subExample)
+hollowGraph = removeFaces (head (tracked exampleSub)) (fullGraph exampleSub) where
+  exampleSub = iterate (forceSub . decomposeSub) (pushFaces (newSubTgraph fd2)) !!3
+  fd2 = force (dartDs!!2)
 
 -- |figure showing hollowGraph and result of forcing
 forceHollowFig:: Diagram B
 forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGraph, force hollowGraph]
 
--- |drawing non tracked faces in general
-drawWithoutTracked:: SubTgraph -> Diagram B
-drawWithoutTracked sub = 
-  drawPatch $ dropVertices $ removeFacesGtoVP (concat (trackedSubsets sub)) (fullGraph sub) 
-
--- |example using drawWithoutTracked  
-removeTrackedFig:: Diagram B
-removeTrackedFig = padBorder $  lw ultraThin $ drawWithoutTracked subExample
-
-
-{- *
-Viewing choice results with SubTgraphs
--}
 
 {-
 N.B.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices...
@@ -764,76 +753,74 @@ checkChoiceEdge g = padBorder $ lw ultraThin $ drawVGraph $ force g
 -- |given a boundary directed edge of a forced graph (either direction)
 -- construct two SubTgraphs with half dart/kite addition on the edge respectively
 -- track the resulting faces and also the singleton new face, then force both SubTgraphs
-trackTwoChoices:: Tgraph -> DEdge -> [SubTgraph]
-trackTwoChoices g de = fmap forceSub [sub1,sub2] where
-          g' = addHalfDart g de
-          g'' = addHalfKite g de
-          sub1 = makeSubTgraph g' [faces g', faces g' \\ faces g]
-          sub2 = makeSubTgraph g'' [faces g'', faces g'' \\ faces g]
+trackTwoChoices:: DEdge -> Tgraph -> [SubTgraph]
+trackTwoChoices de g = [sub1,sub2] where
+          sub1 = forceSub $ pushFaces $ addHalfDartSub de $ newSubTgraph g
+          sub2 = forceSub $ pushFaces $ addHalfKiteSub de $ newSubTgraph g
 
 -- |forced 4 times decomposed dart (used for identifying particular boundary
 -- edges in twoChoices and moreChoices)
 forceDartD4Fig:: Diagram B
-forceDartD4Fig = padBorder $ lw ultraThin $ dashJVGraph $ force $ dartDs !! 4          
+forceDartD4Fig = padBorder $ lw ultraThin $ dashJVGraph $ force $ dartD4          
 -- |Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [SubTgraph]
-twoChoices = trackTwoChoices (force $ dartDs !!4) (223,255) --(233,201) 
+twoChoices = trackTwoChoices (223,255) (force $ dartD4) --(233,201) 
          
--- |show the (tracked) twoChoices with drawSubTgraph2 (tracked faces in red, new face filled black)  
+-- |show the (tracked) twoChoices with (tracked faces in red, new face filled black)  
 twoChoicesFig:: Diagram B
-twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 twoChoices
+twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawSub twoChoices where
+    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
 
 -- |track two further choices with the first of twoChoices (fullgraph)  
 moreChoices0:: [SubTgraph]
-moreChoices0 = trackTwoChoices (fullGraph $ twoChoices !! 0) (200,241) --(178,219)
+moreChoices0 = trackTwoChoices (200,241) (fullGraph $ twoChoices !! 0) --(178,219)
 
 -- |track two further choices with the second of twoChoices (fullgraph)  
 moreChoices1:: [SubTgraph]
-moreChoices1 = trackTwoChoices (fullGraph $ twoChoices !! 1) (200,241) --(178,219)
+moreChoices1 = trackTwoChoices (200,241) (fullGraph $ twoChoices !! 1) --(178,219)
 
 -- |figures for 4 further choices
 moreChoicesFig0,moreChoicesFig1,moreChoicesFig:: Diagram B
-moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSubTgraph2 moreChoices0
-moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSubTgraph2 moreChoices1
+moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSub moreChoices0 where
+    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
+moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSub moreChoices1 where
+    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
 moreChoicesFig  =  vsep 1 [moreChoicesFig0,moreChoicesFig1]  
 
 
--- |What happens if you take only the added faces of (the first of) twoChoices and force from there?
+-- |What happens if you take the first result of twoChoices, then 
+-- select only the faces that were added by force, then force just these faces?
 -- It does not quite complete the original faces    
 forcedNewFaces:: Diagram B
-forcedNewFaces = padBorder $ lw thin $ (drawPatch p2 # lc lime) <> drawPatch p3 where
-    g1 = addHalfDart (force $ dartDs !!4) (223,255)--(233,201)
+forcedNewFaces = padBorder $ lw thin $ drawForce g2 where
+    g1 = addHalfDart (223,255) (force $ dartD4) --(233,201)
     g2 = removeFaces (faces g1) (force g1)
-    g3 = force g2
-    vpMap = createVPoints $ faces g3
-    p2 = subPatch (faces g2) vpMap
-    p3 = subPatch (faces g3) vpMap
                        
 -- |Trying to find which extensions to the starting dart correspond to the twoChoicesFig
 dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite :: Tgraph
 -- |a dart with another half dart on a long edge
-dartHalfDart = addHalfDart dartGraph (1,2)
+dartHalfDart = addHalfDart (1,2) dartGraph
 -- |a dart with a half kite on a long edge
-dartHalfKite = addHalfKite dartGraph (1,2)
+dartHalfKite = addHalfKite (1,2) dartGraph
 -- |two darts sharing a long edge
-dartPlusDart = addHalfDart dartHalfDart (1,5)
+dartPlusDart = addHalfDart (1,5) dartHalfDart
 -- |a dart and a kite sharing a long edge
-dartPlusKite = addHalfKite dartHalfKite (2,5)
+dartPlusKite = addHalfKite (2,5) dartHalfKite
 -- |two kites sharing a long edge
-kitePlusKite = addHalfKite (addHalfKite kiteGraph (1,3)) (1,5)
+kitePlusKite = addHalfKite (1,5) $ addHalfKite (1,3) kiteGraph
 
 sunPlusDart,sunPlus2Dart,sunPlus2Dart',sunPlus3Dart,sunPlus3Dart' :: Tgraph
 -- |A sun with a single complete dart on the boundary
-sunPlusDart = addHalfDart (addHalfDart sunGraph (2,3)) (3,4)
+sunPlusDart = addHalfDart (3,4) $ addHalfDart (2,3) sunGraph
 -- |A sun with 2 darts adjacent on the boundary
-sunPlus2Dart = addHalfDart (addHalfDart sunPlusDart (4,5)) (5,6)
+sunPlus2Dart = addHalfDart (5,6) $ addHalfDart (4,5) sunPlusDart
 -- |A sun with 2 darts NOT adjacent on the boundary
-sunPlus2Dart' = addHalfDart (addHalfDart sunPlusDart (6,7)) (7,8)
+sunPlus2Dart' = addHalfDart (7,8) $ addHalfDart (6,7) sunPlusDart
 -- |A sun with 3 darts adjacent on the boundary
-sunPlus3Dart = addHalfDart (addHalfDart sunPlus2Dart (6,7)) (7,8)
+sunPlus3Dart = addHalfDart (7,8) $ addHalfDart (6,7) sunPlus2Dart
 -- |A sun with 3 darts on the boundary NOT all adjacent
 -- This example has an emplacement that does not include the original but is still a correct Tgraph
-sunPlus3Dart' = addHalfDart (addHalfDart sunPlus2Dart (8,9)) (9,10)
+sunPlus3Dart' = addHalfDart (9,10) $ addHalfDart (8,9) sunPlus2Dart
 
 
 -- |halfWholeFig shows that a whole dart/kite needs to be added to get the same result as twoChoicesFig
@@ -860,15 +847,23 @@ kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $
 maxShapesFig:: Diagram B
 maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 
--- |compareForceEmplace g is a diagram for g followed by force g followed by emplace g
+-- |compareForceEmplace g is a diagram showing g embedded (in red) in force g, followed by emplace g
 compareForceEmplace :: Tgraph -> Diagram B
-compareForceEmplace g = padBorder $ hsep 1 $ fmap dashJVGraph
-                        [g, force g, emplace g]
+compareForceEmplace g = padBorder $ hsep 1 $
+                        [ rotate (ttangle 8) $ drawForce g
+                        , drawGraph $ emplace g
+                        ]
+
+-- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
+-- This example has an emplacement that does not include the original but is still a correct Tgraph.
+-- The figure shows the force and emplace difference.
+emplaceProblemFig:: Diagram B
+emplaceProblemFig = compareForceEmplace sunPlus3Dart'
 
 -- | force after adding half dart (rocket cone) to sunPlus3Dart'.
 -- Adding a kite half gives an incorrect graph discovered by forcing.
 rocketCone1:: Tgraph
-rocketCone1 =  force $ addHalfDart (forcedDecomp sunPlus3Dart') (59,60)
+rocketCone1 =  force $ addHalfDart (59,60) $ forcedDecomp sunPlus3Dart'
 
 -- | figure for rocketCone
 rocketCone1Fig:: Diagram B
@@ -886,16 +881,11 @@ rocket5Fig = padBorder $ lw ultraThin  drawWithMax rocket5
 rocket5:: Tgraph
 rocket5 = forcedDecomp rc4 where
   rc0 = sunPlus3Dart'
-  rc1 = force $ addHalfDart (forcedDecomp rc0) (59,60)
-  rc2 = force $ addHalfDart (forcedDecomp rc1) (326,327)
-  rc3 = force $ addHalfDart (forcedDecomp rc2) (1036,1037)
-  rc4 = force $ addHalfDart (forcedDecomp rc3) (3019,3020)
+  rc1 = force $ addHalfDart (59,60) (forcedDecomp rc0)
+  rc2 = force $ addHalfDart (326,327) (forcedDecomp rc1)
+  rc3 = force $ addHalfDart (1036,1037) (forcedDecomp rc2)
+  rc4 = force $ addHalfDart (3019,3020) (forcedDecomp rc3)
 
--- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
--- This example has an emplacement that does not include the original but is still a correct Tgraph.
--- The figure shows the force and emplace difference.
-emplaceProblemFig:: Diagram B
-emplaceProblemFig = compareForceEmplace sunPlus3Dart'
 
 -- |6 times forced and decomposed kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
 -- There are 2906 faces for kingD6 before forcing.

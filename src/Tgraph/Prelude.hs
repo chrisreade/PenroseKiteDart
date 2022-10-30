@@ -546,23 +546,26 @@ makeVFMapFor vs = foldl' insertf start where
 {-|
  SubTgraph - introduced to allow tracking of subsets of faces
  in both force and decompose oerations.
- A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces (trackedSubsets).
+ A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces (tracked).
  The list allows for tracking different subsets of faces at the same time
 -}
-data SubTgraph = SubTgraph{ fullGraph:: Tgraph, trackedSubsets::[[TileFace]]}
+data SubTgraph = SubTgraph{ fullGraph:: Tgraph, tracked::[[TileFace]]}
+
+-- |newSubTgraph g creates a SubTgraph from a Tgraph g with an empty tracked list
+newSubTgraph :: Tgraph -> SubTgraph
+newSubTgraph g = makeSubTgraph g []
 
 -- |makeSubTgraph g trackedlist creates a SubTgraph from a Tgraph g
 -- from trackedlist where each list in trackedlist is a subset of the faces of g.
 -- Any faces not in g are ignored.
 makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
-makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, trackedSubsets = fmap (`intersect` faces g) trackedlist}
+makeSubTgraph g trackedlist = SubTgraph{ fullGraph = g, tracked = fmap (`intersect` faces g) trackedlist}
 
--- |pushSub f sub - pushes a new tracked subset of tilefaces onto the tracked subsets of sub
--- calculated with f sub
-pushSub:: (SubTgraph -> [TileFace]) -> SubTgraph -> SubTgraph
-pushSub f sub = makeSubTgraph g trackedList where
+-- |pushFaces sub - pushes the maingraph tilefaces onto the stack of tracked subsets of sub
+pushFaces:: SubTgraph -> SubTgraph
+pushFaces sub = makeSubTgraph g trackedList where
     g = fullGraph sub
-    trackedList = f sub `intersect` faces g:trackedSubsets sub
+    trackedList = faces g:tracked sub
 
 
 {- * Failure reporting (for partial operations) -}

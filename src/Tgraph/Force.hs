@@ -998,15 +998,15 @@ addHalfKite, addHalfDart, forceLDB, forceLKC
 -- the correct direction is automatically calculated.
 -- It will raise an error if the edge is a dart join or if a conflict (stuck graph) is detected
 -- or if the edge is not a boundary edge.
-addHalfKite :: Tgraph -> DEdge -> Tgraph
-addHalfKite g  = getResult . tryAddHalfKite g
+addHalfKite :: DEdge -> Tgraph -> Tgraph
+addHalfKite e  = getResult . tryAddHalfKite e
 
 -- |tryAddHalfKite is a version of addHalfKite which returns a ReportFail
 -- with a Left report if it finds a stuck/incorrect graph, or 
 -- if the edge is a dart join, or
 -- if the edge is not a boundary edge.   
-tryAddHalfKite :: Tgraph -> DEdge -> ReportFail Tgraph
-tryAddHalfKite g e = 
+tryAddHalfKite :: DEdge -> Tgraph -> ReportFail Tgraph
+tryAddHalfKite e g = 
   do let bd = makeBoundary g
      de <- case [e, reverseD e] `intersect` bDedges bd of
              [de] -> Right de
@@ -1026,15 +1026,15 @@ tryAddHalfKite g e =
 -- It will raise an error if the edge is a dart short edge or kite join
 -- or if a conflict (stuck graph) is detected or if
 -- the edge is not a boundary edge.
-addHalfDart :: Tgraph -> DEdge -> Tgraph
-addHalfDart g = getResult . tryAddHalfDart g
+addHalfDart :: DEdge -> Tgraph -> Tgraph
+addHalfDart e = getResult . tryAddHalfDart e
   
 -- |tryAddHalfDart is a version of addHalfDart which returns a ReportFail
 -- with a Left report if it finds a stuck/incorrect graph, or
 -- if the edge is a dart short edge or kite join, or
 -- if the edge is not a boundary edge.
-tryAddHalfDart :: Tgraph -> DEdge -> ReportFail Tgraph
-tryAddHalfDart g e = 
+tryAddHalfDart :: DEdge -> Tgraph -> ReportFail Tgraph
+tryAddHalfDart e g = 
   do let bd = makeBoundary g
      de <- case [e, reverseD e] `intersect` bDedges bd of
             [de] -> Right de
@@ -1165,23 +1165,24 @@ Forcing SubTgraphs
 
 -- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
 forceSub :: SubTgraph -> SubTgraph
-forceSub sub = makeSubTgraph (force $ fullGraph sub) (trackedSubsets sub)
---forceSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph (force g) tlist
+forceSub sub = makeSubTgraph (force $ fullGraph sub) (tracked sub)
 
 -- |aaddHalfDartSub sub e - add a half dart to the fullGraph of sub on the given edge e,
 -- and push the new singleton face list onto the tracked list.
-addHalfDartSub sub e =
-    makeSubTgraph g' (fcs:trackedSubsets sub) where
+addHalfDartSub:: DEdge -> SubTgraph -> SubTgraph
+addHalfDartSub e sub =
+    makeSubTgraph g' (fcs:tracked sub) where
     g = fullGraph sub
-    g' = addHalfDart g e
+    g' = addHalfDart e g
     fcs = faces g' \\ faces g
 
 -- |addHalfKiteSub sub e - add a half kite to the fullGraph of sub on the given edge e,
 -- and push the new singleton face list onto the tracked list.
-addHalfKiteSub sub e =
-    makeSubTgraph g' (fcs:trackedSubsets sub) where
+addHalfKiteSub:: DEdge -> SubTgraph -> SubTgraph
+addHalfKiteSub e sub =
+    makeSubTgraph g' (fcs:tracked sub) where
     g = fullGraph sub
-    g' = addHalfKite g e
+    g' = addHalfKite e g
     fcs = faces g' \\ faces g
 
 {- *

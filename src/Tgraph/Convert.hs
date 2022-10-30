@@ -68,18 +68,17 @@ instance Transformable VPatch where
          =  VPatch {lVertices = fmap (\lv -> unLoc lv `at` transform t (loc lv)) lvs,  lHybrids = transform t lhs}
 
 {-| For converting a Tgraph to a VPatch.
-This uses createVPoints to form a mapping of vertices to positions.
-This makes the join of the face with lowest origin and lowest oppV align on the positive x axis
+This uses createVPoints to form an intermediate VertexLocMap (mapping of vertices to positions).
+This makes the join of the face with lowest origin and lowest oppV align on the positive x axis.
 -}
 makeVPatch::Tgraph -> VPatch
 makeVPatch g = subVPatch fcs (createVPoints fcs) where fcs = faces g
 
-{-|Auxilliary function For converting a list of TileFaces to a VPatch when given a suitable VertexLocMap
+{-|Auxilliary function For converting a list of TileFaces to a VPatch when given a suitable VertexLocMap.
 The VertexLocMap argument must contain locations for all the TileFace vertices.
 The alignment is dictated by the VertexLocMap.
 This function is intended to save recreating a VertexLocMap for several VPatches
 with different subsets of the vertices.
-(E.g. in displaying partial composition.)
 -}
 subVPatch:: [TileFace] -> VertexLocMap -> VPatch
 subVPatch fcs vpMap = VPatch { lVertices = fmap locateV (VMap.toList vpMap)
@@ -97,8 +96,12 @@ dropping the Vertices information.
 makePatch:: Tgraph -> Patch
 makePatch = dropVertices . makeVPatch
 
-{- |
-Auxilliary function to create a Patch from a selection of TilFaces given a suitable VertexlocMap
+{-|Auxilliary function For converting a list of TileFaces to a Patch when given a suitable VertexLocMap.
+The VertexLocMap argument must contain locations for all the TileFace vertices.
+The alignment is dictated by the VertexLocMap.
+This function is intended to save recreating a VertexLocMap for several Patches
+with different subsets of the vertices.
+(E.g. in displaying subsets of faces of a graph in drawPCompose and in drawForce)
 -}
 subPatch :: [TileFace] -> VertexLocMap -> Patch
 subPatch fcs = dropVertices . subVPatch fcs
@@ -389,42 +392,33 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
 -}
 drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
 drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
-          vpFull = makeVPatch (fullGraph sub)
-          pTrackedList = fmap (dropVertices . (`selectFacesVP` vpFull)) (trackedSubsets sub)
-          pUntracked = dropVertices $ removeFacesVP (concat (trackedSubsets sub)) vpFull
+          fcsFull = faces (fullGraph sub)    
+          vpMap = createVPoints $ fcsFull
+          pTrackedList = fmap (\fcs -> subPatch fcs vpMap) (tracked sub)
+          pUntracked = subPatch (fcsFull \\ concat (tracked sub)) vpMap
           drawAll fs ps = mconcat $ reverse $ zipWith ($) fs ps
 
+-- |drawing non tracked faces only
+drawWithoutTracked:: SubTgraph -> Diagram B
+drawWithoutTracked sub = drawSubTgraph [drawPatch] sub
+
 {-|
-    To draw a SubTgraph with possible vertex labels,
-    we use a list of functions turning VPatches into diagrams.
+    To draw a SubTgraph with possible vertex labels, we use a list of functions turning VPatches into diagrams
     The first function is applied to a VPatch for untracked faces
-    Subsequent functions are applied to the respective tracked subsets as VPatches
-    (Each VPatch is atop earlier ones, so the untracked VPatch is at the bottom).
-    The second argument is a rotation angle
-    (applied before converting to a diagram to ensure labels are not rotated).
+    Subsequent functions are applied to the VPatches for respective tracked subsets.
+    (Each Vpatch is atop earlier ones, so the untracked Vpatch is at the bottom).
+    The angle argument is used to rotate the VPatches before drawing (to ensure labels are not rotated).
 -}
 drawSubTgraphV:: [VPatch -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
 drawSubTgraphV drawList a sub = drawAll drawList (vpUntracked:vpTrackedList) where
-          vpFull = rotate a $ makeVPatch (fullGraph sub)
-          vpTrackedList = fmap (`selectFacesVP` vpFull) (trackedSubsets sub)
-          vpUntracked = removeFacesVP (concat (trackedSubsets sub)) vpFull
+          fcsFull = faces (fullGraph sub)    
+          vpMap = createVPoints $ fcsFull
+          vpTrackedList = fmap (\fcs -> rotate a $ subVPatch fcs vpMap) (tracked sub)
+          vpUntracked = rotate a $ subVPatch (fcsFull \\ concat (tracked sub)) vpMap
           drawAll fs vps = mconcat $ reverse $ zipWith ($) fs vps
 
--- |special case of drawSubTgraph using 1 subset (and 2 patchdrawing functions):
--- normal (black), then red
-drawSubTgraph1 :: SubTgraph -> Diagram B
-drawSubTgraph1 = drawSubTgraph [ drawPatch
-                               , lc red . drawPatch
-                               ]
--- |special case of drawSubTgraph using 2 subsets (and 3 patchdrawing functions):
--- normal (black), then red, then filled black
-drawSubTgraph2 :: SubTgraph -> Diagram B
-drawSubTgraph2 = drawSubTgraph [ drawPatch
-                               , lc red . drawPatch
-                               , patchWith (fillDK black black)
-                               ]
 
-{- *  Touching Vertex global check
+{- *  Touching Vertices global check
 -}
 
 {-| 
@@ -443,7 +437,10 @@ touchingVertices:: [TileFace] -> [(Vertex,Vertex)]
 touchingVertices fcs = check vpAssoc where
   vpAssoc = VMap.toList $ createVPoints fcs  
   check [] = []
-  check ((v,p):more) = [(v1,v) | (v1,p1) <- more, touching p p1 ] ++ check more
+  check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
+                        where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
+--  check ((v,p):more) = [(v1,v) | (v1,p1) <- more, touching p p1 ] ++ check more
+-- does not correctly deal with 3 or more vertices touching at the same point
 
 {-|touching checks if two points are considered close.
 Close means the square of the distance between them is less than 0.25 so they cannot be

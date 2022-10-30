@@ -4,7 +4,7 @@
     
 import Diagrams.Prelude
 import ChosenBackend (B, mainWith)
--- import DecompExplain (used for the single figure decompExplainFig)
+import DecompExplain --(used for the single figure decompExplainFig)
 
 import TileFigExamples
 {- includes e.g
@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = forceFig --rocket5Fig --curioPic --halfWholeFig --boundaryGap5Fig
+fig = dartChoiceLimeGold --forceFig --rocket5Fig --curioPic --halfWholeFig --boundaryGap5Fig
 
 main = mainWith fig
 

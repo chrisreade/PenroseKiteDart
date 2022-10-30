@@ -70,12 +70,13 @@ decompositionsG = iterate decomposeG
 
 -- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph
 decomposeSub :: SubTgraph -> SubTgraph
-decomposeSub (SubTgraph{ fullGraph = g, trackedSubsets = tlist}) = makeSubTgraph g' tlist' where
+decomposeSub sub = makeSubTgraph g' tlist where
+   g = fullGraph sub
    g' = Tgraph{ maxV = newMax
               , faces = newFaces
               }
    (newMax , newVFor) = maxAndPhiVMap g
    newFaces = concatMap (decompFace newVFor) (faces g)
-   tlist' = fmap (concatMap (decompFace newVFor)) tlist
+   tlist = fmap (concatMap (decompFace newVFor)) (tracked sub)
 
 
