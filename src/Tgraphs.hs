@@ -64,7 +64,8 @@ touchCheckProps fcs =
 Used in drawing Tgraphs.
 -}
 
--- |select the halftile faces of a Tgraph with a join edge on the boundary 
+-- |select the halftile faces of a Tgraph with a join edge on the boundary.
+-- Useful for drawing join edges only on the boundary.
 boundaryJoinFaces :: Tgraph -> [TileFace]
 boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ bDedges bdry where
     bdry = makeBoundary g
@@ -85,22 +86,16 @@ forcedDecomp = force . decomposeG
         
 -- |allCompForced g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allCompForced:: Tgraph -> [Tgraph]
-allCompForced g = takeWhile (not . nullGraph) $ iterate compForced g
-
--- |allCompositions g produces a list of all compositions starting from g up to but excluding the empty graph.
--- This is not safe in general as it can fail by producing
--- a non-connected graph or graph with crossing boundaries.
-allCompositions:: Tgraph -> [Tgraph]
-allCompositions g = takeWhile (not . nullGraph) $ iterate composeG g
+allCompForced = takeWhile (not . nullGraph) . iterate compForced
 
 -- | produces an infinite list of forced decompositions
 allForcedDecomps:: Tgraph -> [Tgraph]
 allForcedDecomps = iterate forcedDecomp
 
--- |maxCompose and maxFCompose produce a maximal graph.
-maxCompose, maxFCompose:: Tgraph -> Tgraph
-maxCompose g = last $ allCompositions g
-maxFCompose g = force $ last $ allCompForced g
+-- |maxCompForced produces a maximally composed forced graph.
+maxCompForced:: Tgraph -> Tgraph
+maxCompForced = force . last . allCompForced
+
 
 {- *
 Emplacements
@@ -115,10 +110,12 @@ emplace g | nullGraph g' = fg
   where fg = force g
         g' = composeG fg 
             
+{-
 -- |emplacements is best supplied with a maximally composed or near maximally composed graph
 -- It produces an infinite list of emplacements of the starting graph and its decompositions.
 emplacements :: Tgraph -> [Tgraph]
 emplacements = iterate forcedDecomp . emplace -- was .force
+-}
 
 -- |a version of emplace using makeChoices at the top level.
 -- after makeChoices we use emplace to attempt further compositions but with no further choices

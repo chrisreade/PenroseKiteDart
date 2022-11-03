@@ -1165,23 +1165,23 @@ Forcing SubTgraphs
 
 -- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
 forceSub :: SubTgraph -> SubTgraph
-forceSub sub = makeSubTgraph (force $ fullGraph sub) (tracked sub)
+forceSub sub = makeSubTgraph (force $ tgraph sub) (tracked sub)
 
--- |aaddHalfDartSub sub e - add a half dart to the fullGraph of sub on the given edge e,
+-- |aaddHalfDartSub sub e - add a half dart to the tgraph of sub on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfDartSub:: DEdge -> SubTgraph -> SubTgraph
 addHalfDartSub e sub =
     makeSubTgraph g' (fcs:tracked sub) where
-    g = fullGraph sub
+    g = tgraph sub
     g' = addHalfDart e g
     fcs = faces g' \\ faces g
 
--- |addHalfKiteSub sub e - add a half kite to the fullGraph of sub on the given edge e,
+-- |addHalfKiteSub sub e - add a half kite to the tgraph of sub on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfKiteSub:: DEdge -> SubTgraph -> SubTgraph
 addHalfKiteSub e sub =
     makeSubTgraph g' (fcs:tracked sub) where
-    g = fullGraph sub
+    g = tgraph sub
     g' = addHalfKite e g
     fcs = faces g' \\ faces g
 

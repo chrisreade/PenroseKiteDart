@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = dartChoiceLimeGold --forceFig --rocket5Fig --curioPic --halfWholeFig --boundaryGap5Fig
+fig = cdMistake1Fig  -- dartChoiceLimeGold --forceFig --rocket5Fig --curioPic --halfWholeFig --boundaryGap5Fig
 
 main = mainWith fig
 

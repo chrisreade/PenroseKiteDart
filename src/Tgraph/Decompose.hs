@@ -71,7 +71,7 @@ decompositionsG = iterate decomposeG
 -- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph
 decomposeSub :: SubTgraph -> SubTgraph
 decomposeSub sub = makeSubTgraph g' tlist where
-   g = fullGraph sub
+   g = tgraph sub
    g' = Tgraph{ maxV = newMax
               , faces = newFaces
               }

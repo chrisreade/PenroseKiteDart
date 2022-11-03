@@ -24,7 +24,8 @@ COMPOSING composeG and partCompose
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
--- |The main deterministic function for composing is composeG
+-- |A deterministic function for composing is composeG which makes no choices when composing
+-- (producing the meet of possible choices).
 -- which is essentially partCompose after uncomposed faces are ignored.
 -- If the result fails to be connected or has crossing boundaries an error is raised.
 composeG:: Tgraph -> Tgraph
@@ -81,6 +82,68 @@ partCompose g = (remainder,g')
                     rk <- find (matchingShortE ld) fcs
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
+
+
+-- |An experimental version of composition which defaults to kites when there are choices (unknowns).
+-- This can create an incorrect Tgraph from a correct Tgraph.
+-- It uses partkCompose.
+composeK :: Tgraph -> Tgraph
+composeK = snd . partComposeK
+
+-- |partkCompose is experimental and only used by composeK.
+-- It produces a Tgraph by composing faces which can be composed and defaulting to half kites
+-- in preference to half darts when there is a choice (unknowns).
+-- It returns a pair consisting of unused faces of the original graph along with the composed Tgraph.
+-- It checks the Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
+-- (It makes use of classifying dart wings)
+partComposeK:: Tgraph -> ([TileFace],Tgraph)
+partComposeK g = (remainder,g')
+  where
+    g' = getResult $ checkConnectedNoCross $ 
+          Tgraph { faces = newFaces, maxV = maxVertex }
+    newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
+    remainder = faces g \\ concat (groupRDs ++ groupLDs ++ groupRKs ++ groupLKs)
+    maxVertex = if null newFaces then 0 else facesMaxV newFaces
+
+    darts  = filter isDart (faces g)
+    dwFMap = makeVFMapFor (nub $ fmap wingV darts) (faces g)
+    dwClass = classifyWith g dwFMap darts
+    -- ignore unknowns
+
+    newRDs = fmap makeRD groupRDs 
+    groupRDs = mapMaybe groupRD (largeDartBases dwClass)
+    makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
+    groupRD v = do  fcs <- VMap.lookup v dwFMap
+                    rd <- find isRD fcs
+                    lk <- find (matchingShortE rd) fcs
+                    return [rd,lk]
+
+    newLDs = fmap makeLD groupLDs
+    groupLDs = mapMaybe groupLD (largeDartBases dwClass) 
+    makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
+    groupLD v = do  fcs <- VMap.lookup v dwFMap
+                    ld <- find isLD fcs
+                    rk <- find (matchingShortE ld) fcs
+                    return [ld,rk]
+
+    newRKs = fmap makeRK groupRKs 
+    groupRKs = mapMaybe groupRK (largeKiteCentres dwClass ++ unknowns dwClass) 
+    makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
+    groupRK v = do  fcs <- VMap.lookup v dwFMap
+                    rd <- find isRD fcs
+                    lk <- find (matchingShortE rd) fcs
+                    rk <- find (matchingJoinE lk) fcs
+                    return [rd,lk,rk]
+
+    newLKs = fmap makeLK groupLKs 
+    groupLKs = mapMaybe groupLK (largeKiteCentres dwClass ++ unknowns dwClass) 
+    makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
+    groupLK v = do  fcs <- VMap.lookup v dwFMap
+                    ld <- find isLD fcs
+                    rk <- find (matchingShortE ld) fcs
+                    lk <- find (matchingJoinE rk) fcs
+                    return [ld,rk,lk]
+
 
 -- |DartWingClass is a record type for the result of classifying dart wings in a Tgraph.
 data DartWingClass = 

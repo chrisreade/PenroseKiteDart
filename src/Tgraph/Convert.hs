@@ -292,7 +292,7 @@ lowestJoinFirst fcs = face:(fcs\\[face]) where
 
 -- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tilface vertices
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
--- It will raise an error if there are less than 2 tileface vertices with a location in the map.
+-- It will raise an error if there are fewer than 2 tileface vertices with a location in the map.
 addVPoint:: TileFace -> VertexLocMap -> VertexLocMap
 addVPoint fc vpMap = 
   case thirdVertexLoc fc vpMap of
@@ -392,7 +392,7 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
 -}
 drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
 drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
-          fcsFull = faces (fullGraph sub)    
+          fcsFull = faces (tgraph sub)    
           vpMap = createVPoints $ fcsFull
           pTrackedList = fmap (\fcs -> subPatch fcs vpMap) (tracked sub)
           pUntracked = subPatch (fcsFull \\ concat (tracked sub)) vpMap
@@ -411,7 +411,7 @@ drawWithoutTracked sub = drawSubTgraph [drawPatch] sub
 -}
 drawSubTgraphV:: [VPatch -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
 drawSubTgraphV drawList a sub = drawAll drawList (vpUntracked:vpTrackedList) where
-          fcsFull = faces (fullGraph sub)    
+          fcsFull = faces (tgraph sub)    
           vpMap = createVPoints $ fcsFull
           vpTrackedList = fmap (\fcs -> rotate a $ subVPatch fcs vpMap) (tracked sub)
           vpUntracked = rotate a $ subVPatch (fcsFull \\ concat (tracked sub)) vpMap
