@@ -25,7 +25,7 @@ main =
        n = 4
        kD = {-# SCC "decomposing" #-} decompositionsG kingGraph !! n
        fkD ={-# SCC "forcing" #-} force kD
-       cfkD = {-# SCC "composing" #-} last $ allCompositions fkD
+       cfkD = {-# SCC "composing" #-} last $ takeWhile (not . nullGraph) $ iterate composeG fkD
 
        fig = {-# SCC "drawing" #-} drawGraph fkD
        w = width fig

@@ -18,7 +18,7 @@ module Tgraph.Convert where
 
 import Data.List ((\\), find, partition, nub, intersect)
 import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, toList, fromList, keys)
-import qualified Data.Map.Strict as Map (Map, lookup, fromList) -- used for createVPoints
+import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for createVPoints
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for createVPoints
 import Data.Maybe (mapMaybe, catMaybes)
 
@@ -262,7 +262,7 @@ createVPoints:: [TileFace] -> VertexLocMap
 createVPoints [] = VMap.empty
 createVPoints faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
     (face:more) = lowestJoinFirst faces
-    efMap = buildEFMap faces
+    efMap = buildEFMap faces  -- map from DEdge to TileFace
 {- fastAddVPoints readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
 each will have at least two known vertex locations in vpMap.
@@ -418,7 +418,7 @@ drawSubTgraphV drawList a sub = drawAll drawList (vpUntracked:vpTrackedList) whe
           drawAll fs vps = mconcat $ reverse $ zipWith ($) fs vps
 
 
-{- *  Touching Vertices global check
+{- *  Touching Vertices
 -}
 
 {-| 
@@ -450,6 +450,53 @@ It is used in touchingVertices checks but also exported (used in Tgraph.Relabell
 touching :: Point V2 Double -> Point V2 Double -> Bool
 touching p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
 
+{- *  Generalised Touching Vertices
+-}
+
+{-| 
+touchingVerticesGen  generalises touchingVertices to allow for multiple faces sharing an edge.
+This can arise when applied to the union of faces from 2 Tgraphs (e.g. in commonFaces)    
+-}
+touchingVerticesGen:: [TileFace] -> [(Vertex,Vertex)]
+touchingVerticesGen fcs = check vpAssoc where
+  vpAssoc = VMap.toList $ createVPointsGen fcs  
+  check [] = []
+  check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
+                        where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
+
+{-| createVPointsGen generalises createVPoints to allow for multiple faces sharing an edge.
+This can arise when applied to the union of faces from 2 Tgraphs (e.g. in commonFaces)    
+-}
+createVPointsGen:: [TileFace] -> VertexLocMap
+createVPointsGen [] = VMap.empty
+createVPointsGen faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
+    (face:more) = lowestJoinFirst faces
+    efMapGen = buildEFMapGen faces  -- map from DEdge to [TileFace]
+{- fastAddVPoints readyfaces fcOther vpMap.
+The first argument list of faces (readyfaces) contains the ones being processed next in order where
+each will have at least two known vertex locations in vpMap.
+The second argument Set of faces (fcOther) are faces that have not yet been added
+and may not yet have known vertex locations.
+The third argument is the mapping of vertices to points.
+-}
+    fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
+    fastAddVPoints [] fcOther vpMap | otherwise = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
+        nbs = filter (\f -> Set.member f fcOther) (edgeNbsGen efMapGen fc)
+        fcOther' = foldr Set.delete fcOther nbs
+        vpMap' = addVPoint fc vpMap
+
+
+-- |Generalises buildEFMap by allowing for multiple faces on a directed edge.
+buildEFMapGen:: [TileFace] -> Map.Map DEdge [TileFace]
+buildEFMapGen = Map.fromListWith (++) . concatMap processFace where
+  processFace fc = fmap (\e -> (e,[fc])) $ faceDedges fc
+
+-- |Generalised edgeNbs allowing for multiple faces on a directed edge.
+edgeNbsGen:: Map.Map DEdge [TileFace] -> TileFace -> [TileFace]
+edgeNbsGen efMapGen fc = concat $ catMaybes $ fmap getNbrs edges where
+    getNbrs e = Map.lookup e efMapGen
+    edges = fmap reverseD (faceDedges fc) 
 
 
  

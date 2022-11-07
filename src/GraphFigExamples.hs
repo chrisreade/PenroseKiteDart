@@ -106,9 +106,19 @@ foolDs = decompositionsG fool
 foolDminus = removeFaces [RD(6,15,13), LD(6,17,15), RK(5,11,2)] foolD
 -- [RD(6,12,11), LD(6,14,12), RK(5,10,2)] foolD --removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
 
-{-|touchErrorFaces contains touching vertices which should produce an error using makeTgraph.
+-- | diagram of just fool
+foolFig :: Diagram B
+foolFig = padBorder $ dashJVGraph fool
+
+-- |diagram of fool with foolD
+foolAndFoolD :: Diagram B
+foolAndFoolD = padBorder $ hsep 1 [(dashJVPatch . scale phi . makeVPatch) fool, dashJVGraph foolD]
+
+{-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
+These will be caught by makeTgraph which raises an error.
+The error is not picked up by checkedTgraph. It can be fixed using correctTouchingVs.
+
 *** Exception: makeTgraph: touching vertices [(19,7)]
-This error is not picked up by checkedTgraph and can be fixed using correctTouchingVs
 
 > checkedTgraph touchErrorFaces
 Tgraph {maxV = 19, faces = ...}
@@ -118,14 +128,6 @@ Right (Tgraph {maxV = 18, faces = [..., LK (7,17,18)]})
 -}
 touchErrorFaces::[TileFace]
 touchErrorFaces = faces foolD ++ [RD(6,18,17),LK(19,17,18)]
-
--- | diagram of just fool
-foolFig :: Diagram B
-foolFig = padBorder $ dashJVGraph fool
-
--- |diagram of fool with foolD
-foolAndFoolD :: Diagram B
-foolAndFoolD = padBorder $ hsep 1 [(dashJVPatch . scale phi . makeVPatch) fool, dashJVGraph foolD]
 
 
 
@@ -172,12 +174,14 @@ dartD4 = dartDs!!4
 -}
 
  
--- |diagrams showing partial compositions (with ignored faces in pale green)
 pCompFig1,pCompFig2,pCompFig:: Diagram B
+-- |diagram showing partial composition of a forced 3 times decomposed dart (with ignored faces in pale green)
 pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [drawGraph fd3, drawPCompose fd3]
             where fd3 = force $ dartDs!!3
+-- |diagram showing partial composition of a forced 3 times decomposed kite (with ignored faces in pale green)
 pCompFig2 = lw ultraThin $ hsep 5 $ rotations [] [drawGraph fk3, drawPCompose fk3]
             where fk3 = force $ kiteDs!!3
+-- |diagram showing two partial compositions (with ignored faces in pale green)
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 
@@ -870,7 +874,7 @@ maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 -- |compareForceEmplace g is a diagram showing g embedded (in red) in force g, followed by emplace g
 compareForceEmplace :: Tgraph -> Diagram B
 compareForceEmplace g = padBorder $ hsep 1 $
-                        [ rotate (ttangle 8) $ drawForce g
+                        [ drawForce g
                         , drawGraph $ emplace g
                         ]
 
@@ -914,8 +918,39 @@ kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ mak
           allForcedDecomps kingGraph !!6
 
 
+-- | Diagram showing 5 embeddings of a forced kingGraph in a forced decomposed kingGraph
+kingEmpire1 = padBorder $ lw ultraThin $ vsep 1 
+  [ hsep 1 [drawGraph fk, drawGraph fdk]
+  , hsep 1 [cases!!0 , cases!!1]
+  , hsep 1 [cases!!2, cases!!3]
+  , cases!!4
+  ] where
+    fk = force kingGraph
+    fdk = forcedDecomp fk
+    fkVP = makeVPatch fk
+    backVP = makeVPatch fdk
+    embed de = patchWith (fillDK yellow yellow) a <> drawPatch b 
+                where [a,b] = fmap dropVertices $ alignments [(1,7), de] [fkVP, backVP]
+    cases = fmap center $ rotations [8,2,1,9] $ fmap embed [(43,205),(33,188),(9,107),(5,91),(12,119)]
+--(1,7) (43,205) (33,188) (9,107) (5,91)
+
+-- | Diagram to check vertex numbering for a forced kingGraph, a forcedDecomp forced kingGraph, and a
+-- twice forceDecomp forced kingGraph
+kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk, fdfdfk]where
+    fk = force kingGraph
+    fdfk = forcedDecomp fk
+    fdfdfk = forcedDecomp fdfk
+
+-- | Diagram comparing two choices at 4 boundary edges of a forced kingGraph
+forcedKingChoicesFig :: Diagram B
+forcedKingChoicesFig = padBorder $ lw ultraThin $ vsep 1 $ fmap example [(57,58),(20,38),(16,23),(49,59)] where
+    fk = force $ kingGraph
+    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
+    example e = hsep 1 $ fmap drawSub $ trackTwoChoices e fk 
+ 
+
 {- *
-Testing Relabelling
+Testing Relabelling (fullUnion, commonFaces)
 -}
 
 {-|A diagram testing matchByEdges with a single tile-connected overlap.
@@ -977,36 +1012,22 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
      reduced2 = removeVertices [8,7,6,23] fsunD2
      g2 = relabelContig reduced2
 
-   
-{-
--- |Test function designed to watch steps of matchByEdges using ghci.
--- The result is a tuple of arguments for first call of addRelabel (not in order)
--- Use:  relabelWatchStep it on the result to step through.
-relabelWatchStart:: (Tgraph, (Vertex, Vertex)) -> (Tgraph, (Vertex, Vertex)) 
-                 -> (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph)
-relabelWatchStart (g1,(x1,y1)) (g2,(x2,y2)) = initialArgs where
-    g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
-    Just fc2 = find (hasDEdge (x2,y2)) (faces g2prepared)
-    Right (Just fc1) = matchFaceIn g1 $ relabelFace (VMap.fromList [(x2,x1),(y2,y1)]) fc2
-    initialArgs = (initRelabelling fc1 fc2, [fc2], [], faces g2prepared \\ [fc2], g1)    
-    
--- |Test function designed to watch steps of matchByEdges using ghci.
--- After set up with relabelWatchStart
--- Use:  relabelWatchStep it on the result to step through.    
--- Result shows changes to tuple of arguments after one step (before next call of addRelabel).
--- Ends with an error when processing list is empty and addRelabelBdCheck is about to be called
-relabelWatchStep :: (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph) 
-                 -> (Relabelling, [TileFace], [TileFace], [TileFace], Tgraph)
-relabelWatchStep (vMap, [], tried, _, g) = 
-    error $ "relabelWatchStep ended \n with tried list: " ++show tried   
-relabelWatchStep (vMap, fc:fcs, tried, awaiting, g) =     
-  case matchFaceIn g (relabelFace vMap fc) of
-    Right Nothing -> (vMap,fcs, fc:tried, awaiting, g)
-    Right (Just orig) -> (vMap',fcs++fcs', tried, awaiting', g)
-                        where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                              vMap' = VMap.union (initRelabelling orig fc) vMap
-    Left lines -> error lines
+{-| Example showing the use of commonFaces.
+ This is applied to the pairs from forcedKingChoicesFig
 -}
+testCommonFacesFig :: Diagram B
+testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23),(49,59)] where
+    fk = force $ kingGraph
+    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
+    edgecase e = hsep 1 $ fmap (lw ultraThin) [drawSub sub1, drawSub sub2, (drawPatch pCommon # lw thin) <> (drawPatch p1 # lw ultraThin)] where
+        [sub1, sub2] = trackTwoChoices e fk
+        g1 = tgraph sub1
+        g2 = tgraph sub2
+        fcs = commonFaces (g1,(1,2)) (g2,(1,2))
+        vpMap = createVPoints (faces g1)
+        p1 = subPatch (faces g1) vpMap
+        pCommon = subPatch fcs vpMap
+   
 
 
 {- *
