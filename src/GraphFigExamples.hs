@@ -35,75 +35,68 @@ Advanced drawing tools for Tgraphs
 
 -- |same as drawGraph except adding dashed lines on boundary join edges. 
 drawGraphSmart :: Tgraph -> Diagram B
-drawGraphSmart g = subDrawGraph g $ createVPoints $ faces g
+drawGraphSmart g = subDrawSmart g $ makeVPinned g
 
 -- |same as drawVGraph except adding dashed lines on boundary join edges.
 drawVGraphSmart :: Tgraph -> Diagram B
-drawVGraphSmart g = subDrawVGraph g $ createVPoints $ faces g
+drawVGraphSmart g = subDrawSmartV g $ makeVPinned g
 
 -- |Auxiliary function for drawGraphSmart. It needs to be passed a suitable vertex location map.
 -- This can be used instead of drawGraphSmart when such a map is already available.
-subDrawGraph:: Tgraph -> VertexLocMap -> Diagram B
-subDrawGraph g vpMap = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
-                       <> drawPatch (subPatch (faces g) vpMap)
+subDrawSmart:: Tgraph -> VPinned -> Diagram B
+subDrawSmart g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp) 
+                        <> drawPatch (subPatch (faces g) vp)
 
--- |Auxiliary function for drawVGraphSmart. It needs to be passed a suitable vertex location map.
--- This can be used instead of drawVGraphSmart when such a map is already available.
-subDrawVGraph:: Tgraph -> VertexLocMap -> Diagram B
-subDrawVGraph g vpMap = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
-                        <> drawVPatch (subVPatch (faces g) vpMap)
+-- |Auxiliary function for drawVGraphSmart. It needs to be passed a suitable VPinned.
+-- This can be used instead of drawVGraphSmart when a suitable VPinned is already available.
+subDrawSmartV:: Tgraph -> VPinned -> Diagram B
+subDrawSmartV g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp) 
+                        <> drawVPinned (subVPinned (faces g) vp)
 
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (drawPatch $ subPatch (faces g') vpMap)
-                 <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vpMap)
+drawPCompose g = (drawPatch $ subPatch (faces g') vp)
+                 <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vp)
   where (fcs,g') = partCompose g
-        vpMap = createVPoints $ faces g
+        vp = makeVPinned g
 
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
 -- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
 drawForce g = (dg # lc red) <> dfg where
     fg = force g
-    vpMap = createVPoints (faces fg)
-    dfg = drawPatch $ subPatch (faces fg) vpMap 
-    dg = subDrawGraph g vpMap
+    vp = makeVPinned fg
+    dfg = drawPatch $ dropLabels vp
+    dg = subDrawSmart g vp
 
 {- |
 drawWithMax g - draws g and overlays the maximal forced composition of g in red
 -}
 drawWithMax :: Tgraph -> Diagram B
 drawWithMax g =  (dmax # lc red # lw thin) <> dg where
-    vpMap = createVPoints (faces g)
-    dg = drawPatch $ subPatch (faces g) vpMap
+    vp = makeVPinned g
+    dg = drawPatch $ dropLabels vp
     maxg = maxCompForced g
-    dmax = drawPatch $ subPatch (faces maxg) vpMap
+    dmax = drawPatch $ subPatch (faces maxg) vp
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (drawEdges vpMap bd # lc lime) <> (drawVPatch $ subVPatch (faces g) vpMap) where
-    vpMap  = createVPoints (faces g)
+drawGBoundary g =  (drawEdges (vLocs vp) bd # lc lime) <> drawVPinned vp where
+    vp  = makeVPinned g
     bd = boundaryDedges g
 
 -- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces to find the common faces of g1 and g2
 -- and emphasizes the common faces on the background g1
 drawCommonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram B
 drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g1
-{-
-  (drawPatch commonPatch # lw thin) <> (drawPatch g1Patch # lw ultraThin) where
-    fcs = commonFaces (g1,e1) (g2,e2)
-    vpMap = createVPoints (faces g1)
-    g1Patch = subPatch (faces g1) vpMap
-    commonPatch = subPatch fcs vpMap
--}
 
 -- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background g.
 emphasizeFaces:: [TileFace] -> Tgraph -> Diagram B
 emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # lw ultraThin) where
-    vpMap = createVPoints (faces g)
-    gPatch = subPatch (faces g) vpMap
-    emphPatch = subPatch (fcs `intersect` faces g) vpMap
+    vp = makeVPinned g
+    gPatch = dropLabels vp
+    emphPatch = subPatch (fcs `intersect` faces g) vp
     
 {- *
 Example Tgraphs with Figures
@@ -129,9 +122,9 @@ foolFig = padBorder $ dashJVGraph fool
 
 -- |diagram of fool with foolD
 foolAndFoolD :: Diagram B
-foolAndFoolD = padBorder $ hsep 1 [(dashJVPatch . scale phi . makeVPatch) fool, dashJVGraph foolD]
+foolAndFoolD = padBorder $ hsep 1 [(dashJVPinned . scale phi . makeVPinned) fool, dashJVGraph foolD]
 
-{-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
+{- |touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
 These will be caught by makeTgraph which raises an error.
 The error is not picked up by checkedTgraph. It can be fixed using correctTouchingVs.
 
@@ -171,6 +164,7 @@ figSunD2D = padBorder  $ hsep 1 [dashJVGraph $ sunDs !! 2, scale phi $ dashJVGra
 -- |Tgraph for kite
 kiteGraph :: Tgraph
 kiteGraph = makeTgraph [ RK(1,2,4), LK(1,3,2)]
+
 -- |All decompositions of a kite
 kiteDs :: [Tgraph]
 kiteDs = decompositionsG kiteGraph
@@ -178,6 +172,7 @@ kiteDs = decompositionsG kiteGraph
 -- |Tgraph for a dart
 dartGraph :: Tgraph
 dartGraph =  makeTgraph [ RD(1,2,3), LD(1,3,4)]
+
 -- |All decompositions of a dart
 dartDs :: [Tgraph]
 dartDs =  decompositionsG dartGraph
@@ -258,10 +253,10 @@ foolChoices = padBorder $ vsep 1
 -- |showing 4 emplacement choices for foolD 
 emplaceFoolDChoices :: Diagram B
 emplaceFoolDChoices = padBorder $ hsep 1 $
-        fmap (addFoolD . lw ultraThin . drawPatch . dropVertices) vpChoices where
+        fmap (addFoolD . lw ultraThin . drawPatch . dropLabels) vpChoices where
         (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(28,6)] --(29,6)] 
-                                         (fmap makeVPatch (foolD:emplaceChoices foolD))
-        addFoolD fig = (lc red . lw thin . dashJPatch . dropVertices) vpFoolD <> fig
+                                         (fmap makeVPinned (foolD:emplaceChoices foolD))
+        addFoolD fig = (lc red . lw thin . dashJPatch . dropLabels) vpFoolD <> fig
 --  WARNING: relies on numbering which can change with changes to forcing
 --  Vertex 1 is not present in the final choice (hence 28)
 
@@ -311,7 +306,7 @@ The figure illustrates that brokenKites is included in emplace brokenKites
 even though the missing part is not repaired.
 -}
 brokenKitesDFig :: Diagram B
-brokenKitesDFig = padBorder $ hsep 1 $ fmap dashJVPatch $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPatch 
+brokenKitesDFig = padBorder $ hsep 1 $ fmap dashJVPinned $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPinned 
                   [decomposeG kitePlusKite, brokenKites, composeG brokenKites, emplace brokenKites]
 
 -- |diagram illustrating touching vertex situation and forced result.
@@ -321,16 +316,17 @@ brokenKitesDFig = padBorder $ hsep 1 $ fmap dashJVPatch $ alignAll (1,3) $ scale
 touchingTestFig::  Diagram B
 touchingTestFig = 
   padBorder $ lw thin $ hsep 1 $
-    [ dashJVPatch vpLeft <> (dashJPatch (dropVertices vpGone) # lc lime)
-    , dashJVPatch $  alignXaxis (8,3) $ makeVPatch $ force touchGraph
+    [ dashJVPinned vpLeft <> (dashJPatch (dropLabels vpGone) # lc lime)
+    , dashJVPinned $  alignXaxis (8,3) $ makeVPinned $ force touchGraph
     ] where    
-      touchGraph = graphFromVP vpLeft
-      vpLeft = removeFacesVP deleted vp
-      vpGone = selectFacesVP deleted vp
-      vp = makeVPatch $ sunD2
+      touchGraph = graphFromVPinned vpLeft
+      vpLeft = removeFacesVPinned deleted vp
+      vpGone = selectFacesVPinned deleted vp
+      vp = makeVPinned sunD2
       sunD2 = sunDs!!2
       deleted = filter ((==1).originV) (faces sunD2) ++
                 [LD(29,41,31),RK(31,79,29),LK(10,29,79),RK(10,79,75)]
+
 
 -- |A function to remove halftile faces that do not have their matching halftile
 -- This weill raise an error if the result is not a valid Tgraph.
@@ -350,8 +346,8 @@ Incorrect Tgraphs (and other problem Tgraphs)
 -- |faces removed from foolD to illustrate crossing boundary and non tile-connected VPatches
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
-       where d1 = dashJVPatch $ removeFacesGtoVP [RK(3,11,13), LK(3,13,15), RK(3,15,4)] foolD
-             d2 = dashJVPatch $ removeFacesGtoVP [RK(5,11,2), LD(6,13,11), RD(6,15,13), LD(6,17,15)] foolD
+       where d1 = dashJVPinned $ removeFacesGtoVPinned [RK(3,11,13), LK(3,13,15), RK(3,15,4)] foolD
+             d2 = dashJVPinned $ removeFacesGtoVPinned [RK(5,11,2), LD(6,13,11), RD(6,15,13), LD(6,17,15)] foolD
 
 -- |mistake is a legal but incorrect Tgraph - a kite with 2 darts on its long edges
 mistake:: Tgraph
@@ -417,19 +413,9 @@ partFMistake1Fig = padBorder $ dashJVGraph partF where
 
 -- |decomposed mistake1 is no longer incorrect and can be forced and recomposed
 cdMistake1Fig :: Diagram B
-cdMistake1Fig = padBorder $ hsep 1 $ fmap dashJVPatch $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVPatch
+cdMistake1Fig = padBorder $ hsep 1 $ fmap dashJVPinned $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVPinned
                [ mistake1 , mistake1D, force mistake1D, composeG mistake1D]
                where mistake1D = decomposeG mistake1
-{- Alternative using subVPatch is messier
-cdMistake1Fig :: Diagram B
-cdMistake1Fig = padBorder $ hsep 1 $ fmap draw
-               [ mistake1 , mistake1D, fmistake1D, composeG mistake1D]
-               where mistake1D = decomposeG mistake1
-                     fmistake1D = force mistake1D
-                     vpMap = createVPoints $ faces fmistake1D
-                     draw g = relevantVPatchWith dashJPiece $ rotate (ttangle 1) $ subVPatch (faces g) vpMap
--}
-
 
 
 {- *
@@ -437,13 +423,14 @@ Figures fof 7 vertex types
 -}
    
 {-| vertexTypesFig is 7 vertex types single diagram as a row -}
+vertexTypesFig:: Diagram B
 vertexTypesFig = padBorder $ hsep 1 lTypeFigs
  where
  lTypeFigs = zipWith labelD ["sun","star","jack","queen","king","ace","deuce"] vTypeFigs
  vTypeFigs = zipWith drawVertex 
                [sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph,  deuceGraph]
                [(1,2),    (1,2),     (1,2),     (1,2),      (1,2),     (3,6),     (2,6)] -- alignments
- drawVertex g alm = lw thin $ showOrigin $ dashJPatch $ dropVertices $ alignXaxis alm $ makeVPatch g
+ drawVertex g alm = lw thin $ showOrigin $ dashJPatch $ dropLabels $ alignXaxis alm $ makeVPinned g
 
 -- |add a given label below and to right of centre of a diagram
 labelD :: String -> Diagram B -> Diagram B
@@ -677,7 +664,7 @@ curioPic =
 -- |figure showing ordering of a decomposed kite (bottom), a test graph with an extra LK(3,6,8),
 -- and forced figure at the top and composition of all 3 = kite on the right
 graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
-              [cft,dcft,ft,t] = fmap dashJVPatch $ scales [phi] $ alignAll (1,2) $ fmap makeVPatch 
+              [cft,dcft,ft,t] = fmap dashJVPinned $ scales [phi] $ alignAll (1,2) $ fmap makeVPinned 
                                 [cftest, dcftest, ftest, test]
               dcftest = decomposeG cftest
               cftest = composeG ftest
@@ -692,7 +679,7 @@ Testing (functions and figures and experiments)
 -}
           
 {-
-Testing newest force with 10 rules   
+Testing newest force   
 Fixed BUG filling in boundary of a forced graph  
 testForce4 ok but 
 testForce5 failed (introducing touching vertices) with previous version of thirdVertexLoc
@@ -753,11 +740,11 @@ checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [sunD4, wholeTiles sunD
 
 -- |test graphFromVP
 checkGraphFromVP :: Diagram B
-checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPatch) dartD4
+checkGraphFromVP = padBorder $ (drawGraph . graphFromVPinned . makeVPinned) dartD4
 
 -- |figure testing selectFacesGtoVP by removing all kites
 dartsOnlyFig :: Diagram B
-dartsOnlyFig = padBorder $ lw thin $ drawPatch $ dropVertices $ selectFacesGtoVP darts g where
+dartsOnlyFig = padBorder $ lw thin $ drawPatch $ dropLabels $ selectFacesGtoVPinned darts g where
     g = force $ sunDs !! 5
     darts = filter isDart $ faces g
 
@@ -879,10 +866,10 @@ halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 figs, 
   where                        
     figs = zipWith redEmbed scaledCases forcedD4Cases
     cases = [dartPlusDart, dartPlusKite, dartHalfDart, dartHalfKite]
-    scaledCases = alignAll (1,3) $ fmap (scale (phi^4) . makeVPatch) cases
-    forcedD4Cases = alignAll (1,3) $ fmap (makeVPatch . force . decomp4) cases
+    scaledCases = alignAll (1,3) $ fmap (scale (phi^4) . makeVPinned) cases
+    forcedD4Cases = alignAll (1,3) $ fmap (makeVPinned . force . decomp4) cases
     decomp4 g = decompositionsG g !! 4
-    redEmbed g1 g2 = lc red (lw medium $ dashJPatch $ dropVertices g1) <> lw ultraThin (drawPatch $ dropVertices g2)
+    redEmbed g1 g2 = lc red (lw medium $ dashJPatch $ dropLabels g1) <> lw ultraThin (drawPatch $ dropLabels g2)
 
 -- | two kites (force decomp twice) figure
 kkEmpsFig:: Diagram B
@@ -934,7 +921,6 @@ rocket5 = forcedDecomp rc4 where
   rc2 = force $ addHalfDart (326,327) (forcedDecomp rc1)
   rc3 = force $ addHalfDart (1036,1037) (forcedDecomp rc2)
   rc4 = force $ addHalfDart (3019,3020) (forcedDecomp rc3)
-
 
 -- |6 times forced and decomposed kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
 -- There are 2906 faces for kingD6 before forcing.
@@ -994,7 +980,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
                             [ hsep 1 $ center <$> take 2 thelist
                             , hsep 1 $ center <$> drop 2 thelist
                             ] where
-     thelist = fmap dashJVPatch $ rotations [0,7] $ fmap makeVPatch 
+     thelist = fmap dashJVPinned $ rotations [0,7] $ fmap makeVPinned 
                  [ g1
                  , g2
                  , matchByEdges (g1, (1,15)) (g2,(1,10))
@@ -1062,12 +1048,7 @@ kingEmpire = padBorder $ lw ultraThin $ vsep 1 $
            fmap g1Intersect [sub2,sub3,sub4,sub5,sub6]
 
 
-{-
-empire g = 
-    fg = force g
-    commonDE = lowestJoin (faces fg)
--}
-
+-- |test of subGraphs
 test5 = padBorder $ drawVGraph $ tgraph $ forceSub $ pushFaces $ unionTwoSub $ unionTwoSub 
            $ addHalfDartSub (49,59) $ addHalfDartSub (16,23)
            $ addHalfDartSub (20,38) $ newSubTgraph $ force $ kingGraph
@@ -1082,10 +1063,10 @@ forcedKingEmbedding = padBorder $ lw ultraThin $ vsep 1
   ] where
     fk = force kingGraph
     fdk = forcedDecomp fk
-    fkVP = makeVPatch fk
-    backVP = makeVPatch fdk
+    fkVP = makeVPinned fk
+    backVP = makeVPinned fdk
     embed de = drawPatchWith (fillDK yellow yellow) a <> drawPatch b 
-                where [a,b] = fmap dropVertices $ alignments [(1,7), de] [fkVP, backVP]
+                where [a,b] = fmap dropLabels $ alignments [(1,7), de] [fkVP, backVP]
     cases = fmap center $ rotations [8,2,1,9] $ fmap embed [(43,205),(33,188),(9,107),(5,91),(12,119)]
 
 -- | Diagram to check vertex numbering for a forced kingGraph, a forcedDecomp forced kingGraph, and a

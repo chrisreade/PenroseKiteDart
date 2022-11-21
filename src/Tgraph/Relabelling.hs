@@ -18,7 +18,7 @@ import Data.List (intersect, (\\), union,find,partition,nub)
 import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, lookup, insert, empty, fromList, union)
 import qualified Data.IntSet as IntSet (IntSet,fromList,union,intersection,findMax,toList, (\\),size,null)
 import Tgraph.Prelude
-import Tgraph.Convert (createVPoints, touchingVertices, touchingVerticesGen, vertexLocs) -- used for fullUnion
+import Tgraph.Convert (touchingVertices, touchingVerticesGen) -- used for fullUnion
 
 
 -- |relabelAvoid vs g - produces a new Tgraph from g by relabelling.

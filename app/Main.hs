@@ -44,7 +44,8 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
+fig = sunWeb
+ --kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
 
 main = mainWith fig
 
