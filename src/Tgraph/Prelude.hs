@@ -15,7 +15,7 @@ This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, nub, elemIndex,foldl',group,sort)
+import Data.List ((\\), intersect, union, nub, elemIndex,foldl',group,sort)
 import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith, (!),fromAscList)
 import qualified Data.IntSet as IntSet (IntSet,empty,singleton,insert,delete,fromList,toList,null,(\\),union,notMember,deleteMin,findMin,unions,findMax)
 import Control.Monad(liftM) -- for ReportFail
@@ -34,7 +34,7 @@ Tgraphs
 -- |Tgraph vertices
 type Vertex = Int
 -- | directed edge
-type DEdge = (Vertex,Vertex)
+type Dedge = (Vertex,Vertex)
 -- | Vertex Sets
 type VertexSet = IntSet.IntSet
 
@@ -185,11 +185,11 @@ duplicates = fst . foldl' check ([],[]) where
 
 -- |conflictingDedges fcs returns a list of conflicting directed edges in fcs
 -- (which should be null for a Tgraph)
-conflictingDedges :: [TileFace] -> [DEdge]
+conflictingDedges :: [TileFace] -> [Dedge]
 conflictingDedges = duplicates . facesDedges
 
 -- |Returns the list of all directed edges (clockwise round each) of a list of tile faces
-facesDedges :: [TileFace] -> [(Vertex, Vertex)]
+facesDedges :: [TileFace] -> [Dedge]
 facesDedges = concatMap faceDedges
 
 -- | type used to classify edges of faces 
@@ -198,7 +198,7 @@ data EdgeType = Short | Long | Join deriving (Show,Eq)
 -- | edgeType d f - classifies the directed edge d
 -- which must be one of the three directed edges of face f.
 -- An error is raised if it is not a directed edge of the face
-edgeType:: DEdge -> TileFace -> EdgeType
+edgeType:: Dedge -> TileFace -> EdgeType
 edgeType d f | d == longE f  = Long
              | d == shortE f = Short
              | d == joinE f  = Join 
@@ -214,7 +214,7 @@ sharedEdges fcs = [(f1,f2,edgeType d1 f1,edgeType d2 f2)
                    | f1 <- fcs
                    , d1 <- faceDedges f1
                    , let d2 = reverseD d1
-                   , f2 <- filter (hasDEdge d2) fcs
+                   , f2 <- filter (hasDedge d2) fcs
                   ]
 
 -- | legal (f1,f2,etype1,etype2) is True if and only if it is legal for f1 and f2 to share an edge
@@ -255,7 +255,7 @@ crossingBVs = crossingVertices . boundaryDedges
 -- |Given a list of directed boundary edges, crossingVertices returns a list of vertices occurring
 -- more than once at the start of the directed edges in the list.
 -- Used for finding crossing boundary vertices when the boundary is already calculated.
-crossingVertices:: [DEdge] -> [Vertex]
+crossingVertices:: [Dedge] -> [Vertex]
 crossingVertices des = duplicates (fmap fst des) -- OR duplicates (fmap snd des)
 
 -- |There are crossing boundaries if vertices occur more than once
@@ -275,7 +275,7 @@ connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (IntSet.
 -- and unconn is a list of vertices from set verts that are not connected to v.
 -- This version creates an IntMap to represent edges (Vertex to [Vertex])
 -- and uses IntSets for the search algorithm arguments.
-connectedBy :: [DEdge] -> Vertex -> VertexSet -> ([Vertex],[Vertex])
+connectedBy :: [Dedge] -> Vertex -> VertexSet -> ([Vertex],[Vertex])
 connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.delete v verts) where 
   nextMap = VMap.fromListWith (++) $ map (\(a,b)->(a,[b])) edges
 -- search arguments (sets):  done (=processed), visited, unvisited.
@@ -383,14 +383,14 @@ we will refer to this as an edge list rather than a directed edge list.
 -}
 
 -- |directed edges (clockwise) round a face
-faceDedges::TileFace -> [DEdge]
+faceDedges::TileFace -> [Dedge]
 faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (LK(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
 
 -- |opposite directed edge
-reverseD:: DEdge -> DEdge
+reverseD:: Dedge -> Dedge
 reverseD (a,b) = (b,a)
 
 -- Whilst first, second and third edges are obvious (always clockwise), 
@@ -401,12 +401,12 @@ reverseD (a,b) = (b,a)
 -- joinOfTile also returns the join edge but in the direction away from the origin
 
 -- |firstE, secondE and thirdE are the directed edges of a face counted clockwise from the origin, 
-firstE,secondE,thirdE:: TileFace -> DEdge
+firstE,secondE,thirdE:: TileFace -> Dedge
 firstE = head . faceDedges
 secondE = head . tail . faceDedges
 thirdE = head . tail . tail . faceDedges
 
-joinE, shortE, longE, joinOfTile:: TileFace -> DEdge
+joinE, shortE, longE, joinOfTile:: TileFace -> Dedge
 -- |the join directed edge of a face in the clockwise direction going round the face (see also joinOfTile).
 joinE (LD(a,b,_)) = (a,b)
 joinE (RD(a,_,c)) = (c,a)
@@ -425,7 +425,7 @@ longE (RK(a,_,c)) = (c,a)
 -- |The join edge of a face directed from the origin (not clockwise for RD and LK)
 joinOfTile fc = (originV fc, oppV fc)
 
-facePhiEdges, faceNonPhiEdges::  TileFace -> [DEdge]
+facePhiEdges, faceNonPhiEdges::  TileFace -> [Dedge]
 -- |The phi edges of a face (both directions)
 -- which is long edges for darts, and join and long edges for kites
 facePhiEdges fc@(RD _) = [e, reverseD e] where e = longE fc
@@ -442,7 +442,7 @@ faceNonPhiEdges fc = bothDirOneWay (faceDedges fc) \\ facePhiEdges fc
 -- where eselect selects a particular edge type of a face
 -- (eselect could be joinE or longE or shortE for example).
 -- This is True for fc' if fc' has an eselect edge matching the (reversed) eselect edge of fc
-matchingE :: (TileFace -> DEdge) -> TileFace -> TileFace -> Bool
+matchingE :: (TileFace -> Dedge) -> TileFace -> TileFace -> Bool
 matchingE eselect fc = (== reverseD (eselect fc)) . eselect
 
 -- |special cases of matchingE eselect 
@@ -453,13 +453,13 @@ matchingLongE  = matchingE longE
 matchingShortE = matchingE shortE
 matchingJoinE  = matchingE joinE
 
--- |hasDEdge e f returns True if directed edge e is one of the directed edges of face f
-hasDEdge :: DEdge -> TileFace -> Bool
-hasDEdge e f = e `elem` faceDedges f
+-- |hasDedge e f returns True if directed edge e is one of the directed edges of face f
+hasDedge :: Dedge -> TileFace -> Bool
+hasDedge e f = e `elem` faceDedges f
 
--- |hasDEdgeIn es fc - is True if fc has a directed edge in the list of edges es.
-hasDEdgeIn :: [DEdge] -> TileFace -> Bool
-hasDEdgeIn es fc = not $ null $ es `intersect` faceDedges fc
+-- |hasDedgeIn es fc - is True if fc has a directed edge in the list of edges es.
+hasDedgeIn :: [Dedge] -> TileFace -> Bool
+hasDedgeIn es fc = not $ null $ es `intersect` faceDedges fc
 
 -- |A list of all the directed edges of a graph (going clockwise round faces)
 graphDedges :: Tgraph -> [(Vertex, Vertex)]
@@ -482,7 +482,7 @@ graphEdges = bothDir . graphDedges
 -- |bothDir adds missing reverse directed edges to a list of directed edges
 -- to complete edges (Result is a complete edge list)
 -- It assumes no duplicates in argument.
-bothDir:: [DEdge] -> [DEdge]
+bothDir:: [Dedge] -> [Dedge]
 bothDir es = missingRevs es ++ es
 -- bothDir = nub . bothDirOneWay
 
@@ -490,7 +490,7 @@ bothDir es = missingRevs es ++ es
 -- without checking for duplicates.
 -- Should be used on lists with single directions only.
 -- If the argument may contain reverse directions, use bothDir to avoid duplicates.
-bothDirOneWay:: [DEdge] -> [DEdge]
+bothDirOneWay:: [Dedge] -> [Dedge]
 bothDirOneWay [] = []
 bothDirOneWay ((e@(a,b)):es)= e:(b,a):bothDirOneWay es
 
@@ -500,7 +500,7 @@ boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
 boundaryDedges g = missingRevs (graphDedges g) where
 
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
-missingRevs:: [DEdge] -> [DEdge]
+missingRevs:: [Dedge] -> [Dedge]
 missingRevs es = revUnmatched es where
     imap = VMap.fromListWith (++) $ map singleton es
     singleton (a,b) = (a,[b])
@@ -549,7 +549,7 @@ makeVFMapFor vs = foldl' insertf start where
  A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces (tracked).
  The list allows for tracking different subsets of faces at the same time
 -}
-data SubTgraph = SubTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]}
+data SubTgraph = SubTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]} deriving Show
 
 -- |newSubTgraph g creates a SubTgraph from a Tgraph g with an empty tracked list
 newSubTgraph :: Tgraph -> SubTgraph
@@ -563,10 +563,18 @@ makeSubTgraph g trackedlist = SubTgraph{ tgraph = g, tracked = fmap (`intersect`
 
 -- |pushFaces sub - pushes the maingraph tilefaces onto the stack of tracked subsets of sub
 pushFaces:: SubTgraph -> SubTgraph
-pushFaces sub = makeSubTgraph g trackedList where
+pushFaces sub = makeSubTgraph g newTracked where
     g = tgraph sub
-    trackedList = faces g:tracked sub
+    newTracked = faces g:tracked sub
 
+-- |unionTwoSub sub - combines the top two lists of tracked tilefaces replacing them with the list union.
+unionTwoSub:: SubTgraph -> SubTgraph
+unionTwoSub sub = makeSubTgraph g newTracked where
+    g = tgraph sub
+    (a:b:more) = tracked sub
+    newTracked = case tracked sub of
+                   (a:b:more) -> a `union` b:more
+                   _ -> error $ "unionTwoSub: Two tracked lists of faces not found: " ++ show sub ++"\n"
 
 {- * Failure reporting (for partial operations) -}
 

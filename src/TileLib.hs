@@ -161,23 +161,23 @@ experiment pc = --emph pc <> (drawJPiece pc # dashingO [1,2] 0 # lw ultraThin)
 type Patch = [Located Piece]
 
 -- |turn a patch into a diagram using the first argument for drawing pieces
-patchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
-patchWith pd = position . fmap (viewLoc . mapLoc pd)
+drawPatchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
+drawPatchWith pd = position . fmap (viewLoc . mapLoc pd)
 
     
--- |special case of patchWith - turn patches to diagrams with drawPiece
+-- |special case of drawPatchWith - turn patches to diagrams with drawPiece
 drawPatch:: Patch -> Diagram B      
-drawPatch = patchWith drawPiece
+drawPatch = drawPatchWith drawPiece
 
--- |special case of patchWith - turn patches to diagrams with dashJPiece
+-- |special case of drawPatchWith - turn patches to diagrams with dashJPiece
 dashJPatch:: Patch -> Diagram B      
-dashJPatch = patchWith dashJPiece
+dashJPatch = drawPatchWith dashJPiece
 
 -- |colourDKG (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
 colourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
-colourDKG (c1,c2,c3) p = patchWith (fillDK c1 c2) p # lc c3
+colourDKG (c1,c2,c3) p = drawPatchWith (fillDK c1 c2) p # lc c3
 
 
 

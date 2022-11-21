@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = testCommonFacesFig--kingEmpireCheck --kingEmpire2  -- dartChoiceLimeGold --forceFig --rocket5Fig --curioPic --halfWholeFig --boundaryGap5Fig
+fig = kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
 
 main = mainWith fig
 

@@ -78,7 +78,7 @@ Similarly for bvLocMap.
 -}
 data Boundary 
    = Boundary
-     { bDedges:: [DEdge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
+     { bDedges:: [Dedge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex
      , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex
      , allFaces:: [TileFace] -- ^ all the tile faces
@@ -144,7 +144,7 @@ instance Show Update where
     show (UnsafeUpdate mf) = "UnsafeUpdate (\0 -> " ++ show (mf 0)++ ")"
     
 -- |UpdateMap: partial map associating updates with (some) boundary directed edges.
-type UpdateMap = Map.Map DEdge Update
+type UpdateMap = Map.Map Dedge Update
 
 -- |ForceState: The force state records information between executing single face updates during forcing
 -- (a Boundary and an UpdateMap).
@@ -158,7 +158,7 @@ They produce a (ReportFail) UpdateMap when given a Boundary and a focus list of 
 Each forcing rule has a particular UpdateGenerator,
 but they can also be combined in sequence (e.g. allUgenerator).
 -}
-type UpdateGenerator = Boundary -> [DEdge] -> ReportFail UpdateMap
+type UpdateGenerator = Boundary -> [Dedge] -> ReportFail UpdateMap
 
 {-| BoundaryChange records the new boundary after an update (by either trySafeUpdate or tryUnsafeUpdate)
      along with a list of directed edges which are no longer on the boundary,
@@ -167,8 +167,8 @@ type UpdateGenerator = Boundary -> [DEdge] -> ReportFail UpdateMap
 -}
 data BoundaryChange = BoundaryChange 
                        { newBoundary:: Boundary -- ^ resulting boundary
-                       , removedEdges:: [DEdge] -- ^ edges no longer on the boundary
-                       , revisedEdges :: [DEdge]  -- ^ boundary edges requiring new update calculations
+                       , removedEdges:: [Dedge] -- ^ edges no longer on the boundary
+                       , revisedEdges :: [Dedge]  -- ^ boundary edges requiring new update calculations
                        } deriving (Show)
 
 {-| Given a Boundary with a list of one boundary edge or
@@ -182,7 +182,7 @@ data BoundaryChange = BoundaryChange
      the single new edge + edges either side on the boundary, or exceptionally no edges.
      (When a face is fitted in to a hole with 3 sides there is no new boundary.)
 -}
-affectedBoundary :: Boundary -> [DEdge] -> [DEdge]
+affectedBoundary :: Boundary -> [Dedge] -> [Dedge]
 affectedBoundary bd [(a,b)] = [(x,a),(a,b),(b,y)] where
            bdry = bDedges bd
            (x,_) = mustFind ((==a).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a ++ "\n")
@@ -399,7 +399,7 @@ trySafeUpdate bd (SafeUpdate newFace) =
 -- | given 2 adjacent directed edges, this returns the common vertex (as a singleton list).
 -- | Exceptionally it may be given a triangle of 3 directed edges and returns the 3 vertices of the triangle.
 -- Raises an error if the argument is not one of these 2 cases.
-commonVs :: [DEdge] -> [Vertex]
+commonVs :: [Dedge] -> [Vertex]
 commonVs [(a,b),(c,d)] | b==c = [b] 
                        | d==a = [a]
                        | otherwise = error $ "commonV: directed edges not adjacent: " ++ show [(a,b),(c,d)] ++ "\n"
@@ -558,7 +558,7 @@ allUGenerator bd focus =
 -- matching that edge. For example, if the function is looking for dart short edges on the boundary,
 -- it will return only those focus edges which have a matching half-dart short edge,
 -- each paired with the corresponding half-dart.
-type UFinder = Boundary -> [DEdge] -> [(DEdge,TileFace)]
+type UFinder = Boundary -> [Dedge] -> [(Dedge,TileFace)]
 
 -- |UChecker (Update checker functions). Given a Boundary and a particular tileface (on the boundary),
 -- such functions try to produce particular updates on the boundary edge of the given tileface.
@@ -570,7 +570,7 @@ type UChecker = Boundary -> TileFace -> ReportFail Update
 
 {-|This is a general purpose filter used to create UFinder functions for each force rule.
  It requires a face predicate.
- The face predicate takes a Boundary bd, a boundary DEdge (a,b) and the TileFace with the edge (b,a)
+ The face predicate takes a Boundary bd, a boundary Dedge (a,b) and the TileFace with the edge (b,a)
  and decides whether the face is wanted or not (True = wanted)
  This will be used to filter all the faces at the focus edges 
  (when given a Boundary and list of focus edges).
@@ -578,7 +578,7 @@ type UChecker = Boundary -> TileFace -> ReportFail Update
  but for others it is used to look at other faces at b or at a besides the supplied fc 
  (eg kiteWDO in kitesWingDartOrigin) 
 -}
-boundaryFilter::  (Boundary -> DEdge -> TileFace -> Bool) -> UFinder
+boundaryFilter::  (Boundary -> Dedge -> TileFace -> Bool) -> UFinder
 boundaryFilter predF bd focus = 
     [ (e,fc) | e <- focus 
              , fc <- facesAtBV bd (fst e)
@@ -659,7 +659,7 @@ mustbeJack bd v =
         isKiteOrigin = v `elem` fmap originV (filter isKite fcs)
 
 -- |hasMatching asks if a directed edge list has any two matching (=opposing) directed edges.
-hasAnyMatchingE :: [DEdge] -> Bool
+hasAnyMatchingE :: [Dedge] -> Bool
 hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
 hasAnyMatchingE [] = False
 
@@ -970,7 +970,7 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
 
 -- |Given a Boundary and a directed boundary edge, this returns the same edge with
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
-inspectBDedge:: Boundary -> DEdge -> (TileFace, EdgeType)
+inspectBDedge:: Boundary -> Dedge -> (TileFace, EdgeType)
 inspectBDedge bd e = (fc,edgeType (reverseD e) fc) where
     fc = case facesAtBV bd (fst e) `intersect` facesAtBV bd (snd e) of
          [fc] -> fc
@@ -993,19 +993,19 @@ addHalfKite, addHalfDart, forceLDB, forceLKC
 -- |[addHalfKite and addHalfDart are not efficient but used to tinker with a Tgraph by adding a single half tile
 -- e.g. to see how it affects forcing. They use the update makers (UChecker).]
 -- 
--- addHalfKite is for adding a single half kite on a chosen DEdge of a Tgraph.
--- The DEdge must be a boundary edge but the direction is not important as
+-- addHalfKite is for adding a single half kite on a chosen Dedge of a Tgraph.
+-- The Dedge must be a boundary edge but the direction is not important as
 -- the correct direction is automatically calculated.
 -- It will raise an error if the edge is a dart join or if a conflict (stuck graph) is detected
 -- or if the edge is not a boundary edge.
-addHalfKite :: DEdge -> Tgraph -> Tgraph
+addHalfKite :: Dedge -> Tgraph -> Tgraph
 addHalfKite e  = getResult . tryAddHalfKite e
 
 -- |tryAddHalfKite is a version of addHalfKite which returns a ReportFail
 -- with a Left report if it finds a stuck/incorrect graph, or 
 -- if the edge is a dart join, or
 -- if the edge is not a boundary edge.   
-tryAddHalfKite :: DEdge -> Tgraph -> ReportFail Tgraph
+tryAddHalfKite :: Dedge -> Tgraph -> ReportFail Tgraph
 tryAddHalfKite e g = 
   do let bd = makeBoundary g
      de <- case [e, reverseD e] `intersect` bDedges bd of
@@ -1020,20 +1020,20 @@ tryAddHalfKite e g =
      bdC <- tryUpdate bd u
      return $ recoverGraph $ newBoundary bdC
 
--- |addHalfDart is for adding a single half dart on a chosen DEdge of a Tgraph.
--- The DEdge must be a boundary edge but the direction is not important as
+-- |addHalfDart is for adding a single half dart on a chosen Dedge of a Tgraph.
+-- The Dedge must be a boundary edge but the direction is not important as
 -- the correct direction is automatically calculated.
 -- It will raise an error if the edge is a dart short edge or kite join
 -- or if a conflict (stuck graph) is detected or if
 -- the edge is not a boundary edge.
-addHalfDart :: DEdge -> Tgraph -> Tgraph
+addHalfDart :: Dedge -> Tgraph -> Tgraph
 addHalfDart e = getResult . tryAddHalfDart e
   
 -- |tryAddHalfDart is a version of addHalfDart which returns a ReportFail
 -- with a Left report if it finds a stuck/incorrect graph, or
 -- if the edge is a dart short edge or kite join, or
 -- if the edge is not a boundary edge.
-tryAddHalfDart :: DEdge -> Tgraph -> ReportFail Tgraph
+tryAddHalfDart :: Dedge -> Tgraph -> ReportFail Tgraph
 tryAddHalfDart e g = 
   do let bd = makeBoundary g
      de <- case [e, reverseD e] `intersect` bDedges bd of
@@ -1127,13 +1127,13 @@ mustFind p ls err = case find p ls of
 -- |Break the boundary edges of a Tgraph into constituent looping trails.
 -- Each edge is followed by its next adjacent edge, and the trail starts with the lowest numbered vertex.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
-boundaryLoopsG:: Tgraph -> [[DEdge]] 
+boundaryLoopsG:: Tgraph -> [[Dedge]] 
 boundaryLoopsG = findLoops . boundaryDedges
 
 -- |Break the boundary edges of a Boundary into constituent looping trails.
 -- Each edge is followed by its next adjacent edge, and the trail starts with the lowest numbered vertex.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
-boundaryLoops:: Boundary -> [[DEdge]]
+boundaryLoops:: Boundary -> [[Dedge]]
 boundaryLoops = findLoops . bDedges
 
 -- |Break a list of boundary directed edges into constituent looping trails.
@@ -1169,7 +1169,7 @@ forceSub sub = makeSubTgraph (force $ tgraph sub) (tracked sub)
 
 -- |aaddHalfDartSub sub e - add a half dart to the tgraph of sub on the given edge e,
 -- and push the new singleton face list onto the tracked list.
-addHalfDartSub:: DEdge -> SubTgraph -> SubTgraph
+addHalfDartSub:: Dedge -> SubTgraph -> SubTgraph
 addHalfDartSub e sub =
     makeSubTgraph g' (fcs:tracked sub) where
     g = tgraph sub
@@ -1178,7 +1178,7 @@ addHalfDartSub e sub =
 
 -- |addHalfKiteSub sub e - add a half kite to the tgraph of sub on the given edge e,
 -- and push the new singleton face list onto the tracked list.
-addHalfKiteSub:: DEdge -> SubTgraph -> SubTgraph
+addHalfKiteSub:: Dedge -> SubTgraph -> SubTgraph
 addHalfKiteSub e sub =
     makeSubTgraph g' (fcs:tracked sub) where
     g = tgraph sub
@@ -1221,7 +1221,7 @@ creating a touching vertex/crossing boundary. (Taken care of in tryUnsafeUpdate)
    If either n or m is too large a Left report is returned indicating an incorrect graph (stuck tiling).
    If n and m are smaller than the respective external angles, Right Nothing is returned.
 -}
-findThirdV:: Boundary -> DEdge -> (Int,Int) -> ReportFail (Maybe Vertex)
+findThirdV:: Boundary -> Dedge -> (Int,Int) -> ReportFail (Maybe Vertex)
 findThirdV bd (a,b) (n,m) = maybeV where
     aAngle = externalAngle bd a
     bAngle = externalAngle bd b

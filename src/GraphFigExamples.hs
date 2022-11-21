@@ -17,7 +17,7 @@ module GraphFigExamples where
 import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
 
 -- partition find used for testing (relabelWatchStep)
-import Data.List ((\\), partition,find)      
+import Data.List ((\\), partition,find, intersect)      
 import Diagrams.Prelude
 
 import ChosenBackend (B)
@@ -35,29 +35,29 @@ Advanced drawing tools for Tgraphs
 
 -- |same as drawGraph except adding dashed lines on boundary join edges. 
 drawGraphSmart :: Tgraph -> Diagram B
-drawGraphSmart g = subDrawGraph  g $ createVPoints $ faces g
+drawGraphSmart g = subDrawGraph g $ createVPoints $ faces g
 
 -- |same as drawVGraph except adding dashed lines on boundary join edges.
 drawVGraphSmart :: Tgraph -> Diagram B
-drawVGraphSmart g = subDrawVGraph  g $ createVPoints $ faces g
+drawVGraphSmart g = subDrawVGraph g $ createVPoints $ faces g
 
--- |Auxilliary function for drawGraphSmart. It needs to be passed a suitable vertex location map.
+-- |Auxiliary function for drawGraphSmart. It needs to be passed a suitable vertex location map.
 -- This can be used instead of drawGraphSmart when such a map is already available.
 subDrawGraph:: Tgraph -> VertexLocMap -> Diagram B
-subDrawGraph  g vpMap = (patchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
-                         <> drawPatch (subPatch (faces g) vpMap)
+subDrawGraph g vpMap = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
+                       <> drawPatch (subPatch (faces g) vpMap)
 
--- |Auxilliary function for drawVGraphSmart. It needs to be passed a suitable vertex location map.
+-- |Auxiliary function for drawVGraphSmart. It needs to be passed a suitable vertex location map.
 -- This can be used instead of drawVGraphSmart when such a map is already available.
 subDrawVGraph:: Tgraph -> VertexLocMap -> Diagram B
-subDrawVGraph g vpMap = (patchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
-                         <> drawVPatch (subVPatch (faces g) vpMap)
+subDrawVGraph g vpMap = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vpMap) 
+                        <> drawVPatch (subVPatch (faces g) vpMap)
 
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
 drawPCompose g = (drawPatch $ subPatch (faces g') vpMap)
-                  <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vpMap)
+                 <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vpMap)
   where (fcs,g') = partCompose g
         vpMap = createVPoints $ faces g
 
@@ -69,7 +69,6 @@ drawForce g = (dg # lc red) <> dfg where
     vpMap = createVPoints (faces fg)
     dfg = drawPatch $ subPatch (faces fg) vpMap 
     dg = subDrawGraph g vpMap
-
 
 {- |
 drawWithMax g - draws g and overlays the maximal forced composition of g in red
@@ -87,7 +86,25 @@ drawGBoundary g =  (drawEdges vpMap bd # lc lime) <> (drawVPatch $ subVPatch (fa
     vpMap  = createVPoints (faces g)
     bd = boundaryDedges g
 
+-- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces to find the common faces of g1 and g2
+-- and emphasizes the common faces on the background g1
+drawCommonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram B
+drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g1
+{-
+  (drawPatch commonPatch # lw thin) <> (drawPatch g1Patch # lw ultraThin) where
+    fcs = commonFaces (g1,e1) (g2,e2)
+    vpMap = createVPoints (faces g1)
+    g1Patch = subPatch (faces g1) vpMap
+    commonPatch = subPatch fcs vpMap
+-}
 
+-- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background g.
+emphasizeFaces:: [TileFace] -> Tgraph -> Diagram B
+emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # lw ultraThin) where
+    vpMap = createVPoints (faces g)
+    gPatch = subPatch (faces g) vpMap
+    emphPatch = subPatch (fcs `intersect` faces g) vpMap
+    
 {- *
 Example Tgraphs with Figures
 -}
@@ -777,7 +794,7 @@ checkChoiceEdge g = padBorder $ lw ultraThin $ drawVGraph $ force g
 -- |given a boundary directed edge of a forced graph (either direction)
 -- construct two SubTgraphs with half dart/kite addition on the edge respectively
 -- track the resulting faces and also the singleton new face, then force both SubTgraphs
-trackTwoChoices:: DEdge -> Tgraph -> [SubTgraph]
+trackTwoChoices:: Dedge -> Tgraph -> [SubTgraph]
 trackTwoChoices de g = [sub1,sub2] where
           sub1 = forceSub $ pushFaces $ addHalfDartSub de $ newSubTgraph g
           sub2 = forceSub $ pushFaces $ addHalfKiteSub de $ newSubTgraph g
@@ -789,11 +806,21 @@ forceDartD4Fig = padBorder $ lw ultraThin $ dashJVGraph $ force $ dartD4
 -- |Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [SubTgraph]
 twoChoices = trackTwoChoices (223,255) (force $ dartD4) --(233,201) 
+
+-- |show the result of (tracked) two choices
+-- with tracked faces in red, new face filled black. 
+drawChoice:: SubTgraph -> Diagram B
+drawChoice = drawSubTgraph [drawPatch, lc red . drawPatch, drawPatchWith (fillDK black black)]
          
 -- |show the (tracked) twoChoices with (tracked faces in red, new face filled black)  
 twoChoicesFig:: Diagram B
+twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawChoice $ twoChoices
+{-
+-- |show the (tracked) twoChoices with (tracked faces in red, new face filled black)  
+twoChoicesFig:: Diagram B
 twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawSub twoChoices where
-    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
+    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, drawPatchWith (fillDK black black)]
+-}
 
 -- |track two further choices with the first of twoChoices (fullgraph)  
 moreChoices0:: [SubTgraph]
@@ -805,10 +832,8 @@ moreChoices1 = trackTwoChoices (200,241) (tgraph $ twoChoices !! 1) --(178,219)
 
 -- |figures for 4 further choices
 moreChoicesFig0,moreChoicesFig1,moreChoicesFig:: Diagram B
-moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawSub moreChoices0 where
-    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
-moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawSub moreChoices1 where
-    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
+moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawChoice moreChoices0
+moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawChoice moreChoices1
 moreChoicesFig  =  vsep 1 [moreChoicesFig0,moreChoicesFig1]  
 
 
@@ -918,36 +943,6 @@ kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ mak
           allForcedDecomps kingGraph !!6
 
 
--- | Diagram showing 5 embeddings of a forced kingGraph in a forced decomposed kingGraph
-kingEmpire1 = padBorder $ lw ultraThin $ vsep 1 
-  [ hsep 1 [drawGraph fk, drawGraph fdk]
-  , hsep 1 [cases!!0 , cases!!1]
-  , hsep 1 [cases!!2, cases!!3]
-  , cases!!4
-  ] where
-    fk = force kingGraph
-    fdk = forcedDecomp fk
-    fkVP = makeVPatch fk
-    backVP = makeVPatch fdk
-    embed de = patchWith (fillDK yellow yellow) a <> drawPatch b 
-                where [a,b] = fmap dropVertices $ alignments [(1,7), de] [fkVP, backVP]
-    cases = fmap center $ rotations [8,2,1,9] $ fmap embed [(43,205),(33,188),(9,107),(5,91),(12,119)]
---(1,7) (43,205) (33,188) (9,107) (5,91)
-
--- | Diagram to check vertex numbering for a forced kingGraph, a forcedDecomp forced kingGraph, and a
--- twice forceDecomp forced kingGraph
-kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk, fdfdfk]where
-    fk = force kingGraph
-    fdfk = forcedDecomp fk
-    fdfdfk = forcedDecomp fdfk
-
--- | Diagram comparing two choices at 4 boundary edges of a forced kingGraph
-forcedKingChoicesFig :: Diagram B
-forcedKingChoicesFig = padBorder $ lw ultraThin $ vsep 1 $ fmap example [(57,58),(20,38),(16,23),(49,59)] where
-    fk = force $ kingGraph
-    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
-    example e = hsep 1 $ fmap drawSub $ trackTwoChoices e fk 
- 
 
 {- *
 Testing Relabelling (fullUnion, commonFaces)
@@ -1018,16 +1013,87 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
 testCommonFacesFig :: Diagram B
 testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23),(49,59)] where
     fk = force $ kingGraph
-    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, patchWith (fillDK black black)]
-    edgecase e = hsep 1 $ fmap (lw ultraThin) [drawSub sub1, drawSub sub2, (drawPatch pCommon # lw thin) <> (drawPatch p1 # lw ultraThin)] where
+    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, drawPatchWith (fillDK black black)]
+    edgecase e = hsep 1 $ fmap (lw ultraThin) [drawSub sub1, drawSub sub2, drawCommonFaces (g1,(1,2)) (g2,(1,2))] 
+      where
         [sub1, sub2] = trackTwoChoices e fk
         g1 = tgraph sub1
         g2 = tgraph sub2
-        fcs = commonFaces (g1,(1,2)) (g2,(1,2))
-        vpMap = createVPoints (faces g1)
-        p1 = subPatch (faces g1) vpMap
-        pCommon = subPatch fcs vpMap
-   
+
+-- | Diagram comparing two choices at 4 boundary edges of a forced kingGraph
+forcedKingChoicesFig :: Diagram B
+forcedKingChoicesFig = padBorder $ lw ultraThin $ vsep 1 $ fmap example [(57,58),(20,38),(16,23),(49,59)] where
+    fk = force $ kingGraph
+    drawSub = drawSubTgraph [drawPatch, lc red . drawPatch, drawPatchWith (fillDK black black)]
+    example e = hsep 1 $ fmap drawSub $ trackTwoChoices e fk 
+
+-- | testing drawing of king empire based on forcedKingChoicesFig
+testKingEmpire :: Diagram B
+testKingEmpire =  padBorder $ drawCommonFaces (g4,(1,2)) (g3,(1,2)) where
+  fk = force $ kingGraph
+  g1 = addHalfKite (20,38) fk
+  g2 = addHalfKite (16,23) fk
+  g3 = fullUnion (g1,(1,2)) (g2,(1,2))
+  g4 = addHalfKite (49,59) fk
+
+{- |
+Diagram showing a calculation of some of the kings empire.
+The top left graph shows the intersection faces of the the other 6 graphs (emphasised) with the second graph as background.
+The latter 6 graphs show all the possible ways of extending a forced kingGraph (forced kinGraph shown red)
+round its boundaru.
+-}
+kingEmpire:: Diagram B
+kingEmpire = padBorder $ lw ultraThin $ vsep 1 $ 
+             [ hsep 10 $ [emphasizeFaces fcs g1, drawChoice sub1]
+             , hsep 1 $ fmap drawChoice [sub2,sub3,sub4]
+             , hsep 1 $ fmap drawChoice [sub5,sub6]
+             ]  where
+    fkSub = newSubTgraph $ force $ kingGraph
+    sub1 = forceSub $ pushFaces $ addHalfKiteSub (49,59) fkSub
+    sub2 = forceSub $ pushFaces $ unionTwoSub $ addHalfKiteSub (16,23) $ addHalfKiteSub (20,38) fkSub
+    sub3 = forceSub $ pushFaces $ unionTwoSub $ addHalfDartSub (16,23) $ addHalfKiteSub (20,38) fkSub
+    sub4 = forceSub $ pushFaces $ unionTwoSub $ addHalfKiteSub (16,23) $ addHalfDartSub (20,38) fkSub
+    subX = unionTwoSub $ unionTwoSub $ addHalfDartSub (49,59) $ addHalfDartSub (16,23) $ addHalfDartSub (20,38) fkSub
+    sub5 = forceSub $ pushFaces $ unionTwoSub $ addHalfDartSub (56,57) subX
+    sub6 = forceSub $ pushFaces $ unionTwoSub $ addHalfKiteSub (56,57) subX
+    g1 = tgraph sub1
+    g1Intersect sub = commonFaces (g1,(1,2)) (tgraph sub,(1,2))
+    fcs = foldl Data.List.intersect (faces g1) $
+           fmap g1Intersect [sub2,sub3,sub4,sub5,sub6]
+
+
+{-
+empire g = 
+    fg = force g
+    commonDE = lowestJoin (faces fg)
+-}
+
+test5 = padBorder $ drawVGraph $ tgraph $ forceSub $ pushFaces $ unionTwoSub $ unionTwoSub 
+           $ addHalfDartSub (49,59) $ addHalfDartSub (16,23)
+           $ addHalfDartSub (20,38) $ newSubTgraph $ force $ kingGraph
+
+-- | Diagram showing 5 embeddings of a forced kingGraph in a forced decomposed kingGraph
+forcedKingEmbedding:: Diagram B
+forcedKingEmbedding = padBorder $ lw ultraThin $ vsep 1 
+  [ hsep 1 [drawGraph fk, drawGraph fdk]
+  , hsep 1 [cases!!0 , cases!!1]
+  , hsep 1 [cases!!2, cases!!3]
+  , cases!!4
+  ] where
+    fk = force kingGraph
+    fdk = forcedDecomp fk
+    fkVP = makeVPatch fk
+    backVP = makeVPatch fdk
+    embed de = drawPatchWith (fillDK yellow yellow) a <> drawPatch b 
+                where [a,b] = fmap dropVertices $ alignments [(1,7), de] [fkVP, backVP]
+    cases = fmap center $ rotations [8,2,1,9] $ fmap embed [(43,205),(33,188),(9,107),(5,91),(12,119)]
+
+-- | Diagram to check vertex numbering for a forced kingGraph, a forcedDecomp forced kingGraph, and a
+-- twice forceDecomp forced kingGraph
+kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk, fdfdfk]where
+    fk = force kingGraph
+    fdfk = forcedDecomp fk
+    fdfdfk = forcedDecomp fdfk
 
 
 {- *

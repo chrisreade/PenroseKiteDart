@@ -37,7 +37,7 @@ decomposeG g = Tgraph{ maxV = newMax
 -- a function mapping each phi edge to an assigned new vertex.
 -- Both (a,b) and (b,a) get the same v.
 -- (Also sorted phiEdges to reduce arbitrariness of numbering).  
-maxAndPhiVMap :: Tgraph -> (Vertex, DEdge -> Vertex)
+maxAndPhiVMap :: Tgraph -> (Vertex, Dedge -> Vertex)
 maxAndPhiVMap g = (oldMax+sizeNew, (Map.!) edgeVMap) where
   phiReps = sort [(a,b) | (a,b) <- phiEdges g, a<b]
   oldMax = maxV g
@@ -68,7 +68,8 @@ decompFace newVFor fc = case fc of
 decompositionsG :: Tgraph -> [Tgraph]
 decompositionsG = iterate decomposeG
 
--- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph
+-- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph.
+-- Tracked subsets get the same numbering of new vertices as the main tgraph. 
 decomposeSub :: SubTgraph -> SubTgraph
 decomposeSub sub = makeSubTgraph g' tlist where
    g = tgraph sub

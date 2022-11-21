@@ -22,7 +22,7 @@ data HalfTile rep = LD rep -- ^ Left Dart
                   deriving (Show,Eq)
 
 -- | Note this ignores the tileLabels when comparing.
--- However we should never have 2 differnt HalfTiles with the same rep
+-- However we should never have 2 different HalfTiles with the same rep
 instance Ord a => Ord (HalfTile a) where
     compare t1 t2 = compare (tileRep t1) (tileRep t2)
 

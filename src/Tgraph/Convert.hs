@@ -74,7 +74,7 @@ This makes the join of the face with lowest origin and lowest oppV align on the 
 makeVPatch::Tgraph -> VPatch
 makeVPatch g = subVPatch fcs (createVPoints fcs) where fcs = faces g
 
-{-|Auxilliary function For converting a list of TileFaces to a VPatch when given a suitable VertexLocMap.
+{-|Auxiliary function For converting a list of TileFaces to a VPatch when given a suitable VertexLocMap.
 The VertexLocMap argument must contain locations for all the TileFace vertices.
 The alignment is dictated by the VertexLocMap.
 This function is intended to save recreating a VertexLocMap for several VPatches
@@ -96,7 +96,7 @@ dropping the Vertices information.
 makePatch:: Tgraph -> Patch
 makePatch = dropVertices . makeVPatch
 
-{-|Auxilliary function For converting a list of TileFaces to a Patch when given a suitable VertexLocMap.
+{-|Auxiliary function For converting a list of TileFaces to a Patch when given a suitable VertexLocMap.
 The VertexLocMap argument must contain locations for all the TileFace vertices.
 The alignment is dictated by the VertexLocMap.
 This function is intended to save recreating a VertexLocMap for several Patches
@@ -139,12 +139,12 @@ dashJVPatch = drawVPatchWith dashJPiece
 
 -- |drawVPatchWith pd vp - convert VPatch vp to a diagram with vertex labels using pd to draw pieces
 drawVPatchWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-drawVPatchWith pd vp = drawVlabels (lVertices vp) <> patchWith pd (dropVertices vp)
+drawVPatchWith pd vp = drawVlabels (lVertices vp) <> drawPatchWith pd (dropVertices vp)
 
 -- |relevantVPatchWith pd vp - convert VPatch vp to a diagram with vertex labels using pd to draw pieces
 -- BUT drop drawing of vertices that are not mentioned in Hybrids/Faces
 relevantVPatchWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-relevantVPatchWith pd vp = drawVlabels locVs <> patchWith pd (dropVertices vp) where
+relevantVPatchWith pd vp = drawVlabels locVs <> drawPatchWith pd (dropVertices vp) where
      vs = nub $ concatMap faceVList (dropVectors vp)
      locVs = filter ((`elem` vs) . snd . viewLoc) $ lVertices vp
 
@@ -262,7 +262,7 @@ createVPoints:: [TileFace] -> VertexLocMap
 createVPoints [] = VMap.empty
 createVPoints faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
     (face:more) = lowestJoinFirst faces
-    efMap = buildEFMap faces  -- map from DEdge to TileFace
+    efMap = buildEFMap faces  -- map from Dedge to TileFace
 {- fastAddVPoints readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
 each will have at least two known vertex locations in vpMap.
@@ -282,13 +282,21 @@ The third argument is the mapping of vertices to points.
 -- Move this face to the front of the returned list of faces.
 -- Used by createVPoints to determine the starting point for location calculation
 lowestJoinFirst:: [TileFace] -> [TileFace]
-lowestJoinFirst fcs = face:(fcs\\[face]) where
+lowestJoinFirst fcs | null fcs  = error "lowestJoinFirst: applied to empty list of faces"
+                    | otherwise = face:(fcs\\[face]) where
     a = minimum (fmap originV fcs)
     aFs = filter ((a==) . originV) fcs
     b = minimum (fmap oppV aFs)
-    face = case filter (((a,b)==) . joinOfTile) aFs of  -- should be find
-           (face:_) -> face
-           []       -> error "lowestJoinFirst: empty graph?"
+    (face: _) = filter (((a,b)==) . joinOfTile) aFs
+
+
+-- Return the join edge with lowest origin vertex (and lowest oppV vertex if there is more than one
+lowestJoin:: [TileFace] -> Dedge
+lowestJoin fcs | null fcs  = error "lowestJoin: applied to empty list of faces"
+lowestJoin fcs | otherwise = (a,b) where
+    a = minimum (fmap originV fcs)
+    aFs = filter ((a==) . originV) fcs
+    b = minimum (fmap oppV aFs)
 
 -- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tilface vertices
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
@@ -300,13 +308,13 @@ addVPoint fc vpMap =
     Nothing -> vpMap
 
 -- |Build a Map from directed edges to faces (the unique face containing the directed edge)
-buildEFMap:: [TileFace] -> Map.Map DEdge TileFace
+buildEFMap:: [TileFace] -> Map.Map Dedge TileFace
 buildEFMap = mconcat . fmap processFace where
   processFace fc = Map.fromList $ fmap (\e -> (e,fc)) $ faceDedges fc
  
 -- |Given a map from each directed edge to the tileface containing it (efMap), a tileface (fc)
 -- return the list of edge neighbours of fc.
-edgeNbs:: Map.Map DEdge TileFace -> TileFace -> [TileFace]
+edgeNbs:: Map.Map Dedge TileFace -> TileFace -> [TileFace]
 edgeNbs efMap fc = catMaybes $ fmap getNbr edges where
     getNbr e = Map.lookup e efMap
     edges = fmap reverseD (faceDedges fc) 
@@ -430,7 +438,7 @@ It returns pairs of vertices that are too close
 An empty list is returned if there is no touching vertex problem.
 Complexity has order of the square of the number of vertices.
                            
-This is used in makeTgraph and fullUnion, but can also be used as a reptrospective check if the touching vertex check 
+This is used in makeTgraph and fullUnion (via correctTouchingVertices), but can also be used as a reptrospective check if the touching vertex check 
 is switched off in forcing.                          
 -}
 touchingVertices:: [TileFace] -> [(Vertex,Vertex)]
@@ -445,17 +453,18 @@ touchingVertices fcs = check vpAssoc where
 {-|touching checks if two points are considered close.
 Close means the square of the distance between them is less than 0.25 so they cannot be
 vertex locations for 2 different vertices in a VPatch using unit scale for short edges.
-It is used in touchingVertices checks but also exported (used in Tgraph.Relabelling(fullUnion))
+It is used in touchingVertices and touchingVerticesGen)
 -}
 touching :: Point V2 Double -> Point V2 Double -> Bool
-touching p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
+touching p p1 = quadrance (p .-. p1) < 0.0625 -- quadrance is square of length of a vector
 
 {- *  Generalised Touching Vertices
 -}
 
 {-| 
-touchingVerticesGen  generalises touchingVertices to allow for multiple faces sharing an edge.
-This can arise when applied to the union of faces from 2 Tgraphs (e.g. in commonFaces)    
+touchingVerticesGen  generalises touchingVertices to allow for multiple faces sharing a directed edge.
+This can arise when applied to the union of faces from 2 Tgraphs which might clash in places,
+Used in commonFaces.  
 -}
 touchingVerticesGen:: [TileFace] -> [(Vertex,Vertex)]
 touchingVerticesGen fcs = check vpAssoc where
@@ -471,7 +480,7 @@ createVPointsGen:: [TileFace] -> VertexLocMap
 createVPointsGen [] = VMap.empty
 createVPointsGen faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
     (face:more) = lowestJoinFirst faces
-    efMapGen = buildEFMapGen faces  -- map from DEdge to [TileFace]
+    efMapGen = buildEFMapGen faces  -- map from Dedge to [TileFace]
 {- fastAddVPoints readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
 each will have at least two known vertex locations in vpMap.
@@ -488,12 +497,12 @@ The third argument is the mapping of vertices to points.
 
 
 -- |Generalises buildEFMap by allowing for multiple faces on a directed edge.
-buildEFMapGen:: [TileFace] -> Map.Map DEdge [TileFace]
+buildEFMapGen:: [TileFace] -> Map.Map Dedge [TileFace]
 buildEFMapGen = Map.fromListWith (++) . concatMap processFace where
   processFace fc = fmap (\e -> (e,[fc])) $ faceDedges fc
 
 -- |Generalised edgeNbs allowing for multiple faces on a directed edge.
-edgeNbsGen:: Map.Map DEdge [TileFace] -> TileFace -> [TileFace]
+edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
 edgeNbsGen efMapGen fc = concat $ catMaybes $ fmap getNbrs edges where
     getNbrs e = Map.lookup e efMapGen
     edges = fmap reverseD (faceDedges fc) 

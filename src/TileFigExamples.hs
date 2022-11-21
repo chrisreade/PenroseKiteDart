@@ -117,10 +117,10 @@ sun5Over6Fig::Diagram B
 sun5Over6Fig = (drawPatch sun5 # lc red # dashingN [0.003,0.003] 0 <> drawPatch sun6) # lw thin
 -- |Using experiment (defined in Tilelib) on sun6 clearly illustrates the embedded sun5
 experimentFig::Diagram B
-experimentFig = patchWith experiment sun6 # lw thin
+experimentFig = drawPatchWith experiment sun6 # lw thin
 -- |Using experiment (defined in Tilelib) on sun4 clearly illustrates the embedded sun3
 twoLevelsFig::Diagram B
-twoLevelsFig = patchWith experiment (suns!!4)
+twoLevelsFig = drawPatchWith experiment (suns!!4)
 
 -- |figure showing two types of dart wing vertices (largeKiteCentre, largeDartBase)                         
 dartWingFig::Diagram B
@@ -134,10 +134,10 @@ Colour-filled examples
 
 -- |using leftFillDK
 filledSun6::Diagram B
-filledSun6 = patchWith (leftFillDK red blue) sun6 # lw ultraThin
+filledSun6 = drawPatchWith (leftFillDK red blue) sun6 # lw ultraThin
 -- |using fillDK
 newFillSun6::Diagram B
-newFillSun6 = patchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
+newFillSun6 = drawPatchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
 
 
 
