@@ -14,10 +14,9 @@ Stability   : experimental
 module GraphFigExamples where
 
 -- used for testing
-import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
+-- import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
 
--- partition find used for testing (relabelWatchStep)
-import Data.List ((\\), partition,find, intersect)      
+import Data.List (intersect)      
 import Diagrams.Prelude
 
 import ChosenBackend (B)
@@ -29,74 +28,8 @@ import Tgraphs
 padBorder:: Diagram B -> Diagram B
 padBorder = pad 1.2 . centerXY
 
-{- *
-Advanced drawing tools for Tgraphs
--}
 
--- |same as drawGraph except adding dashed lines on boundary join edges. 
-drawGraphSmart :: Tgraph -> Diagram B
-drawGraphSmart g = subDrawSmart g $ makeVPinned g
 
--- |same as drawVGraph except adding dashed lines on boundary join edges.
-drawVGraphSmart :: Tgraph -> Diagram B
-drawVGraphSmart g = subDrawSmartV g $ makeVPinned g
-
--- |Auxiliary function for drawGraphSmart. It needs to be passed a suitable vertex location map.
--- This can be used instead of drawGraphSmart when such a map is already available.
-subDrawSmart:: Tgraph -> VPinned -> Diagram B
-subDrawSmart g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp) 
-                        <> drawPatch (subPatch (faces g) vp)
-
--- |Auxiliary function for drawVGraphSmart. It needs to be passed a suitable VPinned.
--- This can be used instead of drawVGraphSmart when a suitable VPinned is already available.
-subDrawSmartV:: Tgraph -> VPinned -> Diagram B
-subDrawSmartV g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp) 
-                        <> drawVPinned (subVPinned (faces g) vp)
-
--- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
--- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
-drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (drawPatch $ subPatch (faces g') vp)
-                 <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vp)
-  where (fcs,g') = partCompose g
-        vp = makeVPinned g
-
--- |drawForce g is a diagram showing the argument g in red overlayed on force g
--- It adds dashed join edges on the boundary of g
-drawForce:: Tgraph -> Diagram B
-drawForce g = (dg # lc red) <> dfg where
-    fg = force g
-    vp = makeVPinned fg
-    dfg = drawPatch $ dropLabels vp
-    dg = subDrawSmart g vp
-
-{- |
-drawWithMax g - draws g and overlays the maximal forced composition of g in red
--}
-drawWithMax :: Tgraph -> Diagram B
-drawWithMax g =  (dmax # lc red # lw thin) <> dg where
-    vp = makeVPinned g
-    dg = drawPatch $ dropLabels vp
-    maxg = maxCompForced g
-    dmax = drawPatch $ subPatch (faces maxg) vp
-
--- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
-drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (drawEdges (vLocs vp) bd # lc lime) <> drawVPinned vp where
-    vp  = makeVPinned g
-    bd = boundaryDedges g
-
--- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces to find the common faces of g1 and g2
--- and emphasizes the common faces on the background g1
-drawCommonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram B
-drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g1
-
--- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background g.
-emphasizeFaces:: [TileFace] -> Tgraph -> Diagram B
-emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # lw ultraThin) where
-    vp = makeVPinned g
-    gPatch = dropLabels vp
-    emphPatch = subPatch (fcs `intersect` faces g) vp
     
 {- *
 Example Tgraphs with Figures
@@ -319,9 +252,9 @@ touchingTestFig =
     [ dashJVPinned vpLeft <> (dashJPatch (dropLabels vpGone) # lc lime)
     , dashJVPinned $  alignXaxis (8,3) $ makeVPinned $ force touchGraph
     ] where    
-      touchGraph = graphFromVPinned vpLeft
-      vpLeft = removeFacesVPinned deleted vp
-      vpGone = selectFacesVPinned deleted vp
+      touchGraph = graphFromVP vpLeft
+      vpLeft = removeFacesVP deleted vp
+      vpGone = selectFacesVP deleted vp
       vp = makeVPinned sunD2
       sunD2 = sunDs!!2
       deleted = filter ((==1).originV) (faces sunD2) ++
@@ -346,8 +279,8 @@ Incorrect Tgraphs (and other problem Tgraphs)
 -- |faces removed from foolD to illustrate crossing boundary and non tile-connected VPatches
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
-       where d1 = dashJVPinned $ removeFacesGtoVPinned [RK(3,11,13), LK(3,13,15), RK(3,15,4)] foolD
-             d2 = dashJVPinned $ removeFacesGtoVPinned [RK(5,11,2), LD(6,13,11), RD(6,15,13), LD(6,17,15)] foolD
+       where d1 = dashJVPinned $ removeFacesGtoVP [RK(3,11,13), LK(3,13,15), RK(3,15,4)] foolD
+             d2 = dashJVPinned $ removeFacesGtoVP [RK(5,11,2), LD(6,13,11), RD(6,15,13), LD(6,17,15)] foolD
 
 -- |mistake is a legal but incorrect Tgraph - a kite with 2 darts on its long edges
 mistake:: Tgraph
@@ -548,7 +481,7 @@ bigPic0 = padBorder $ lw ultraThin $ position $ concat
           where
               partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ allForcedDecomps $ force dartGraph
               forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce dartDs
-              drts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawGraphSmart dartDs
+              drts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawSmartGraph dartDs
               dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
@@ -623,7 +556,7 @@ curioPic0 = padBorder $ lw ultraThin $ position $ concat
     xDGraphs = decompositionsG sunPlus3Dart'
     xDs  = rotations [9,9,8] $  phiScaling phi $ reverse $
            drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red): 
-           take 2  (drop 1 $ fmap drawGraphSmart xDGraphs)
+           take 2  (drop 1 $ fmap drawSmartGraph xDGraphs)
     dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
     pointsRa = map p2 [ (0, 80), (42, 80), (95, 80), (150, 80), (200, 80)]
     pointsRb = map p2 [ (0, 40), (42, 40), (95, 40), (150, 40)]
@@ -740,11 +673,11 @@ checkCompleteFig =  padBorder $ hsep 1 $ fmap dashJGraph [sunD4, wholeTiles sunD
 
 -- |test graphFromVP
 checkGraphFromVP :: Diagram B
-checkGraphFromVP = padBorder $ (drawGraph . graphFromVPinned . makeVPinned) dartD4
+checkGraphFromVP = padBorder $ (drawGraph . graphFromVP . makeVPinned) dartD4
 
 -- |figure testing selectFacesGtoVP by removing all kites
 dartsOnlyFig :: Diagram B
-dartsOnlyFig = padBorder $ lw thin $ drawPatch $ dropLabels $ selectFacesGtoVPinned darts g where
+dartsOnlyFig = padBorder $ lw thin $ drawPatch $ dropLabels $ selectFacesGtoVP darts g where
     g = force $ sunDs !! 5
     darts = filter isDart $ faces g
 
@@ -1044,7 +977,7 @@ kingEmpire = padBorder $ lw ultraThin $ vsep 1 $
     sub6 = forceSub $ pushFaces $ unionTwoSub $ addHalfKiteSub (56,57) subX
     g1 = tgraph sub1
     g1Intersect sub = commonFaces (g1,(1,2)) (tgraph sub,(1,2))
-    fcs = foldl Data.List.intersect (faces g1) $
+    fcs = foldl intersect (faces g1) $
            fmap g1Intersect [sub2,sub3,sub4,sub5,sub6]
 
 

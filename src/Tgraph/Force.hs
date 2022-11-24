@@ -218,7 +218,7 @@ wholeTiles = forceWith wholeTileUpdates
 
 {-| forceWith uGen: 
      initialises force state before forcing (both using uGen to generate updates).
-     It recursively does all updates using forceAll uGen, 
+     It recursively does all updates using tryForceAll uGen, 
      then gets boundary from the final state and converts back to a Tgraph.
      This raises an error if it encounters a stuck/incorrect graph
 -}

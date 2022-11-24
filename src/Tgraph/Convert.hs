@@ -1,14 +1,15 @@
 {-|
 Module      : Tgraph.Convert
-Description : Conversion of Tgraphs to Patches (and VPatches) for drawing Tgraphs
+Description : Conversion of Tgraphs to Patches (and VPinned) for drawing Tgraphs
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-Includes conversion operations from Tgraphs to diagrams as well as the intermediate type VPinned
-to allow vertex labels to be drawn.
-Includes functions to calculate (relative) locations of vertices (createVPoints, adddVPoints)
+Conversion operations from Tgraphs to Patches and Diagrams as well as the intermediate type VPinned
+(Vertex pinned) used when drawing vertex labels.
+The module also includes functions to calculate (relative) locations of vertices (createVPoints, addVPoint) and
+touching vertex checks (touchingVertices, touchingVerticesGen).
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
@@ -90,26 +91,26 @@ subPatch :: [TileFace] -> VPinned -> Patch
 subPatch fcs = dropLabels . subVPinned fcs
 
 -- |Recover a Tgraph from a VPinned by dropping the vertex positions and checking Tgraph properties.
-graphFromVPinned:: VPinned -> Tgraph
-graphFromVPinned = checkedTgraph . vpFaces
+graphFromVP:: VPinned -> Tgraph
+graphFromVP = checkedTgraph . vpFaces
 
 -- |remove a list of faces from a VPinned
-removeFacesVPinned :: [TileFace] -> VPinned -> VPinned
-removeFacesVPinned fcs vp = VPinned {vLocs = vLocs vp, vpFaces = filter (not . (`elem` fcs)) $ vpFaces vp}
+removeFacesVP :: [TileFace] -> VPinned -> VPinned
+removeFacesVP fcs vp = VPinned {vLocs = vLocs vp, vpFaces = filter (not . (`elem` fcs)) $ vpFaces vp}
 
 -- |make a new VPinned with a list of selected faces from a VPinned.
 -- This will ignore any faces that are not in the given VPinned.
-selectFacesVPinned:: [TileFace] -> VPinned -> VPinned
-selectFacesVPinned fcs vp = VPinned {vLocs = vLocs vp, vpFaces = filter (`elem` fcs) $ vpFaces vp}
+selectFacesVP:: [TileFace] -> VPinned -> VPinned
+selectFacesVP fcs vp = VPinned {vLocs = vLocs vp, vpFaces = filter (`elem` fcs) $ vpFaces vp}
 
 
--- |selectFacesGtoVPinned fcs g -  only selected faces (fcs) are kept after converting g to a VPinned
-selectFacesGtoVPinned :: [TileFace] -> Tgraph -> VPinned
-selectFacesGtoVPinned fcs g = selectFacesVPinned fcs (makeVPinned g)
+-- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPinned
+selectFacesGtoVP :: [TileFace] -> Tgraph -> VPinned
+selectFacesGtoVP fcs g = selectFacesVP fcs (makeVPinned g)
 
--- |removeFacesGtoVPinned fcs g - remove faces (fcs) after converting g to a VPinned
-removeFacesGtoVPinned :: [TileFace] -> Tgraph -> VPinned
-removeFacesGtoVPinned fcs g = removeFacesVPinned fcs (makeVPinned g)
+-- |removeFacesGtoVP fcs g - remove faces (fcs) after converting g to a VPinned
+removeFacesGtoVP :: [TileFace] -> Tgraph -> VPinned
+removeFacesGtoVP fcs g = removeFacesVP fcs (makeVPinned g)
 
 -- |find the location of a single vertex in a VPinned
 findLoc :: Vertex -> VPinned -> Maybe (Point V2 Double)
@@ -272,12 +273,18 @@ edgeNbs efMap fc = catMaybes $ fmap getNbr edges where
 
 -- |axisJoin fc 
 -- initialises a vertex to point mapping with locations for the join edge vertices of fc
--- with originV fc at the origin and aligned along the x axis. (Used to initialise createVPoints)
+-- with originV fc at the origin and aligned along the x axis with unit length for a half dart
+-- and length phi for a half kite. (Used to initialise createVPoints)
 axisJoin::TileFace -> VertexLocMap                
+axisJoin fc = 
+  VMap.insert (originV fc) origin $ VMap.insert (oppV fc) (p2(x,0)) VMap.empty where
+    x = if isDart fc then 1 else phi
+{-
 axisJoin (LD(a,b,_)) = VMap.insert a origin $ VMap.insert b (p2(1,0)) VMap.empty -- [(a,origin), (b, p2(1,0))]
 axisJoin (RD(a,_,c)) = VMap.insert a origin $ VMap.insert c (p2(1,0)) VMap.empty --[(a,origin), (c, p2(1,0))]
 axisJoin (LK(a,_,c)) = VMap.insert a origin $ VMap.insert c (p2(phi,0)) VMap.empty --[(a,origin), (c, p2(phi,0))]
 axisJoin (RK(a,b,_)) = VMap.insert a origin $ VMap.insert b (p2(phi,0)) VMap.empty -- [(a,origin), (b, p2(phi,0))]
+-}
 
 -- |lookup 3 vertex locations in a vertex to point map.
 find3Locs::(Vertex,Vertex,Vertex) -> VertexLocMap
@@ -329,11 +336,11 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
 -}
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
-drawEdges :: VertexLocMap -> [(Vertex,Vertex)] -> Diagram B
+drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
 drawEdges vpMap = foldMap (drawEdge vpMap)
 
 -- |produce a diagram of a single edge (given a mapping of vertices to locations)
-drawEdge :: VertexLocMap -> (Vertex,Vertex) -> Diagram B
+drawEdge :: VertexLocMap -> Dedge -> Diagram B
 drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
@@ -414,8 +421,8 @@ touching p p1 = quadrance (p .-. p1) < 0.0625 -- quadrance is square of length o
 
 {-| 
 touchingVerticesGen  generalises touchingVertices to allow for multiple faces sharing a directed edge.
-This can arise when applied to the union of faces from 2 Tgraphs which might clash in places,
-Used in commonFaces.  
+This can arise when applied to the union of faces from 2 Tgraphs which might clash in places.
+It is used in the calculation of commonFaces.  
 -}
 touchingVerticesGen:: [TileFace] -> [(Vertex,Vertex)]
 touchingVerticesGen fcs = check vpAssoc where
@@ -429,35 +436,32 @@ This can arise when applied to the union of faces from 2 Tgraphs (e.g. in common
 -}
 createVPointsGen:: [TileFace] -> VertexLocMap
 createVPointsGen [] = VMap.empty
-createVPointsGen faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
+createVPointsGen faces = fastAddVPointsGen [face] (Set.fromList more) (axisJoin face) where
     (face:more) = lowestJoinFirst faces
     efMapGen = buildEFMapGen faces  -- map from Dedge to [TileFace]
-
-{- fastAddVPoints readyfaces fcOther vpMap.
+{- fastAddVPointsGen readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
 each will have at least two known vertex locations in vpMap.
 The second argument Set of faces (fcOther) are faces that have not yet been added
 and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
-    fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPoints [] fcOther vpMap | otherwise = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
-    fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
+    fastAddVPointsGen [] fcOther vpMap | Set.null fcOther = vpMap 
+    fastAddVPointsGen [] fcOther vpMap | otherwise = error ("fastAddVPointsGen: Faces not tile-connected " ++ show fcOther)
+    fastAddVPointsGen (fc:fcs) fcOther vpMap = fastAddVPointsGen (fcs++nbs) fcOther' vpMap' where
         nbs = filter (\f -> Set.member f fcOther) (edgeNbsGen efMapGen fc)
         fcOther' = foldr Set.delete fcOther nbs
         vpMap' = addVPoint fc vpMap
+-- Generalises buildEFMap by allowing for multiple faces on a directed edge.
+-- buildEFMapGen:: [TileFace] -> Map.Map Dedge [TileFace]
+    buildEFMapGen = Map.fromListWith (++) . concatMap processFace where
+    processFace fc = fmap (\e -> (e,[fc])) $ faceDedges fc
 
-
--- |Generalises buildEFMap by allowing for multiple faces on a directed edge.
-buildEFMapGen:: [TileFace] -> Map.Map Dedge [TileFace]
-buildEFMapGen = Map.fromListWith (++) . concatMap processFace where
-  processFace fc = fmap (\e -> (e,[fc])) $ faceDedges fc
-
--- |Generalised edgeNbs allowing for multiple faces on a directed edge.
-edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
-edgeNbsGen efMapGen fc = concat $ catMaybes $ fmap getNbrs edges where
-    getNbrs e = Map.lookup e efMapGen
-    edges = fmap reverseD (faceDedges fc) 
+-- Generalised edgeNbs allowing for multiple faces on a directed edge.
+-- edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
+    edgeNbsGen efMapGen fc = concat $ catMaybes $ fmap getNbrs edges where
+      getNbrs e = Map.lookup e efMapGen
+      edges = fmap reverseD (faceDedges fc) 
 
 
  

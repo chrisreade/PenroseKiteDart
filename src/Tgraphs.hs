@@ -8,7 +8,8 @@ Stability   : experimental
 
 This is the main module for Tgraph operations which collects and exports the other Tgraph modules. 
 It exports makeTgraph for constructing checked Tgraphs and excludes data constructor Tgraph.
-It also includes a definition of emplace and other experimental combinations.
+The module includes several functions for producing overlaid diagrams for graphs and
+a definition of emplace and other experimental combinations.
 -}
 module Tgraphs ( module Tgraphs
                , module Tgraph.Prelude -- excludes data constructor Tgraph
@@ -27,13 +28,19 @@ import Tgraph.Force
 import Tgraph.Convert
 import Tgraph.Relabelling
 
+import Diagrams.Prelude
+import ChosenBackend (B)
+import TileLib
+
+import Data.List (intersect)      
+
 {- *
-Making valid Tgraphs (checked for no touching vertices).
+Making valid Tgraphs (with a check for no touching vertices).
 -}
 
 
 {-|
-makeTgraph performs a touching vertex check as well as using checkedTgraph for other required properties.
+makeTgraph performs a no touching vertex check as well as using checkTgraphProps for other required properties.
 It produces an error if either check fails.
 Note that the other Tgraph properties are checked first, to ensure that calculation of 
 vertex locations can be done for a touching vertex check.
@@ -42,7 +49,7 @@ makeTgraph :: [TileFace] -> Tgraph
 makeTgraph fcs = getResult $ onFail "makeTgraph: (failed):\n" $ touchCheckProps fcs
 
 {-|
-touchCheckProps performs the same checks for Tgraph properties as checkedTgraph but in addition
+touchCheckProps performs the same checks for Tgraph properties as checkTgraphProps but in addition
 it also checks that there are no touching vertices (distinct labels for the same vertex)
 using Tgraph.Convert.touchingVertices (which calculates vertex locations).
 It produces Left ... if either check fails and Right g otherwise where g is the Tgraph.
@@ -61,14 +68,81 @@ touchCheckProps fcs =
               )
 
 {- *
-Used in drawing Tgraphs.
+Advanced drawing tools for Tgraphs
 -}
+
+-- |same as drawGraph except adding dashed lines on boundary join edges. 
+drawSmartGraph :: Tgraph -> Diagram B
+drawSmartGraph g = drawSmartSub g $ makeVPinned g
+
+-- |same as drawVGraph except adding dashed lines on boundary join edges.
+drawSmartVGraph :: Tgraph -> Diagram B
+drawSmartVGraph g = drawSmartVSub g $ makeVPinned g
+
+-- |drawSmartSub g vp converts g to a diagram (without vertex labels).
+-- It requires vp to contain a suitable vertex location map for drawing g.
+-- This can be used instead of drawSmartGraph when such a map is already available.
+drawSmartSub:: Tgraph -> VPinned -> Diagram B
+drawSmartSub g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp) 
+                        <> drawPatch (subPatch (faces g) vp)
+
+-- |drawSmartVSub g vp converts g to a diagram with vertex labels.
+-- It requires vp to contain a suitable vertex location map for drawing g.
+-- This can be used instead of drawSmartVGraph when a suitable VPinned is already available.
+drawSmartVSub:: Tgraph -> VPinned -> Diagram B
+drawSmartVSub g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp) 
+                        <> drawVPinned (subVPinned (faces g) vp)
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
 boundaryJoinFaces :: Tgraph -> [TileFace]
 boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ bDedges bdry where
     bdry = makeBoundary g
+
+-- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
+-- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
+drawPCompose ::  Tgraph -> Diagram B
+drawPCompose g = (drawPatch $ subPatch (faces g') vp)
+                 <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vp)
+  where (fcs,g') = partCompose g
+        vp = makeVPinned g
+
+-- |drawForce g is a diagram showing the argument g in red overlayed on force g
+-- It adds dashed join edges on the boundary of g
+drawForce:: Tgraph -> Diagram B
+drawForce g = (dg # lc red) <> dfg where
+    fg = force g
+    vp = makeVPinned fg
+    dfg = drawPatch $ dropLabels vp
+    dg = drawSmartSub g vp
+
+{- |
+drawWithMax g - draws g and overlays the maximal forced composition of g in red
+-}
+drawWithMax :: Tgraph -> Diagram B
+drawWithMax g =  (dmax # lc red # lw thin) <> dg where
+    vp = makeVPinned g
+    dg = drawPatch $ dropLabels vp
+    maxg = maxCompForced g
+    dmax = drawPatch $ subPatch (faces maxg) vp
+
+-- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
+drawGBoundary :: Tgraph -> Diagram B
+drawGBoundary g =  (drawEdges (vLocs vp) bd # lc lime) <> drawVPinned vp where
+    vp  = makeVPinned g
+    bd = boundaryDedges g
+
+-- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces to find the common faces of g1 and g2
+-- and emphasizes the common faces on the background g1
+drawCommonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram B
+drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g1
+
+-- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background g.
+emphasizeFaces:: [TileFace] -> Tgraph -> Diagram B
+emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # lw ultraThin) where
+    vp = makeVPinned g
+    gPatch = dropLabels vp
+    emphPatch = subPatch (fcs `intersect` faces g) vp
 
 
 {- *
