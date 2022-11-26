@@ -88,11 +88,9 @@ sunGraph = makeTgraph
 sunDs :: [Tgraph]
 sunDs =  decompositionsG sunGraph
 
-figSunD3D2,figSunD2D:: Diagram B
+figSunD3D2:: Diagram B
 -- |Figure for a 3 times decomposed sun with a 2 times decomposed sun
 figSunD3D2 = padBorder $ hsep 1 [dashJVGraph $ sunDs !! 3, scale phi $ dashJVGraph $ sunDs !! 2]
--- |Fifure for a 2 times decomposed sun with a once decomposed sun
-figSunD2D = padBorder  $ hsep 1 [dashJVGraph $ sunDs !! 2, scale phi $ dashJVGraph $ sunDs !! 1]
 
 -- |Tgraph for kite
 kiteGraph :: Tgraph
@@ -233,10 +231,8 @@ brokenKites = removeFaces deleted kPlusKD where
 {-|
 Figure showing a decomposed pair of adjacent kites, followed by
 brokenKites (3 faces removed from decomposed pair of kites), followed by
-compositon of brokenKites (a kite) which is also composition of forced brokenKites, followed by
+compositon of brokenKites (a kite) which is also the composition of forced brokenKites, followed by
 the emplacement of brokenKites (which is the same as force brokenKites).
-The figure illustrates that brokenKites is included in emplace brokenKites
-even though the missing part is not repaired.
 -}
 brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap dashJVPinned $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPinned 
@@ -359,15 +355,16 @@ Figures fof 7 vertex types
 vertexTypesFig:: Diagram B
 vertexTypesFig = padBorder $ hsep 1 lTypeFigs
  where
- lTypeFigs = zipWith labelD ["sun","star","jack","queen","king","ace","deuce"] vTypeFigs
+ lTypeFigs = zipWith (labelAt (p2(0,-2.2))) ["sun","star","jack","queen","king","ace","deuce"] vTypeFigs
  vTypeFigs = zipWith drawVertex 
                [sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph,  deuceGraph]
                [(1,2),    (1,2),     (1,2),     (1,2),      (1,2),     (3,6),     (2,6)] -- alignments
  drawVertex g alm = lw thin $ showOrigin $ dashJPatch $ dropLabels $ alignXaxis alm $ makeVPinned g
 
--- |add a given label below and to right of centre of a diagram
-labelD :: String -> Diagram B -> Diagram B
-labelD l d = baselineText l # fontSize (local 0.5) # fc blue <> d # moveTo (p2(0,2.2))
+-- |add a given label at a given point offset from the centre of the given diagram
+labelAt :: Point V2 Double -> String -> Diagram B -> Diagram B
+labelAt p l d = baselineText l # fontSize (output 15) # moveTo p <> d 
+--labelAt p l d = baselineText l # fontSize (local 0.5) # fc blue # moveTo p <> d 
 
 {-|Graphs for the vertex types (other than sunGraph previously declared)
     7 vertex types are, sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph=fool, deuceGraph
@@ -402,17 +399,18 @@ starGraph = makeTgraph
 {-|forceVFigures is a list of 7 diagrams - force of 7 vertex types -}
 forceVFigures :: [Diagram B]
 forceVFigures = rotations [0,0,9,5,0,0,1] $
-                fmap drawForce [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
+                fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
 
 
 {-| forceVsFig shows force of the 7 vertex types in a row as single diagram -}
 forceVsFig :: Diagram B
 forceVsFig = padBorder $ hsep 1 forceVFigures
 
+{-
 {-| relatedVTypeFig lays out figures from forceVFigures plus a kite as single diagram with 3 columns -}
 relatedVTypeFig = padBorder $ lw thin $
- atPoints [p2(0,15),p2(0,10),   p2(8,15),p2(9,10),p2(9,1),  p2(18,15),p2(18,10),p2(20,1) ]
-          [sunF,    starF,      aceF,    jackF,    kingF,     kite,     deuceF,   queenF]
+ atPoints [p2(0,15),p2(0,10), p2(8,15),p2(9,10),p2(9,1),  p2(18,15),p2(18,10),p2(20,1) ]
+          [sunF,    starF,    aceF,    jackF,   kingF,    kite,     deuceF,   queenF]
  where kite = drawGraph kiteGraph
        sunF = forceVFigures!!0
        starF = forceVFigures!!1
@@ -421,7 +419,35 @@ relatedVTypeFig = padBorder $ lw thin $
        kingF = forceVFigures!!4
        aceF = forceVFigures!!5
        deuceF = forceVFigures!!6
+-}
 
+{-| relatedVTypeFig lays out figures from forceVFigures plus a kite as single diagram with 3 columns -}
+relatedVType0 = lw thin $
+ atPoints [p2(0,20),p2(0,12),  p2(8,20),p2(8,12),p2(8,1),  p2(18,20),p2(18,12),p2(18,1) ] $
+          [sunF,    starF,      aceF,    jackF,    kingF,     kite,     deuceF,   queenF]
+ where kite   = labelAt (p2(-4,2)) "force kite (= kite)" $ named "kite" $ center $ lc red $ drawGraph kiteGraph
+       sunF   = labelAt (p2(-4,2)) "force sun (= sun)" $ named "sunF" $ forceVFigures!!0
+       starF  = labelAt (p2(-4,2.1)) "force star" $ named "starF" $ forceVFigures!!1
+       jackF  = labelAt (p2(-4,2.1)) "force jack" $ named "jackF" $ forceVFigures!!2
+       queenF = labelAt (p2(-4,4)) "force queen" $ named "queenF" $ forceVFigures!!3
+       kingF  = labelAt (p2(-4,4)) "force king" $ named "kingF" $ forceVFigures!!4
+       aceF   = labelAt (p2(-4,2)) "force ace (= ace)" $ named "aceF" $ forceVFigures!!5
+       deuceF = labelAt (p2(-4,2.1)) "force deuce" $ named "deuceF" $ forceVFigures!!6
+
+relatedVTypeFig = 
+  padBorder relatedVType0
+    # forceDecArrow "sunF" "starF"
+    # composeArcUp "starF" "sunF"
+    # forceDecArrow "aceF" "jackF"
+    # composeArcUp "jackF" "aceF"
+    # forceDecArrow "kite" "deuceF"
+    # composeArcUp "deuceF" "kite"
+    # forceDecArrow "jackF" "kingF"
+    # composeArcUp "kingF" "jackF"
+    # forceDecArrow "deuceF" "queenF"
+    # composeArcUp "queenF" "deuceF"
+    
+    
 {- *
 Other miscelaneous Tgraphs and Diagrams
 -}
@@ -468,7 +494,6 @@ gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
     , drawGraph $ recoverGraph $ boundaryState $ stepForce g 820 --600
     ] where g = boundaryGapFDart4
 
-
 {-| bigPic is a diagram illustrating force/emplacement relationships for decomposed darts
      bigPic0 is main diagram for bigPic without the arrows
 -}
@@ -487,14 +512,14 @@ bigPic0 = padBorder $ lw ultraThin $ position $ concat
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]    
 bigPic = 
-    bigPic0  # composeArc "a3" "a2"
-             # composeArc "a2" "a1"
-             # composeArc "a1" "a0"
-             # composeArc "a4" "a3"
-             # composeArc "b4" "b3"
-             # composeArc "b3" "b2"
-             # composeArc "b2" "b1"
-             # composeArc "b1" "b0"
+    bigPic0  # composeArcRight "a3" "a2"
+             # composeArcRight "a2" "a1"
+             # composeArcRight "a1" "a0"
+             # composeArcRight "a4" "a3"
+             # composeArcRight "b4" "b3"
+             # composeArcRight "b3" "b2"
+             # composeArcRight "b2" "b1"
+             # composeArcRight "b1" "b0"
              # decompArrow "b3" "b4"
              # decompArrow "b2" "b3"
              # decompArrow "b1" "b2"
@@ -535,12 +560,20 @@ composeArrow = connectOutside' arrowStyleC where
                       & headStyle %~ fc green & shaftStyle %~ lc green 
                       & headGap .~ large & tailGap .~ large
 
--- |add a compose arrow arc (green) from named parts of 2 diagrams
-composeArc :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
-composeArc a b = connectPerim' arrowStyleC a b (1/10 @@ turn) (4/10 @@ turn) where
+-- |add a compose arrow arc (green) from named parts of 2 diagrams and start/end angles
+composeArc :: (IsName n1, IsName n2) => n1 -> n2 -> Angle Double -> Angle Double -> Diagram B -> Diagram B
+composeArc a b t1 t2 = connectPerim' arrowStyleC a b t1 t2 where
   arrowStyleC = with & arrowShaft .~ arc xDir (-1/10 @@ turn) & headLength .~ verySmall 
                      & headStyle %~ fc green & shaftStyle %~ lc green 
                      & headGap .~ large & tailGap .~ large
+
+-- |add a compose arrow arc (green) from named parts of 2 diagrams (horizontal left to right)
+composeArcRight :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+composeArcRight a b = composeArc a b (1/10 @@ turn) (4/10 @@ turn)
+
+-- |add a compose arrow arc (green) from named parts of 2 diagrams (vertical up)
+composeArcUp :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+composeArcUp a b = composeArc a b (3/10 @@ turn) (6/10 @@ turn)
     
 
 {-| curioPic0 is diagram curioPic without arrows
@@ -567,13 +600,13 @@ curioPic0 = padBorder $ lw ultraThin $ position $ concat
 -}
 curioPic :: Diagram B
 curioPic = 
-  curioPic0  # composeArc "a3" "a2"
-             # composeArc "a2" "a1"
-             # composeArc "a1" "a0"
-             # composeArc "a4" "a3"
-             # composeArc "b3" "b2"
-             # composeArc "b2" "b1"
-             # composeArc "b4" "b3"
+  curioPic0  # composeArcRight "a3" "a2"
+             # composeArcRight "a2" "a1"
+             # composeArcRight "a1" "a0"
+             # composeArcRight "a4" "a3"
+             # composeArcRight "b3" "b2"
+             # composeArcRight "b2" "b1"
+             # composeArcRight "b4" "b3"
              # composeArrow "b1" "a0"
              # forceDecArrow "a3" "a4"
              # forceDecArrow "a2" "a3"
@@ -589,10 +622,10 @@ curioPic =
              # forceArrow "c2" "b2"
              # forceArrow "c3" "b3"
              # forceArrow "c0" "a0"
-             # composeArc "c4" "c3"
-             # composeArc "c3" "c2"
-             # composeArc "c2" "c1"
-             # composeArc "c1" "c0"
+             # composeArcRight "c4" "c3"
+             # composeArcRight "c3" "c2"
+             # composeArcRight "c2" "c1"
+             # composeArcRight "c1" "c0"
 
 -- |figure showing ordering of a decomposed kite (bottom), a test graph with an extra LK(3,6,8),
 -- and forced figure at the top and composition of all 3 = kite on the right

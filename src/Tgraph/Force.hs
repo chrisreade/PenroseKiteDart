@@ -1159,31 +1159,7 @@ findLoops es = collectLoops $ VMap.fromList es where
 
 
 
-{- *
-Forcing SubTgraphs
--}
 
--- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
-forceSub :: SubTgraph -> SubTgraph
-forceSub sub = makeSubTgraph (force $ tgraph sub) (tracked sub)
-
--- |aaddHalfDartSub sub e - add a half dart to the tgraph of sub on the given edge e,
--- and push the new singleton face list onto the tracked list.
-addHalfDartSub:: Dedge -> SubTgraph -> SubTgraph
-addHalfDartSub e sub =
-    makeSubTgraph g' (fcs:tracked sub) where
-    g = tgraph sub
-    g' = addHalfDart e g
-    fcs = faces g' \\ faces g
-
--- |addHalfKiteSub sub e - add a half kite to the tgraph of sub on the given edge e,
--- and push the new singleton face list onto the tracked list.
-addHalfKiteSub:: Dedge -> SubTgraph -> SubTgraph
-addHalfKiteSub e sub =
-    makeSubTgraph g' (fcs:tracked sub) where
-    g = tgraph sub
-    g' = addHalfKite e g
-    fcs = faces g' \\ faces g
 
 {- *
 Adding faces (findThirdV)

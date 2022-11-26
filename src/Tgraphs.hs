@@ -22,17 +22,18 @@ module Tgraphs ( module Tgraphs
 
 import Tgraph.Prelude hiding (Tgraph(Tgraph)) -- hides Tgraph as type and data constructor
 import Tgraph.Prelude (Tgraph) -- re-includes Tgraph as type constructor only
+import qualified Tgraph.Prelude as Local (Tgraph(Tgraph)) -- Allows Tgraph data constructor to be used in this module
 import Tgraph.Decompose
 import Tgraph.Compose
 import Tgraph.Force
 import Tgraph.Convert
 import Tgraph.Relabelling
 
-import Diagrams.Prelude
+import Diagrams.Prelude hiding (union)
 import ChosenBackend (B)
 import TileLib
 
-import Data.List (intersect)      
+import Data.List (intersect, union, (\\))      
 
 {- *
 Making valid Tgraphs (with a check for no touching vertices).
@@ -117,13 +118,13 @@ drawForce g = (dg # lc red) <> dfg where
     dg = drawSmartSub g vp
 
 {- |
-drawWithMax g - draws g and overlays the maximal forced composition of g in red
+drawWithMax g - draws g and overlays the maximal composition of g in red
 -}
 drawWithMax :: Tgraph -> Diagram B
 drawWithMax g =  (dmax # lc red # lw thin) <> dg where
     vp = makeVPinned g
     dg = drawPatch $ dropLabels vp
-    maxg = maxCompForced g
+    maxg = maxComp g
     dmax = drawPatch $ subPatch (faces maxg) vp
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
@@ -170,6 +171,15 @@ allForcedDecomps = iterate forcedDecomp
 maxCompForced:: Tgraph -> Tgraph
 maxCompForced = force . last . allCompForced
 
+-- |maxComp may produce a maximally composed graph, but may raise an error if any intermediate composition 
+-- is not a valid Tgraph.
+maxComp:: Tgraph -> Tgraph
+maxComp = last . allComp
+
+-- |allComp g may produce a list of all compositions starting from g up to but excluding the empty graph,
+-- but it may raise an error if any composition is not a valid Tgraph.
+allComp:: Tgraph -> [Tgraph]
+allComp = takeWhile (not . nullGraph) . iterate composeG
 
 {- *
 Emplacements
@@ -212,8 +222,122 @@ makeChoices g = choices unks [g] where
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
 
+{- *
+SubTgraphs
+-}
+
+{-|
+ SubTgraph - introduced to allow tracking of subsets of faces
+ in both force and decompose oerations.
+ A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces (tracked).
+ The list allows for tracking different subsets of faces at the same time.
+-}
+data SubTgraph = SubTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]} deriving Show
+
+-- |newSubTgraph g creates a SubTgraph from a Tgraph g with an empty tracked list
+newSubTgraph :: Tgraph -> SubTgraph
+newSubTgraph g = makeSubTgraph g []
+
+-- |makeSubTgraph g trackedlist creates a SubTgraph from a Tgraph g
+-- from trackedlist where each list in trackedlist is a subset of the faces of g.
+-- Any faces not in g are ignored.
+makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
+makeSubTgraph g trackedlist = SubTgraph{ tgraph = g, tracked = fmap (`intersect` faces g) trackedlist}
+
+-- |pushFaces sub - pushes the maingraph tilefaces onto the stack of tracked subsets of sub
+pushFaces:: SubTgraph -> SubTgraph
+pushFaces sub = makeSubTgraph g newTracked where
+    g = tgraph sub
+    newTracked = faces g:tracked sub
+
+-- |unionTwoSub sub - combines the top two lists of tracked tilefaces replacing them with the list union.
+unionTwoSub:: SubTgraph -> SubTgraph
+unionTwoSub sub = makeSubTgraph g newTracked where
+    g = tgraph sub
+    (a:b:more) = tracked sub
+    newTracked = case tracked sub of
+                   (a:b:more) -> a `union` b:more
+                   _ -> error $ "unionTwoSub: Two tracked lists of faces not found: " ++ show sub ++"\n"
 
 
+{- *
+Forcing and Decomposing SubTgraphs
+-}
+
+-- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
+forceSub :: SubTgraph -> SubTgraph
+forceSub sub = makeSubTgraph (force $ tgraph sub) (tracked sub)
+
+-- |aaddHalfDartSub sub e - add a half dart to the tgraph of sub on the given edge e,
+-- and push the new singleton face list onto the tracked list.
+addHalfDartSub:: Dedge -> SubTgraph -> SubTgraph
+addHalfDartSub e sub =
+    makeSubTgraph g' (fcs:tracked sub) where
+    g = tgraph sub
+    g' = addHalfDart e g
+    fcs = faces g' \\ faces g
+
+-- |addHalfKiteSub sub e - add a half kite to the tgraph of sub on the given edge e,
+-- and push the new singleton face list onto the tracked list.
+addHalfKiteSub:: Dedge -> SubTgraph -> SubTgraph
+addHalfKiteSub e sub =
+    makeSubTgraph g' (fcs:tracked sub) where
+    g = tgraph sub
+    g' = addHalfKite e g
+    fcs = faces g' \\ faces g
+
+-- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph.
+-- Tracked subsets get the same numbering of new vertices as the main Tgraph. 
+decomposeSub :: SubTgraph -> SubTgraph
+decomposeSub sub = makeSubTgraph g' tlist where
+   g = tgraph sub
+   g' = Local.Tgraph{ maxV = newMax
+                    , faces = newFaces
+                    }
+   (newMax , newVFor) = maxAndPhiVMap g
+   newFaces = concatMap (decompFace newVFor) (faces g)
+   tlist = fmap (concatMap (decompFace newVFor)) (tracked sub)
+
+{- *  Drawing with SubTgraphs
+-}                     
+                     
+{-|
+    To draw a SubTgraph without vertex labels, we use a list of functions each turning a patch into a diagram.
+    The first function is applied to a patch for untracked faces
+    Subsequent functions are applied to patches for the respective tracked subsets.
+    Each diagram is atop earlier ones, so the diagram for the untracked patch is at the bottom.
+    The patches will all have been made from the same VPinned vertex location map so will be aligned/scaled
+    appropriately.
+-}
+drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
+drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
+          vp = makeVPinned (tgraph sub)
+          fcsFull = vpFaces vp    
+          pTrackedList = fmap (\fcs -> subPatch fcs vp) (tracked sub)
+          pUntracked = subPatch (fcsFull \\ concat (tracked sub)) vp
+          drawAll fs ps = mconcat $ reverse $ zipWith ($) fs ps
+
+-- |drawing non tracked faces only
+drawWithoutTracked:: SubTgraph -> Diagram B
+drawWithoutTracked sub = drawSubTgraph [drawPatch] sub
+
+{-|
+    To draw a SubTgraph with possible vertex labels, we use a list of functions each turning a VPinned into a diagram.
+    The first function is applied to a VPinned for untracked faces.
+    Subsequent functions are applied to VPinned for respective tracked subsets.
+    Each diagram is atop earlier ones, so the diagram for the untracked VPinned is at the bottom.
+    The VPinned all use the same vertex location map so will be aligned/scaled
+    appropriately.
+    The angle argument is used to rotate the common vertex location map before drawing
+    (to ensure labels are not rotated).
+-}
+drawSubTgraphV:: [VPinned -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
+drawSubTgraphV drawList a sub = drawAll drawList (vpUntracked:vpTrackedList) where
+          vp = rotate a $ makeVPinned (tgraph sub)
+          fcsFull = vpFaces vp    
+          vpTrackedList = fmap (\fcs -> subVPinned fcs vp) (tracked sub)
+          vpUntracked = subVPinned (fcsFull \\ concat (tracked sub)) vp
+          drawAll fs vps = mconcat $ reverse $ zipWith ($) fs vps
 
 
 

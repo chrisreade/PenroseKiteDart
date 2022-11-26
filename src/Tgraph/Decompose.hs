@@ -68,16 +68,5 @@ decompFace newVFor fc = case fc of
 decompositionsG :: Tgraph -> [Tgraph]
 decompositionsG = iterate decomposeG
 
--- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph.
--- Tracked subsets get the same numbering of new vertices as the main tgraph. 
-decomposeSub :: SubTgraph -> SubTgraph
-decomposeSub sub = makeSubTgraph g' tlist where
-   g = tgraph sub
-   g' = Tgraph{ maxV = newMax
-              , faces = newFaces
-              }
-   (newMax , newVFor) = maxAndPhiVMap g
-   newFaces = concatMap (decompFace newVFor) (faces g)
-   tlist = fmap (concatMap (decompFace newVFor)) (tracked sub)
 
 

@@ -542,40 +542,6 @@ makeVFMapFor vs = foldl' insertf start where
                             addf (Just fs) = Just (f:fs)
 
 
-{- * SubTgraphs -}
-{-|
- SubTgraph - introduced to allow tracking of subsets of faces
- in both force and decompose oerations.
- A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces (tracked).
- The list allows for tracking different subsets of faces at the same time
--}
-data SubTgraph = SubTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]} deriving Show
-
--- |newSubTgraph g creates a SubTgraph from a Tgraph g with an empty tracked list
-newSubTgraph :: Tgraph -> SubTgraph
-newSubTgraph g = makeSubTgraph g []
-
--- |makeSubTgraph g trackedlist creates a SubTgraph from a Tgraph g
--- from trackedlist where each list in trackedlist is a subset of the faces of g.
--- Any faces not in g are ignored.
-makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
-makeSubTgraph g trackedlist = SubTgraph{ tgraph = g, tracked = fmap (`intersect` faces g) trackedlist}
-
--- |pushFaces sub - pushes the maingraph tilefaces onto the stack of tracked subsets of sub
-pushFaces:: SubTgraph -> SubTgraph
-pushFaces sub = makeSubTgraph g newTracked where
-    g = tgraph sub
-    newTracked = faces g:tracked sub
-
--- |unionTwoSub sub - combines the top two lists of tracked tilefaces replacing them with the list union.
-unionTwoSub:: SubTgraph -> SubTgraph
-unionTwoSub sub = makeSubTgraph g newTracked where
-    g = tgraph sub
-    (a:b:more) = tracked sub
-    newTracked = case tracked sub of
-                   (a:b:more) -> a `union` b:more
-                   _ -> error $ "unionTwoSub: Two tracked lists of faces not found: " ++ show sub ++"\n"
-
 {- * Failure reporting (for partial operations) -}
 
 -- | ReportFail is a synonym for Either String.  Used for results of partial functions

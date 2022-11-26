@@ -346,44 +346,6 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
  
 
-{- *  Drawing with SubTgraphs
--}
-                     
-                     
-{-|
-    To draw a SubTgraph without vertex labels, we use a list of functions turning patches into diagrams
-    The first function is applied to a patch for untracked faces
-    Subsequent functions are applied to the respective tracked subsets.
-    (Each patch is atop earlier ones, so the untracked patch is at the bottom)
--}
-drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
-drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
-          vp = makeVPinned (tgraph sub)
-          fcsFull = vpFaces vp    
-          pTrackedList = fmap (\fcs -> subPatch fcs vp) (tracked sub)
-          pUntracked = subPatch (fcsFull \\ concat (tracked sub)) vp
-          drawAll fs ps = mconcat $ reverse $ zipWith ($) fs ps
-
--- |drawing non tracked faces only
-drawWithoutTracked:: SubTgraph -> Diagram B
-drawWithoutTracked sub = drawSubTgraph [drawPatch] sub
-
-{-|
-    To draw a SubTgraph with possible vertex labels, we use a list of functions turning VPatches into diagrams
-    The first function is applied to a VPatch for untracked faces
-    Subsequent functions are applied to the VPatches for respective tracked subsets.
-    (Each Vpatch is atop earlier ones, so the untracked Vpatch is at the bottom).
-    The angle argument is used to rotate the VPatches before drawing (to ensure labels are not rotated).
--}
-drawSubTgraphV:: [VPinned -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
-drawSubTgraphV drawList a sub = drawAll drawList (vpUntracked:vpTrackedList) where
-          vp = makeVPinned (tgraph sub)
-          fcsFull = vpFaces vp    
-          vpTrackedList = fmap (\fcs -> rotate a $ subVPinned fcs vp) (tracked sub)
-          vpUntracked = rotate a $ subVPinned (fcsFull \\ concat (tracked sub)) vp
-          drawAll fs vps = mconcat $ reverse $ zipWith ($) fs vps
-
-
 {- *  Touching Vertices
 -}
 
