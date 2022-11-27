@@ -32,7 +32,7 @@ import ChosenBackend (B)
 type VertexLocMap = VMap.IntMap (Point V2 Double)
 
 
-{- * VPinned
+{-* VPinned
 -}
 
 -- |A VPinned has a map from vertices to points along with a list of tile faces.
@@ -49,7 +49,7 @@ instance Transformable VPinned where
     transform t (VPinned {vLocs = vlocs,  vpFaces = fcs})
          =  VPinned {vLocs = VMap.map (transform t) vlocs , vpFaces = fcs}
 
-{- |Convert a Tgraph to a VPinned.
+{-|Convert a Tgraph to a VPinned.
 This uses createVPoints to form an intermediate VertexLocMap (mapping of vertices to positions).
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis.
 -}
@@ -64,7 +64,7 @@ makeVPinned g = VPinned {vLocs = createVPoints fcs, vpFaces  = fcs} where fcs = 
 subVPinned:: [TileFace] -> VPinned -> VPinned
 subVPinned fcs vp = VPinned {vLocs = vLocs vp, vpFaces  = fcs} 
 
-{- |
+{-|
 makePatch uses makeVPinned first then uses dropLabels to convert faces to located Pieces.
 (So dropping the Vertices information.)
 -}
@@ -118,7 +118,7 @@ findLoc v = VMap.lookup v . vLocs
 
 
 
-{- * Drawing VPinned and Graphs
+{-* Drawing VPinned and Graphs
 -}
 
 -- |simplest drawing without vertex labels
@@ -164,7 +164,7 @@ relevantVPinnedWith pd vp = drawVlabels locVs <> drawPatchWith pd (dropLabels vp
 
 
 
-{- * VPinned Alignment with Vertices
+{-* VPinned Alignment with Vertices
 -}
 
 -- |center a VPinned on a particular vertex. (Raises an error if the vertex is not in the VPinned vertices)
@@ -201,7 +201,7 @@ alignAll:: (Vertex, Vertex) -> [VPinned] -> [VPinned]
 alignAll (a,b) = fmap (alignXaxis (a,b))
 
 
-{- * Vertex Location Calculation -}
+{-* Vertex Location Calculation -}
 
 
 {-| createVPoints: processes a list of faces to associate points for each vertex.
@@ -332,7 +332,7 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
 
-{- *  Drawing (located) Edges
+{-*  Drawing (located) Edges
 -}
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
@@ -346,7 +346,7 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
  
 
-{- *  Touching Vertices
+{-*  Touching Vertices
 -}
 
 {-| 
@@ -378,7 +378,7 @@ It is used in touchingVertices and touchingVerticesGen)
 touching :: Point V2 Double -> Point V2 Double -> Bool
 touching p p1 = quadrance (p .-. p1) < 0.0625 -- quadrance is square of length of a vector
 
-{- *  Generalised Touching Vertices
+{-*  Generalised Touching Vertices
 -}
 
 {-| 

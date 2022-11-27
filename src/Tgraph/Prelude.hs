@@ -28,7 +28,7 @@ Tgraphs
 -----------------------}
 
 
-{- *
+{-*
 Tgraphs
 -}
 -- |Tgraph vertices
@@ -92,7 +92,7 @@ checkedTgraph fcs = getResult $ onFail report (checkTgraphProps fcs)
 nullGraph:: Tgraph -> Bool
 nullGraph g = null (faces g)
 
-{- *
+{-*
 Basic Tgraph face operations
 -}
 
@@ -129,7 +129,7 @@ selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 
 
 
-{- *
+{-*
 Required Tgraph properties
 -}
 
@@ -289,7 +289,7 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
               newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x 
 
        
-{- *
+{-*
 Other Face and Vertex Operations
 -}
 
@@ -374,7 +374,7 @@ hasVIn vs fc = not $ null $ faceVList fc `intersect` vs
 newVsAfter :: Int -> Vertex -> [Vertex]
 n `newVsAfter` v = [v+1..v+n]
 
-{- * Other Edge Operations -}
+{-* Other Edge Operations -}
 {-
 (a,b) is regarded as a directed edge from a to b.
 A list of such pairs will usually be regarded as a list of directed edges.
@@ -530,7 +530,7 @@ edgeNb fc = any (`elem` edges) . faceDedges where
 -- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
 type VertexMap a = VMap.IntMap a
 
-{- |makeVFMapFor vs fcs -
+{-|makeVFMapFor vs fcs -
 For list of vertices vs and list of faces fcs,
 create an IntMap from each vertex in vs to a list of those faces in fcs that are at that vertex
 -}
@@ -542,7 +542,7 @@ makeVFMapFor vs = foldl' insertf start where
                             addf (Just fs) = Just (f:fs)
 
 
-{- * Failure reporting (for partial operations) -}
+{-* Failure reporting (for partial operations) -}
 
 -- | ReportFail is a synonym for Either String.  Used for results of partial functions
 -- which return either Right something when defined or Left string when there is a problem
@@ -569,7 +569,7 @@ getResult = either error id
 tryApply :: (a -> r) -> ReportFail a -> ReportFail r
 tryApply = liftM 
 
--- |Combines a list of ReportFails into a single ReportFail.
+-- |Combines a list of ReportFails into a single ReportFail with failure overriding success.
 -- It concatenates all failure reports if there are any and returns a single Left r.
 -- Otherwise it produces Right rs where rs is the list of all (successful) results.
 concatFail:: [ReportFail a] -> ReportFail [a]
@@ -577,6 +577,8 @@ concatFail ls = case [x | Left x <- ls] of
                  [] -> Right [x | Right x <- ls]
                  other -> Left $ mconcat other -- concatenates strings for single report
 
+-- |Combines a list of ReportFails into a list of successes, ignoring any failures.
+ignoreFails ls = [x | Right x <- ls]
                           
 {-
 Can't automate concatFail by making (ReportFail a) a monoid

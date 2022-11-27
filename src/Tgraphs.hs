@@ -1,6 +1,7 @@
+{-# OPTIONS_HADDOCK ignore-exports #-}
 {-|
 Module      : Tgraphs
-Description : Collects and exports the various Tgraph modules 
+Description : Collects and exports the various Tgraph modules plus some experimental ones
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
@@ -35,10 +36,7 @@ import TileLib
 
 import Data.List (intersect, union, (\\))      
 
-{- *
-Making valid Tgraphs (with a check for no touching vertices).
--}
-
+-- * Making valid Tgraphs (with a check for no touching vertices).
 
 {-|
 makeTgraph performs a no touching vertex check as well as using checkTgraphProps for other required properties.
@@ -68,10 +66,9 @@ touchCheckProps fcs =
                ++ "\n(To fix, use: correctTouchingVs)\n"
               )
 
-{- *
+{-*
 Advanced drawing tools for Tgraphs
 -}
-
 -- |same as drawGraph except adding dashed lines on boundary join edges. 
 drawSmartGraph :: Tgraph -> Diagram B
 drawSmartGraph g = drawSmartSub g $ makeVPinned g
@@ -111,13 +108,13 @@ drawPCompose g = (drawPatch $ subPatch (faces g') vp)
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
 -- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
-drawForce g = (dg # lc red) <> dfg where
+drawForce g = (dg # lc red # lw thin) <> dfg where
     fg = force g
     vp = makeVPinned fg
     dfg = drawPatch $ dropLabels vp
     dg = drawSmartSub g vp
 
-{- |
+{-|
 drawWithMax g - draws g and overlays the maximal composition of g in red
 -}
 drawWithMax :: Tgraph -> Diagram B
@@ -145,11 +142,9 @@ emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # l
     gPatch = dropLabels vp
     emphPatch = subPatch (fcs `intersect` faces g) vp
 
-
-{- *
+{-*
 Combining force, composeG, decomposeG
 -}
-
 -- |compForced does a force then composeG. 
 -- (the connectedNoCross check may be redundant on the composed graph because the argument was forced.)
 compForced:: Tgraph -> Tgraph
@@ -181,10 +176,9 @@ maxComp = last . allComp
 allComp:: Tgraph -> [Tgraph]
 allComp = takeWhile (not . nullGraph) . iterate composeG
 
-{- *
+{-*
 Emplacements
 -}
-
 -- |emplace does maximal composing with force and composeG, 
 -- then applies decomposeG and force repeatedly back to the starting level.
 -- It produces the emplacement of influence of the argument graph.   
@@ -222,10 +216,78 @@ makeChoices g = choices unks [g] where
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
 
-{- *
-SubTgraphs
+{-*
+Boundary Covers and Empires
 -}
 
+{-| forcedBoundaryCover g - profuces a list of all possible ways of extending (force g)
+so that the boundary of force g is entirely internal edges.
+The  common faces of the resulting list of graphs constitute the empire (level 1) of g
+-}
+forcedBoundaryCover:: Tgraph -> [Tgraph]
+forcedBoundaryCover g = fmap recoverGraph $ boundaryCover $ makeBoundary $ force g
+
+{-| boundaryCover bd - profuces a list of all possible ways of extending the Boundary bd
+so that the boundary of bd is entirely internal edges.
+-}
+boundaryCover:: Boundary -> [Boundary]
+boundaryCover bd = continue [] [(bd, bDedges bd)] where
+--continue::([Boundary], [(Boundary,[Dedge])]) -> [Boundary]
+  continue complete [] = complete
+  continue complete ((open,[]):opens) = continue (open:complete) opens
+  continue complete ((open,de:bdes):opens) = 
+      continue complete (fmap (remainder bdes) (tryDartAndKite de open) ++ opens)  
+--remainder:: [Dedge] -> Boundary -> (Boundary, [Dedge])
+  remainder bds b = (b, bDedges b `intersect` bds)
+--tryDartAndKite:: Dedge -> Boundary -> [Boundary]
+  tryDartAndKite de bd = ignoreFails 
+    [ tryAddHalfDartBoundary de bd >>= tryForceBoundary defaultAllUGen
+    , tryAddHalfKiteBoundary de bd >>= tryForceBoundary defaultAllUGen
+    ]
+
+
+-- | test function to draw a column of the list of graphs resulting from forcedBoundaryCover g
+drawFBCover:: Tgraph -> Diagram B
+drawFBCover g = lw ultraThin $ vsep 1 $ 
+     fmap drawGraph $ forcedBoundaryCover g
+
+-- | empire1 g - produces a SubTgraph representing the level 1 empire of g
+-- The tgraph is an arbitrarily chosen extension of (force g) covering its boundary,
+-- and the tracked faces are the common faces of all possible extensions covering the boundary.
+empire1:: Tgraph -> SubTgraph
+empire1 g = makeSubTgraph g1 [fcs] where
+    (g1:others) = forcedBoundaryCover g
+    fcs = foldl intersect (faces g1) $ fmap g1Intersect others
+    de = lowestJoin (faces g)
+    g1Intersect g2 = commonFaces (g1,de) (g2,de)
+
+-- | empire2 g - produces a SubTgraph representing the level 2 empire of g
+-- The tgraph is an arbitrarily chosen (double) extension of (force g),
+-- and the tracked faces are the common faces of all possible (double) extensions.
+empire2:: Tgraph -> SubTgraph
+empire2 g = makeSubTgraph g1 [fcs] where
+    covers1 = boundaryCover $ makeBoundary $ force g
+    covers2 = concatMap boundaryCover covers1
+    (g1:others) = fmap recoverGraph covers2
+    fcs = foldl intersect (faces g1) $ fmap g1Intersect others
+    de = lowestJoin (faces g)
+    g1Intersect g2 = commonFaces (g1,de) (g2,de)
+
+-- | drawEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
+-- This is drawn over one of the possible boundary covers.
+drawEmpire1:: Tgraph -> Diagram B
+drawEmpire1 g = emphasizeFaces (head $ tracked sub) (tgraph sub) where
+    sub = empire1 g
+
+-- | drawEmpire2 g - produces a diagram emphasising the common faces of a double boundary cover of force g.
+-- This is drawn over one of the possible double boundary covers.
+drawEmpire2:: Tgraph -> Diagram B
+drawEmpire2 g = emphasizeFaces (head $ tracked sub) (tgraph sub) where
+    sub = empire2 g
+
+{-*
+SubTgraphs
+-}
 {-|
  SubTgraph - introduced to allow tracking of subsets of faces
  in both force and decompose oerations.
@@ -260,10 +322,9 @@ unionTwoSub sub = makeSubTgraph g newTracked where
                    _ -> error $ "unionTwoSub: Two tracked lists of faces not found: " ++ show sub ++"\n"
 
 
-{- *
+{-*
 Forcing and Decomposing SubTgraphs
 -}
-
 -- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
 forceSub :: SubTgraph -> SubTgraph
 forceSub sub = makeSubTgraph (force $ tgraph sub) (tracked sub)
@@ -298,9 +359,8 @@ decomposeSub sub = makeSubTgraph g' tlist where
    newFaces = concatMap (decompFace newVFor) (faces g)
    tlist = fmap (concatMap (decompFace newVFor)) (tracked sub)
 
-{- *  Drawing with SubTgraphs
--}                     
-                     
+{-*  Drawing with SubTgraphs
+-}                                          
 {-|
     To draw a SubTgraph without vertex labels, we use a list of functions each turning a patch into a diagram.
     The first function is applied to a patch for untracked faces

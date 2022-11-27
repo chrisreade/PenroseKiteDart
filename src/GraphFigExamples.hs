@@ -31,7 +31,7 @@ padBorder = pad 1.2 . centerXY
 
 
     
-{- *
+{-*
 Example Tgraphs with Figures
 -}
 fool, foolD, foolDminus:: Tgraph
@@ -57,7 +57,7 @@ foolFig = padBorder $ dashJVGraph fool
 foolAndFoolD :: Diagram B
 foolAndFoolD = padBorder $ hsep 1 [(dashJVPinned . scale phi . makeVPinned) fool, dashJVGraph foolD]
 
-{- |touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
+{-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
 These will be caught by makeTgraph which raises an error.
 The error is not picked up by checkedTgraph. It can be fixed using correctTouchingVs.
 
@@ -113,10 +113,8 @@ dartD4 :: Tgraph
 dartD4 = dartDs!!4
 
 
-{- * Partial Compositions figures
--}
-
- 
+{-* Partial Compositions figures
+-} 
 pCompFig1,pCompFig2,pCompFig:: Diagram B
 -- |diagram showing partial composition of a forced 3 times decomposed dart (with ignored faces in pale green)
 pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [drawGraph fd3, drawPCompose fd3]
@@ -128,7 +126,7 @@ pCompFig2 = lw ultraThin $ hsep 5 $ rotations [] [drawGraph fk3, drawPCompose fk
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 
-{- |
+{-|
 This example illustrates that the experimental composeK does not always make correct choices.
 composeK composes by treating unknowns as large kite centres (= deuce vertices), so favouring kites when there is a choice.
 The first 3 Tgraphs are correct. The second is composeK of the first and the third is force applied to the second
@@ -145,9 +143,8 @@ counterK = padBorder $ hsep 1 $ rotations [8,0,0,6,5] $ scales [1,phi,phi,1+phi,
               cfcg = composeK fcg
 
 
-{- * Forced Tgraph figures
+{-* Forced Tgraph figures
 -}
-
 -- |diagram of foolDminus and the reult of forcing              
 forceFoolDminus :: Diagram B              
 forceFoolDminus = padBorder $ hsep 1 $ fmap dashJVGraph [foolDminus, force foolDminus]
@@ -169,10 +166,9 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 maxExampleFig :: Diagram B
 maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForcedDecomps dartPlusDart !! 4
 
-{- *
+{-*
 Emplace with choices
 -}
-
 -- |four choices for composing fool
 foolChoices :: Diagram B
 foolChoices = padBorder $ vsep 1 
@@ -191,11 +187,9 @@ emplaceFoolDChoices = padBorder $ hsep 1 $
 --  WARNING: relies on numbering which can change with changes to forcing
 --  Vertex 1 is not present in the final choice (hence 28)
 
-{- *
+{-*
 Removed faces (forcing and composing)
 -}
-
-
 -- |brokenDart is a 4 times decomposed dart (dartD4) with 5 halftile faces removed.
 -- Forcing will repair to produce the same Tgraph as force dartD4.
 -- This graph can also be repeatedly composed (without forcing) to get a maximal Tgraph.
@@ -268,10 +262,9 @@ removeIncompleteTiles g = removeFaces halfTiles g
 removeIncompletesFig::Diagram B
 removeIncompletesFig = padBorder $ dashJGraph $ removeIncompleteTiles  $ sunDs !! 3
 
-{- *
+{-*
 Incorrect Tgraphs (and other problem Tgraphs)
--}
-  
+-}  
 -- |faces removed from foolD to illustrate crossing boundary and non tile-connected VPatches
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
@@ -347,10 +340,9 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap dashJVPinned $ scales [phi,1,1,phi] $ 
                where mistake1D = decomposeG mistake1
 
 
-{- *
+{-*
 Figures fof 7 vertex types
--}
-   
+-} 
 {-| vertexTypesFig is 7 vertex types single diagram as a row -}
 vertexTypesFig:: Diagram B
 vertexTypesFig = padBorder $ hsep 1 lTypeFigs
@@ -406,22 +398,10 @@ forceVFigures = rotations [0,0,9,5,0,0,1] $
 forceVsFig :: Diagram B
 forceVsFig = padBorder $ hsep 1 forceVFigures
 
-{-
-{-| relatedVTypeFig lays out figures from forceVFigures plus a kite as single diagram with 3 columns -}
-relatedVTypeFig = padBorder $ lw thin $
- atPoints [p2(0,15),p2(0,10), p2(8,15),p2(9,10),p2(9,1),  p2(18,15),p2(18,10),p2(20,1) ]
-          [sunF,    starF,    aceF,    jackF,   kingF,    kite,     deuceF,   queenF]
- where kite = drawGraph kiteGraph
-       sunF = forceVFigures!!0
-       starF = forceVFigures!!1
-       jackF = forceVFigures!!2
-       queenF = forceVFigures!!3
-       kingF = forceVFigures!!4
-       aceF = forceVFigures!!5
-       deuceF = forceVFigures!!6
--}
 
-{-| relatedVTypeFig lays out figures from forceVFigures plus a kite as single diagram with 3 columns -}
+{-| relatedVType0 lays out figures from forceVFigures plus a kite as single diagram with 3 columns
+    without arrows (used by relatedVTypeFig which adds arrows).
+-}
 relatedVType0 = lw thin $
  atPoints [p2(0,20),p2(0,12),  p2(8,20),p2(8,12),p2(8,1),  p2(18,20),p2(18,12),p2(18,1) ] $
           [sunF,    starF,      aceF,    jackF,    kingF,     kite,     deuceF,   queenF]
@@ -434,6 +414,9 @@ relatedVType0 = lw thin $
        aceF   = labelAt (p2(-4,2)) "force ace (= ace)" $ named "aceF" $ forceVFigures!!5
        deuceF = labelAt (p2(-4,2.1)) "force deuce" $ named "deuceF" $ forceVFigures!!6
 
+{-| relatedVTypeFig lays out figures from forceVFigures plus a kite as a single diagram with 3 columns
+    showing relationships - forcedDecomp (blue arrows) and composeG (green arrows)
+ -}
 relatedVTypeFig = 
   padBorder relatedVType0
     # forceDecArrow "sunF" "starF"
@@ -448,11 +431,9 @@ relatedVTypeFig =
     # composeArcUp "queenF" "deuceF"
     
     
-{- *
+{-*
 Other miscelaneous Tgraphs and Diagrams
 -}
-
-
 -- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
 boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartD4)
@@ -588,7 +569,7 @@ curioPic0 = padBorder $ lw ultraThin $ position $ concat
     forceXDs = rotations [9,9,8]  $ phiScaling phi $ reverse $ take 3 $ fmap drawForce xDGraphs
     xDGraphs = decompositionsG sunPlus3Dart'
     xDs  = rotations [9,9,8] $  phiScaling phi $ reverse $
-           drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red): 
+           drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red # lw thin): 
            take 2  (drop 1 $ fmap drawSmartGraph xDGraphs)
     dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
     pointsRa = map p2 [ (0, 80), (42, 80), (95, 80), (150, 80), (200, 80)]
@@ -640,10 +621,16 @@ graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
                                    ]
 
 
-{- *
+{-*
 Testing (functions and figures and experiments)
--}
-          
+-}          
+-- |diagrams of forced graphs for boundaryGapFDart4 and boundaryGapFDart5
+testForce4, testForce5 :: Diagram B
+testForce4 = padBorder $ lw ultraThin $ dashJVGraph $ force boundaryGapFDart4
+testForce5 = padBorder $ lw ultraThin $ dashJVGraph $ force boundaryGapFDart5        
+
+
+
 {-
 Testing newest force   
 Fixed BUG filling in boundary of a forced graph  
@@ -654,14 +641,6 @@ because of accumulated discrepancies in vertex position calculations.
 Now works with signum introduced in thirdVertexLoc,
 dramatically improving accuracy of position calculation
 -}
-
--- |diagrams of forced graphs for boundaryGapFDart4 and boundaryGapFDart5
-testForce4, testForce5 :: Diagram B
-testForce4 = padBorder $ lw ultraThin $ dashJVGraph $ force boundaryGapFDart4
-testForce5 = padBorder $ lw ultraThin $ dashJVGraph $ force boundaryGapFDart5        
-
-
-
 
   
 {-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
@@ -714,10 +693,9 @@ dartsOnlyFig = padBorder $ lw thin $ drawPatch $ dropLabels $ selectFacesGtoVP d
     g = force $ sunDs !! 5
     darts = filter isDart $ faces g
 
-{- *
+{-*
 Using SubTgraphs
 -}
-
 -- |hollowgraph illustrates an essential use of SubTgraphs.
 -- Starting with fd2 = force (dartDs!!2) we want to make 3 further decompositions,
 -- but also make 3 forced decompositions and then subtract the former faces from the latter.
@@ -896,7 +874,7 @@ kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ mak
 
 
 
-{- *
+{-*
 Testing Relabelling (fullUnion, commonFaces)
 -}
 
@@ -988,7 +966,7 @@ testKingEmpire =  padBorder $ drawCommonFaces (g4,(1,2)) (g3,(1,2)) where
   g3 = fullUnion (g1,(1,2)) (g2,(1,2))
   g4 = addHalfKite (49,59) fk
 
-{- |
+{-|
 Diagram showing a calculation of some of the kings empire.
 The top left graph shows the intersection faces of the the other 6 graphs (emphasised) with the second graph as background.
 The latter 6 graphs show all the possible ways of extending a forced kingGraph (forced kinGraph shown red)
@@ -1037,13 +1015,13 @@ forcedKingEmbedding = padBorder $ lw ultraThin $ vsep 1
 
 -- | Diagram to check vertex numbering for a forced kingGraph, a forcedDecomp forced kingGraph, and a
 -- twice forceDecomp forced kingGraph
-kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk, fdfdfk]where
+kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk, fdfdfk] where
     fk = force kingGraph
     fdfk = forcedDecomp fk
     fdfdfk = forcedDecomp fdfk
 
 
-{- *
+{-*
 Testing ReportFail functions
 -}
 

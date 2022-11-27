@@ -1,6 +1,6 @@
 {-|
 Module      : Tgraph.Relabelling
-Description : Collects and exports the various Tgraph modules 
+Description : Guided union and commonFaces using relabelling operations 
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com

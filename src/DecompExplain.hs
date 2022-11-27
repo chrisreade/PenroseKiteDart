@@ -4,7 +4,7 @@
 
 {-|
 Module      : DecompExplain
-Description : Introducing type Tgraph and basic operations for Tgraphs
+Description : A single figure explaining (vector) decomposition of Patches
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
@@ -113,7 +113,7 @@ fig0 =  mconcat[rkiteAt    $ p2 (2.0,3.5)
                <> name "DECOMPOSITION" (p2(2.55,3.0))
                <> arrowV (0.3 *^ (unitY^+^unitX)) # moveTo (p2(2.5,1.0))
                <> arrowV (0.3 *^ (unitY^+^unit_X)) # moveTo (p2(2.5,1.0))
-               <> name "COMPOSE CHOICES (FOR RD)" (p2(1.8,1.5))
+               <> name "INFLATE CHOICES (FOR RD)" (p2(1.8,1.5))
 
 -- |A figure illustrating decomposition of pieces (and composition choices) with vectors.         
 decompExplainFig::Diagram B

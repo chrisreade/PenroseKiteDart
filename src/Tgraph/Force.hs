@@ -32,7 +32,7 @@ NEW FORCING with
 ***************************************************************************
 -}
 
-{- *
+{-*
 Touching vertex checking
 -}
 {-|
@@ -62,7 +62,7 @@ tooClose p p' = quadrance (p .-. p') < 0.25 -- quadrance is square of length of 
 -}
 
 
-{- *
+{-*
 Boundary operations
 -}
 {-| A Boundary records
@@ -128,7 +128,7 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
 boundaryFaces :: Boundary -> [TileFace]
 boundaryFaces = nub . concat . VMap.elems . bvFacesMap
 
-{- *
+{-*
 Updates and ForceState types
 -}
 
@@ -198,7 +198,7 @@ affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
 affectedBoundary bd [] = []
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected new boundary edges " ++ show edges ++ "\n"
 
-{- *
+{-*
 forcing operations
 -}
 
@@ -218,7 +218,7 @@ wholeTiles = forceWith wholeTileUpdates
 
 {-| forceWith uGen: 
      initialises force state before forcing (both using uGen to generate updates).
-     It recursively does all updates using tryForceAll uGen, 
+     It recursively does all updates using tryForceState uGen, 
      then gets boundary from the final state and converts back to a Tgraph.
      This raises an error if it encounters a stuck/incorrect graph
 -}
@@ -231,14 +231,14 @@ instead of raising an error
 tryForceWith:: UpdateGenerator -> Tgraph -> ReportFail Tgraph
 tryForceWith uGen g = 
     do fs0 <- initForceState uGen g
-       fs1 <- tryForceAll uGen fs0
+       fs1 <- tryForceState uGen fs0
        return (recoverGraph $ boundaryState fs1)
 
-{-| tryForceAll uGen recursively does updates using uGen until there are no more updates.
+{-| tryForceState uGen recursively does updates using uGen until there are no more updates.
 It produces Left report if it encounters a stuck/incorrect graph.
 -}
-tryForceAll :: UpdateGenerator -> ForceState -> ReportFail ForceState
-tryForceAll uGen = retry where
+tryForceState :: UpdateGenerator -> ForceState -> ReportFail ForceState
+tryForceState uGen = retry where
   retry fs = case findSafeUpdate (updateMap fs) of
              Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
                           uMap <- reviseUpdates uGen bdChange (updateMap fs)
@@ -253,6 +253,16 @@ tryForceAll uGen = retry where
                                                          , updateMap = uMap
                                                          }
 
+{-| tryForceBoundary uGen is the same as tryForceState ugen but from Boundary to Boundary.
+-}
+tryForceBoundary :: UpdateGenerator -> Boundary -> ReportFail Boundary
+tryForceBoundary uGen bd =  do
+       uMap <- uGen bd (bDedges bd)
+       let fsStart = ForceState{ boundaryState = bd 
+                               , updateMap = uMap
+                               }
+       fsEnd <- tryForceState uGen fsStart
+       return $ boundaryState fsEnd
 
 {-| initForceState uGen g calculates an initial force state with boundary information from g
      and uses uGen on all boundary edges to initialise the updateMap.
@@ -282,7 +292,7 @@ findSafeUpdate:: UpdateMap -> Maybe Update
 findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
 
 
-{- *
+{-*
 Inspecting Force Steps
 -}
 
@@ -298,6 +308,11 @@ tryStepForce :: Tgraph -> Int -> ReportFail ForceState
 tryStepForce g n = do fs0 <- initForceState defaultAllUGen g
                       tryStepForceFrom fs0 n
 
+-- |stepForceFrom advances a forcestate a given number of steps.
+-- raising an error if a forcestate produces a stuck graph
+stepForceFrom :: ForceState -> Int -> ForceState
+stepForceFrom fs = getResult . tryStepForceFrom fs
+
 -- |tryStepForceFrom advances a forcestate a given number of steps.
 -- It produces Left report for a stuck/incorrect graph
 tryStepForceFrom :: ForceState -> Int -> ReportFail ForceState
@@ -312,7 +327,7 @@ tryStepForceWith updateGen = count where
                    Nothing -> return fs
                    Just (fs', _) ->  count fs' (n-1)
 
-{- *
+{-*
 Single Force Steps
 -}
 
@@ -466,7 +481,7 @@ tryUpdate bd u =
             Just bdC -> return bdC
             Nothing -> Left "tryUpdate: crossing boundary (touching vertices).\n"
 
-{- *
+{-*
 Conflict Test
 -}
 
@@ -483,7 +498,7 @@ noConflict fc fcs = null (faceDedges fc `intersect` facesDedges fcs) &&
 
 
 
-{- *
+{-*
 Forcing Rules and Individual Update Generators (for each rule)
 -}
                                     
@@ -595,7 +610,7 @@ makeUpdate f Nothing  = UnsafeUpdate f
 checkUpdate:: (Vertex -> TileFace) -> ReportFail (Maybe Vertex) -> ReportFail Update
 checkUpdate f  = tryApply (makeUpdate f) 
 
-{- *
+{-*
 Boundary vertex predicates and properties
 -}
          
@@ -664,7 +679,7 @@ hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
 hasAnyMatchingE [] = False
 
 
-{- *
+{-*
 Individual Forcing cases (for each rule)
 -}
 
@@ -686,7 +701,7 @@ makeGenerator checker finder = gen where
                                               return (Map.insert e u ump)
 
                          
-{- *
+{-*
 Ten Update Generators (with corresponding Finders)
 -}
 
@@ -835,7 +850,7 @@ queenMissingKite = boundaryFilter pred where
                           kiteWings = filter ((==fcWing) . wingV) $ filter isKite (facesAtBV bd fcWing)
 
 
-{- *
+{-*
 Six Update Checkers
 -}
 
@@ -977,7 +992,7 @@ inspectBDedge bd e = (fc,edgeType (reverseD e) fc) where
          _ -> error $ "inspectBDedge: Not a boundary directed edge " ++ show e ++ "\n"
 
 
-{- *
+{-*
 Other Forcing operations
 -}
 
@@ -1007,18 +1022,23 @@ addHalfKite e  = getResult . tryAddHalfKite e
 -- if the edge is not a boundary edge.   
 tryAddHalfKite :: Dedge -> Tgraph -> ReportFail Tgraph
 tryAddHalfKite e g = 
-  do let bd = makeBoundary g
-     de <- case [e, reverseD e] `intersect` bDedges bd of
+  do bdFinal <- tryAddHalfKiteBoundary e $ makeBoundary g
+     return $ recoverGraph bdFinal
+
+-- |tryAddHalfKiteBoundary is a version of tryAddHalfKite which is from Boundary to Boundary
+tryAddHalfKiteBoundary :: Dedge -> Boundary -> ReportFail Boundary
+tryAddHalfKiteBoundary e bd = 
+  do de <- case [e, reverseD e] `intersect` bDedges bd of
              [de] -> Right de
-             _ -> Left $ "tryAddHalfKite:  on non-boundary edge " ++ show e ++ "\n"
+             _ -> Left $ "tryAddHalfKiteBoundary:  on non-boundary edge " ++ show e ++ "\n"
      let (fc,etype) = inspectBDedge bd de
      let tryU | etype == Long = addKiteLongE bd fc
               | etype == Short = addKiteShortE bd fc
               | etype == Join && isKite fc = completeHalf bd fc
-              | otherwise = Left "tryAddHalfKite: applied to dart join (not possible).\n"
+              | otherwise = Left "tryAddHalfKiteBoundary: applied to dart join (not possible).\n"
      u <- tryU
      bdC <- tryUpdate bd u
-     return $ recoverGraph $ newBoundary bdC
+     return $ newBoundary bdC
 
 -- |addHalfDart is for adding a single half dart on a chosen Dedge of a Tgraph.
 -- The Dedge must be a boundary edge but the direction is not important as
@@ -1035,6 +1055,11 @@ addHalfDart e = getResult . tryAddHalfDart e
 -- if the edge is not a boundary edge.
 tryAddHalfDart :: Dedge -> Tgraph -> ReportFail Tgraph
 tryAddHalfDart e g = 
+  do bdFinal <- tryAddHalfDartBoundary e $ makeBoundary g
+     return $ recoverGraph bdFinal
+
+{-
+tryAddHalfDart e g = 
   do let bd = makeBoundary g
      de <- case [e, reverseD e] `intersect` bDedges bd of
             [de] -> Right de
@@ -1047,6 +1072,22 @@ tryAddHalfDart e g =
      u <- tryU
      bdC <- tryUpdate bd u
      return $ recoverGraph $ newBoundary bdC
+-}
+
+-- |tryAddHalfDartBoundary is a version of tryAddHalfDart which is from Boundary to Boundary
+tryAddHalfDartBoundary :: Dedge -> Boundary -> ReportFail Boundary
+tryAddHalfDartBoundary e bd = 
+  do de <- case [e, reverseD e] `intersect` bDedges bd of
+            [de] -> Right de
+            _ -> Left $ "tryAddHalfDartBoundary:  on non-boundary edge " ++ show e  ++ "\n"
+     let (fc,etype) = inspectBDedge bd de
+     let tryU | etype == Long = addDartLongE bd fc
+              | etype == Short && isKite fc = addDartShortE bd fc
+              | etype == Join && isDart fc = completeHalf bd fc
+              | otherwise = Left "tryAddHalfDartBoundary: applied to short edge of dart or to kite join (not possible).\n"
+     u <- tryU
+     bdC <- tryUpdate bd u
+     return $ newBoundary bdC
 
 -- |For an unclassifiable dart wing v in a Tgraph, force it to become a large dart base (largeDartBase) by
 -- adding a second half dart face (sharing the kite below the existing half dart face at v).
@@ -1161,7 +1202,7 @@ findLoops es = collectLoops $ VMap.fromList es where
 
 
 
-{- *
+{-*
 Adding faces (findThirdV)
 -}
 

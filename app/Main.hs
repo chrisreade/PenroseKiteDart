@@ -44,7 +44,8 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = curioPic --kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
+fig = padBorder $ drawEmpire2 fool
+ --curioPic --kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
 
 main = mainWith fig
 
