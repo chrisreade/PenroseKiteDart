@@ -218,7 +218,7 @@ wholeTiles = forceWith wholeTileUpdates
 
 {-| forceWith uGen: 
      initialises force state before forcing (both using uGen to generate updates).
-     It recursively does all updates using tryForceState uGen, 
+     It recursively does all updates using tryForceStateWith uGen, 
      then gets boundary from the final state and converts back to a Tgraph.
      This raises an error if it encounters a stuck/incorrect graph
 -}
@@ -230,15 +230,15 @@ instead of raising an error
 -}
 tryForceWith:: UpdateGenerator -> Tgraph -> ReportFail Tgraph
 tryForceWith uGen g = 
-    do fs0 <- initForceState uGen g
-       fs1 <- tryForceState uGen fs0
+    do fs0 <- initForceStateWith uGen g
+       fs1 <- tryForceStateWith uGen fs0
        return (recoverGraph $ boundaryState fs1)
 
-{-| tryForceState uGen recursively does updates using uGen until there are no more updates.
+{-| tryForceStateWith uGen fs recursively does updates using uGen until there are no more updates.
 It produces Left report if it encounters a stuck/incorrect graph.
 -}
-tryForceState :: UpdateGenerator -> ForceState -> ReportFail ForceState
-tryForceState uGen = retry where
+tryForceStateWith :: UpdateGenerator -> ForceState -> ReportFail ForceState
+tryForceStateWith uGen = retry where
   retry fs = case findSafeUpdate (updateMap fs) of
              Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
                           uMap <- reviseUpdates uGen bdChange (updateMap fs)
@@ -253,26 +253,45 @@ tryForceState uGen = retry where
                                                          , updateMap = uMap
                                                          }
 
-{-| tryForceBoundary uGen is the same as tryForceState ugen but from Boundary to Boundary.
+{-| tryForceState fs recursively does updates using defaultAllUGen until there are no more updates.
+It produces Left report if it encounters a stuck/incorrect graph.
 -}
-tryForceBoundary :: UpdateGenerator -> Boundary -> ReportFail Boundary
-tryForceBoundary uGen bd =  do
+tryForceState :: ForceState -> ReportFail ForceState
+tryForceState = tryForceStateWith defaultAllUGen
+
+{-| tryForceBoundaryWith uGen is the same as tryForceStateWith ugen but from Boundary to Boundary.
+-}
+tryForceBoundaryWith :: UpdateGenerator -> Boundary -> ReportFail Boundary
+tryForceBoundaryWith uGen bd =  do
        uMap <- uGen bd (bDedges bd)
        let fsStart = ForceState{ boundaryState = bd 
                                , updateMap = uMap
                                }
-       fsEnd <- tryForceState uGen fsStart
+       fsEnd <- tryForceStateWith uGen fsStart
        return $ boundaryState fsEnd
 
-{-| initForceState uGen g calculates an initial force state with boundary information from g
+{-| tryForceBoundary is the same as tryForceState but from Boundary to Boundary.
+-}
+tryForceBoundary :: Boundary -> ReportFail Boundary
+tryForceBoundary = tryForceBoundaryWith defaultAllUGen
+
+{-| initForceStateWith uGen g calculates an initial force state with boundary information from g
      and uses uGen on all boundary edges to initialise the updateMap.
     It produces Left report if it finds a stuck/incorrect graph.                                                     
 -}
-initForceState :: UpdateGenerator -> Tgraph -> ReportFail ForceState
-initForceState uGen g = 
+initForceStateWith :: UpdateGenerator -> Tgraph -> ReportFail ForceState
+initForceStateWith uGen g = 
   do let bd = makeBoundary g
      umap <- uGen bd (bDedges bd)
      return ForceState { boundaryState = bd , updateMap = umap }
+
+
+{-| Calculates an initial force state for a graph
+    using defaultAllUgen.
+    It produces Left report if it finds a stuck/incorrect graph.                                                     
+-}
+initForceState :: Tgraph -> ReportFail ForceState
+initForceState = initForceStateWith  defaultAllUGen
 
 -- |reviseUpdates uGen bdChange: updates the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
@@ -305,7 +324,7 @@ stepForce g  = getResult . tryStepForce g
 -- |tryStepForce is a version of stepForce which produces Left report for a stuck/incorrect graph
 -- (tryStepForce 0 g can be used to calculate the initial force state from g.)
 tryStepForce :: Tgraph -> Int -> ReportFail ForceState
-tryStepForce g n = do fs0 <- initForceState defaultAllUGen g
+tryStepForce g n = do fs0 <- initForceStateWith defaultAllUGen g
                       tryStepForceFrom fs0 n
 
 -- |stepForceFrom advances a forcestate a given number of steps.

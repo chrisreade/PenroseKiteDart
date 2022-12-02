@@ -127,6 +127,20 @@ fillMaybeDK d k piece = drawPiece piece <> filler where
                            (LK _) -> maybeFill k
                            (RK _) -> maybeFill k
 
+-- |fillMaybeDKG d k g piece - draws the half-tile piece and possibly fills as well:
+-- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
+-- Nothing indicates no fill for either darts or kites or both
+fillMaybeDKG:: Maybe (Colour Double) -> Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram B
+fillMaybeDKG d k g piece = drawPiece piece # maybeGrout g <> filler where
+    maybeFill (Just c) = fillPiece c piece
+    maybeFill  Nothing = mempty
+    maybeGrout (Just c) = lc c
+    maybeGrout Nothing = lw none
+    filler = case piece of (LD _) -> maybeFill d
+                           (RD _) -> maybeFill d
+                           (LK _) -> maybeFill k
+                           (RK _) -> maybeFill k
+
 -- |same as drawPiece but with join edge added as dashed-line
 dashJPiece:: Piece -> Diagram B
 dashJPiece piece = drawPiece piece <> dashJ piece

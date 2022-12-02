@@ -57,7 +57,7 @@ vertex locations can be done.
 -}
 touchCheckProps :: [TileFace] -> ReportFail Tgraph
 touchCheckProps fcs =
- do g <- checkTgraphProps fcs
+ do g <- checkTgraphProps fcs -- must be checked first
     let touchVs = touchingVertices (faces g)
     if null touchVs 
     then Right g 
@@ -220,29 +220,36 @@ makeChoices g = choices unks [g] where
 Boundary Covers and Empires
 -}
 
-{-| forcedBoundaryCover g - profuces a list of all possible ways of extending (force g)
-so that the boundary of force g is entirely internal edges.
-The  common faces of the resulting list of graphs constitute the empire (level 1) of g
+{-| forcedBoundaryCover g - produces a list of all boundary covers of force g, each of which
+extends force g to cover the entire boundary directed edges in (force g).
+(So the boundary of force g is entirely internal edges in each cover).
+The covers include all possible ways faces can be added on the boundary that are correct.
+The common faces of the covers constitute the empire (level 1) of g.
+This will raise an error if the initial force fails with a stuck graph.
 -}
 forcedBoundaryCover:: Tgraph -> [Tgraph]
-forcedBoundaryCover g = fmap recoverGraph $ boundaryCover $ makeBoundary $ force g
-
-{-| boundaryCover bd - profuces a list of all possible ways of extending the Boundary bd
-so that the boundary of bd is entirely internal edges.
+forcedBoundaryCover g = fmap recoverGraph $ boundaryCover gforcedBdry where
+     gforcedBdry = getResult $ onFail "forcedBoundaryCover:Initial force failed (incorrect graph)\n" $
+                             tryForceBoundary $ makeBoundary g
+{-| boundaryCover bd - produces a list of all possible covers of the boundary directed edges in bd.
+A cover is an extension (of bd) such that the original boundary directed edges of bd are all internal edges.
+Extensions are made by repeatedly adding a face to any edge on the original boundary that is still on the boundary
+and forcing, repeating this until the orignal boundary is all internal edges.
+The resulting covers account for all possible ways the boundary can be extended that do not produce a (stuck graph) failure.
 -}
 boundaryCover:: Boundary -> [Boundary]
-boundaryCover bd = continue [] [(bd, bDedges bd)] where
---continue::([Boundary], [(Boundary,[Dedge])]) -> [Boundary]
-  continue complete [] = complete
-  continue complete ((open,[]):opens) = continue (open:complete) opens
-  continue complete ((open,de:bdes):opens) = 
-      continue complete (fmap (remainder bdes) (tryDartAndKite de open) ++ opens)  
+boundaryCover bd = covers [] [(bd, bDedges bd)] where
+--covers:: [Boundary] -> [(Boundary,[Dedge])] -> [Boundary]
+  covers done [] = done
+  covers done ((open,[]):opens) = covers (open:done) opens
+  covers done ((open,de:des):opens) = 
+      covers done (fmap (remainder des) (tryDartAndKite de open) ++ opens)  
 --remainder:: [Dedge] -> Boundary -> (Boundary, [Dedge])
-  remainder bds b = (b, bDedges b `intersect` bds)
+  remainder des b = (b, bDedges b `intersect` des)
 --tryDartAndKite:: Dedge -> Boundary -> [Boundary]
   tryDartAndKite de bd = ignoreFails 
-    [ tryAddHalfDartBoundary de bd >>= tryForceBoundary defaultAllUGen
-    , tryAddHalfKiteBoundary de bd >>= tryForceBoundary defaultAllUGen
+    [ tryAddHalfDartBoundary de bd >>= tryForceBoundary
+    , tryAddHalfKiteBoundary de bd >>= tryForceBoundary
     ]
 
 
@@ -251,39 +258,48 @@ drawFBCover:: Tgraph -> Diagram B
 drawFBCover g = lw ultraThin $ vsep 1 $ 
      fmap drawGraph $ forcedBoundaryCover g
 
--- | empire1 g - produces a SubTgraph representing the level 1 empire of g
--- The tgraph is an arbitrarily chosen extension of (force g) covering its boundary,
--- and the tracked faces are the common faces of all possible extensions covering the boundary.
+-- | empire1 g - produces a SubTgraph representing the level 1 empire of g.
+-- The tgraph of the result is an arbitrarily chosen cover of the boundary edges of force g,
+-- and the tracked list of the result has the common faces of all the covers (of force g)
+-- followed by the original faces of g.
 empire1:: Tgraph -> SubTgraph
-empire1 g = makeSubTgraph g1 [fcs] where
-    (g1:others) = forcedBoundaryCover g
-    fcs = foldl intersect (faces g1) $ fmap g1Intersect others
+empire1 g = makeSubTgraph g0 [fcs,faces g] where
+    (g0:others) = forcedBoundaryCover g
+    fcs = foldl intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
-    g1Intersect g2 = commonFaces (g1,de) (g2,de)
+    g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
--- | empire2 g - produces a SubTgraph representing the level 2 empire of g
--- The tgraph is an arbitrarily chosen (double) extension of (force g),
--- and the tracked faces are the common faces of all possible (double) extensions.
+-- | empire2 g - produces a SubTgraph representing the level 2 empire of g.
+-- That is, after finding all covers of the boundary of force g, 
+-- covers are then found for the boundary of each cover to form a list of doubly-extended covers.
+-- The tgraph  of the result is an arbitrarily chosen (doubly-extended) cover (of force g),
+-- and the tracked list of the result has the the common faces of all the (doubly-extended) covers
+-- followed by the original faces of g.
 empire2:: Tgraph -> SubTgraph
-empire2 g = makeSubTgraph g1 [fcs] where
-    covers1 = boundaryCover $ makeBoundary $ force g
+empire2 g = makeSubTgraph g0 [fcs, faces g] where
+    covers1 = boundaryCover $ getResult $ onFail "empire2:Initial force failed (incorrect graph)\n" 
+              $ tryForceBoundary $ makeBoundary g
     covers2 = concatMap boundaryCover covers1
-    (g1:others) = fmap recoverGraph covers2
-    fcs = foldl intersect (faces g1) $ fmap g1Intersect others
+    (g0:others) = fmap recoverGraph covers2
+    fcs = foldl intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
-    g1Intersect g2 = commonFaces (g1,de) (g2,de)
+    g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
 -- | drawEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
--- This is drawn over one of the possible boundary covers.
+-- This is drawn over one of the possible boundary covers and the faces of g are shown in red.
 drawEmpire1:: Tgraph -> Diagram B
-drawEmpire1 g = emphasizeFaces (head $ tracked sub) (tgraph sub) where
-    sub = empire1 g
+drawEmpire1 g = drawSubTgraph [ lw ultraThin . drawPatch
+                              , lw thin . drawPatch
+                              , lw thin . lc red . drawPatch
+                              ] $ empire1 g
 
--- | drawEmpire2 g - produces a diagram emphasising the common faces of a double boundary cover of force g.
--- This is drawn over one of the possible double boundary covers.
+-- | drawEmpire2 g - produces a diagram emphasising the common faces of a doubly-extended boundary cover of force g.
+-- This is drawn over one of the possible doubly-extended boundary covers and the faces of g are shown in red.
 drawEmpire2:: Tgraph -> Diagram B
-drawEmpire2 g = emphasizeFaces (head $ tracked sub) (tgraph sub) where
-    sub = empire2 g
+drawEmpire2 g = drawSubTgraph [ lw ultraThin . drawPatch
+                              , lw thin . drawPatch
+                              , lw thin . lc red . drawPatch
+                              ] $ empire2 g
 
 {-*
 SubTgraphs

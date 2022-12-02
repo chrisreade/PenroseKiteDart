@@ -4,7 +4,7 @@
 
 {-|
 Module      : GraphFigExamples
-Description : Examples of tilings represented with Tgraphs with diagrams 
+Description : Examples of tilings represented with Tgraphs and their diagrams 
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
@@ -16,7 +16,7 @@ module GraphFigExamples where
 -- used for testing
 -- import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
 
-import Data.List (intersect)      
+import Data.List (intersect,foldl')      
 import Diagrams.Prelude
 
 import ChosenBackend (B)
@@ -967,10 +967,10 @@ testKingEmpire =  padBorder $ drawCommonFaces (g4,(1,2)) (g3,(1,2)) where
   g4 = addHalfKite (49,59) fk
 
 {-|
-Diagram showing a calculation of some of the kings empire.
+Diagram showing a calculation of some of the kings empire level 1 (done by hand - not using empire1).
 The top left graph shows the intersection faces of the the other 6 graphs (emphasised) with the second graph as background.
 The latter 6 graphs show all the possible ways of extending a forced kingGraph (forced kinGraph shown red)
-round its boundaru.
+round its boundary.
 -}
 kingEmpire:: Diagram B
 kingEmpire = padBorder $ lw ultraThin $ vsep 1 $ 
@@ -988,14 +988,8 @@ kingEmpire = padBorder $ lw ultraThin $ vsep 1 $
     sub6 = forceSub $ pushFaces $ unionTwoSub $ addHalfKiteSub (56,57) subX
     g1 = tgraph sub1
     g1Intersect sub = commonFaces (g1,(1,2)) (tgraph sub,(1,2))
-    fcs = foldl intersect (faces g1) $
+    fcs = foldl' intersect (faces g1) $
            fmap g1Intersect [sub2,sub3,sub4,sub5,sub6]
-
-
--- |test of subGraphs
-test5 = padBorder $ drawVGraph $ tgraph $ forceSub $ pushFaces $ unionTwoSub $ unionTwoSub 
-           $ addHalfDartSub (49,59) $ addHalfDartSub (16,23)
-           $ addHalfDartSub (20,38) $ newSubTgraph $ force $ kingGraph
 
 -- | Diagram showing 5 embeddings of a forced kingGraph in a forced decomposed kingGraph
 forcedKingEmbedding:: Diagram B

@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-20.1
+resolver: lts-19.6
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -35,6 +35,8 @@ packages:
 # forks / in-progress versions pinned to a git hash. For example:
 #
 extra-deps:
+- diagrams-postscript-1.5@sha256:ab8c03e39054fa0a8343c9469dcfcdf98228c71d734ef63eefaab38a5688d237,2379
+- statestack-0.3@sha256:be43ce2cd790a4732b88cdc9480458503cb5e307b4f79a502d99d5b3d417730e,1135
    
 # - acme-missiles-0.3
 # - git: https://github.com/commercialhaskell/stack.git
