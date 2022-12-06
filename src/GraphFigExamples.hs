@@ -402,6 +402,7 @@ forceVsFig = padBorder $ hsep 1 forceVFigures
 {-| relatedVType0 lays out figures from forceVFigures plus a kite as single diagram with 3 columns
     without arrows (used by relatedVTypeFig which adds arrows).
 -}
+relatedVType0:: Diagram B
 relatedVType0 = lw thin $
  atPoints [p2(0,20),p2(0,12),  p2(8,20),p2(8,12),p2(8,1),  p2(18,20),p2(18,12),p2(18,1) ] $
           [sunF,    starF,      aceF,    jackF,    kingF,     kite,     deuceF,   queenF]
@@ -417,8 +418,9 @@ relatedVType0 = lw thin $
 {-| relatedVTypeFig lays out figures from forceVFigures plus a kite as a single diagram with 3 columns
     showing relationships - forcedDecomp (blue arrows) and composeG (green arrows)
  -}
-relatedVTypeFig = 
-  padBorder relatedVType0
+relatedVTypeFig:: Diagram B
+relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2(-10,-10))) <>  mainfig where
+  mainfig = padBorder relatedVType0
     # forceDecArrow "sunF" "starF"
     # composeArcUp "starF" "sunF"
     # forceDecArrow "aceF" "jackF"
@@ -429,8 +431,15 @@ relatedVTypeFig =
     # composeArcUp "kingF" "jackF"
     # forceDecArrow "deuceF" "queenF"
     # composeArcUp "queenF" "deuceF"
-    
-    
+  key = (a|||box|||b) 
+         # labelAt (p2(1,-1)) "force . decomposeG" 
+         # labelAt (p2(2,1.3)) "composeG" 
+         # forceDecArrow "B" "A" 
+         # composeArcRight "A" "B" where
+            box = rect 7 3.8 
+            a = named "A" (rect 0 0.1 # lw none)
+            b = named "B" (rect 0 0.1 # lw none)
+
 {-*
 Other miscelaneous Tgraphs and Diagrams
 -}
@@ -872,7 +881,23 @@ kingFD6:: Diagram B
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makePatch $
           allForcedDecomps kingGraph !!6
 
+-- | displays some test cases for boundary edge types using boundaryECover
+testCasesE = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
+    examples = [LD(1,3,2),RD(2,1,3),RK(1,3,2),LK(2,1,3),LK(3,2,1),RK(3,2,1)]
+    testcase alig g = hsep 1 $ 
+      fmap ((t <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
+      boundaryECover $ makeBoundary $ force $ g 
+      where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
+            seeOrigin = ((circle 0.25 # fc red # lw none) <>) 
 
+-- | displays some test cases for boundary edge types using boundaryVCover
+testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
+    examples = [LD(1,3,2),RD(2,1,3),RK(1,3,2),LK(2,1,3),LK(3,2,1),RK(3,2,1)]
+    testcase alig g = hsep 1 $ 
+      fmap ((t <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
+      boundaryVCover $ makeBoundary $ force $ g 
+      where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
+            seeOrigin = ((circle 0.25 # fc red # lw none) <>) 
 
 {-*
 Testing Relabelling (fullUnion, commonFaces)

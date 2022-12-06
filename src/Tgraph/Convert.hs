@@ -161,6 +161,10 @@ relevantVPinnedWith pd vp = drawVlabels locVs <> drawPatchWith pd (dropLabels vp
      vs = nub $ concatMap faceVList (vpFaces vp)
      locVs = VMap.filterWithKey (\v -> \_ -> (v `elem` vs)) $ vLocs vp
 
+-- | makeAlignedPatch (a,b) g - make a Patch from g oriented with centre on a and b aligned on the x-axis.
+-- Will raise an error if either a or b is not a vertex in g.
+makeAlignedPatch:: (Vertex,Vertex) ->  Tgraph -> Patch        
+makeAlignedPatch vs g = dropLabels $ head $ alignAll vs [makeVPinned g]
 
 
 
@@ -376,7 +380,7 @@ vertex locations for 2 different vertices in a VPatch using unit scale for short
 It is used in touchingVertices and touchingVerticesGen)
 -}
 touching :: Point V2 Double -> Point V2 Double -> Bool
-touching p p1 = quadrance (p .-. p1) < 0.0625 -- quadrance is square of length of a vector
+touching p p1 = quadrance (p .-. p1) < 0.5--0.0625 -- quadrance is square of length of a vector
 
 {-*  Generalised Touching Vertices
 -}

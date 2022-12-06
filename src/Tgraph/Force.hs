@@ -17,7 +17,7 @@ module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
 import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert, union, keys) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, insert, empty, alter, delete, lookup, fromList, null, findMin)
+import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, insert, empty, alter, delete, lookup, fromList, null, findMin,(!))
             -- used for Boundary locations AND faces at boundary vertices AND boudaryLoops
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Convert(touching, createVPoints, addVPoint)
@@ -402,7 +402,7 @@ trySafeUpdate:: Boundary -> Update -> ReportFail BoundaryChange
 trySafeUpdate bd (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newFace) = 
    let fDedges = faceDedges newFace
-       matchedDedges = fDedges `intersect` bDedges bd -- list of 2
+       matchedDedges = fDedges `intersect` bDedges bd -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
@@ -1277,7 +1277,9 @@ findThirdV bd (a,b) (n,m) = maybeV where
 -- so that there is a single external angle at each boundary vertex. 
 externalAngle:: Boundary -> Vertex -> Int
 externalAngle bd v = check $ 10 - (sum $ map (intAngleAt v) $ facesAtBV bd v) where
-  check n | n>9 || n<1 = error $ "externalAngle: vertex not on boundary "++show v ++ "\n"
+  check n | n>9 || n<1 = error $ "externalAngle: vertex not on boundary "++show v
+                                  ++ " with external angle " ++show n++" with faces:\n"
+                                  ++ show (bvFacesMap bd VMap.! v)
   check n | otherwise = n
   
 -- |intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
