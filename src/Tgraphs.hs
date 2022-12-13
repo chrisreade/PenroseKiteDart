@@ -97,8 +97,8 @@ drawSmartVSub g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp)
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
 boundaryJoinFaces :: Tgraph -> [TileFace]
-boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ bDedges bdry where
-    bdry = makeBoundary g
+boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
+    bdry = makeBoundaryState g
 
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
@@ -233,7 +233,7 @@ This will raise an error if the initial force fails with a stuck graph.
 forcedBoundaryECover:: Tgraph -> [Tgraph]
 forcedBoundaryECover g = fmap recoverGraph $ boundaryECover gforcedBdry where
      gforcedBdry = getResult $ onFail "forcedBoundaryECover:Initial force failed (incorrect graph)\n" $
-                             tryForceBoundary $ makeBoundary g
+                             tryForceBoundary $ makeBoundaryState g
 
 {-| forcedBoundaryVCover g - produces a list of all boundary covers of force g as with
 forcedBoundaryECover g but covering all boundary vertices rather than just boundary edges.                        
@@ -241,7 +241,7 @@ forcedBoundaryECover g but covering all boundary vertices rather than just bound
 forcedBoundaryVCover:: Tgraph -> [Tgraph]
 forcedBoundaryVCover g = fmap recoverGraph $ boundaryVCover gforcedBdry where
      gforcedBdry = getResult $ onFail "forcedBoundaryVCover:Initial force failed (incorrect graph)\n" $
-                             tryForceBoundary $ makeBoundary g
+                             tryForceBoundary $ makeBoundaryState g
 
 {-| boundaryECover bd - produces a list of all possible covers of the boundary directed edges in bd.
 A cover is an extension (of bd) such that the original boundary directed edges of bd are all internal edges.
@@ -249,21 +249,21 @@ Extensions are made by repeatedly adding a face to any edge on the original boun
 and forcing, repeating this until the orignal boundary is all internal edges.
 The resulting covers account for all possible ways the boundary can be extended that do not produce a (stuck graph) failure.
 -}
-boundaryECover:: Boundary -> [Boundary]
-boundaryECover bd = covers [(bd, bDedges bd)] where
---covers:: [(Boundary,[Dedge])] -> [Boundary]
+boundaryECover:: BoundaryState -> [BoundaryState]
+boundaryECover bd = covers [(bd, boundary bd)] where
+--covers:: [(BoundaryState,[Dedge])] -> [BoundaryState]
   covers [] = []
   covers ((open,[]):opens) = open:covers opens
   covers ((open,de:des):opens) = 
       covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++ opens)  
 
 -- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
-onBoundary:: [Dedge] -> Boundary -> [Dedge]
-onBoundary des b = bDedges b `intersect` des
+onBoundary:: [Dedge] -> BoundaryState -> [Dedge]
+onBoundary des b = boundary b `intersect` des
 
 -- | tryDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary b and forcing. (A list of 0 to 2 new boundaries)
-tryDartAndKite:: Dedge -> Boundary -> [Boundary]
+tryDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
 tryDartAndKite de b = ignoreFails 
     [ tryAddHalfDartBoundary de b >>= tryForceBoundary
     , tryAddHalfKiteBoundary de b >>= tryForceBoundary
@@ -272,14 +272,14 @@ tryDartAndKite de b = ignoreFails
 {-| boundaryVCover bd - similar to boundaryECover, but produces a list of all possible covers of 
     the boundary vertices in bd (rather than just boundary edges).
 -}
-boundaryVCover:: Boundary -> [Boundary]
+boundaryVCover:: BoundaryState -> [BoundaryState]
 boundaryVCover bd = covers [(bd, startbds)] where
-  startbds = bDedges bd
+  startbds = boundary bd
   startbvs = Set.fromList (fmap fst startbds)
---covers:: [(Boundary,[Dedge])] -> [Boundary]
+--covers:: [(BoundaryState,[Dedge])] -> [BoundaryState]
   covers [] = []
   covers ((open,[]):opens) 
-    = case find (\(a,_) -> Set.member a startbvs) (bDedges open) of
+    = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
         Just de -> covers (fmap (\b -> (b, onBoundary [] b))  (tryDartAndKite de open) ++opens)
   covers ((open,de:des):opens) = 
@@ -314,7 +314,7 @@ empire1 g = makeSubTgraph g0 [fcs,faces g] where
 empire2:: Tgraph -> SubTgraph
 empire2 g = makeSubTgraph g0 [fcs, faces g] where
     covers1 = boundaryECover $ getResult $ onFail "empire2:Initial force failed (incorrect graph)\n" 
-              $ tryForceBoundary $ makeBoundary g
+              $ tryForceBoundary $ makeBoundaryState g
     covers2 = concatMap boundaryECover covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl intersect (faces g0) $ fmap g0Intersect others

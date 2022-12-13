@@ -256,8 +256,8 @@ touchingTestFig =
 -- This weill raise an error if the result is not a valid Tgraph.
 removeIncompleteTiles:: Tgraph -> Tgraph
 removeIncompleteTiles g = removeFaces halfTiles g
-       where bdry = makeBoundary g
-             halfTiles = fmap snd $ incompleteHalves bdry $ bDedges bdry
+       where bdry = makeBoundaryState g
+             halfTiles = fmap snd $ incompleteHalves bdry $ boundary bdry
 
 -- |figure showing the result of applying removeIncompleteTiles to a 3 times decomposed sun.
 removeIncompletesFig::Diagram B
@@ -446,8 +446,8 @@ Other miscelaneous Tgraphs and Diagrams
 -}
 -- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
-boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartD4)
-boundaryFDart5 = checkedTgraph $ boundaryFaces $ makeBoundary $ force (dartDs!!5)
+boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundaryState $ force (dartD4)
+boundaryFDart5 = checkedTgraph $ boundaryFaces $ makeBoundaryState $ force (dartDs!!5)
 
 -- | figure to check that force can complete a hole
 forceHoleTest = padBorder $ lw ultraThin $ drawGraph $ force boundaryFDart5
@@ -653,16 +653,16 @@ dramatically improving accuracy of position calculation
 -}
 
   
-{-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) Boundary
--- (used in conjunction with stepForce to get an intermediate Boundary)
--- The boundary edges of a Boundary are shown in lime - using the Boundary positions of vertices.
+{-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) BoundaryState
+-- (used in conjunction with stepForce to get an intermediate BoundaryState)
+-- The boundary edges of a BoundaryState are shown in lime - using the BoundaryState positions of vertices.
 -- This is overlaid on the full graph drawn with vertex labels.
 -}
-testViewBoundary :: Boundary -> Diagram B
+testViewBoundary :: BoundaryState -> Diagram B
 testViewBoundary bd =  lc lime (drawEdges vpMap bdE) <> dashJVGraph g where 
     g = recoverGraph bd
     vpMap = bvLocMap bd
-    bdE = bDedges bd
+    bdE = boundary bd
 
 -- |used to discover accuracy problem of older thirdVertexLoc
 -- view tha boundary after n steps of forcing (starting with boundaryGapFDart5)
@@ -889,9 +889,9 @@ testCasesE = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgra
       fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryECover $ bd 
       where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
             seeOrigin = ((circle 0.25 # fc red # lw none) <>) 
-            bd = getResult $ tryForceBoundary $ makeBoundary g
+            bd = getResult $ tryForceBoundary $ makeBoundaryState g
             vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
-            fbdes = drawEdges (vLocs vp) (bDedges bd) # lw thin
+            fbdes = drawEdges (vLocs vp) (boundary bd) # lw thin
 
 -- | displays some test cases for boundary edge types using boundaryVCover
 testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
@@ -900,9 +900,9 @@ testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgra
       fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryVCover bd 
       where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
             seeOrigin = ((circle 0.25 # fc red # lw none) <>)
-            bd = getResult $ tryForceBoundary $ makeBoundary g
+            bd = getResult $ tryForceBoundary $ makeBoundaryState g
             vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
-            fbdes = drawEdges (vLocs vp) (bDedges bd) # lw thin
+            fbdes = drawEdges (vLocs vp) (boundary bd) # lw thin
 
 {-
 -- | displays all cases for boundary edges by adding faces at either end and forcing.
@@ -915,20 +915,20 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
     examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
     edge = (1,2)
     caseRows g = vsep (-1) $ fmap (hsep 1) $ chunks 7 $ fmap drawCase $ growBothEnds fbd 
-      where fbd = getResult $ tryForceBoundary $ makeBoundary g
+      where fbd = getResult $ tryForceBoundary $ makeBoundaryState g
             fvp = alignXaxis edge $ makeVPinned $ recoverGraph fbd
-            fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (bDedges fbd)) # lw thin
+            fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (boundary fbd)) # lw thin
             drawCase = (fbdes <>) . drawPatch . makeAlignedPatch edge . recoverGraph
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
-      case filter ((==(snd edge)). fst) (bDedges bd) of
+      case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []
           [de] -> tryDartAndKite de bd
     addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
-      case filter ((==(fst edge)). snd) (bDedges bd) of
+      case filter ((==(fst edge)). snd) (boundary bd) of
           [] -> []
           [de] -> tryDartAndKite de bd
     growBothEnds bd = bd: goBoth (filter continue [bd]) where
-      continue bd = edge `elem` bDedges bd
+      continue bd = edge `elem` boundary bd
 -- to avoid repetitions, goBoth produces right and left cases but then recurses to the right only,
 -- using goLeft to deal with left cases recursively.
       goBoth [] = []
@@ -952,21 +952,21 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap case
     edge = (1,2)
     caseRows g = vsep 3 $ fmap (centerX . hsep 1 # composeAligned alignT) $ levels $ treeFor g
     treeFor g = fmap drawCase $ growBothEnds fbd 
-      where fbd = getResult $ tryForceBoundary $ makeBoundary g
+      where fbd = getResult $ tryForceBoundary $ makeBoundaryState g
             fvp = alignXaxis edge $ makeVPinned $ recoverGraph fbd
-            fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (bDedges fbd)) # lw thin
+            fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (boundary fbd)) # lw thin
             drawCase = (fbdes <>) . drawPatch . makeAlignedPatch edge . recoverGraph
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
-      case filter ((==(snd edge)). fst) (bDedges bd) of
+      case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []
           [de] -> tryDartAndKite de bd
     addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
-      case filter ((==(fst edge)). snd) (bDedges bd) of
+      case filter ((==(fst edge)). snd) (boundary bd) of
           [] -> []
           [de] -> tryDartAndKite de bd
--- growBothEnds:: Boundary -> Tree Boundary
+-- growBothEnds:: BoundaryState -> Tree BoundaryState
     growBothEnds bd = goB bd where
-      continue bd = edge `elem` bDedges bd
+      continue bd = edge `elem` boundary bd
 -- to avoid repetitions, goB produces right and left cases but then recurses to the right only,
 -- using goL to deal with left cases recursively.
       goB bd = if continue bd
@@ -978,14 +978,14 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap case
 -- | boundaryVCoverFigs g - produces a list of diagrams for the boundaryVCover of g  (with g shown in red in each case)
 boundaryVCoverFigs g = 
     fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
-    boundaryVCover $ makeBoundary g 
+    boundaryVCover $ makeBoundaryState g 
       where redg = lc red $ drawPatch $ makeAlignedPatch alig g
             alig = lowestJoin (faces g)
 
 -- | boundaryECoverFigs g - produces a list of diagrams for the boundaryECover of g  (with g shown in red in each case)
 boundaryECoverFigs g = 
     fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
-    boundaryECover $ makeBoundary g 
+    boundaryECover $ makeBoundaryState g 
       where redg = lc red $ drawPatch $ makeAlignedPatch alig g
             alig = lowestJoin (faces g)
 
