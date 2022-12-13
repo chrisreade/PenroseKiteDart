@@ -255,13 +255,18 @@ boundaryECover bd = covers [(bd, bDedges bd)] where
   covers [] = []
   covers ((open,[]):opens) = open:covers opens
   covers ((open,de:des):opens) = 
-      covers (fmap (remainder des) (tryDartAndKite de open) ++ opens)  
---remainder:: [Dedge] -> Boundary -> (Boundary, [Dedge])
-  remainder des b = (b, bDedges b `intersect` des)
---tryDartAndKite:: Dedge -> Boundary -> [Boundary]
-  tryDartAndKite de bd = ignoreFails 
-    [ tryAddHalfDartBoundary de bd >>= tryForceBoundary
-    , tryAddHalfKiteBoundary de bd >>= tryForceBoundary
+      covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++ opens)  
+
+-- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
+onBoundary:: [Dedge] -> Boundary -> [Dedge]
+onBoundary des b = bDedges b `intersect` des
+
+-- | tryDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
+-- to edge de on boundary b and forcing. (A list of 0 to 2 new boundaries)
+tryDartAndKite:: Dedge -> Boundary -> [Boundary]
+tryDartAndKite de b = ignoreFails 
+    [ tryAddHalfDartBoundary de b >>= tryForceBoundary
+    , tryAddHalfKiteBoundary de b >>= tryForceBoundary
     ]
 
 {-| boundaryVCover bd - similar to boundaryECover, but produces a list of all possible covers of 
@@ -276,41 +281,11 @@ boundaryVCover bd = covers [(bd, startbds)] where
   covers ((open,[]):opens) 
     = case find (\(a,_) -> Set.member a startbvs) (bDedges open) of
         Nothing -> open:covers opens
-        Just de -> covers (fmap (remainder []) (tryDartAndKite de open)++opens)
+        Just de -> covers (fmap (\b -> (b, onBoundary [] b))  (tryDartAndKite de open) ++opens)
   covers ((open,de:des):opens) = 
-      covers (fmap (remainder des) (tryDartAndKite de open) ++ opens)  
---remainder:: [Dedge] -> Boundary -> (Boundary, [Dedge])
-  remainder des b = (b, bDedges b `intersect` des)
---tryDartAndKite:: Dedge -> Boundary -> [Boundary]
-  tryDartAndKite de bd = ignoreFails 
-    [ tryAddHalfDartBoundary de bd >>= tryForceBoundary
-    , tryAddHalfKiteBoundary de bd >>= tryForceBoundary
-    ]
+                   covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++opens)  
 
-boundaryVInspect:: Boundary -> Diagram B
-boundaryVInspect bd = covers [(bd, startbds)] where
-  startbds = bDedges bd
-  startbvs = Set.fromList (fmap fst startbds)
---covers:: [Boundary] -> [(Boundary,[Dedge])] -> [Boundary]
-  covers [] = mempty
-  covers ((open,[]):opens) 
-    = case find (\(a,_) -> Set.member a startbvs) (bDedges open) of
-        Nothing -> covers opens
-        Just de -> display de open
-        --covers (fmap (remainder []) (tryDartAndKite de open)++opens)
-  covers ((open,de:des):opens) = 
-      covers (fmap (remainder des) (tryDartAndKite de open) ++ opens)  
---remainder:: [Dedge] -> Boundary -> (Boundary, [Dedge])
-  remainder des b = (b, bDedges b `intersect` des)
---tryDartAndKite:: Dedge -> Boundary -> [Boundary]
-  tryDartAndKite de bd = ignoreFails 
-    [ tryAddHalfDartBoundary de bd >>= tryForceBoundary
-    , tryAddHalfKiteBoundary de bd >>= tryForceBoundary
-    ]
-
-display de bd = (drawEdge (vLocs vp) de # lw thin # lc red) <> drawVPinned vp where
-        vp  = makeVPinned $ recoverGraph bd
-    
+   
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCover g
 drawFBCover:: Tgraph -> Diagram B

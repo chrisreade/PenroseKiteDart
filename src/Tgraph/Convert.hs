@@ -164,7 +164,7 @@ relevantVPinnedWith pd vp = drawVlabels locVs <> drawPatchWith pd (dropLabels vp
 -- | makeAlignedPatch (a,b) g - make a Patch from g oriented with centre on a and b aligned on the x-axis.
 -- Will raise an error if either a or b is not a vertex in g.
 makeAlignedPatch:: (Vertex,Vertex) ->  Tgraph -> Patch        
-makeAlignedPatch vs g = dropLabels $ head $ alignAll vs [makeVPinned g]
+makeAlignedPatch vs g = dropLabels $ alignXaxis vs $ makeVPinned g
 
 
 

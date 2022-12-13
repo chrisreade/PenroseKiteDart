@@ -18,6 +18,7 @@ module GraphFigExamples where
 
 import Data.List (intersect,foldl')      
 import Diagrams.Prelude
+import Data.Tree (Tree(..),levels)      
 
 import ChosenBackend (B)
 import TileLib
@@ -351,7 +352,7 @@ vertexTypesFig = padBorder $ hsep 1 lTypeFigs
  vTypeFigs = zipWith drawVertex 
                [sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph,  deuceGraph]
                [(1,2),    (1,2),     (1,2),     (1,2),      (1,2),     (3,6),     (2,6)] -- alignments
- drawVertex g alm = lw thin $ showOrigin $ dashJPatch $ dropLabels $ alignXaxis alm $ makeVPinned g
+ drawVertex g alm = lw thin $ showOrigin $ dashJPatch $ makeAlignedPatch alm g
 
 -- |add a given label at a given point offset from the centre of the given diagram
 labelAt :: Point V2 Double -> String -> Diagram B -> Diagram B
@@ -811,7 +812,6 @@ sunPlus3Dart = addHalfDart (7,8) $ addHalfDart (6,7) sunPlus2Dart
 -- This example has an emplacement that does not include the original but is still a correct Tgraph
 sunPlus3Dart' = addHalfDart (9,10) $ addHalfDart (8,9) sunPlus2Dart
 
-
 -- |halfWholeFig shows that a whole dart/kite needs to be added to get the same result as twoChoicesFig
 -- Adding a half tile has no effect on the forced decomposition
 halfWholeFig:: Diagram B
@@ -881,23 +881,126 @@ kingFD6:: Diagram B
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makePatch $
           allForcedDecomps kingGraph !!6
 
+
 -- | displays some test cases for boundary edge types using boundaryECover
 testCasesE = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
-    examples = [LD(1,3,2),RD(2,1,3),RK(1,3,2),LK(2,1,3),LK(3,2,1),RK(3,2,1)]
+    examples = [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
     testcase alig g = hsep 1 $ 
-      fmap ((t <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
-      boundaryECover $ makeBoundary $ force $ g 
+      fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryECover $ bd 
       where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
             seeOrigin = ((circle 0.25 # fc red # lw none) <>) 
+            bd = getResult $ tryForceBoundary $ makeBoundary g
+            vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
+            fbdes = drawEdges (vLocs vp) (bDedges bd) # lw thin
 
 -- | displays some test cases for boundary edge types using boundaryVCover
 testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
-    examples = [LD(1,3,2),RD(2,1,3),RK(1,3,2),LK(2,1,3),LK(3,2,1),RK(3,2,1)]
+    examples = [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
     testcase alig g = hsep 1 $ 
-      fmap ((t <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
-      boundaryVCover $ makeBoundary $ force $ g 
+      fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryVCover bd 
       where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
-            seeOrigin = ((circle 0.25 # fc red # lw none) <>) 
+            seeOrigin = ((circle 0.25 # fc red # lw none) <>)
+            bd = getResult $ tryForceBoundary $ makeBoundary g
+            vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
+            fbdes = drawEdges (vLocs vp) (bDedges bd) # lw thin
+
+{-
+-- | displays all cases for boundary edges by adding faces at either end and forcing.
+-- There are only 3 (left) starting points we need to consider with the edge shown in red
+-- (right versions will be symmetric, and joins and dart short edges have unique cases so not considered).
+-- In each case, whenever there is a graph where the red edge is still on the boundary,
+-- that graph appears extended with both a kite and a dart on the red edge amongst the diagrams beyond it.
+-- This provides a completeness argument for forcing.
+boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows examples where
+    examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
+    edge = (1,2)
+    caseRows g = vsep (-1) $ fmap (hsep 1) $ chunks 7 $ fmap drawCase $ growBothEnds fbd 
+      where fbd = getResult $ tryForceBoundary $ makeBoundary g
+            fvp = alignXaxis edge $ makeVPinned $ recoverGraph fbd
+            fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (bDedges fbd)) # lw thin
+            drawCase = (fbdes <>) . drawPatch . makeAlignedPatch edge . recoverGraph
+    addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
+      case filter ((==(snd edge)). fst) (bDedges bd) of
+          [] -> []
+          [de] -> tryDartAndKite de bd
+    addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
+      case filter ((==(fst edge)). snd) (bDedges bd) of
+          [] -> []
+          [de] -> tryDartAndKite de bd
+    growBothEnds bd = bd: goBoth (filter continue [bd]) where
+      continue bd = edge `elem` bDedges bd
+-- to avoid repetitions, goBoth produces right and left cases but then recurses to the right only,
+-- using goLeft to deal with left cases recursively.
+      goBoth [] = []
+      goBoth bds = let left = concatMap addOnLeft bds
+                       right  = concatMap addOnRight bds
+                   in left ++ goLeft (filter continue left) ++ right ++ goBoth (filter continue right)                  
+      goLeft [] = []
+      goLeft bds =  left ++ goLeft (filter continue left) where left = concatMap addOnLeft bds
+-}
+
+-- | displays all cases for boundary edges as (levels of) a tree.
+-- The tree is produced by adding a kite/dart face at either end of the boundary edge (shown red)
+-- and forcing, terminating as a leaf node when the red edge is no longer on the boundary.
+-- There are only 3 (left) starting points we need to consider
+-- (right versions will be symmetric, and joins and dart short edges have unique cases so not considered).
+-- In each case, whenever there is a graph where the red edge is still on the boundary,
+-- that graph appears extended with both a kite and a dart on the red edge amongst the diagrams below it in the tree.
+-- This provides a completeness argument for forcing.
+boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap caseRows examples where
+    examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
+    edge = (1,2)
+    caseRows g = vsep 3 $ fmap (centerX . hsep 1 # composeAligned alignT) $ levels $ treeFor g
+    treeFor g = fmap drawCase $ growBothEnds fbd 
+      where fbd = getResult $ tryForceBoundary $ makeBoundary g
+            fvp = alignXaxis edge $ makeVPinned $ recoverGraph fbd
+            fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (bDedges fbd)) # lw thin
+            drawCase = (fbdes <>) . drawPatch . makeAlignedPatch edge . recoverGraph
+    addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
+      case filter ((==(snd edge)). fst) (bDedges bd) of
+          [] -> []
+          [de] -> tryDartAndKite de bd
+    addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
+      case filter ((==(fst edge)). snd) (bDedges bd) of
+          [] -> []
+          [de] -> tryDartAndKite de bd
+-- growBothEnds:: Boundary -> Tree Boundary
+    growBothEnds bd = goB bd where
+      continue bd = edge `elem` bDedges bd
+-- to avoid repetitions, goB produces right and left cases but then recurses to the right only,
+-- using goL to deal with left cases recursively.
+      goB bd = if continue bd
+               then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd) ++ fmap goB (addOnRight bd)}
+               else Node{ rootLabel=bd, subForest = []}
+      goL bd = if continue bd
+               then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd)}
+               else Node{ rootLabel=bd, subForest = []}
+-- | boundaryVCoverFigs g - produces a list of diagrams for the boundaryVCover of g  (with g shown in red in each case)
+boundaryVCoverFigs g = 
+    fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
+    boundaryVCover $ makeBoundary g 
+      where redg = lc red $ drawPatch $ makeAlignedPatch alig g
+            alig = lowestJoin (faces g)
+
+-- | boundaryECoverFigs g - produces a list of diagrams for the boundaryECover of g  (with g shown in red in each case)
+boundaryECoverFigs g = 
+    fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
+    boundaryECover $ makeBoundary g 
+      where redg = lc red $ drawPatch $ makeAlignedPatch alig g
+            alig = lowestJoin (faces g)
+
+-- | diagram showing the boundaryECover of a forced kingGraph
+kingECoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryECoverFigs $ force kingGraph
+-- | diagram showing the boundaryVCover of a forced kingGraph
+kingVCoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryVCoverFigs $ force kingGraph
+
+-- |chunks n l -  split a list l into chunks of length n (n>0)
+chunks::Int -> [a] -> [[a]]
+chunks n 
+  | n < 1 = error "chunks: argument <1\n"
+  | otherwise = ch where 
+      ch [] = []
+      ch as = take n as : ch (drop n as)
 
 {-*
 Testing Relabelling (fullUnion, commonFaces)
