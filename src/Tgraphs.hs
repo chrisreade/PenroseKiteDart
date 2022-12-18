@@ -429,9 +429,11 @@ drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
           pUntracked = subPatch (fcsFull \\ concat (tracked sub)) vp
           drawAll fs ps = mconcat $ reverse $ zipWith ($) fs ps
 
+{-
 -- |drawing non tracked faces only
 drawWithoutTracked:: SubTgraph -> Diagram B
 drawWithoutTracked sub = drawSubTgraph [drawPatch] sub
+-}
 
 {-|
     To draw a SubTgraph with possible vertex labels, we use a list of functions each turning a VPinned into a diagram.

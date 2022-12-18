@@ -44,7 +44,7 @@ main = mainWith figs
 
 -- normal executable
 fig::Diagram B
-fig = boundaryEdgeCaseTrees--boundaryEdgeCases --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
+fig = testForceAnim1--boundaryEdgeCaseTrees --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
  --curioPic --kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
 
 main = mainWith fig

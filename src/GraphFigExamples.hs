@@ -56,7 +56,8 @@ foolFig = padBorder $ dashJVGraph fool
 
 -- |diagram of fool with foolD
 foolAndFoolD :: Diagram B
-foolAndFoolD = padBorder $ hsep 1 [(dashJVPinned . scale phi . makeVPinned) fool, dashJVGraph foolD]
+foolAndFoolD = padBorder $ hsep 1 [scale phi $ dashJVGraph fool, dashJVGraph foolD]
+--foolAndFoolD = padBorder $ hsep 1 [(dashJVPinned . scale phi . makeVPinned) fool, dashJVGraph foolD]
 
 {-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
 These will be caught by makeTgraph which raises an error.
@@ -114,7 +115,7 @@ dartD4 :: Tgraph
 dartD4 = dartDs!!4
 
 
-{-* Partial Compositions figures
+{-* Partial Composition figures
 -} 
 pCompFig1,pCompFig2,pCompFig:: Diagram B
 -- |diagram showing partial composition of a forced 3 times decomposed dart (with ignored faces in pale green)
@@ -473,16 +474,16 @@ boundaryGap5Fig = lw ultraThin $ dashJVGraph boundaryGapFDart5
 -- using stepForce 2000
 gapProgress5 :: Diagram B
 gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
-    [ dashJGraph g
-    , drawGraph $ recoverGraph $ boundaryState $ stepForce g 2000
+    [ drawSmartGraph g
+    , drawSmartGraph $ recoverGraph $ boundaryState $ stepForce g 2000
     ] where g = boundaryGapFDart5
 
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
 -- using stepForce 600 (finished at 820)
 gapProgress4 :: Diagram B
 gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
-    [ dashJGraph g
-    , drawGraph $ recoverGraph $ boundaryState $ stepForce g 820 --600
+    [ drawSmartGraph g
+    , drawSmartGraph $ recoverGraph $ boundaryState $ stepForce g 600 --finished at 820
     ] where g = boundaryGapFDart4
 
 {-| bigPic is a diagram illustrating force/emplacement relationships for decomposed darts

@@ -26,7 +26,7 @@ import Tgraph.Prelude
 {-
 ***************************************************************************   
 NEW FORCING with 
-  Boundaries 
+  BoundaryState, ForceState 
   Touching Vertex Check
   Incremented Update Maps
 ***************************************************************************
@@ -109,9 +109,9 @@ recoverGraph bd =
         , maxV = nextVertex bd -1
         }
 
--- |changeVFMap f vfmap vs - adds f to the list of faces associated with each v in vs and updates vfmap
-changeVFMap::  TileFace -> VertexMap [TileFace] -> [Vertex] -> VertexMap [TileFace]
-changeVFMap f  = foldl' insertf where
+-- |changeVFMap f vfmap vs - adds f to the list of faces associated with each v in f and updates vfmap
+changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
+changeVFMap f vfm = foldl' insertf vfm (faceVList f) where
    insertf vmap v = VMap.alter consf v vmap
    consf Nothing = Just [f]
    consf (Just fs) = Just (f:fs)
@@ -120,9 +120,8 @@ changeVFMap f  = foldl' insertf where
 -- |facesAtBV bd v - returns the faces found at v (which must be a boundary vertex)
 facesAtBV:: BoundaryState -> Vertex -> [TileFace]
 facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
-            Just fcs -> fcs
-            Nothing -> error $ "facesAtBV: Not a boundary vertex? No faces found at " ++ show v ++ "\n"
-
+  Just fcs -> fcs
+  Nothing -> error $ "facesAtBV: Not a boundary vertex? No faces found at " ++ show v ++ "\n"
 
 -- |return the (set of) faces which have a boundary vertex from boundary information
 boundaryFaces :: BoundaryState -> [TileFace]
@@ -160,15 +159,16 @@ but they can also be combined in sequence (e.g. allUgenerator).
 -}
 type UpdateGenerator = BoundaryState -> [Dedge] -> ReportFail UpdateMap
 
-{-| BoundaryChange records the new boundary after an update (by either trySafeUpdate or tryUnsafeUpdate)
+{-| BoundaryChange records the new boundary state after an update (by either trySafeUpdate or tryUnsafeUpdate)
      along with a list of directed edges which are no longer on the boundary,
      plus a list of boundary edges revised (and requiring updates to be recalculated)
      See affectedBoundary.
 -}
 data BoundaryChange = BoundaryChange 
-                       { newBoundaryState:: BoundaryState -- ^ resulting boundary
+                       { newBoundaryState:: BoundaryState -- ^ resulting boundary state
                        , removedEdges:: [Dedge] -- ^ edges no longer on the boundary
                        , revisedEdges :: [Dedge]  -- ^ boundary edges requiring new update calculations
+                       , newFace :: TileFace -- ^ face added in the change
                        } deriving (Show)
 
 {-| Given a BoundaryState with a list of one boundary edge or
@@ -219,7 +219,7 @@ wholeTiles = forceWith wholeTileUpdates
 {-| forceWith uGen: 
      initialises force state before forcing (both using uGen to generate updates).
      It recursively does all updates using tryForceStateWith uGen, 
-     then gets boundary from the final state and converts back to a Tgraph.
+     then gets the BoundaryState from the final state and converts back to a Tgraph.
      This raises an error if it encounters a stuck/incorrect graph
 -}
 forceWith:: UpdateGenerator -> Tgraph -> Tgraph
@@ -275,7 +275,7 @@ tryForceBoundaryWith uGen bd =  do
 tryForceBoundary :: BoundaryState -> ReportFail BoundaryState
 tryForceBoundary = tryForceBoundaryWith defaultAllUGen
 
-{-| initForceStateWith uGen g calculates an initial force state with boundary information from g
+{-| initForceStateWith uGen g calculates an initial force state with boundary state information from g
      and uses uGen on all boundary edges to initialise the updateMap.
     It produces Left report if it finds a stuck/incorrect graph.                                                     
 -}
@@ -301,15 +301,18 @@ reviseUpdates uGen bdChange umap =
      umap'' <- uGen (newBoundaryState bdChange) (revisedEdges bdChange) 
      return (Map.union umap'' umap')
 
+{-
 -- |True if an update is safe.
 isSafeUpdate :: Update -> Bool
 isSafeUpdate (SafeUpdate _ ) = True
 isSafeUpdate (UnsafeUpdate _ ) = False
+-}
 
 -- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
 findSafeUpdate:: UpdateMap -> Maybe Update 
-findSafeUpdate umap = find isSafeUpdate (Map.elems umap)
-
+findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
+  isSafeUpdate (SafeUpdate _ ) = True
+  isSafeUpdate (UnsafeUpdate _ ) = False
 
 {-*
 Inspecting Force Steps
@@ -389,7 +392,7 @@ tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
                            other -> return other
 
 
-{-| trySafeUpdate bd u adds a new face by completing a safe update u on boundary bd
+{-| trySafeUpdate bd u adds a new face by completing a safe update u on BoundaryState bd
     (raising an error if u is an unsafe update).
      It returns a Right BoundaryChange (containing a new BoundaryState, removed boundary edges and
      revised boundary edge list), unless a stuck/incorrect graph is found.
@@ -408,7 +411,7 @@ trySafeUpdate bd (SafeUpdate newFace) =
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState 
                    { boundary = newDedges ++ (boundary bd \\ matchedDedges)
-                   , bvFacesMap = changeVFMap newFace (bvFacesMap bd) (faceVList newFace)
+                   , bvFacesMap = changeVFMap newFace (bvFacesMap bd)
                    , allFaces = newFace:allFaces bd
                    , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
                                --remove vertex/vertices no longer on boundary
@@ -418,6 +421,7 @@ trySafeUpdate bd (SafeUpdate newFace) =
                    { newBoundaryState = resultBd
                    , removedEdges = matchedDedges
                    , revisedEdges = affectedBoundary resultBd newDedges
+                   , newFace = newFace
                    }
    in if noConflict newFace nbrFaces 
       then Right bdChange 
@@ -464,7 +468,7 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
            --nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
        resultBd = BoundaryState 
                     { boundary = newDedges ++ (boundary bd \\ matchedDedges)
-                    , bvFacesMap = changeVFMap newFace (bvFacesMap bd) (faceVList newFace)
+                    , bvFacesMap = changeVFMap newFace (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newFace:allFaces bd
                     , nextVertex = v+1
@@ -473,6 +477,7 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     { newBoundaryState = resultBd
                     , removedEdges = matchedDedges
                     , revisedEdges = affectedBoundary resultBd newDedges
+                    , newFace = newFace
                     }
    in if touchCheck vPosition oldVPoints -- always False if touchCheckOn = False
       then Right Nothing -- don't proceed - v is a touching vertex
@@ -492,13 +497,12 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
 -- producing Left report if the update creates a touching vertex in the unsafe case,
 -- or if it discovers a stuck/incorrect graph
 tryUpdate:: BoundaryState -> Update -> ReportFail BoundaryChange
-tryUpdate bd u = 
-  if isSafeUpdate u 
-  then trySafeUpdate bd u
-  else do maybeBdC <- tryUnsafeUpdate bd u
-          case maybeBdC of
-            Just bdC -> return bdC
-            Nothing -> Left "tryUpdate: crossing boundary (touching vertices).\n"
+tryUpdate bd u@(SafeUpdate _) = trySafeUpdate bd u
+tryUpdate bd u@(UnsafeUpdate _) = 
+  do maybeBdC <- tryUnsafeUpdate bd u
+     case maybeBdC of
+       Just bdC -> return bdC
+       Nothing -> Left "tryUpdate: crossing boundary (touching vertices).\n"
 
 {-*
 Conflict Test
@@ -563,7 +567,7 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
 
 {-| allUGenerator combines all the 10 rule update generators.
     They are combined in sequence (keeping the rule order) after applying each to the
-    supplied boundary and a focus edge list. (See also defaultAllUGen).
+    supplied BoundaryState and a focus edge list. (See also defaultAllUGen).
     This version returns a Left..(fail report) for the first generator that produces a Left..(fail report)
 -}
 allUGenerator :: UpdateGenerator 
@@ -608,7 +612,7 @@ type UChecker = BoundaryState -> TileFace -> ReportFail Update
  and decides whether the face is wanted or not (True = wanted)
  This will be used to filter all the faces at the focus edges 
  (when given a BoundaryState and list of focus edges).
- For some predicates the boundary argument is not used (eg boundaryJoin in incompleteHalves), 
+ For some predicates the BoundaryState argument is not used (eg boundaryJoin in incompleteHalves), 
  but for others it is used to look at other faces at b or at a besides the supplied fc 
  (eg kiteWDO in kitesWingDartOrigin) 
 -}
@@ -707,7 +711,7 @@ Individual Forcing cases (for each rule)
     to produce an update generator function.
     This is used to make all of the 10 update generators corresponding to 10 rules. 
     
-    When the generator is given a boundary and list of focus edges,
+    When the generator is given a BoundaryState and list of focus edges,
     the finder produces a list of pairs of dedge and face,
     the checker is used to convert the face in each pair to an update (which can fail with a Left report),
     and the new updates are returned as a map (with the dedges as key) in a Right result.
