@@ -17,7 +17,7 @@ module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, union, nub, elemIndex,foldl',group,sort)
 import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith, (!),fromAscList)
-import qualified Data.IntSet as IntSet (IntSet,empty,singleton,insert,delete,fromList,toList,null,(\\),union,notMember,deleteMin,findMin,unions,findMax)
+import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax)
 import Control.Monad(liftM) -- for ReportFail
 import HalfTile
 
@@ -69,7 +69,6 @@ Basic Tgraph, vertex, edge, face operations
 -- It does not perform checks on the faces. Use makeTgraph or checkedTgraph to perform checks.
 -- This is intended for use only in testing
 makeUncheckedTgraph:: [TileFace] -> Tgraph
-makeUncheckedTgraph [] = emptyTgraph
 makeUncheckedTgraph fcs =
     Tgraph { maxV = facesMaxV fcs
            , faces = fcs
@@ -307,11 +306,12 @@ faceVSet = IntSet.fromList . faceVList
 
 -- |the set of vertices of a list of faces
 facesVSet:: [TileFace] -> VertexSet
-facesVSet = IntSet.unions . fmap faceVSet
+facesVSet = mconcat . fmap faceVSet
 
--- |find the maximum vertex for a non-empty list of faces
+-- |find the maximum vertex for a list of faces (0 for an empty list).
 facesMaxV :: [TileFace] -> Vertex
-facesMaxV = IntSet.findMax . facesVSet
+facesMaxV [] = 0
+facesMaxV fcs = IntSet.findMax $ facesVSet fcs
 
 -- Whilst first, second and third vertex of a face are obvious (clockwise), 
 -- it is often more convenient to refer to the originV (=firstV),
@@ -332,7 +332,7 @@ wingV (LD(_,_,c)) = c
 wingV (RD(_,b,_)) = b
 wingV (LK(_,b,_)) = b
 wingV (RK(_,_,c)) = c
--- |oppV returns the vertex at the other end of the join edge from the origin of a face
+-- |oppV returns the vertex at the opposite end of the join edge from the origin of a face
 oppV (LD(_,b,_)) = b
 oppV (RD(_,_,c)) = c
 oppV (LK(_,_,c)) = c
