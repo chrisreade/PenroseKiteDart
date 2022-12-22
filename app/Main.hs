@@ -31,23 +31,27 @@ import Tgraphs
 
 import ArtWork
                
-{-
 
--- To produce executable which can output multiple diagrams 
+
+{-
+-- To produce executable which can output multiple diagrams, use
 figs::[(String,Diagram B)]
-figs = trial 
+figs = ... 
 
 main = mainWith figs
-
 -}
 
 
--- normal executable
+
+
+
+-- normal executable generating single figure
 fig::Diagram B
-fig = testForceAnim1--boundaryEdgeCaseTrees --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
+fig =  counterK--boundaryEdgeCaseTrees --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
  --curioPic --kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
 
 main = mainWith fig
+
 
 
 

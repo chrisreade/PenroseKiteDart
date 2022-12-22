@@ -25,7 +25,7 @@ import Tgraph.Prelude
 
 {-
 ***************************************************************************   
-NEW FORCING with 
+Efficient FORCING with 
   BoundaryState, ForceState 
   Touching Vertex Check
   Incremented Update Maps
@@ -35,15 +35,7 @@ NEW FORCING with
 {-*
 Touching vertex checking
 -}
-{-|
-    touchCheckOn is a global variable used to switch on/off
-    checks for touching vertices when new vertices are added to a graph.
-    This should be True to avoid creating non-planar Tgraphs.
-    However it can be changed to False to make forcing more efficient but then any
-    result of forcing needs to be checked for touching vertices using touchCheck.
--}
-touchCheckOn::Bool
-touchCheckOn = True
+
 {-------------------------
 *************************             
 Touching vertex checking 
@@ -53,14 +45,9 @@ requires Diagrams.Prelude for Point and V2
 
 -- |check if a vertex location touches (is too close to) any other vertex location in the mapping
 touchCheck:: Point V2 Double -> VertexMap (Point V2 Double) -> Bool
-touchCheck p vpMap = touchCheckOn && any (touching p) (VMap.elems vpMap)
-
-{-
--- |check if two vertex locatioons are too close (indicating touching vertices)
-tooClose :: Point V2 Double  -> Point V2 Double -> Bool
-tooClose p p' = quadrance (p .-. p') < 0.25 -- quadrance is square of length of a vector
--}
-
+touchCheck p vpMap = any (touching p) (VMap.elems vpMap)
+--touchCheck p vpMap = touchCheckOn && any (touching p) (VMap.elems vpMap) where
+--    touchCheckOn = True
 
 {-*
 BoundaryState operations
@@ -109,7 +96,7 @@ recoverGraph bd =
         , maxV = nextVertex bd -1
         }
 
--- |changeVFMap f vfmap vs - adds f to the list of faces associated with each v in f and updates vfmap
+-- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
 changeVFMap f vfm = foldl' insertf vfm (faceVList f) where
    insertf vmap v = VMap.alter consf v vmap
@@ -354,7 +341,7 @@ Single Force Steps
 -}
 
 -- |oneStepWith uGen fs uses uGen to find updates and does one force step.
--- It returns a (ReortFail maybe) new force sate paired with the boundary change for debugging purposes.
+-- It returns a (ReportFail maybe) with a new force sate paired with the boundary change for debugging purposes.
 -- It produces Left report for a stuck/incorrect graph
 oneStepWith :: UpdateGenerator -> ForceState -> ReportFail (Maybe (ForceState,BoundaryChange))
 oneStepWith uGen fs = 
@@ -373,10 +360,8 @@ oneStepF :: ForceState -> ReportFail (Maybe (ForceState,BoundaryChange))
 oneStepF = oneStepWith defaultAllUGen
 
 
--- ------------------------------------------HERE
-
 {-| tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap.
-   When touchChecKOn is True any unsafe update producing a touching vertex returns Nothing.
+   Any unsafe update producing a touching vertex returns Nothing (blocked).
    tryUnsafes works through the unsafe updates in (directed edge) key order and
    completes the first unsafe update that is not blocked, returning Right (Just bdc)
    where bdC is the resulting boundary change (if there was one) and Right Nothing if all unsafes are blocked.
@@ -391,6 +376,53 @@ tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
                            Nothing -> tryList more
                            other -> return other
 
+{-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
+     (raising an error if u is a safe update).
+     It checks that the new face is not in conflict with existing faces (returning Left report if there is a conflict).
+     It performs a touching vertex check with the new vertex
+     returning Right Nothing if there is a touching vertex (blocked case).
+     Otherwise it returns Right (Just bdc) with bdc a boundary change.
+-}
+tryUnsafeUpdate:: BoundaryState -> Update -> ReportFail (Maybe BoundaryChange)
+tryUnsafeUpdate bd (SafeUpdate _) = error  "tryUnsafeUpdate: applied to safe update.\n"
+tryUnsafeUpdate bd (UnsafeUpdate makeFace) = 
+   let v = nextVertex bd       
+       newFace = makeFace v
+       oldVPoints = bvLocMap bd
+       newVPoints = addVPoint newFace oldVPoints
+--       newVPoints = addVPoints [newFace] [] oldVPoints
+       Just vPosition = VMap.lookup v newVPoints
+       fDedges = faceDedges newFace
+       matchedDedges = fDedges `intersect` boundary bd -- singleton
+       newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
+       nbrFaces = facesAtBV bd x `intersect` facesAtBV bd y where 
+                    [x,y] = faceVList newFace \\ [v]
+           --nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
+       resultBd = BoundaryState 
+                    { boundary = newDedges ++ (boundary bd \\ matchedDedges)
+                    , bvFacesMap = changeVFMap newFace (bvFacesMap bd)
+                    , bvLocMap = newVPoints
+                    , allFaces = newFace:allFaces bd
+                    , nextVertex = v+1
+                    }
+       bdChange = BoundaryChange 
+                    { newBoundaryState = resultBd
+                    , removedEdges = matchedDedges
+                    , revisedEdges = affectedBoundary resultBd newDedges
+                    , newFace = newFace
+                    }
+   in if touchCheck vPosition oldVPoints -- always False if touchCheckOn = False
+      then Right Nothing -- don't proceed - v is a touching vertex
+      else if noConflict newFace nbrFaces  -- check new face does not conflict on edges
+           then Right (Just bdChange)  
+           else Left $
+                 "tryUnsafeUpdate:(incorrect tiling)\nConflicting new face  "
+                 ++ show newFace
+                 ++ "\nwith neighbouring faces\n"
+                 ++ show nbrFaces
+                 ++ "\nIn graph:\n"
+                 ++ show (recoverGraph resultBd)
+                 ++ "\n"
 
 {-| trySafeUpdate bd u adds a new face by completing a safe update u on BoundaryState bd
     (raising an error if u is an unsafe update).
@@ -444,53 +476,6 @@ commonVs [(a,b),(c,d)] | b==c = [b]
 commonVs [(a,b),(c,d),(e,f)] | length (nub [a,b,c,d,e,f]) == 3 = [a,c,e] 
 commonVs es = error $ "commonVs: unexpected argument edges (not 2 adjacent directed edges or 3 round triangle): " ++ show es  ++ "\n"
 
-{-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
-     (raising an error if u is a safe update).
-     It checks that the new face is not in conflict with existing faces (returning Left report if there is a conflict).
-     If touchCheckOn is True, it performs a touching vertex check with the new vertex
-     returning Right Nothing if there is a touching vertex.
-     Otherwise it returns Right (Just bdc) with bdc a boundary change.
--}
-tryUnsafeUpdate:: BoundaryState -> Update -> ReportFail (Maybe BoundaryChange)
-tryUnsafeUpdate bd (SafeUpdate _) = error  "tryUnsafeUpdate: applied to safe update.\n"
-tryUnsafeUpdate bd (UnsafeUpdate makeFace) = 
-   let v = nextVertex bd       
-       newFace = makeFace v
-       oldVPoints = bvLocMap bd
-       newVPoints = addVPoint newFace oldVPoints
---       newVPoints = addVPoints [newFace] [] oldVPoints
-       Just vPosition = VMap.lookup v newVPoints
-       fDedges = faceDedges newFace
-       matchedDedges = fDedges `intersect` boundary bd -- singleton
-       newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
-       nbrFaces = facesAtBV bd x `intersect` facesAtBV bd y where 
-                    [x,y] = faceVList newFace \\ [v]
-           --nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
-       resultBd = BoundaryState 
-                    { boundary = newDedges ++ (boundary bd \\ matchedDedges)
-                    , bvFacesMap = changeVFMap newFace (bvFacesMap bd)
-                    , bvLocMap = newVPoints
-                    , allFaces = newFace:allFaces bd
-                    , nextVertex = v+1
-                    }
-       bdChange = BoundaryChange 
-                    { newBoundaryState = resultBd
-                    , removedEdges = matchedDedges
-                    , revisedEdges = affectedBoundary resultBd newDedges
-                    , newFace = newFace
-                    }
-   in if touchCheck vPosition oldVPoints -- always False if touchCheckOn = False
-      then Right Nothing -- don't proceed - v is a touching vertex
-      else if noConflict newFace nbrFaces  -- check new face does not conflict on edges
-           then Right (Just bdChange)  
-           else Left $
-                 "tryUnsafeUpdate:(incorrect tiling)\nConflicting new face  "
-                 ++ show newFace
-                 ++ "\nwith neighbouring faces\n"
-                 ++ show nbrFaces
-                 ++ "\nIn graph:\n"
-                 ++ show (recoverGraph resultBd)
-                 ++ "\n"
 
 
 -- |tryUpdate: tries a single update (safe or unsafe),
@@ -516,9 +501,6 @@ noConflict :: TileFace -> [TileFace] -> Bool
 noConflict fc fcs = null (faceDedges fc `intersect` facesDedges fcs) &&
                     null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
                     null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
-
-
-
 
 
 {-*
@@ -569,6 +551,7 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
     They are combined in sequence (keeping the rule order) after applying each to the
     supplied BoundaryState and a focus edge list. (See also defaultAllUGen).
     This version returns a Left..(fail report) for the first generator that produces a Left..(fail report)
+    See $rules
 -}
 allUGenerator :: UpdateGenerator 
 allUGenerator bd focus =
@@ -1080,22 +1063,6 @@ tryAddHalfDart :: Dedge -> Tgraph -> ReportFail Tgraph
 tryAddHalfDart e g = 
   do bdFinal <- tryAddHalfDartBoundary e $ makeBoundaryState g
      return $ recoverGraph bdFinal
-
-{-
-tryAddHalfDart e g = 
-  do let bd = makeBoundaryState g
-     de <- case [e, reverseD e] `intersect` boundary bd of
-            [de] -> Right de
-            _ -> Left $ "tryAddHalfDart:  on non-boundary edge " ++ show e  ++ "\n"
-     let (fc,etype) = inspectBDedge bd de
-     let tryU | etype == Long = addDartLongE bd fc
-              | etype == Short && isKite fc = addDartShortE bd fc
-              | etype == Join && isDart fc = completeHalf bd fc
-              | otherwise = Left "tryAddHalfDart: applied to short edge of dart or to kite join (not possible).\n"
-     u <- tryU
-     bdC <- tryUpdate bd u
-     return $ recoverGraph $ newBoundaryState bdC
--}
 
 -- |tryAddHalfDartBoundary is a version of tryAddHalfDart which is from BoundaryState to BoundaryState
 tryAddHalfDartBoundary :: Dedge -> BoundaryState -> ReportFail BoundaryState

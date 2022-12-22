@@ -215,7 +215,8 @@ This produces 2^n choices where n is the number of unknowns.
 -}
 makeChoices :: Tgraph -> [Tgraph]
 makeChoices g = choices unks [g] where
-    unks = unknowns (classifyDartWings g) -- g not forced may allow solitary wing tips which will fail
+    unks = unknowns (getDartWingInfo g) -- g not forced may allow solitary wing tips which will fail
+--    unks = unknowns (classifyDartWings g) -- g not forced may allow solitary wing tips which will fail
     choices [] gs = gs
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
 
