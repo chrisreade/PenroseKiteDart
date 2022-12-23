@@ -146,16 +146,16 @@ emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # l
     emphPatch = subPatch (fcs `intersect` faces g) vp
 
 {-*
-Combining force, composeG, decomposeG
+Combining force, compose, decompose
 -}
--- |compForced does a force then composeG. 
+-- |compForced does a force then compose. 
 -- (the connectedNoCross check may be redundant on the composed graph because the argument was forced.)
 compForced:: Tgraph -> Tgraph
-compForced = composeG . force
+compForced = compose . force
 
 -- |force after a decomposition
 forcedDecomp:: Tgraph -> Tgraph
-forcedDecomp = force . decomposeG
+forcedDecomp = force . decompose
         
 -- |allCompForced g produces a list of all forced compositions starting from g up to but excluding the empty graph
 allCompForced:: Tgraph -> [Tgraph]
@@ -177,19 +177,19 @@ maxComp = last . allComp
 -- |allComp g may produce a list of all compositions starting from g up to but excluding the empty graph,
 -- but it may raise an error if any composition is not a valid Tgraph.
 allComp:: Tgraph -> [Tgraph]
-allComp = takeWhile (not . nullGraph) . iterate composeG
+allComp = takeWhile (not . nullGraph) . iterate compose
 
 {-*
 Emplacements
 -}
--- |emplace does maximal composing with force and composeG, 
--- then applies decomposeG and force repeatedly back to the starting level.
+-- |emplace does maximal composing with force and compose, 
+-- then applies decompose and force repeatedly back to the starting level.
 -- It produces the emplacement of influence of the argument graph.   
 emplace:: Tgraph -> Tgraph
 emplace g | nullGraph g' = fg
           | otherwise = (forcedDecomp . emplace) g'
   where fg = force g
-        g' = composeG fg 
+        g' = compose fg 
             
 {-
 -- |emplacements is best supplied with a maximally composed or near maximally composed graph
@@ -204,7 +204,7 @@ emplaceChoices:: Tgraph -> [Tgraph]
 emplaceChoices g | nullGraph g' = emplace <$> makeChoices fg
                  | otherwise = forcedDecomp <$> emplaceChoices g'
   where fg = force g
-        g' = composeG fg 
+        g' = compose fg 
                                  
 {-| makeChoices should only be used on a forced Tgraph.
 It is a temporary tool which does not attempt to analyse choices for correctness.

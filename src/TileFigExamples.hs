@@ -79,13 +79,13 @@ Figures for decompositions and compChoices
 -- |figure showing 4 decompositions in a column for each of the four pieces
 fourDecomps:: Diagram B
 fourDecomps = hsep 1 $ fmap decomps thePieces # lw thin where
-         decomps pc = vsep 1 $ fmap drawPatch $ take 5 $ decompositions [pc `at` origin] 
+         decomps pc = vsep 1 $ fmap drawPatch $ take 5 $ decompositionsP [pc `at` origin] 
 
 -- |example of compChoices in action with 5 chosen compChoices steps from a left dart.
 -- This shows inital and final piece together on the left,  
 -- and 5 decomposition of the final piece on the right.
 fiveCompChoices:: Diagram B
-fiveCompChoices = pad 1.1 $ hsep 1 $ fmap dashJPatch [[ld,lk'], decompositions [lk'] !! 5] where
+fiveCompChoices = pad 1.1 $ hsep 1 $ fmap dashJPatch [[ld,lk'], decompositionsP [lk'] !! 5] where
      -- two seperate patches
        ld  = ldart `at` origin
        lk  = compChoices ld  !!1
@@ -101,7 +101,7 @@ fiveAlternatives = hsep 1 $ fmap (dashJPatch . (:[lp])) $ take 5 $ compNChoices 
 
 -- |An infinite list of patches of increasingly decomposed sun
 suns::[Patch]
-suns = decompositions sun
+suns = decompositionsP sun
 sun5,sun6:: Patch
 -- |a patch of a 6 times decomposed sun
 sun6 = suns!!6
@@ -125,8 +125,8 @@ twoLevelsFig = drawPatchWith experiment (suns!!4)
 -- |figure showing two types of dart wing vertices (largeKiteCentre, largeDartBase)                         
 dartWingFig::Diagram B
 dartWingFig = pad 1.2 $ hsep 1 [dkite, ddart] where
-  ddart = showOrigin (translate unit_X $ dashJPatch  $ decompose [ldart `at` origin, rdart `at` origin])
-  dkite = showOrigin (translate unit_X $ dashJPatch  $ decompose [lkite `at` origin, rkite `at` origin])
+  ddart = showOrigin (translate unit_X $ dashJPatch  $ decompPatch [ldart `at` origin, rdart `at` origin])
+  dkite = showOrigin (translate unit_X $ dashJPatch  $ decompPatch [lkite `at` origin, rkite `at` origin])
 
 {-*
 Colour-filled examples
@@ -144,10 +144,10 @@ newFillSun6 = drawPatchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc
 -- |list of 3 diagrams for colour filled star,sun kite respectivly
 threeColouredShapes:: [Diagram B]
 threeColouredShapes = [star4,sun4,kite5] where
-        star4 = colourDKG (goldenrod, darkturquoise, saddlebrown) (decompositions TileLib.star !!4)
+        star4 = colourDKG (goldenrod, darkturquoise, saddlebrown) (decompositionsP TileLib.star !!4)
         sun4 = colourDKG (darken 0.7 darkmagenta, indigo, gold) (suns!!4)
         kite5 = colourDKG (darkblue,blend 0.9 red magenta, yellow) $
-                 scale phi (decompositions [lkite `at` origin, rkite `at` origin] !!5)
+                 scale phi (decompositionsP [lkite `at` origin, rkite `at` origin] !!5)
 
 -- |diagram of three coloured shapes in a row
 exampleTriple1::Diagram B

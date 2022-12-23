@@ -199,8 +199,8 @@ colourDKG (c1,c2,c3) p = drawPatchWith (fillDK c1 c2) p # lc c3
 Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch
 Decomposition is uniquely determined.
 -}
-decompose :: Patch -> Patch
-decompose = concatMap decompPiece
+decompPatch :: Patch -> Patch
+decompPatch = concatMap decompPiece
 
 -- |Decomposing a located piece
 decompPiece lp = case viewLoc lp of
@@ -226,8 +226,8 @@ decompPiece lp = case viewLoc lp of
                        vk' = ((phi-1) *^ vk) ^-^ v' -- (phi-1) = 1/phi
 
 -- |Create an infinite list of increasing decompositions of a patch
-decompositions:: Patch -> [Patch]
-decompositions = iterate decompose
+decompositionsP:: Patch -> [Patch]
+decompositionsP = iterate decompPatch
 
 {-|
 compChoices applied to  a single located piece produces a list of alternative located pieces NOT a Patch.

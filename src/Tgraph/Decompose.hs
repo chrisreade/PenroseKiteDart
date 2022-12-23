@@ -6,7 +6,7 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This module includes the main decomposition operation decomposeG but also exposes 
+This module includes the main decomposition operation decompose but also exposes 
 some auxilliary functions for debugging, experimenting and use with SubTgraphs
 -}
 module Tgraph.Decompose where
@@ -20,14 +20,14 @@ import Tgraph.Prelude
 
 {------------------------------- 
 **************************************
-DECOMPOSING - decomposeG
+DECOMPOSING - decompose
 **************************************
 ----------------------------------}
 
 
 -- |Decompose a Tgraph. This is uniquely determined.
-decomposeG :: Tgraph -> Tgraph
-decomposeG g = Tgraph{ maxV = newMax
+decompose :: Tgraph -> Tgraph
+decompose g = Tgraph{ maxV = newMax
                      , faces = newFaces
                      } where
     (newMax , newVFor) = maxAndPhiVMap g
@@ -65,8 +65,8 @@ decompFace newVFor fc = case fc of
         where x = newVFor (a,c)
      
 -- |infinite list of decompositions of a Tgraph     
-decompositionsG :: Tgraph -> [Tgraph]
-decompositionsG = iterate decomposeG
+decompositions :: Tgraph -> [Tgraph]
+decompositions = iterate decompose
 
 
 

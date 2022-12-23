@@ -41,10 +41,10 @@ fool = makeTgraph
           [ RD(1,2,3), LD(1,3,4), RK(6,2,5), LK(6,3,2), RK(6,4,3), LK(6,7,4)]
 
 -- |a once decomposed fool (= foolDs!!1)
-foolD = decomposeG fool
+foolD = decompose fool
 -- | a list of all decompositions of fool
 foolDs :: [Tgraph]
-foolDs = decompositionsG fool
+foolDs = decompositions fool
 
 -- |foolDminus: 3 faces removed from foolD - still a valid Tgraph
 foolDminus = removeFaces [RD(6,15,13), LD(6,17,15), RK(5,11,2)] foolD
@@ -88,7 +88,7 @@ sunGraph = makeTgraph
              ]
 -- |All decompositions of sunGraph
 sunDs :: [Tgraph]
-sunDs =  decompositionsG sunGraph
+sunDs =  decompositions sunGraph
 
 figSunD3D2:: Diagram B
 -- |Figure for a 3 times decomposed sun with a 2 times decomposed sun
@@ -100,7 +100,7 @@ kiteGraph = makeTgraph [ RK(1,2,4), LK(1,3,2)]
 
 -- |All decompositions of a kite
 kiteDs :: [Tgraph]
-kiteDs = decompositionsG kiteGraph
+kiteDs = decompositions kiteGraph
 
 -- |Tgraph for a dart
 dartGraph :: Tgraph
@@ -108,7 +108,7 @@ dartGraph =  makeTgraph [ RD(1,2,3), LD(1,3,4)]
 
 -- |All decompositions of a dart
 dartDs :: [Tgraph]
-dartDs =  decompositionsG dartGraph
+dartDs =  decompositions dartGraph
 
 -- |Tgraph of 4 times decomposed dartGraph (used in several examples)
 dartD4 :: Tgraph
@@ -134,11 +134,11 @@ composeK composes by treating unknowns as large kite centres (= deuce vertices),
 The first 3 Tgraphs are correct. The second is composeK of the first and the third is force applied to the second
 (a forced queen vertex).  
 The fourth Tgraph is a further composeK and this is clearly an incorrect Tgraph (applying force to this fails).
-In one further composition (either composeK or composeG) the incomplete mistake1 graph is produced - fifth graph.
+In one further composition (either composeK or compose) the incomplete mistake1 graph is produced - fifth graph.
 -}
 counterK :: Diagram B
 counterK = padBorder $ hsep 1 $ rotations [8,0,0,6,5] $ scales [1,phi,phi,1+phi,1+2*phi] $ 
-           fmap dashJVGraph [g,cg,fcg, cfcg, composeG cfcg]
+           fmap dashJVGraph [g,cg,fcg, cfcg, compose cfcg]
         where g = sunPlus3Dart'
               cg = composeK g
               fcg = force cg
@@ -197,7 +197,7 @@ Emplace with choices
 foolChoices :: Diagram B
 foolChoices = padBorder $ vsep 1 
               [hsep 1 $ fmap ((redFool <>) . dashJGraph) choices
-              ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (dashJGraph . composeG) choices
+              ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (dashJGraph . compose) choices
               ] where choices = makeChoices fool
                       redFool = dashJGraph fool # lc red
                          
@@ -244,7 +244,7 @@ checkBrokenDartFig = drawGraph $ force badlyBrokenDart
 -- |2 adjacent kites decomposed then the top half kite components removed (3 of them)
 brokenKites::Tgraph
 brokenKites = removeFaces deleted kPlusKD where
-                      kPlusKD = decomposeG kitePlusKite
+                      kPlusKD = decompose kitePlusKite
                       deleted = filter (hasVIn [6,14]) (faces kPlusKD)
 {-|
 Figure showing a decomposed pair of adjacent kites, followed by
@@ -254,7 +254,7 @@ the emplacement of brokenKites (which is the same as force brokenKites).
 -}
 brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap dashJVPinned $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVPinned 
-                  [decomposeG kitePlusKite, brokenKites, composeG brokenKites, emplace brokenKites]
+                  [decompose kitePlusKite, brokenKites, compose brokenKites, emplace brokenKites]
 
 -- |diagram illustrating touching vertex situation and forced result.
 -- The faces shown in lime are removed from a twice decomposed sun.
@@ -307,9 +307,9 @@ pfMistakeFig  = padBorder $ hsep 1 [dashJVGraph mistake, dashJVGraph partForcedM
                        ,LK (1,3,2),RD (3,1,5),LD (4,6,1),LD (3,5,7),RD (4,8,6)
                        ]
    
--- |decomposeG mistake and the point at which forcing fails  with  RK (6,26,1)              
+-- |decompose mistake and the point at which forcing fails  with  RK (6,26,1)              
 forcingDmistakeFig :: Diagram B
-forcingDmistakeFig = padBorder $ hsep 1 [dashJVGraph (decomposeG mistake), dashJVGraph part] where
+forcingDmistakeFig = padBorder $ hsep 1 [dashJVGraph (decompose mistake), dashJVGraph part] where
     part = makeTgraph
              [RK (26,24,1),RK (5,24,25),LK (5,1,24),RK (3,23,2),LK (3,22,23)
              ,RK (3,21,22),LK (3,15,21),LK (4,2,20),RK (4,20,19),LK (4,19,18),RK (4,18,17)
@@ -360,8 +360,8 @@ partFMistake1Fig = padBorder $ dashJVGraph partF where
 -- |decomposed mistake1 is no longer incorrect and can be forced and recomposed
 cdMistake1Fig :: Diagram B
 cdMistake1Fig = padBorder $ hsep 1 $ fmap dashJVPinned $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVPinned
-               [ mistake1 , mistake1D, force mistake1D, composeG mistake1D]
-               where mistake1D = decomposeG mistake1
+               [ mistake1 , mistake1D, force mistake1D, compose mistake1D]
+               where mistake1D = decompose mistake1
 
 
 {-*
@@ -440,7 +440,7 @@ relatedVType0 = lw thin $
        deuceF = labelAt (p2(-4,2.1)) "force deuce" $ named "deuceF" $ forceVFigures!!6
 
 {-| relatedVTypeFig lays out figures from forceVFigures plus a kite as a single diagram with 3 columns
-    showing relationships - forcedDecomp (blue arrows) and composeG (green arrows)
+    showing relationships - forcedDecomp (blue arrows) and compose (green arrows)
  -}
 relatedVTypeFig:: Diagram B
 relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2(-10,-10))) <>  mainfig where
@@ -456,8 +456,8 @@ relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2(-10,-10))) <>  mainfig wh
     # forceDecArrow "deuceF" "queenF"
     # composeArcUp "queenF" "deuceF"
   key = (a|||box|||b) 
-         # labelAt (p2(1,-1)) "force . decomposeG" 
-         # labelAt (p2(2,1.3)) "composeG" 
+         # labelAt (p2(1,-1)) "force . decompose" 
+         # labelAt (p2(2,1.3)) "compose" 
          # forceDecArrow "B" "A" 
          # composeArcRight "A" "B" where
             box = rect 7 3.8 
@@ -600,7 +600,7 @@ curioPic0 = padBorder $ lw ultraThin $ position $ concat
   ] where
     forceDs  = rotations [1,1]  $ phiScaling phi $ reverse $ take 4 $ fmap (drawGraph . force) dartDs
     forceXDs = rotations [9,9,8]  $ phiScaling phi $ reverse $ take 3 $ fmap drawForce xDGraphs
-    xDGraphs = decompositionsG sunPlus3Dart'
+    xDGraphs = decompositions sunPlus3Dart'
     xDs  = rotations [9,9,8] $  phiScaling phi $ reverse $
            drawGraph dartGraph : (drawGraph sunPlus3Dart' # lc red # lw thin): 
            take 2  (drop 1 $ fmap drawSmartGraph xDGraphs)
@@ -646,8 +646,8 @@ curioPic =
 graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
               [cft,dcft,ft,t] = fmap dashJVPinned $ scales [phi] $ alignAll (1,2) $ fmap makeVPinned 
                                 [cftest, dcftest, ftest, test]
-              dcftest = decomposeG cftest
-              cftest = composeG ftest
+              dcftest = decompose cftest
+              cftest = compose ftest
               ftest = force test
               test = makeTgraph [RK (4,7,2),LK (4,5,7),RD (1,7,5),LK (3,2,7)
                                    ,RK (3,7,6),LD (1,6,7), LK(3,6,8)
@@ -844,7 +844,7 @@ halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 figs, 
     cases = [dartPlusDart, dartPlusKite, dartHalfDart, dartHalfKite]
     scaledCases = alignAll (1,3) $ fmap (scale (phi^4) . makeVPinned) cases
     forcedD4Cases = alignAll (1,3) $ fmap (makeVPinned . force . decomp4) cases
-    decomp4 g = decompositionsG g !! 4
+    decomp4 g = decompositions g !! 4
     redEmbed g1 g2 = lc red (lw medium $ dashJPatch $ dropLabels g1) <> lw ultraThin (drawPatch $ dropLabels g2)
 
 -- | two kites (force decomp twice) figure
@@ -852,8 +852,8 @@ kkEmpsFig:: Diagram B
 kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $ 
             fmap drawGraph  [kk, kkD, kkD2] where
               kk = kitePlusKite
-              kkD = force $ decomposeG kk
-              kkD2 = force $ decomposeG kkD
+              kkD = force $ decompose kk
+              kkD2 = force $ decompose kkD
              
 -- | two kites added to related vertex types figure
 maxShapesFig:: Diagram B

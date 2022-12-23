@@ -6,7 +6,7 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This module includes the main composition operation composeG but also exposes 
+This module includes the main composition operation compose but also exposes 
 getDartWingInfo (and type DartWingInfo) for debugging and experimenting.
 -}
 module Tgraph.Compose where
@@ -19,16 +19,16 @@ import Tgraph.Prelude
 
 {-------------------------------------------------------------------------
 ***************************************************************************              
-COMPOSING composeG and partCompose 
+COMPOSING compose and partCompose 
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
--- |A deterministic function for composing is composeG which makes no choices when composing
+-- |A deterministic function for composing is compose which makes no choices when composing
 -- (producing the meet of possible choices).
 -- which is essentially partCompose after uncomposed faces are ignored.
 -- If the result fails to be connected or has crossing boundaries an error is raised.
-composeG:: Tgraph -> Tgraph
-composeG = snd . partCompose
+compose:: Tgraph -> Tgraph
+compose = snd . partCompose
 
 -- |partCompose produces a Tgraph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
