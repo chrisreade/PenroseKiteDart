@@ -36,10 +36,11 @@ composeG = snd . partCompose
 partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = (remainder,newGraph) where
   newGraph = getResult $ checkConnectedNoCross $ 
-                Tgraph { faces = newfaces, maxV = maxVertex }
-  (newfaces,groups) = createNewAndGroups $ getDartWingInfo g
+                Tgraph { faces = newfaces, maxV = facesMaxV newfaces }
+  compositions = composedFaceGroups $ getDartWingInfo g
+  newfaces = map fst $ compositions
+  groups = map snd $ compositions
   remainder = faces g \\ concat groups
-  maxVertex = facesMaxV newfaces
 
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.
@@ -130,15 +131,14 @@ getDartWingInfo g =  DartWingInfo {largeKiteCentres = kcs, largeDartBases = dbs,
                               find (matchingJoinE rk)  (filter isLK fcs)
   findFarK _ _ = error "getDartWingInfo: findFarK applied to non-dart face"
 
+
 -- | Auxiliary function for partCompose.
--- Creates a list of new composed faces paired with a list of grouped old faces using dart wing information.
--- Each new face is formed from one of the groups.
-createNewAndGroups :: DartWingInfo -> ([TileFace],[[TileFace]])
-createNewAndGroups dwInfo = (newfaces,groups) where
-    newfaces = newRDs ++ newLDs ++ newRKs ++ newLKs
-    groups = groupRDs ++ groupLDs ++ groupRKs ++ groupLKs
-     
-    newRDs = fmap makeRD groupRDs 
+-- Creates a list of new composed faces, each paired with a list of old faces (components of the new face)
+-- using dart wing information.
+composedFaceGroups :: DartWingInfo -> [(TileFace,[TileFace])]
+composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ faceGroupLKs where
+
+    faceGroupRDs = fmap (\gp -> (makeRD gp,gp)) groupRDs 
     groupRDs = mapMaybe groupRD (largeDartBases dwInfo)
     makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
     groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
@@ -146,7 +146,7 @@ createNewAndGroups dwInfo = (newfaces,groups) where
                     lk <- find (matchingShortE rd) fcs
                     return [rd,lk]
 
-    newLDs = fmap makeLD groupLDs
+    faceGroupLDs = fmap (\gp -> (makeLD gp,gp)) groupLDs 
     groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
     makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
     groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
@@ -154,7 +154,7 @@ createNewAndGroups dwInfo = (newfaces,groups) where
                     rk <- find (matchingShortE ld) fcs
                     return [ld,rk]
 
-    newRKs = fmap makeRK groupRKs 
+    faceGroupRKs = fmap (\gp -> (makeRK gp,gp)) groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
     makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
     groupRK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
@@ -163,7 +163,7 @@ createNewAndGroups dwInfo = (newfaces,groups) where
                     rk <- find (matchingJoinE lk) fcs
                     return [rd,lk,rk]
 
-    newLKs = fmap makeLK groupLKs 
+    faceGroupLKs = fmap (\gp -> (makeLK gp,gp)) groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
     makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
     groupLK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
@@ -172,6 +172,8 @@ createNewAndGroups dwInfo = (newfaces,groups) where
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
+{- Moved to GraphFigExamples as part of counterK example.
+                
 -- |An experimental version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
 -- It uses partComposeK.
@@ -193,9 +195,10 @@ partComposeK g = (remainder,newGraph) where
                              , unknowns = []
                              , faceMap = faceMap dwInfo
                              }
-  (newfaces,groups) = createNewAndGroups changedInfo
+  (newfaces,groups) = composedFacesAndGroups changedInfo
   remainder = faces g \\ concat groups
   maxVertex = facesMaxV newfaces
+-}
 
 
 

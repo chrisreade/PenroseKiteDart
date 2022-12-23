@@ -16,7 +16,7 @@ module GraphFigExamples where
 -- used for testing
 -- import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
 
-import Data.List (intersect,foldl')      
+import Data.List (intersect,foldl',(\\))      
 import Diagrams.Prelude
 import Data.Tree (Tree(..),levels)      
 
@@ -129,7 +129,7 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 
 {-|
-This example illustrates that the experimental composeK does not always make correct choices.
+This example illustrates that an experimental composeK does not always make correct choices.
 composeK composes by treating unknowns as large kite centres (= deuce vertices), so favouring kites when there is a choice.
 The first 3 Tgraphs are correct. The second is composeK of the first and the third is force applied to the second
 (a forced queen vertex).  
@@ -143,6 +143,28 @@ counterK = padBorder $ hsep 1 $ rotations [8,0,0,6,5] $ scales [1,phi,phi,1+phi,
               cg = composeK g
               fcg = force cg
               cfcg = composeK fcg
+-- |An experimental version of composition which defaults to kites when there are choices (unknowns).
+-- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
+-- It uses partComposeK.
+-- composeK :: Tgraph -> Tgraph
+              composeK = snd . partComposeK
+-- partComposeK:: Tgraph -> ([TileFace],Tgraph)
+              partComposeK g = (remainder,newGraph) where
+                 newGraph = makeTgraph newfaces
+                 dwInfo = getDartWingInfo g
+                 changedInfo = DartWingInfo { largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
+                                            , largeDartBases = largeDartBases dwInfo
+                                            , unknowns = []
+                                            , faceMap = faceMap dwInfo
+                                            }
+                 compositions = composedFaceGroups changedInfo
+                 newfaces = map fst compositions
+                 groups = map snd compositions
+                 remainder = faces g \\ concat groups
+{-
+                 (newfaces,groups) = composedFacesAndGroups changedInfo
+                 remainder = faces g \\ concat groups
+-}
 
 
 {-* Forced Tgraph figures
