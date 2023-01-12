@@ -18,7 +18,7 @@ module GraphFigExamples where
 
 import Data.List (intersect,foldl',(\\))      
 import Diagrams.Prelude
-import Data.Tree (Tree(..),levels)      
+import Data.Tree (Tree(..),levels) -- used for boundaryEdgeCaseTrees    
 
 import ChosenBackend (B)
 import TileLib
@@ -48,7 +48,6 @@ foolDs = decompositions fool
 
 -- |foolDminus: 3 faces removed from foolD - still a valid Tgraph
 foolDminus = removeFaces [RD(6,15,13), LD(6,17,15), RK(5,11,2)] foolD
--- [RD(6,12,11), LD(6,14,12), RK(5,10,2)] foolD --removeFaces [RD(6,14,11), LD(6,12,14), RK(5,13,2)] foolD
 
 -- | diagram of just fool
 foolFig :: Diagram B
@@ -57,7 +56,6 @@ foolFig = padBorder $ dashJVGraph fool
 -- |diagram of fool with foolD
 foolAndFoolD :: Diagram B
 foolAndFoolD = padBorder $ hsep 1 [scale phi $ dashJVGraph fool, dashJVGraph foolD]
---foolAndFoolD = padBorder $ hsep 1 [(dashJVPinned . scale phi . makeVPinned) fool, dashJVGraph foolD]
 
 {-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
 These will be caught by makeTgraph which raises an error.
@@ -74,9 +72,6 @@ Right (Tgraph {maxV = 18, faces = [..., LK (7,17,18)]})
 touchErrorFaces::[TileFace]
 touchErrorFaces = faces foolD ++ [RD(6,18,17),LK(19,17,18)]
 
-
-
-
 -- |Tgraph for a sun
 sunGraph :: Tgraph
 sunGraph = makeTgraph
@@ -90,8 +85,8 @@ sunGraph = makeTgraph
 sunDs :: [Tgraph]
 sunDs =  decompositions sunGraph
 
-figSunD3D2:: Diagram B
 -- |Figure for a 3 times decomposed sun with a 2 times decomposed sun
+figSunD3D2:: Diagram B
 figSunD3D2 = padBorder $ hsep 1 [dashJVGraph $ sunDs !! 3, scale phi $ dashJVGraph $ sunDs !! 2]
 
 -- |Tgraph for kite
@@ -152,11 +147,9 @@ counterK = padBorder $ hsep 1 $ rotations [8,0,0,6,5] $ scales [1,phi,phi,1+phi,
               partComposeK g = (remainder,newGraph) where
                  newGraph = makeTgraph newfaces
                  dwInfo = getDartWingInfo g
-                 changedInfo = DartWingInfo { largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
-                                            , largeDartBases = largeDartBases dwInfo
-                                            , unknowns = []
-                                            , faceMap = faceMap dwInfo
-                                            }
+                 changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
+                                     , unknowns = []
+                                     }
                  compositions = composedFaceGroups changedInfo
                  newfaces = map fst compositions
                  groups = map snd compositions
@@ -1025,6 +1018,31 @@ chunks n
       ch [] = []
       ch as = take n as : ch (drop n as)
 
+-- |boundaryLoopFill tests the calculation of boundary loops of a Tgraph and conversion to a (Diagrams) Path, using
+-- boundaryLoopsG and pathFromBoundaryLoops. The conversion of the Path to a Diagram allows
+-- a fill colour to be used for the entire internal part of the Tgraph - i.e. not by filling the individual tilefaces.
+-- It also associates vertex labels with the respective positions in the diagram.
+boundaryLoopFill:: Colour Double -> Tgraph -> Diagram B
+boundaryLoopFill c g = dg # lw ultraThin <> d # fc c where
+    vp = makeVPinned g
+    dg = drawPatch $ dropLabels vp
+    vlocs = vLocs vp
+    bdLoops = boundaryLoopsG g
+    d = strokeP' (with & vertexNames .~ bdLoops) $ pathFromBoundaryLoops vlocs bdLoops
+--    d = strokeP' (with & vertexNames .~ bdLoops) $ toPath $ map (glueTrail . trailFromVertices . map getPoint) bdLoops
+
+testLoops1,testLoops2:: Diagram B
+-- | diagram using boundaryLoopFill with a single boundary loop
+testLoops1 = padBorder $ boundaryLoopFill honeydew boundaryGapFDart4
+
+-- | diagram using boundaryLoopFill with two boundary loops (i.e. a single hole)
+testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
+         g = removeFaces (faces $ recoverGraph bs1) (recoverGraph bs2)
+         bs2 = head $ boundaryVCover bs1 
+         bs1 = head $ tail $ boundaryVCover bs0
+         bs0 = getResult $ tryForceBoundary $ makeBoundaryState kingGraph
+--         bs0 = makeBoundaryState $ force kingGraph
+
 {-*
 Testing Relabelling (fullUnion, commonFaces)
 -}
@@ -1164,6 +1182,11 @@ kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk,
     fk = force kingGraph
     fdfk = forcedDecomp fk
     fdfdfk = forcedDecomp fdfk
+
+
+
+
+
 
 
 {-*

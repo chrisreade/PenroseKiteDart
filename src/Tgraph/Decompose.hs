@@ -7,7 +7,7 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 This module includes the main decomposition operation decompose but also exposes 
-some auxilliary functions for debugging, experimenting and use with SubTgraphs
+some auxiliary functions for debugging and experimenting.
 -}
 module Tgraph.Decompose where
 
@@ -50,7 +50,7 @@ maxAndPhiVMap g = (oldMax+sizeNew, (Map.!) edgeVMap) where
 
 -- |Decompose a face producing new faces. 
 -- This requires a function to get the unique vertex assigned to each phi edge
--- (as created by newPhiVMap)
+-- (as created by maxAndPhiVMap)
 decompFace:: ((Vertex,Vertex)->Vertex) -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]

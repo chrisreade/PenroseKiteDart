@@ -6,7 +6,7 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This module includes the main composition operation compose but also exposes 
+This module includes the main composition operations compose and partCompose but also exposes 
 getDartWingInfo (and type DartWingInfo) for debugging and experimenting.
 -}
 module Tgraph.Compose where

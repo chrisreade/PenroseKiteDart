@@ -34,8 +34,9 @@ import Diagrams.Prelude hiding (union)
 import ChosenBackend (B)
 import TileLib
 
-import Data.List (intersect, union, (\\), find)      
+import Data.List (intersect, union, (\\), find, foldl')      
 import qualified Data.Set as Set  (fromList,member)-- used for boundaryVCovers
+import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
 -- * Making valid Tgraphs (with a check for no touching vertices).
 
@@ -118,7 +119,9 @@ drawForce g = (dg # lc red # lw thin) <> dfg where
     dg = drawSmartSub g vp
 
 {-|
-drawWithMax g - draws g and overlays the maximal composition of g in red
+drawWithMax g - draws g and overlays the maximal composition of g in red.
+This may raise an error if any of the compositions of g upto the maximal one are invalid Tgraphs
+(e.g. not tile connected).
 -}
 drawWithMax :: Tgraph -> Diagram B
 drawWithMax g =  (dmax # lc red # lw thin) <> dg where
@@ -133,8 +136,8 @@ drawGBoundary g =  (drawEdges (vLocs vp) bd # lc lime) <> drawVPinned vp where
     vp  = makeVPinned g
     bd = boundaryDedges g
 
--- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces to find the common faces of g1 and g2
--- and emphasizes the common faces on the background g1
+-- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces (g1,e1) (g2,e2) to find the common faces
+-- and emphasizes them on the background g1
 drawCommonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram B
 drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g1
 
@@ -144,6 +147,10 @@ emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # l
     vp = makeVPinned g
     gPatch = dropLabels vp
     emphPatch = subPatch (fcs `intersect` faces g) vp
+
+
+ 
+      
 
 {-*
 Combining force, compose, decompose
@@ -190,13 +197,6 @@ emplace g | nullGraph g' = fg
           | otherwise = (forcedDecomp . emplace) g'
   where fg = force g
         g' = compose fg 
-            
-{-
--- |emplacements is best supplied with a maximally composed or near maximally composed graph
--- It produces an infinite list of emplacements of the starting graph and its decompositions.
-emplacements :: Tgraph -> [Tgraph]
-emplacements = iterate forcedDecomp . emplace -- was .force
--}
 
 -- |a version of emplace using makeChoices at the top level.
 -- after makeChoices we use emplace to attempt further compositions but with no further choices
@@ -260,10 +260,10 @@ boundaryECover bd = covers [(bd, boundary bd)] where
 
 -- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
 onBoundary:: [Dedge] -> BoundaryState -> [Dedge]
-onBoundary des b = boundary b `intersect` des
+onBoundary des b = des `intersect` boundary b
 
 -- | tryDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
--- to edge de on boundary b and forcing. (A list of 0 to 2 new boundaries)
+-- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
 tryDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
 tryDartAndKite de b = ignoreFails 
     [ tryAddHalfDartBoundary de b >>= tryForceBoundary
@@ -282,7 +282,7 @@ boundaryVCover bd = covers [(bd, startbds)] where
   covers ((open,[]):opens) 
     = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers (fmap (\b -> (b, onBoundary [] b))  (tryDartAndKite de open) ++opens)
+        Just de -> covers (fmap (\b -> (b, []))  (tryDartAndKite de open) ++opens)
   covers ((open,de:des):opens) = 
                    covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++opens)  
 
@@ -300,7 +300,7 @@ drawFBCover g = lw ultraThin $ vsep 1 $
 empire1:: Tgraph -> SubTgraph
 empire1 g = makeSubTgraph g0 [fcs,faces g] where
     (g0:others) = forcedBoundaryVCover g
-    fcs = foldl intersect (faces g0) $ fmap g0Intersect others
+    fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
@@ -338,6 +338,54 @@ drawEmpire2 g = drawSubTgraph [ lw ultraThin . drawPatch
                               , lw thin . lc red . drawPatch
                               ] $ empire2 g
 
+-- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
+-- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
+-- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
+boundaryLoopsG:: Tgraph -> [[Vertex]] 
+boundaryLoopsG = findLoops . boundaryDedges
+
+-- | Returns a list of (looping) vertex trails for a BoundaryState.
+-- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
+-- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
+boundaryLoops:: BoundaryState -> [[Vertex]]
+boundaryLoops = findLoops . boundary
+
+-- | When applied to a boundary edge list this returns a list of (looping) vertex trails.
+-- I.e. if we follow the boundary edges of a Tgraph recording vertices visited as a list returning to the starting vertex
+-- we get a looping trail.
+-- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
+-- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
+findLoops:: [Dedge] -> [[Vertex]]
+findLoops es = collectLoops $ VMap.fromList es where
+
+    -- Make a vertex to vertex map from the directed edges then delete items from the map as a trail is followed
+    -- from the lowest numbered vertex.
+    -- Vertices are collected in reverse order, then the list is reversed when a loop is complete.
+    -- This is repeated until the map is empty, to collect all boundary trials.
+   collectLoops vmap -- 
+     | VMap.null vmap = []
+     | otherwise = chase start vmap [start] 
+         where
+         (start,_) = VMap.findMin vmap
+         chase a vm sofar -- sofar is the collected trail in reverse order.
+            = case VMap.lookup a vm of
+                Just b -> chase b (VMap.delete a vm) (b:sofar)
+                Nothing -> if a == start 
+                           then reverse sofar: collectLoops vm -- look for more loops
+                           else error $ "boundaryLoops: non looping boundary component, starting at "
+                                        ++show start++
+                                        " and finishing at "
+                                        ++ show a ++ 
+                                        "\nwith edges "++ show es ++"\n"
+
+
+-- | Given a suitable vertex to location map and boundary loops (represented as a list of lists of vertices),
+-- this will return a (Diagrams) Path for the boundary.  It will raise an error if any vertex listed is not a map key.
+pathFromBoundaryLoops:: VertexLocMap -> [[Vertex]] -> Path V2 Double
+pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!)) loops where 
+    locateLoop pts = (`at` head pts) $ glueTrail $ trailFromVertices pts
+
+
 {-*
 SubTgraphs
 -}
@@ -361,20 +409,20 @@ makeSubTgraph g trackedlist = SubTgraph{ tgraph = g, tracked = fmap (`intersect`
 
 -- |pushFaces sub - pushes the maingraph tilefaces onto the stack of tracked subsets of sub
 pushFaces:: SubTgraph -> SubTgraph
+pushFaces sub = sub{ tracked = faces (tgraph sub):tracked sub } where
+{-
 pushFaces sub = makeSubTgraph g newTracked where
     g = tgraph sub
     newTracked = faces g:tracked sub
+-}
 
 -- |unionTwoSub sub - combines the top two lists of tracked tilefaces replacing them with the list union.
 unionTwoSub:: SubTgraph -> SubTgraph
-unionTwoSub sub = makeSubTgraph g newTracked where
-    g = tgraph sub
-    (a:b:more) = tracked sub
+unionTwoSub sub = sub{ tracked = newTracked } where
     newTracked = case tracked sub of
                    (a:b:more) -> a `union` b:more
                    _ -> error $ "unionTwoSub: Two tracked lists of faces not found: " ++ show sub ++"\n"
-
-
+                   
 {-*
 Forcing and Decomposing SubTgraphs
 -}

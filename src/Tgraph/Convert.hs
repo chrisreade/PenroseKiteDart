@@ -8,7 +8,7 @@ Stability   : experimental
 
 Conversion operations from Tgraphs to Patches and Diagrams as well as the intermediate type VPinned
 (Vertex pinned) used when drawing vertex labels.
-The module also includes functions to calculate (relative) locations of vertices (createVPoints, addVPoint) and
+The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint) and
 touching vertex checks (touchingVertices, touchingVerticesGen).
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -19,8 +19,8 @@ module Tgraph.Convert where
 
 import Data.List ((\\), find, partition, nub, intersect)
 import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, fromList, keys)
-import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for createVPoints
-import qualified Data.Set as Set  (fromList,member,null,delete)-- used for createVPoints
+import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
+import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 import Data.Maybe (mapMaybe, catMaybes)
 
 import Diagrams.Prelude
@@ -46,15 +46,14 @@ type instance N VPinned = Double
 
 -- |Make VPinned Transformable.
 instance Transformable VPinned where 
-    transform t (VPinned {vLocs = vlocs,  vpFaces = fcs})
-         =  VPinned {vLocs = VMap.map (transform t) vlocs , vpFaces = fcs}
+    transform t vp = vp {vLocs = VMap.map (transform t) (vLocs vp)}
 
 {-|Convert a Tgraph to a VPinned.
-This uses createVPoints to form an intermediate VertexLocMap (mapping of vertices to positions).
+This uses locateVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis.
 -}
 makeVPinned::Tgraph -> VPinned
-makeVPinned g = VPinned {vLocs = createVPoints fcs, vpFaces  = fcs} where fcs = faces g
+makeVPinned g = VPinned {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces g
 
 -- |Creates a VPinned from a list of tile faces, using the vertex locations from the given VPinned.
 -- The vertices in the tile faces must have points assigned in the given VPinned.
@@ -62,7 +61,8 @@ makeVPinned g = VPinned {vLocs = createVPoints fcs, vpFaces  = fcs} where fcs = 
 -- subVPinned fcs vp can be used for both subsets of tile faces of vp,
 -- but also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
 subVPinned:: [TileFace] -> VPinned -> VPinned
-subVPinned fcs vp = VPinned {vLocs = vLocs vp, vpFaces  = fcs} 
+subVPinned fcs vp = vp {vpFaces  = fcs} 
+--subVPinned fcs vp = VPinned {vLocs = vLocs vp, vpFaces  = fcs} 
 
 {-|
 makePatch uses makeVPinned first then uses dropLabels to convert faces to located Pieces.
@@ -96,12 +96,12 @@ graphFromVP = checkedTgraph . vpFaces
 
 -- |remove a list of faces from a VPinned
 removeFacesVP :: [TileFace] -> VPinned -> VPinned
-removeFacesVP fcs vp = VPinned {vLocs = vLocs vp, vpFaces = filter (not . (`elem` fcs)) $ vpFaces vp}
+removeFacesVP fcs vp = vp {vpFaces = filter (not . (`elem` fcs)) $ vpFaces vp}
 
 -- |make a new VPinned with a list of selected faces from a VPinned.
 -- This will ignore any faces that are not in the given VPinned.
 selectFacesVP:: [TileFace] -> VPinned -> VPinned
-selectFacesVP fcs vp = VPinned {vLocs = vLocs vp, vpFaces = filter (`elem` fcs) $ vpFaces vp}
+selectFacesVP fcs vp = vp {vpFaces = filter (`elem` fcs) $ vpFaces vp}
 
 
 -- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPinned
@@ -208,15 +208,15 @@ alignAll (a,b) = fmap (alignXaxis (a,b))
 {-* Vertex Location Calculation -}
 
 
-{-| createVPoints: processes a list of faces to associate points for each vertex.
+{-| locateVertices: processes a list of faces to associate points for each vertex.
      Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
       Returns a vertex-to-point Map.
   This version is made more efficient by calculating an edge to face map
   and also using Sets for 2nd arg of fastAddVPoints.
 -}
-createVPoints:: [TileFace] -> VertexLocMap
-createVPoints [] = VMap.empty
-createVPoints faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
+locateVertices:: [TileFace] -> VertexLocMap
+locateVertices [] = VMap.empty
+locateVertices faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
     (face:more) = lowestJoinFirst faces
     efMap = buildEFMap faces  -- map from Dedge to TileFace
 {- fastAddVPoints readyfaces fcOther vpMap.
@@ -236,7 +236,7 @@ The third argument is the mapping of vertices to points.
 -- |For a non-empty list of tile faces
 -- find the face with lowest originV (and then lowest oppV).
 -- Move this face to the front of the returned list of faces.
--- Used by createVPoints to determine the starting point for location calculation
+-- Used by locateVertices to determine the starting point for location calculation
 lowestJoinFirst:: [TileFace] -> [TileFace]
 lowestJoinFirst fcs | null fcs  = error "lowestJoinFirst: applied to empty list of faces"
                     | otherwise = face:(fcs\\[face]) where
@@ -254,7 +254,7 @@ lowestJoin fcs | otherwise = (a,b) where
     aFs = filter ((a==) . originV) fcs
     b = minimum (fmap oppV aFs)
 
--- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tilface vertices
+-- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tileface vertices
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
 -- It will raise an error if there are fewer than 2 tileface vertices with a location in the map.
 addVPoint:: TileFace -> VertexLocMap -> VertexLocMap
@@ -278,7 +278,7 @@ edgeNbs efMap fc = catMaybes $ fmap getNbr edges where
 -- |axisJoin fc 
 -- initialises a vertex to point mapping with locations for the join edge vertices of fc
 -- with originV fc at the origin and aligned along the x axis with unit length for a half dart
--- and length phi for a half kite. (Used to initialise createVPoints)
+-- and length phi for a half kite. (Used to initialise locateVertices)
 axisJoin::TileFace -> VertexLocMap                
 axisJoin fc = 
   VMap.insert (originV fc) origin $ VMap.insert (oppV fc) (p2(x,0)) VMap.empty where
@@ -354,7 +354,7 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
 -}
 
 {-| 
-touchingVertices checks that no vertices are too close to each other using createVPoints.
+touchingVertices checks that no vertices are too close to each other using locateVertices.
 If vertices are too close that indicates we may have the same point with two different vertex numbers
 arising from the touching vertex problem. 
 It returns pairs of vertices that are too close 
@@ -367,7 +367,7 @@ is switched off in forcing.
 -}
 touchingVertices:: [TileFace] -> [(Vertex,Vertex)]
 touchingVertices fcs = check vpAssoc where
-  vpAssoc = VMap.toList $ createVPoints fcs  
+  vpAssoc = VMap.toList $ locateVertices fcs  
   check [] = []
   check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
                         where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
@@ -392,17 +392,17 @@ It is used in the calculation of commonFaces.
 -}
 touchingVerticesGen:: [TileFace] -> [(Vertex,Vertex)]
 touchingVerticesGen fcs = check vpAssoc where
-  vpAssoc = VMap.toList $ createVPointsGen fcs  
+  vpAssoc = VMap.toList $ locateVerticesGen fcs  
   check [] = []
   check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
                         where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
 
-{-| createVPointsGen generalises createVPoints to allow for multiple faces sharing an edge.
+{-| locateVerticesGen generalises locateVertices to allow for multiple faces sharing an edge.
 This can arise when applied to the union of faces from 2 Tgraphs (e.g. in commonFaces)    
 -}
-createVPointsGen:: [TileFace] -> VertexLocMap
-createVPointsGen [] = VMap.empty
-createVPointsGen faces = fastAddVPointsGen [face] (Set.fromList more) (axisJoin face) where
+locateVerticesGen:: [TileFace] -> VertexLocMap
+locateVerticesGen [] = VMap.empty
+locateVerticesGen faces = fastAddVPointsGen [face] (Set.fromList more) (axisJoin face) where
     (face:more) = lowestJoinFirst faces
     efMapGen = buildEFMapGen faces  -- map from Dedge to [TileFace]
 {- fastAddVPointsGen readyfaces fcOther vpMap.

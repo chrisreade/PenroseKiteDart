@@ -34,23 +34,24 @@ import ArtWork
 
 
 {-
+
 -- To produce executable which can output multiple diagrams, use
 figs::[(String,Diagram B)]
-figs = ... 
+figs = trial2
 
 main = mainWith figs
+
 -}
-
-
 
 
 
 -- normal executable generating single figure
 fig::Diagram B
-fig =  counterK--boundaryEdgeCaseTrees --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
+fig = counterK--testLoops2--boundaryEdgeCaseTrees --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
  --curioPic --kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
 
 main = mainWith fig
+
 
 
 

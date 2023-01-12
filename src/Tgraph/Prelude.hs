@@ -43,7 +43,7 @@ type VertexSet = IntSet.IntSet
 type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
 -- |A Tgraph is a list of faces along with the maximum value used for a vertex in the faces (0 for an empty list).
--- (0 is not used as a vertex label throughout)
+-- (All vertex labels should be positive, so 0 is not used as a vertex label throughout)
 -- Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
 data Tgraph = Tgraph { maxV :: !Vertex  -- 0 for empty graph
                      , faces    :: [TileFace]
@@ -494,10 +494,10 @@ bothDirOneWay:: [Dedge] -> [Dedge]
 bothDirOneWay [] = []
 bothDirOneWay ((e@(a,b)):es)= e:(b,a):bothDirOneWay es
 
--- |boundaryDedges g are missing reverse directed edges in graphDedges g (these are single directions only)
+-- |boundaryDedges g are missing reverse directed edges in graphDedges g (the result contains single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
 boundaryDedges :: Tgraph -> [(Vertex, Vertex)]
-boundaryDedges g = missingRevs (graphDedges g) where
+boundaryDedges g = missingRevs $ graphDedges g
 
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
 missingRevs:: [Dedge] -> [Dedge]

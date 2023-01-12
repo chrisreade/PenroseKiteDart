@@ -17,10 +17,10 @@ module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
 import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert, union, keys) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, insert, empty, alter, delete, lookup, fromList, null, findMin,(!))
-            -- used for BoundaryState locations AND faces at boundary vertices AND boundaryLoops
+import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, insert, empty, alter, delete, lookup, null, (!))
+            -- used for BoundaryState locations AND faces at boundary vertices
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
-import Tgraph.Convert(touching, createVPoints, addVPoint)
+import Tgraph.Convert(touching, locateVertices, addVPoint)
 import Tgraph.Prelude
 
 {-
@@ -56,7 +56,7 @@ BoundaryState operations
 the boundary directed edges (directed so that faces are on LHS and exterior is on RHS)
 plus 
 a mapping of boundary vertices to their incident faces, plus
-a mapping of boundary vertices to positions (using Tgraph.Prelude.createVPoints).
+a mapping of boundary vertices to positions (using Tgraph.Prelude.locateVertices).
 It also keeps track of all the faces
 and the next vertex label to be used when adding a new vertex.
 Note that bvFacesMap is initially only defined for boundary vertices,
@@ -78,7 +78,7 @@ makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g = 
   let bdes = boundaryDedges g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
-      bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ createVPoints $ faces g
+      bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ faces g
   in if not $ null $ crossingVertices bdes then error $ "makeBoundaryState: found crossing boundary in Tgraph:\n"++show g++"\n"
      else
       BoundaryState
@@ -1154,32 +1154,39 @@ mustFind p ls err = case find p ls of
                      Just a  -> a
                      Nothing -> err
 
-
--- |Break the boundary edges of a Tgraph into constituent looping trails.
--- Each edge is followed by its next adjacent edge, and the trail starts with the lowest numbered vertex.
+{-
+-- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
-boundaryLoopsG:: Tgraph -> [[Dedge]] 
+-- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
+boundaryLoopsG:: Tgraph -> [[Vertex]] 
 boundaryLoopsG = findLoops . boundaryDedges
 
--- |Break the boundary edges of a BoundaryState into constituent looping trails.
--- Each edge is followed by its next adjacent edge, and the trail starts with the lowest numbered vertex.
+-- | Returns a list of (looping) vertex trails for a BoundaryState.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
-boundaryLoops:: BoundaryState -> [[Dedge]]
+-- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
+boundaryLoops:: BoundaryState -> [[Vertex]]
 boundaryLoops = findLoops . boundary
 
--- |Break a list of boundary directed edges into constituent looping trails.
--- Each edge is followed by its next adjacent edge, and the trail starts with the lowest numbered vertex.
+-- | When applied to a boundary edge list this returns a list of (looping) vertex trails.
+-- I.e. if we follow the boundary edges of a Tgraph recording vertices visited as a list returning to the starting vertex
+-- we get a looping trail.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
+-- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
+findLoops:: [Dedge] -> [[Vertex]]
 findLoops es = collectLoops $ VMap.fromList es where
-    -- make a map from the directed edges then delete items from the map as the trail is followed
+
+    -- Make a vertex to vertex map from the directed edges then delete items from the map as a trail is followed
+    -- from the lowest numbered vertex.
+    -- Vertices are collected in reverse order, then the list is reversed when a loop is complete.
+    -- This is repeated until the map is empty, to collect all boundary trials.
    collectLoops vmap -- 
      | VMap.null vmap = []
-     | otherwise  = chase start vmap [] 
+     | otherwise = chase start vmap [start] 
          where
          (start,_) = VMap.findMin vmap
          chase a vm sofar -- sofar is the collected trail in reverse order.
             = case VMap.lookup a vm of
-                Just b -> chase b (VMap.delete a vm) ((a,b):sofar)
+                Just b -> chase b (VMap.delete a vm) (b:sofar)
                 Nothing -> if a == start 
                            then reverse sofar: collectLoops vm -- look for more loops
                            else error $ "boundaryLoops: non looping boundary component, starting at "
@@ -1187,6 +1194,7 @@ findLoops es = collectLoops $ VMap.fromList es where
                                         " and finishing at "
                                         ++ show a ++ 
                                         "\nwith edges "++ show es ++"\n"
+-}
 
 
 
