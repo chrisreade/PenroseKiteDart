@@ -76,7 +76,7 @@ data BoundaryState
 -- also checks for no crossing boundaries as these could cause difficult to trace errors in forcing.
 makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g = 
-  let bdes = boundaryDedges g
+  let bdes = graphBoundary g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ faces g
   in if not $ null $ crossingVertices bdes then error $ "makeBoundaryState: found crossing boundary in Tgraph:\n"++show g++"\n"
@@ -1159,7 +1159,7 @@ mustFind p ls err = case find p ls of
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
 -- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
 boundaryLoopsG:: Tgraph -> [[Vertex]] 
-boundaryLoopsG = findLoops . boundaryDedges
+boundaryLoopsG = findLoops . graphBoundary
 
 -- | Returns a list of (looping) vertex trails for a BoundaryState.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.

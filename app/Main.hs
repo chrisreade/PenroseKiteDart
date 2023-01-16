@@ -47,7 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = counterK--testLoops2--boundaryEdgeCaseTrees --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
+fig = drawEmpire1 kingGraph--testLoops2--boundaryEdgeCaseTrees --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
  --curioPic --kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
 
 main = mainWith fig

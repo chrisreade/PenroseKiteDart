@@ -30,7 +30,7 @@ relabelAvoid avoid g = relabelGraph rlab g where
   avoidMax = if IntSet.null avoid then 0 else IntSet.findMax avoid
   vertsToChange = gverts `IntSet.intersection` avoid
   newvs = (IntSet.size vertsToChange) `newVsAfter` (max (maxV g) avoidMax)
-  rlab = VMap.fromList $ zip (IntSet.toList vertsToChange) newvs
+  rlab = makeRelabelling (IntSet.toList vertsToChange) newvs
 
 {-|prepareFixAvoid fix avoid g - produces a new Tgraph from g by relabelling.
  Any vertex in g that is in the set avoid but not in the list fix will be changed to a new vertex that is
@@ -49,7 +49,7 @@ prepareFixAvoid fix avoid = relabelAvoid (avoid IntSet.\\ IntSet.fromList fix)
 relabelContig :: Tgraph -> Tgraph
 relabelContig g = relabelGraph rlab g where
    vs = vertices g
-   rlab = VMap.fromList $ zip (IntSet.toList vs) [1.. IntSet.size vs]
+   rlab = makeRelabelling (IntSet.toList vs) [1.. IntSet.size vs]
 
 
 
@@ -115,9 +115,10 @@ will be tile-connected but may have touching vertices.
 tryMatchByEdges :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> ReportFail Tgraph
 tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $ 
   do let g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
-     fc2 <- find (hasDedge (x2,y2)) (faces g2prepared)
+     fc2 <- find (`hasDedge` (x2,y2)) (faces g2prepared)
             `nothingFail` ("No face found for edge " ++ show (x2,y2))                      
-     maybef <- matchFace (relabelFace (VMap.fromList [(x2,x1),(y2,y1)]) fc2) g1
+     maybef <- matchFace (relabelFace (makeRelabelling [x2,y2] [x1,y1]) fc2) g1
+--     maybef <- matchFace (relabelFace (VMap.fromList [(x2,x1),(y2,y1)]) fc2) g1
      fc1 <- maybef `nothingFail` 
                    ("No matching face found at edge "++show (x1,y1)++
                     "\nfor relabelled face " ++ show fc2)  
@@ -130,17 +131,37 @@ Operations using relabelling maps
 
 -- |Relabelling is a special case of mappings from vertices to vertices.
 -- We use the identity map for vertices not found in the mapping domain
--- (see relabelV).  Relabellings are expected to be 1-1 on their domain.       
+-- (see relabelV).  Relabellings are expected to be 1-1 on their domain,
+-- (and do not contain redundant identity mappings in the representation)    
 type Relabelling = VMap.IntMap Vertex
 
--- |relabelGraph uses a relabelling map to change vertices in a Tgraph.
+-- | makeRelabelling vs1 vs2 - make a relabelling from lists of vertices vs1 and vs2.
+-- (Lists vs1 and vs2 are assumed to be the same length.)
+-- Items in vs1 are relabelled to their corresponding item in vs2.
+-- The resulting relabelling excludes any identity mappings of vertices.
+makeRelabelling :: [Vertex] -> [Vertex] -> Relabelling
+makeRelabelling vs1 vs2 =
+    VMap.fromList $ differing $ zip vs1 vs2
+
+
+-- |relabelGraph uses a relabelling map rlab to change vertices in a Tgraph g.
+-- This should only be used when it is known that:
+-- rlab is 1-1 on its domain, and
+-- the vertices of g are disjoint from those vertices in the range of rlab which are not in the domain of rlab
 -- relabelGraph rlab g will produce a valid Tgraph provided:
--- g is a valid Tgraph, and
--- the mapping rlab extended with the identity is 1-1 on vertices in g.
--- (Vertices of g that are not in the domain of the mapping are left unchanged.)
+-- This ensures rlab (extended with the identity) is 1-1 on vertices in g,
+-- so that the resulting Tgraph does not need to be checked for Tgraph properties.
+-- (See also checkRelabelGraph)
 relabelGraph:: Relabelling -> Tgraph -> Tgraph
-relabelGraph rlab g = checkedTgraph newFaces where
+relabelGraph rlab g = Tgraph {faces = newFaces, maxV = facesMaxV newFaces } where
    newFaces = fmap (relabelFace rlab) (faces g) 
+
+-- |checkRelabelGraph uses a relabelling map to change vertices in a Tgraph,
+-- then checks that the result is a valid Tgraph. (see also relabelGraph)
+checkRelabelGraph:: Relabelling -> Tgraph -> Tgraph
+checkRelabelGraph rlab g = checkedTgraph newFaces where
+   newFaces = fmap (relabelFace rlab) (faces g) 
+
 
 -- |Uses a relabelling to relabel the three vertices of a face.
 -- Any vertex not in the domain of the mapping is left unchanged.
@@ -176,14 +197,13 @@ to the region containing fc1
 -}
 findRelabelling:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> ReportFail Relabelling
 findRelabelling (g1,fc1) (g2,fc2) = onFail "findRelabelling:\n" $ 
-   addRelabel g1 [fc2] (faces g2 \\ [fc2]) (initRelabelling fc1 fc2)
+   addRelabel g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
 
--- |initRelabelling f1 f2 - creates a relabelling so that
--- if applied to face f2, the vertices will match with face f1 exactly.
+-- | f1 `relabellingTo` f2  - creates a relabelling so that
+-- if applied to face f1, the vertices will match with face f2 exactly.
 -- It does not check that the tile faces have the same form (LK,RK,LD,RD).
-initRelabelling :: TileFace -> TileFace -> Relabelling
-initRelabelling f1 f2 -- f2 relabels to f1
-  = VMap.fromList $ differing $ zip (faceVList f2) (faceVList f1)
+relabellingTo :: TileFace -> TileFace -> Relabelling
+f1 `relabellingTo` f2 = makeRelabelling (faceVList f1) (faceVList f2) -- f1 relabels to f2
 
 {-|addRelabel is used by findRelabelling to build a relabelling map which can fail, producing Left lines.
 In the successful case (addRelabel g processing awaiting rlab) produces a Right rel
@@ -213,7 +233,8 @@ addRelabel g (fc:fcs) awaiting rlab =
        Nothing   -> addRelabel g fcs awaiting rlab
        Just orig -> addRelabel g (fcs++fcs') awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                          rlab' = VMap.union (initRelabelling orig fc) rlab
+                          rlab' = VMap.union (fc `relabellingTo` orig) rlab
+--                          rlab' = VMap.union (initRelabelling orig fc) rlab
 
 
 {- *
@@ -250,23 +271,24 @@ addRelabelIgnore g (fc:fcs) awaiting rlab =
        Nothing   -> addRelabelIgnore g fcs awaiting rlab
        Just orig -> addRelabelIgnore g (fcs++fcs') awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                          rlab' = VMap.union (initRelabelling orig fc) rlab
+                          rlab' = VMap.union (fc `relabellingTo` orig) rlab
 
 -- |findRelabellingIgnore is the same as findRelabelling except that it uses matchFaceIgnore
 -- which ignores non-matching faces rather than failing. It thus returns a definite Relabelling.
 findRelabellingIgnore:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Relabelling
 findRelabellingIgnore (g1,fc1) (g2,fc2) =  
-   addRelabelIgnore g1 [fc2] (faces g2 \\ [fc2]) (initRelabelling fc1 fc2)
+   addRelabelIgnore g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
 
 -- |same as matchByEdges but ignores non-matching faces (except for the initial 2)
 -- The initial 2 faces are those on the given edges, and an error is raised if they do not match.
 matchByEdgesIgnore :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Tgraph
 matchByEdgesIgnore (g1,(x1,y1)) (g2,(x2,y2)) = relabelGraph rlab g2prepared where
   g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
-  fc2 = case find (hasDedge (x2,y2)) (faces g2prepared) of
+  fc2 = case find (`hasDedge` (x2,y2)) (faces g2prepared) of
            Nothing -> error $ "No face found for edge " ++ show (x2,y2)
            Just f -> f                      
-  fc1 = case matchFaceIgnore (relabelFace (VMap.fromList [(x2,x1),(y2,y1)]) fc2) g1 of
+  fc1 = case matchFaceIgnore (relabelFace (makeRelabelling [x2,y2] [x1,y1]) fc2) g1 of
+--  fc1 = case matchFaceIgnore (relabelFace (VMap.fromList [(x2,x1),(y2,y1)]) fc2) g1 of
            Nothing -> error $ "No matching face found at edge "++show (x1,y1)++
                               "\nfor relabelled face " ++ show fc2
            Just f -> f
@@ -291,7 +313,7 @@ Right Nothing if there is no corresponding face.
 -}
 matchFace:: TileFace -> Tgraph -> ReportFail (Maybe TileFace)  
 matchFace face g = onFail "matchFace:\n" $
-  case find (hasDedgeIn (faceDedges face)) (faces g) of
+  case find (`hasDedgeIn` (faceDedges face)) (faces g) of
     Nothing      -> Right Nothing
     Just corresp -> if twoVMatch corresp face
                     then Right $ Just corresp

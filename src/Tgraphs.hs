@@ -13,7 +13,7 @@ The module includes several functions for producing overlaid diagrams for graphs
 a definition of emplace and other experimental combinations.
 -}
 module Tgraphs ( module Tgraphs
-               , module Tgraph.Prelude -- excludes data constructor Tgraph
+               , module Tgraph.Prelude -- export excludes data constructor Tgraph
                , module Tgraph.Decompose
                , module Tgraph.Compose
                , module Tgraph.Force
@@ -35,7 +35,7 @@ import ChosenBackend (B)
 import TileLib
 
 import Data.List (intersect, union, (\\), find, foldl')      
-import qualified Data.Set as Set  (fromList,member)-- used for boundaryVCovers
+import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,map)-- used for boundary covers
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
 -- * Making valid Tgraphs (with a check for no touching vertices).
@@ -134,7 +134,7 @@ drawWithMax g =  (dmax # lc red # lw thin) <> dg where
 drawGBoundary :: Tgraph -> Diagram B
 drawGBoundary g =  (drawEdges (vLocs vp) bd # lc lime) <> drawVPinned vp where
     vp  = makeVPinned g
-    bd = boundaryDedges g
+    bd = graphBoundary g
 
 -- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces (g1,e1) (g2,e2) to find the common faces
 -- and emphasizes them on the background g1
@@ -251,6 +251,44 @@ and forcing, repeating this until the orignal boundary is all internal edges.
 The resulting covers account for all possible ways the boundary can be extended that do not produce a (stuck graph) failure.
 -}
 boundaryECover:: BoundaryState -> [BoundaryState]
+boundaryECover bd = covers [(bd, Set.fromList (boundary bd))] where
+--covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
+  covers [] = []
+  covers ((open,es):opens) | Set.null es = open:covers opens
+  covers ((open,es):opens) | otherwise = 
+      covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++ opens)
+      where (de,des) = Set.deleteFindMin es
+
+-- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
+onBoundary:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
+onBoundary des b = des `Set.intersection` Set.fromList (boundary b)
+
+
+{-| boundaryVCover bd - similar to boundaryECover, but produces a list of all possible covers of 
+    the boundary vertices in bd (rather than just boundary edges).
+-}
+boundaryVCover:: BoundaryState -> [BoundaryState]
+boundaryVCover bd = covers [(bd, startbds)] where
+  startbds = Set.fromList $ boundary bd
+  startbvs = Set.map fst startbds
+--covers:: [(BoundaryState,Set.Set Dedge)] -> [BoundaryState]
+  covers [] = []
+  covers ((open,es):opens) | Set.null es
+    = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
+        Nothing -> open:covers opens
+        Just de -> covers (fmap (\b -> (b, es))  (tryDartAndKite de open) ++opens)
+  covers ((open,es):opens) | otherwise = 
+      covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++opens)  
+      where (de,des) = Set.deleteFindMin es
+
+{-
+{-| boundaryECover bd - produces a list of all possible covers of the boundary directed edges in bd.
+A cover is an extension (of bd) such that the original boundary directed edges of bd are all internal edges.
+Extensions are made by repeatedly adding a face to any edge on the original boundary that is still on the boundary
+and forcing, repeating this until the orignal boundary is all internal edges.
+The resulting covers account for all possible ways the boundary can be extended that do not produce a (stuck graph) failure.
+-}
+boundaryECover:: BoundaryState -> [BoundaryState]
 boundaryECover bd = covers [(bd, boundary bd)] where
 --covers:: [(BoundaryState,[Dedge])] -> [BoundaryState]
   covers [] = []
@@ -262,13 +300,6 @@ boundaryECover bd = covers [(bd, boundary bd)] where
 onBoundary:: [Dedge] -> BoundaryState -> [Dedge]
 onBoundary des b = des `intersect` boundary b
 
--- | tryDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
--- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
-tryDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
-tryDartAndKite de b = ignoreFails 
-    [ tryAddHalfDartBoundary de b >>= tryForceBoundary
-    , tryAddHalfKiteBoundary de b >>= tryForceBoundary
-    ]
 
 {-| boundaryVCover bd - similar to boundaryECover, but produces a list of all possible covers of 
     the boundary vertices in bd (rather than just boundary edges).
@@ -285,8 +316,15 @@ boundaryVCover bd = covers [(bd, startbds)] where
         Just de -> covers (fmap (\b -> (b, []))  (tryDartAndKite de open) ++opens)
   covers ((open,de:des):opens) = 
                    covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++opens)  
-
-   
+-}
+                   
+-- | tryDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
+-- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
+tryDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
+tryDartAndKite de b = ignoreFails 
+    [ tryAddHalfDartBoundary de b >>= tryForceBoundary
+    , tryAddHalfKiteBoundary de b >>= tryForceBoundary
+    ]
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCover g
 drawFBCover:: Tgraph -> Diagram B
@@ -338,11 +376,17 @@ drawEmpire2 g = drawSubTgraph [ lw ultraThin . drawPatch
                               , lw thin . lc red . drawPatch
                               ] $ empire2 g
 
+
+{-*
+Boundary loops
+-}
+
 -- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
 -- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
+-- The trails will have disjoint sets of vertices because of the no-crossing-boundaries condition of Tgraphs.
 boundaryLoopsG:: Tgraph -> [[Vertex]] 
-boundaryLoopsG = findLoops . boundaryDedges
+boundaryLoopsG = findLoops . graphBoundary
 
 -- | Returns a list of (looping) vertex trails for a BoundaryState.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
@@ -356,7 +400,7 @@ boundaryLoops = findLoops . boundary
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
 -- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
 findLoops:: [Dedge] -> [[Vertex]]
-findLoops es = collectLoops $ VMap.fromList es where
+findLoops = collectLoops . VMap.fromList where
 
     -- Make a vertex to vertex map from the directed edges then delete items from the map as a trail is followed
     -- from the lowest numbered vertex.
@@ -376,11 +420,12 @@ findLoops es = collectLoops $ VMap.fromList es where
                                         ++show start++
                                         " and finishing at "
                                         ++ show a ++ 
-                                        "\nwith edges "++ show es ++"\n"
+                                        "\nwith loop vertices "++ show (reverse sofar) ++"\n"
 
 
 -- | Given a suitable vertex to location map and boundary loops (represented as a list of lists of vertices),
 -- this will return a (Diagrams) Path for the boundary.  It will raise an error if any vertex listed is not a map key.
+-- (The resulting path can be filled when converted to a diagram.)
 pathFromBoundaryLoops:: VertexLocMap -> [[Vertex]] -> Path V2 Double
 pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!)) loops where 
     locateLoop pts = (`at` head pts) $ glueTrail $ trailFromVertices pts

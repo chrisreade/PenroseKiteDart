@@ -28,8 +28,8 @@ DECOMPOSING - decompose
 -- |Decompose a Tgraph. This is uniquely determined.
 decompose :: Tgraph -> Tgraph
 decompose g = Tgraph{ maxV = newMax
-                     , faces = newFaces
-                     } where
+                    , faces = newFaces
+                    } where
     (newMax , newVFor) = maxAndPhiVMap g
     newFaces = concatMap (decompFace newVFor) (faces g)
 

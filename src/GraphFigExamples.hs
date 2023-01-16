@@ -1039,7 +1039,7 @@ testLoops1 = padBorder $ boundaryLoopFill honeydew boundaryGapFDart4
 testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
          g = removeFaces (faces $ recoverGraph bs1) (recoverGraph bs2)
          bs2 = head $ boundaryVCover bs1 
-         bs1 = head $ tail $ boundaryVCover bs0
+         bs1 = head $ boundaryVCover bs0
          bs0 = getResult $ tryForceBoundary $ makeBoundaryState kingGraph
 --         bs0 = makeBoundaryState $ force kingGraph
 

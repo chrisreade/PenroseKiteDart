@@ -19,7 +19,7 @@ import Tgraph.Prelude
 
 {-------------------------------------------------------------------------
 ***************************************************************************              
-COMPOSING compose and partCompose 
+COMPOSING compose, partCompose ,tryPartCompose
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
@@ -32,6 +32,26 @@ compose = snd . partCompose
 
 -- |partCompose produces a Tgraph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
+-- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
+partCompose g = getResult $ onFail "partCompose:\n" $ tryPartCompose g
+
+-- |tryPartCompose g tries to produce a Tgraph by composing faces which uniquely compose in g,
+-- It checks the resulting new faces for connectedness and no crossing boundaries.
+-- If the check is OK it produces Right (remainder, g') where g' is the composed Tgraph and remainder is a list
+-- of unused faces from g.  If the check fails it produces Left s where s is a failure report.
+tryPartCompose:: Tgraph -> ReportFail ([TileFace],Tgraph)
+tryPartCompose g = tryApply (\g' -> (remainder, g')) newGraph where
+  newGraph = onFail "tryPartCompose:\n" $ 
+             checkConnectedNoCross $ 
+             Tgraph { faces = newfaces, maxV = facesMaxV newfaces }
+  compositions = composedFaceGroups $ getDartWingInfo g
+  newfaces = map fst $ compositions
+  groups = map snd $ compositions
+  remainder = faces g \\ concat groups
+
+{-
+-- |partCompose produces a Tgraph by composing faces which uniquely compose,
+-- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
 -- It checks the Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
 partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = (remainder,newGraph) where
@@ -41,6 +61,7 @@ partCompose g = (remainder,newGraph) where
   newfaces = map fst $ compositions
   groups = map snd $ compositions
   remainder = faces g \\ concat groups
+-}
 
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.
@@ -172,33 +193,6 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
-{- Moved to GraphFigExamples as part of counterK example.
-                
--- |An experimental version of composition which defaults to kites when there are choices (unknowns).
--- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
--- It uses partComposeK.
-composeK :: Tgraph -> Tgraph
-composeK = snd . partComposeK
-
--- |partComposeK is an experimental and unsafe composer only used by composeK.
--- It produces a Tgraph by composing faces which can be composed by defaulting to half kites
--- in preference to half darts when there is a choice (unknowns become largeKiteCentres).
--- It returns a pair consisting of unused faces of the original graph along with the composed Tgraph.
--- It checks the Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
-partComposeK:: Tgraph -> ([TileFace],Tgraph)
-partComposeK g = (remainder,newGraph) where
-  newGraph = getResult $ checkConnectedNoCross $ 
-                Tgraph { faces = newfaces, maxV = maxVertex }
-  dwInfo = getDartWingInfo g
-  changedInfo = DartWingInfo { largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
-                             , largeDartBases = largeDartBases dwInfo
-                             , unknowns = []
-                             , faceMap = faceMap dwInfo
-                             }
-  (newfaces,groups) = composedFacesAndGroups changedInfo
-  remainder = faces g \\ concat groups
-  maxVertex = facesMaxV newfaces
--}
 
 
 
