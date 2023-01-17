@@ -486,6 +486,7 @@ phiEdges g = bothDir $ concatMap facePhiEdges $ faces g
 nonPhiEdges :: Tgraph -> [(Vertex, Vertex)]
 nonPhiEdges g = bothDir $ concatMap faceNonPhiEdges $ faces g
 
+-- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
 graphEdges :: Tgraph -> [(Vertex, Vertex)]
 graphEdges = facesEdges . faces
 

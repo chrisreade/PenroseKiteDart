@@ -281,42 +281,6 @@ boundaryVCover bd = covers [(bd, startbds)] where
       covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++opens)  
       where (de,des) = Set.deleteFindMin es
 
-{-
-{-| boundaryECover bd - produces a list of all possible covers of the boundary directed edges in bd.
-A cover is an extension (of bd) such that the original boundary directed edges of bd are all internal edges.
-Extensions are made by repeatedly adding a face to any edge on the original boundary that is still on the boundary
-and forcing, repeating this until the orignal boundary is all internal edges.
-The resulting covers account for all possible ways the boundary can be extended that do not produce a (stuck graph) failure.
--}
-boundaryECover:: BoundaryState -> [BoundaryState]
-boundaryECover bd = covers [(bd, boundary bd)] where
---covers:: [(BoundaryState,[Dedge])] -> [BoundaryState]
-  covers [] = []
-  covers ((open,[]):opens) = open:covers opens
-  covers ((open,de:des):opens) = 
-      covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++ opens)  
-
--- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
-onBoundary:: [Dedge] -> BoundaryState -> [Dedge]
-onBoundary des b = des `intersect` boundary b
-
-
-{-| boundaryVCover bd - similar to boundaryECover, but produces a list of all possible covers of 
-    the boundary vertices in bd (rather than just boundary edges).
--}
-boundaryVCover:: BoundaryState -> [BoundaryState]
-boundaryVCover bd = covers [(bd, startbds)] where
-  startbds = boundary bd
-  startbvs = Set.fromList (fmap fst startbds)
---covers:: [(BoundaryState,[Dedge])] -> [BoundaryState]
-  covers [] = []
-  covers ((open,[]):opens) 
-    = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
-        Nothing -> open:covers opens
-        Just de -> covers (fmap (\b -> (b, []))  (tryDartAndKite de open) ++opens)
-  covers ((open,de:des):opens) = 
-                   covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++opens)  
--}
                    
 -- | tryDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
@@ -355,6 +319,19 @@ empire2 g = makeSubTgraph g0 [fcs, faces g] where
     covers1 = boundaryECover $ getResult $ onFail "empire2:Initial force failed (incorrect graph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
     covers2 = concatMap boundaryECover covers1
+    (g0:others) = fmap recoverGraph covers2
+    fcs = foldl intersect (faces g0) $ fmap g0Intersect others
+    de = lowestJoin (faces g)
+    g0Intersect g1 = commonFaces (g0,de) (g1,de)
+
+-- | empire2Plus g - produces a SubTgraph representing an extended level 2 empire of g
+-- similar to empire2, but using boundaryVCovers insrtead of boundaryECovers.
+-- On a kinGraph this currently takes about 4 hours 20 minutes.
+empire2Plus:: Tgraph -> SubTgraph
+empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
+    covers1 = boundaryVCover $ getResult $ onFail "empire2:Initial force failed (incorrect graph)\n" 
+              $ tryForceBoundary $ makeBoundaryState g
+    covers2 = concatMap boundaryVCover covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
