@@ -34,7 +34,7 @@ import Diagrams.Prelude hiding (union)
 import ChosenBackend (B)
 import TileLib
 
-import Data.List (intersect, union, (\\), find, foldl')      
+import Data.List (intersect, union, (\\), find, foldl',nub)      
 import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,map)-- used for boundary covers
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
@@ -67,6 +67,17 @@ touchCheckProps fcs =
                ++ show touchVs
                ++ "\n(To fix, use: correctTouchingVs)\n"
               )
+
+{-| correctTouchingVs fcs finds touching vertices by calculating locations for vertices in the faces fcs,
+    then relabels to remove touching vertices (relabels higher to lower numbers),
+    then checks for Tgraph properties of the resulting faces to produce a Tgraph.
+    [fcs needs to be tile-connected before the relabelling]         
+-}
+correctTouchingVs ::  [TileFace] -> ReportFail Tgraph
+correctTouchingVs fcs = 
+    onFail ("correctTouchingVs:\n" ++ show touchVs) $ 
+    checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling touchVs) fcs
+    where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
 
 {-*
 Advanced drawing tools for Tgraphs

@@ -19,7 +19,7 @@ import Tgraph.Prelude
 
 {-------------------------------------------------------------------------
 ***************************************************************************              
-COMPOSING compose, partCompose ,tryPartCompose
+COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
@@ -33,6 +33,7 @@ compose = snd . partCompose
 -- |partCompose produces a Tgraph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
 -- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
+partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = getResult $ onFail "partCompose:\n" $ tryPartCompose g
 
 -- |tryPartCompose g tries to produce a Tgraph by composing faces which uniquely compose in g,
@@ -40,28 +41,21 @@ partCompose g = getResult $ onFail "partCompose:\n" $ tryPartCompose g
 -- If the check is OK it produces Right (remainder, g') where g' is the composed Tgraph and remainder is a list
 -- of unused faces from g.  If the check fails it produces Left s where s is a failure report.
 tryPartCompose:: Tgraph -> ReportFail ([TileFace],Tgraph)
-tryPartCompose g = tryApply (\g' -> (remainder, g')) newGraph where
-  newGraph = onFail "tryPartCompose:\n" $ 
-             checkConnectedNoCross $ 
-             Tgraph { faces = newfaces, maxV = facesMaxV newfaces }
-  compositions = composedFaceGroups $ getDartWingInfo g
-  newfaces = map fst $ compositions
-  groups = map snd $ compositions
-  remainder = faces g \\ concat groups
+tryPartCompose g = 
+  do let (remainder,newGraph) = uncheckedPartCompose g
+     checked <- onFail "tryPartCompose:/n" $ checkConnectedNoCross newGraph
+     return (remainder,checked)
 
-{-
--- |partCompose produces a Tgraph by composing faces which uniquely compose,
+-- |tuncheckedPartCompose produces a Tgraph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
--- It checks the Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
-partCompose:: Tgraph -> ([TileFace],Tgraph)
-partCompose g = (remainder,newGraph) where
-  newGraph = getResult $ checkConnectedNoCross $ 
-                Tgraph { faces = newfaces, maxV = facesMaxV newfaces }
+-- It does NOT check the composed Tgraph for connectedness and no crossing boundaries.
+uncheckedPartCompose:: Tgraph -> ([TileFace],Tgraph)
+uncheckedPartCompose g = (remainder,newGraph) where
+  newGraph = Tgraph { faces = newfaces, maxV = facesMaxV newfaces }
   compositions = composedFaceGroups $ getDartWingInfo g
   newfaces = map fst $ compositions
   groups = map snd $ compositions
   remainder = faces g \\ concat groups
--}
 
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.
@@ -152,8 +146,7 @@ getDartWingInfo g =  DartWingInfo {largeKiteCentres = kcs, largeDartBases = dbs,
                               find (matchingJoinE rk)  (filter isLK fcs)
   findFarK _ _ = error "getDartWingInfo: findFarK applied to non-dart face"
 
-
--- | Auxiliary function for partCompose.
+-- | Auxiliary function for uncheckedPartCompose.
 -- Creates a list of new composed faces, each paired with a list of old faces (components of the new face)
 -- using dart wing information.
 composedFaceGroups :: DartWingInfo -> [(TileFace,[TileFace])]

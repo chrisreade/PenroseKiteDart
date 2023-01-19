@@ -18,7 +18,7 @@ touching vertex checks (touchingVertices, touchingVerticesGen).
 module Tgraph.Convert where
 
 import Data.List ((\\), find, partition, nub, intersect)
-import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, fromList, keys)
+import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, assocs, fromList, keys)
 import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 import Data.Maybe (mapMaybe, catMaybes)
@@ -357,7 +357,7 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
 touchingVertices checks that no vertices are too close to each other using locateVertices.
 If vertices are too close that indicates we may have the same point with two different vertex numbers
 arising from the touching vertex problem. 
-It returns pairs of vertices that are too close 
+It returns pairs of vertices that are too close (higher number first in each pair)
 (i.e less than 0.5 where 1.0 would be the length of short edges)
 An empty list is returned if there is no touching vertex problem.
 Complexity has order of the square of the number of vertices.
@@ -367,7 +367,7 @@ is switched off in forcing.
 -}
 touchingVertices:: [TileFace] -> [(Vertex,Vertex)]
 touchingVertices fcs = check vpAssoc where
-  vpAssoc = VMap.toList $ locateVertices fcs  
+  vpAssoc = VMap.assocs $ locateVertices fcs  -- assocs puts in key order so that check returns (higher,lower) pairs
   check [] = []
   check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
                         where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
@@ -392,7 +392,7 @@ It is used in the calculation of commonFaces.
 -}
 touchingVerticesGen:: [TileFace] -> [(Vertex,Vertex)]
 touchingVerticesGen fcs = check vpAssoc where
-  vpAssoc = VMap.toList $ locateVerticesGen fcs  
+  vpAssoc = VMap.assocs $ locateVerticesGen fcs  -- assocs puts in key order so that check returns (higher,lower) pairs  
   check [] = []
   check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
                         where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
