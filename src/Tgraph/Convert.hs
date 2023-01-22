@@ -359,7 +359,7 @@ If vertices are too close that indicates we may have the same point with two dif
 arising from the touching vertex problem. 
 It returns pairs of vertices that are too close (higher number first in each pair)
 (i.e less than 0.5 where 1.0 would be the length of short edges)
-An empty list is returned if there is no touching vertex problem.
+An empty list is returned if there are no touching vertices.
 Complexity has order of the square of the number of vertices.
                            
 This is used in makeTgraph and fullUnion (via correctTouchingVertices), but can also be used as a reptrospective check if the touching vertex check 

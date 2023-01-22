@@ -1,6 +1,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Piece Instance
 
 {-|
 Module      : TileLib
@@ -23,14 +24,27 @@ import HalfTile
 
 {-| Piece type for tile halves: Left Dart, Right Dart, Left Kite, Right Kite
 with a vector from their origin along the join edge where
-origin for a dart is the tip, origin for a kite is the acute angle tip.
-Using Imported polymorphic HalfTile
+origin for a dart is the tip, origin for a kite is the vertex with smallest internal angle.
+Using Imported polymorphic HalfTile.
 -}
 type Piece = HalfTile (V2 Double)
 
 -- | get the vector representing the join edge in the direction away from the origin of a piece
 getJVec:: Piece -> V2 Double
 getJVec = tileRep
+
+-- |Needed for Transformable Piece
+type instance N Piece = Double
+-- |Needed for Transformable Piece
+type instance V Piece = V2
+{-| 
+Making Pieces and Patches transformable - Requires FlexibleInstances
+-}
+instance Transformable Piece where
+    transform t = fmap (transform t)
+
+{- NB  >>>  Alternative making Halftile a transformable when a is transformable
+   BUT this makes an Orphan Instance
 
 -- |Needed for Transformable instance of HalfTile
 type instance N (HalfTile a) = N a
@@ -41,6 +55,7 @@ Making HalfTiles (and therefore Pieces and Patches) transformable
 -}
 instance Transformable a => Transformable (HalfTile a) where
     transform t = fmap (transform t)
+-}
 
 -- |ldart,rdart,lkite,rkite are the 4 pieces (oriented along the x axis).
 ldart,rdart,lkite,rkite:: Piece

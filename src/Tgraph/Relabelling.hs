@@ -66,19 +66,19 @@ Assisted Union (and matching) operations
     by matching the respective edges e1 and e2 and relabelling g2 to match g1 on that overlap.
     It will raise an error if there is a mismatch.
     It then uses geometry of tiles (vertex locations) to correct for multiple overlapping regions
-    of tiles in g1 and g2 by a further relabelling of touching vertices.
-    The resulting union of faces require an expensive checkTgraphProps, so this is not efficient for large Tgraphs.
-    However no checks are needed when there are no touching vertices.          
+    of tiles in g1 and relabelled g2 by a further relabelling of touching vertices.
+    The resulting union of faces requires an expensive checkTgraphProps, so this is not efficient for large Tgraphs.
+    However the checks are not needed when there are no touching vertices.          
 -}
 fullUnion:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Tgraph
 fullUnion (g1,e1) (g2,e2) = getResult $ tryFullUnion (g1,e1) (g2,e2)
 
 {-| tryFullUnion (g1,e1) (g2,e2) will try to create the union of g1 and g2
-    by matching the respective edges e1 and e2 and relabelling g2 to match g1 on that overlap.
+    by matching the respective edges e1 and e2 and relabelling g2 to match g1 on a tile-connected region containing e1.
     It returns Left lines  if there is a mismatch (where lines explains the problem).
     If succesfull it then uses geometry of tiles (vertex locations) to correct for multiple overlapping regions
-    of tiles in g1 and g2 by a further relabelling of touching vertices. 
-    If there were touching vertices (i.e when overlap is not a single tile connected region)
+    of tiles in g1 and relabelled g2 by a further relabelling of touching vertices. 
+    If there were touching vertices (i.e when the overlap is not a single tile connected region)
     it then checks the union of faces for Tgraph properties
     and returns Right g where g is the resulting union if this succeeds (Left report otherwise).
     However no checks are needed on the union of faces when there are no touching vertices.          
@@ -95,38 +95,15 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
      else let vertg1 = vertices g1
               correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
           in checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling $ fmap correct touchVs) fcs
-{-
-     else let vertg3 = vertices g3
-              correct (a,b) = if b `IntSet.member` vertg3 then (b,a) else (a,b)
-          in checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling $ fmap correct touchVs) fcs
--}
-             
-{-
-{-| tryFullUnion (g1,e1) (g2,e2) will try to create the union of g1 and g2
-    by matching the respective edges e1 and e2 and relabelling g2 to match g1 on that overlap.
-    It returns Left lines  if there is a mismatch (where lines explains the problem).
-    If succesfull it then uses geometry of tiles (vertex locations) to correct for multiple overlapping regions
-    of tiles in g1 and g2 by a further relabelling of touching vertices. 
-    It then checks the union of faces for Tgraph properties
-    and returns Right g where g is the resulting union if this succeeds (Left report otherwise).
-    The resulting union of faces require an expensive checkTgraphProps, so this is not efficient for large Tgraphs.          
--}
-tryFullUnion:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> ReportFail Tgraph
-tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
-  do g3 <- tryMatchByEdges (g1,e1) (g2,e2)
-     correctTouchingVs $ faces g1 `union` faces g3
--}
-
 
 {-|matchByEdges (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
-consistent with g1 on their overlap.
+consistent with g1 on a single tile-connected overlap.
 The overlapping region must contain the directed edge e1 in g1. The edge e2 in g2
 will be identified with e1 by the relabelling of g2.
 This produces an error if a mismatch is found in the overlap.
 
-CAVEAT: The overlap must be a SINGLE tile-connected region in g1.
-(If the overlap contains more than one tile-connected region the result may not be
-a correct relabelling of g2)    
+CAVEAT:  If the overlap contains more than one tile-connected region the result may require further
+relabelling to match g1 in all overlapping regions)    
 -}
 matchByEdges:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Tgraph
 matchByEdges ge1 ge2 = getResult $ tryMatchByEdges ge1 ge2
@@ -158,11 +135,12 @@ Creating and Using Relabellings
 
 -- |Relabelling is a special case of mappings from vertices to vertices that are not the 
 -- identity on a finite number of cases.
--- When applied, we assume the identity map for vertices not found in the domain
--- (see relabelV).  Relabellings must be 1-1 on their domain,
+-- They are represented by keeping the non identity cases in a finite map.
+-- When applied, we assume the identity map for vertices not found in the representation domain
+-- (see relabelV).  Relabellings must be 1-1 on their representation domain,
 -- and redundant identity mappings are removed in the representation.
 -- Vertices in the range of a relabelling must be >0.
-newtype Relabelling = Relabelling { relabellingMap :: VMap.IntMap Vertex }
+newtype Relabelling = Relabelling (VMap.IntMap Vertex)
 
 -- | newRelabelling prs - make a relabelling from a finite list of vertex pairs.
 -- The first item in each pair relabels to the second in the pair.
@@ -170,26 +148,28 @@ newtype Relabelling = Relabelling { relabellingMap :: VMap.IntMap Vertex }
 -- An error is raised if second items of the pairs contain duplicated numbers or a number<1
 newRelabelling :: [(Vertex,Vertex)] -> Relabelling
 newRelabelling prs 
-    | wrong (map snd prs) = error $ "newRelabelling: Not 1-1 or Non-positive label in pairs " ++ show prs
-    | otherwise = Relabelling { relabellingMap = VMap.fromList $ differing prs }
- where wrong vs = any (<1) vs || not (null (duplicates vs))
+    | wrong (map snd prs) = error $ "newRelabelling: Not 1-1 or Non-positive label in range " ++ show prs
+    | otherwise = Relabelling $ VMap.fromList $ differing prs
+  where wrong vs = any (<1) vs || not (null (duplicates vs))
+
 -- | relabellingFrom n vs - make a relabelling from finite set of vertices vs.
--- Elements of vs are relabelled from n upwards in order (an error is raised if n<1).
+-- Elements of vs are ordered and relabelled from n upwards (an error is raised if n<1).
 -- The resulting relabelling excludes any identity mappings of vertices.
 relabellingFrom :: Vertex -> VertexSet -> Relabelling
 relabellingFrom n vs 
     | n<1 = error $ "relabellingFrom: Label not positive " ++ show n
-    | otherwise = Relabelling { relabellingMap = VMap.fromAscList $ differing $ zip (IntSet.elems vs) [n..] } 
+    | otherwise = Relabelling $ VMap.fromAscList $ differing $ zip (IntSet.elems vs) [n..] 
 
--- | Combine relabellings (expects disjoint domains and disjoint ranges but
+-- | Combine relabellings (assumes disjoint representation domains and disjoint representation ranges but
 -- no check is made for these).
 relabelUnion:: Relabelling -> Relabelling -> Relabelling
-relabelUnion r1 r2 = Relabelling { relabellingMap = VMap.union (relabellingMap r1) (relabellingMap r2) }
+relabelUnion (Relabelling r1) (Relabelling r2) = Relabelling $ VMap.union r1 r2 
 
--- |relabelGraph rlab g - uses a relabelling map rlab to change vertices in a Tgraph g.
+-- |relabelGraph rlab g - uses a Relabelling rlab to change vertices in a Tgraph g.
 -- Caveat: This should only be used when it is known that:
--- rlab is 1-1 on its domain, and
--- the vertices of g are disjoint from those vertices in the range of rlab which are not in the domain of rlab.
+-- rlab is 1-1 on its (representation) domain, and
+-- the vertices of g are disjoint from those vertices in the representation range
+-- which are not in the representation domain of rlab.
 -- This ensures rlab (extended with the identity) remains 1-1 on vertices in g,
 -- so that the resulting Tgraph does not need an expensive check for Tgraph properties.
 -- (See also checkRelabelGraph)
@@ -211,9 +191,10 @@ relabelFace rlab = fmap (all3 (relabelV rlab))  -- fmap of HalfTile Functor
    where all3 f (a,b,c) = (f a,f b,f c)
 
 -- |relabelV rlab v - uses relabelling rlab to find a replacement for v (leaves as v if none found).
--- I.e relabelV turns a Relabelling into a total function using identity for undefined cases in the Relabelling. 
+-- I.e relabelV turns a Relabelling into a total function using identity
+-- for undefined cases in the Relabelling representation. 
 relabelV:: Relabelling -> Vertex -> Vertex
-relabelV rlab v = VMap.findWithDefault v v (relabellingMap rlab)
+relabelV (Relabelling r) v = VMap.findWithDefault v v r
 
 -- | f1 `relabellingTo` f2  - creates a relabelling so that
 -- if applied to face f1, the vertices will match with face f2 exactly.
@@ -230,14 +211,12 @@ findRelabelling (g1,fc1) (g2,fc2) - fc1 and fc2 should have the same form (RK,LK
 with fc1 a face in g1 and fc2 a face in g2.
 g2 must have no vertices in common with g1 except for (possibly) vertices in fc2.
 The result is either Right rel where
-rel is a relabelling map to make g2 consistent with g1 in a region of overlap if this is possible, or
+rel is a relabelling map to make g2 consistent with g1 in a single region of overlap if this is possible, or
 Left lines if there is a mismatch (lines explaining the problem).
 In the successful case rel when applied to fc2 will be identical to fc1.
 
-CAVEAT: The common overlap needs to be a SINGLE region of tile-connected faces in g1.
-The common region must contain fc1 in g1 and fc2 in g2.
-This may not produce correct results if there are other overlaps not tile-connected in g1
-to the region containing fc1
+CAVEAT: Only the single tile-connected region of common overlap (containing fc2) of g2 gets relabelled
+to match with g1.
 -}
 findRelabelling:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> ReportFail Relabelling
 findRelabelling (g1,fc1) (g2,fc2) = onFail "findRelabelling:\n" $ 
@@ -252,7 +231,7 @@ processing - a list of faces to be matched next where
 each has an edge in common with at least one previously matched face (or it is the starting face).
 awaiting - a list of faces that have not yet been tried for a match and are not
 tile-connected to any faces already matched.
-rlab - a vertex to vertex mapping used to store relabelling information during the process.
+rlab - the relabelling so far.
 
 The idea is that from a single matched starting face we process faces that share an edge with a
 previously matched face. We process faces that have a match in g (with 2 matching vertices).
@@ -284,12 +263,15 @@ commonFaces (Assisted Intersection)
 -- i.e. with g1 vertex labelling.
 -- It requires a face in g1 with directed edge e1 to match a face in g2 with directed edge e2,
 -- (apart from the third vertex label) otherwise an error is raised.
+-- This uses vertex locations to correct touching vertices in multiply overlapping regions.
 commonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> [TileFace]
 commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
   g3 = matchByEdgesIgnore (g1,e1) (g2,e2)
   fcs = faces g1 `union` faces g3
   touchVs = touchingVerticesGen fcs -- requires generalised version of touchingVertices
-  relFaces = fmap (relabelFace $ newRelabelling touchVs) (faces g3)
+  relFaces = fmap (relabelFace $ newRelabelling $ fmap correct touchVs) (faces g3)
+  vertg1 = vertices g1
+  correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
 
 -- |same as matchByEdges but ignores non-matching faces (except for the initial 2)
 -- The initial 2 faces are those on the given edges, and an error is raised if they do not match.

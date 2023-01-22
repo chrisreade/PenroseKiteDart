@@ -466,15 +466,17 @@ trySafeUpdate bd (SafeUpdate newFace) =
                    ++ "\n"
 
                  
--- | given 2 adjacent directed edges, this returns the common vertex (as a singleton list).
--- | Exceptionally it may be given a triangle of 3 directed edges and returns the 3 vertices of the triangle.
--- Raises an error if the argument is not one of these 2 cases.
+-- | given 2 consecutive directed edges (not necessarily in the right order),
+-- this returns the common vertex (as a singleton list).
+-- Exceptionally it may be given 3 consecutive directed edges forming a triangle
+-- and returns the 3 vertices of the triangle.
+-- It raises an error if the argument is not one of these 2 cases.
 commonVs :: [Dedge] -> [Vertex]
 commonVs [(a,b),(c,d)] | b==c = [b] 
                        | d==a = [a]
-                       | otherwise = error $ "commonV: directed edges not adjacent: " ++ show [(a,b),(c,d)] ++ "\n"
+                       | otherwise = error $ "commonV: 2 directed edges not consecutive: " ++ show [(a,b),(c,d)] ++ "\n"
 commonVs [(a,b),(c,d),(e,f)] | length (nub [a,b,c,d,e,f]) == 3 = [a,c,e] 
-commonVs es = error $ "commonVs: unexpected argument edges (not 2 adjacent directed edges or 3 round triangle): " ++ show es  ++ "\n"
+commonVs es = error $ "commonVs: unexpected argument edges (not 2 consecutive directed edges or 3 round triangle): " ++ show es  ++ "\n"
 
 
 

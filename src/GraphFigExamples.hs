@@ -124,8 +124,8 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 
 {-|
-This example illustrates that an experimental composeK does not always make correct choices.
-composeK composes by treating unknowns as large kite centres (= deuce vertices), so favouring kites when there is a choice.
+This example illustrates that an experimental version of composition (composeK)
+which defaults to kites when there are choices (unknowns) can produce incorrect Tgraphs.
 The first 3 Tgraphs are correct. The second is composeK of the first and the third is force applied to the second
 (a forced queen vertex).  
 The fourth Tgraph is a further composeK and this is clearly an incorrect Tgraph (applying force to this fails).
@@ -138,9 +138,8 @@ counterK = padBorder $ hsep 1 $ rotations [8,0,0,6,5] $ scales [1,phi,phi,1+phi,
               cg = composeK g
               fcg = force cg
               cfcg = composeK fcg
--- |An experimental version of composition which defaults to kites when there are choices (unknowns).
+-- An experimental version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
--- It uses partComposeK.
 -- composeK :: Tgraph -> Tgraph
               composeK = snd . partComposeK
 -- partComposeK:: Tgraph -> ([TileFace],Tgraph)
@@ -154,10 +153,6 @@ counterK = padBorder $ hsep 1 $ rotations [8,0,0,6,5] $ scales [1,phi,phi,1+phi,
                  newfaces = map fst compositions
                  groups = map snd compositions
                  remainder = faces g \\ concat groups
-{-
-                 (newfaces,groups) = composedFacesAndGroups changedInfo
-                 remainder = faces g \\ concat groups
--}
 
 
 {-* Forced Tgraph figures
@@ -217,21 +212,30 @@ brokenDart = removeFaces deleted dartD4 where
 {-| badlyBrokenDart has more faces removed from brokenDart.
 This will also get repaired by forcing (to produce the same as force dartD4).
 However it will fail to produce a valid Tgraph if composed twice without forcing. 
-     *** Exception: checkedTgraph: crossing boundaries found at [3]
-     in
-     Tgraph {vertices = [4,6,3,1,5], faces = [LD (4,6,3),LK (1,5,3)]}
 -}
 badlyBrokenDart :: Tgraph
-badlyBrokenDart = removeFaces deleted brokenDart where
-  deleted = RK(6,28,54):filter (isAtV 63) (faces brokenDart)
+badlyBrokenDart = removeFaces deleted bbd where
+  deleted = [RK(6,28,54)]
+  bbd = removeVertices [63,37] brokenDart
+--  deleted = RK(6,28,54):filter (isAtV 63) (faces brokenDart)
  
 -- |brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
 brokenDartFig :: Diagram B
 brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap dashJVGraph [dartD4, brokenDart, badlyBrokenDart]
 
--- |figure showing force badlyBrokenDart (which is the same as forceD4)
+-- |badlyBrokenDartFig shows badlyBrokenDart, followed by its composition, followed by the faces 
+-- that would result from an unchecked second composition which are not tile-connected.
+-- (Simply applying compose twice to badlyBrokenDart will raise an error).
+badlyBrokenDartFig :: Diagram B
+badlyBrokenDartFig = padBorder $ hsep 1 $ fmap draw [badlyBrokenDart, compBBD, failed] where
+    vp = makeVPinned badlyBrokenDart
+    draw g = dashJPatch $ subPatch (faces g) vp
+    compBBD = compose badlyBrokenDart
+    failed  = snd $ uncheckedPartCompose $ compBBD
+
+-- |figure showing force badlyBrokenDart (which is the same as force dartD4)
 checkBrokenDartFig  :: Diagram B
-checkBrokenDartFig = drawGraph $ force badlyBrokenDart
+checkBrokenDartFig = padBorder $ lw thin $ drawGraph $ force badlyBrokenDart
 
 
 -- |2 adjacent kites decomposed then the top half kite components removed (3 of them)
@@ -251,8 +255,8 @@ brokenKitesDFig = padBorder $ hsep 1 $ fmap dashJVPinned $ alignAll (1,3) $ scal
 
 -- |diagram illustrating touching vertex situation and forced result.
 -- The faces shown in lime are removed from a twice decomposed sun.
--- These are reconstructed by force (with other additional faces). The touching vertex restriction blocks many
--- of the face additions initially. 
+-- These are reconstructed by force (with other additional faces). The touching vertex restriction blocks
+-- the bottom 4 face additions initially. 
 touchingTestFig::  Diagram B
 touchingTestFig = 
   padBorder $ lw thin $ hsep 1 $
@@ -282,7 +286,9 @@ removeIncompletesFig = padBorder $ dashJGraph $ removeIncompleteTiles  $ sunDs !
 {-*
 Incorrect Tgraphs (and other problem Tgraphs)
 -}  
--- |faces removed from foolD to illustrate crossing boundary and non tile-connected VPatches
+-- |faces removed from foolD to illustrate crossing boundary and non tile-connected faces
+-- (using VPinned to draw). Crossing boundary at 4 in first case (but still tile-connected),
+-- Crossing boundary at 11 in second case and not tile-connected.
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
        where d1 = dashJVPinned $ removeFacesGtoVP [RK(3,11,13), LK(3,13,15), RK(3,15,4)] foolD
@@ -643,8 +649,8 @@ graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
               cftest = compose ftest
               ftest = force test
               test = makeTgraph [RK (4,7,2),LK (4,5,7),RD (1,7,5),LK (3,2,7)
-                                   ,RK (3,7,6),LD (1,6,7), LK(3,6,8)
-                                   ]
+                                ,RK (3,7,6),LD (1,6,7), LK(3,6,8)
+                                ]
 
 
 {-*
@@ -654,19 +660,6 @@ Testing (functions and figures and experiments)
 testForce4, testForce5 :: Diagram B
 testForce4 = padBorder $ lw ultraThin $ dashJVGraph $ force boundaryGapFDart4
 testForce5 = padBorder $ lw ultraThin $ dashJVGraph $ force boundaryGapFDart5        
-
-
-
-{-
-Testing newest force   
-Fixed BUG filling in boundary of a forced graph  
-testForce4 ok but 
-testForce5 failed (introducing touching vertices) with previous version of thirdVertexLoc
-because of accumulated discrepancies in vertex position calculations.
-
-Now works with signum introduced in thirdVertexLoc,
-dramatically improving accuracy of position calculation
--}
 
   
 {-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) BoundaryState
@@ -872,8 +865,10 @@ rocketCone1 =  force $ addHalfDart (59,60) $ forcedDecomp sunPlus3Dart'
 
 -- | figure for rocketCone
 rocketCone1Fig:: Diagram B
-rocketCone1Fig = padBorder $ lw thin $ dashJVGraph rocketCone1
-
+rocketCone1Fig = padBorder $ lw thin $ hsep 1 $ fmap dashJVGraph [r1,rc1] where
+  r1 = forcedDecomp sunPlus3Dart'
+  rc1 = force $ addHalfDart (59,60) r1
+  
 -- | figure for rocket5 showing its maximal forced composition
 rocket5Fig:: Diagram B
 rocket5Fig = padBorder $ lw ultraThin  drawWithMax rocket5
@@ -955,14 +950,17 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
       goLeft bds =  left ++ goLeft (filter continue left) where left = concatMap addOnLeft bds
 -}
 
--- | displays all cases for boundary edges as (levels of) a tree.
--- The tree is produced by adding a kite/dart face at either end of the boundary edge (shown red)
+-- | Figure displaying all cases for boundary edges of forced Tgraphs.
+-- These are produced as trees (but only the levels of the trees are displayed).
+-- We start with an edge (shown red) of a face on the boundary after forcing the face.
+-- There are only 3 (left-hand) starting face edges we need to consider, so there are 3 trees
+-- (Right versions will be symmetric, and joins and dart short edges are immediately covered by forcing so not shown).
+-- Each tree is grown by adding a kite/dart face at either end of the boundary edge
 -- and forcing, terminating as a leaf node when the red edge is no longer on the boundary.
--- There are only 3 (left) starting points we need to consider
--- (right versions will be symmetric, and joins and dart short edges have unique cases so not considered).
--- In each case, whenever there is a graph where the red edge is still on the boundary,
--- that graph appears extended with both a kite and a dart on the red edge amongst the diagrams below it in the tree.
+-- In each case, whenever there is a Tgraph where the red edge is still on the boundary,
+-- that Tgraph appears extended with both a kite and a dart on the red edge amongst the diagrams below it in the tree.
 -- This provides a completeness argument for forcing.
+boundaryEdgeCaseTrees:: Diagram B
 boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap caseRows examples where
     examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
     edge = (1,2)
@@ -991,6 +989,7 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap case
       goL bd = if continue bd
                then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd)}
                else Node{ rootLabel=bd, subForest = []}
+
 -- | boundaryVCoverFigs g - produces a list of diagrams for the boundaryVCover of g  (with g shown in red in each case)
 boundaryVCoverFigs g = 
     fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 

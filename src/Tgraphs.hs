@@ -459,11 +459,12 @@ unionTwoSub sub = sub{ tracked = newTracked } where
 {-*
 Forcing and Decomposing SubTgraphs
 -}
--- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the full Tgraph.
+-- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the tgraph.
 forceSub :: SubTgraph -> SubTgraph
-forceSub sub = makeSubTgraph (force $ tgraph sub) (tracked sub)
+forceSub sub = sub{ tgraph = force $ tgraph sub }
+--forceSub sub = makeSubTgraph (force $ tgraph sub) (tracked sub)
 
--- |aaddHalfDartSub sub e - add a half dart to the tgraph of sub on the given edge e,
+-- |addHalfDartSub sub e - add a half dart to the tgraph of sub on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfDartSub:: Dedge -> SubTgraph -> SubTgraph
 addHalfDartSub e sub =
