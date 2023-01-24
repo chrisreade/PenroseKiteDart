@@ -201,7 +201,8 @@ relabelV (Relabelling r) v = VMap.findWithDefault v v r
 -- It does not check that the tile faces have the same form (LK,RK,LD,RD).
 relabellingTo :: TileFace -> TileFace -> Relabelling
 f1 `relabellingTo` f2 = newRelabelling $ zip (faceVList f1) (faceVList f2) -- f1 relabels to f2
-   
+ 
+  
 {- *
 Creating Relabellings by matching
 -}
@@ -264,14 +265,17 @@ commonFaces (Assisted Intersection)
 -- It requires a face in g1 with directed edge e1 to match a face in g2 with directed edge e2,
 -- (apart from the third vertex label) otherwise an error is raised.
 -- This uses vertex locations to correct touching vertices in multiply overlapping regions.
+-- >>>> NB the correction of touching vertices May Not Be 1-1 <<<<<<<<<
 commonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> [TileFace]
 commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
   g3 = matchByEdgesIgnore (g1,e1) (g2,e2)
   fcs = faces g1 `union` faces g3
   touchVs = touchingVerticesGen fcs -- requires generalised version of touchingVertices
-  relFaces = fmap (relabelFace $ newRelabelling $ fmap correct touchVs) (faces g3)
+--  relFaces = fmap (relabelFace $ newRelabelling touchVs) (faces g3)
+  relFaces = fmap (relabelFace $ problemRelabelling $ fmap correct touchVs) (faces g3)
   vertg1 = vertices g1
   correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
+  problemRelabelling prs = Relabelling $ VMap.fromList $ differing prs
 
 -- |same as matchByEdges but ignores non-matching faces (except for the initial 2)
 -- The initial 2 faces are those on the given edges, and an error is raised if they do not match.

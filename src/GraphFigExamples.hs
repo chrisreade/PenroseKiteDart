@@ -126,6 +126,37 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 {-|
 This example illustrates that an experimental version of composition (composeK)
 which defaults to kites when there are choices (unknowns) can produce incorrect Tgraphs.
+(A counter example to composeK being correct)
+The second Tgraph shown (force queenGraph) is correct and its normal (partial) composition is shown to the left.
+The third Tgraph is the result of applying composeK and the last Tgraph is the result of applying composeK again
+- the mistake1 Tgraph.
+Both these last 2 Tgraphs are incorrect (and will fail when forced).
+-}
+counterK :: Diagram B
+counterK = padBorder $ lw thin $ hsep 1 $ 
+             drawPCompose g : (rotations [0,6,5] $ phiScales $ fmap drawSmartGraph [g,kg,kkg])
+        where g = force queenGraph
+              kg = composeK g
+              kkg = composeK kg
+-- An experimental version of composition which defaults to kites when there are choices (unknowns).
+-- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
+-- composeK :: Tgraph -> Tgraph
+              composeK = snd . partComposeK
+-- partComposeK:: Tgraph -> ([TileFace],Tgraph)
+              partComposeK g = (remainder,newGraph) where
+                 newGraph = makeTgraph newfaces
+                 dwInfo = getDartWingInfo g
+                 changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
+                                     , unknowns = []
+                                     }
+                 compositions = composedFaceGroups changedInfo
+                 newfaces = map fst compositions
+                 groups = map snd compositions
+                 remainder = faces g \\ concat groups
+{-
+{-|
+This example illustrates that an experimental version of composition (composeK)
+which defaults to kites when there are choices (unknowns) can produce incorrect Tgraphs.
 The first 3 Tgraphs are correct. The second is composeK of the first and the third is force applied to the second
 (a forced queen vertex).  
 The fourth Tgraph is a further composeK and this is clearly an incorrect Tgraph (applying force to this fails).
@@ -153,6 +184,7 @@ counterK = padBorder $ hsep 1 $ rotations [8,0,0,6,5] $ scales [1,phi,phi,1+phi,
                  newfaces = map fst compositions
                  groups = map snd compositions
                  remainder = faces g \\ concat groups
+-}
 
 
 {-* Forced Tgraph figures
@@ -933,11 +965,11 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []
-          [de] -> tryDartAndKite de bd
+          [de] -> bothDartAndKite de bd
     addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
       case filter ((==(fst edge)). snd) (boundary bd) of
           [] -> []
-          [de] -> tryDartAndKite de bd
+          [de] -> bothDartAndKite de bd
     growBothEnds bd = bd: goBoth (filter continue [bd]) where
       continue bd = edge `elem` boundary bd
 -- to avoid repetitions, goBoth produces right and left cases but then recurses to the right only,
@@ -973,11 +1005,11 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap case
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []
-          [de] -> tryDartAndKite de bd
+          [de] -> bothDartAndKite de bd
     addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
       case filter ((==(fst edge)). snd) (boundary bd) of
           [] -> []
-          [de] -> tryDartAndKite de bd
+          [de] -> bothDartAndKite de bd
 -- growBothEnds:: BoundaryState -> Tree BoundaryState
     growBothEnds bd = goB bd where
       continue bd = edge `elem` boundary bd

@@ -163,7 +163,7 @@ checkTgraphProps fcs
                                       ++ show (illegals fcs) ++ "\n"
       | otherwise         = let vs = facesVSet fcs
                             in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
-                               then Left $ "Vertex numbers not >0: " ++ show (IntSet.toList vs)
+                               then Left $ "Vertex numbers not all >0: " ++ show (IntSet.toList vs)
                                else checkConnectedNoCross $ Tgraph{faces = fcs, maxV = IntSet.findMax vs} 
 
 -- |Checks a potential Tgraph for crossing boundaries and connectedness.

@@ -267,13 +267,12 @@ boundaryECover bd = covers [(bd, Set.fromList (boundary bd))] where
   covers [] = []
   covers ((open,es):opens) | Set.null es = open:covers opens
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++ opens)
+      covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite de open) ++ opens)
       where (de,des) = Set.deleteFindMin es
 
 -- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
 onBoundary:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
 onBoundary des b = des `Set.intersection` Set.fromList (boundary b)
-
 
 {-| boundaryVCover bd - similar to boundaryECover, but produces a list of all possible covers of 
     the boundary vertices in bd (rather than just boundary edges).
@@ -287,16 +286,25 @@ boundaryVCover bd = covers [(bd, startbds)] where
   covers ((open,es):opens) | Set.null es
     = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers (fmap (\b -> (b, es))  (tryDartAndKite de open) ++opens)
+        Just de -> covers (fmap (\b -> (b, es))  (bothDartAndKite de open) ++opens)
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, onBoundary des b)) (tryDartAndKite de open) ++opens)  
+      covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite de open) ++opens)  
       where (de,des) = Set.deleteFindMin es
-
-                   
--- | tryDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
+                  
+-- | anyDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
-tryDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
-tryDartAndKite de b = ignoreFails 
+anyDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
+anyDartAndKite de b = ignoreFails $ tryDartAndKite de b
+
+-- | bothDartAndKite de b - returns the list of (2) cases after adding a dart (respectively kite)
+-- to edge de on boundary state b and forcing. It will raise an error if either case fails.
+bothDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
+bothDartAndKite de b = getResult $ concatFail $ tryDartAndKite de b
+
+-- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
+-- to edge de on boundary state b and forcing. Each result is a ReportFail.
+tryDartAndKite:: Dedge -> BoundaryState -> [ReportFail BoundaryState]
+tryDartAndKite de b = 
     [ tryAddHalfDartBoundary de b >>= tryForceBoundary
     , tryAddHalfKiteBoundary de b >>= tryForceBoundary
     ]
