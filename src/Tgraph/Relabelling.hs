@@ -187,8 +187,8 @@ checkRelabelGraph rlab g = checkedTgraph newFaces where
 -- Any vertex not in the domain of the mapping is left unchanged.
 -- The mapping should be 1-1 on the 3 vertices to avoid creating a self loop edge.
 relabelFace:: Relabelling -> TileFace -> TileFace
-relabelFace rlab = fmap (all3 (relabelV rlab))  -- fmap of HalfTile Functor
-   where all3 f (a,b,c) = (f a,f b,f c)
+relabelFace rlab = fmap (all3 (relabelV rlab)) where -- fmap of HalfTile Functor
+  all3 f (a,b,c) = (f a,f b,f c)
 
 -- |relabelV rlab v - uses relabelling rlab to find a replacement for v (leaves as v if none found).
 -- I.e relabelV turns a Relabelling into a total function using identity
@@ -202,7 +202,16 @@ relabelV (Relabelling r) v = VMap.findWithDefault v v r
 relabellingTo :: TileFace -> TileFace -> Relabelling
 f1 `relabellingTo` f2 = newRelabelling $ zip (faceVList f1) (faceVList f2) -- f1 relabels to f2
  
-  
+
+-- |renumberFaces allows for a non 1-1 relabelling represented by a list of pairs.
+-- It is used only for correctTouchingVs in Tgraphs which then checks the result 
+renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
+renumberFaces prs fcs = fmap renumberFace fcs where
+    mapping = VMap.fromList $ differing prs
+    renumberFace = fmap (all3 renumber)
+    all3 f (a,b,c) = (f a,f b,f c)
+    renumber v = VMap.findWithDefault v v mapping
+ 
 {- *
 Creating Relabellings by matching
 -}
@@ -265,17 +274,15 @@ commonFaces (Assisted Intersection)
 -- It requires a face in g1 with directed edge e1 to match a face in g2 with directed edge e2,
 -- (apart from the third vertex label) otherwise an error is raised.
 -- This uses vertex locations to correct touching vertices in multiply overlapping regions.
--- >>>> NB the correction of touching vertices May Not Be 1-1 <<<<<<<<<
+-- >>>> touching vertices being 1-1 is sensitive to nearness check of touchingVerticesGen <<<<<<<<<
 commonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> [TileFace]
 commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
   g3 = matchByEdgesIgnore (g1,e1) (g2,e2)
   fcs = faces g1 `union` faces g3
   touchVs = touchingVerticesGen fcs -- requires generalised version of touchingVertices
---  relFaces = fmap (relabelFace $ newRelabelling touchVs) (faces g3)
-  relFaces = fmap (relabelFace $ problemRelabelling $ fmap correct touchVs) (faces g3)
+  relFaces = fmap (relabelFace $ newRelabelling $ fmap correct touchVs) (faces g3)
   vertg1 = vertices g1
   correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
-  problemRelabelling prs = Relabelling $ VMap.fromList $ differing prs
 
 -- |same as matchByEdges but ignores non-matching faces (except for the initial 2)
 -- The initial 2 faces are those on the given edges, and an error is raised if they do not match.

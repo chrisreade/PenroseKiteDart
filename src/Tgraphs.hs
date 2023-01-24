@@ -69,15 +69,18 @@ touchCheckProps fcs =
               )
 
 {-| correctTouchingVs fcs finds touching vertices by calculating locations for vertices in the faces fcs,
-    then relabels to remove touching vertices (relabels higher to lower numbers),
+    then renumbers to remove touching vertices (renumbers higher to lower numbers),
     then checks for Tgraph properties of the resulting faces to produce a Tgraph.
-    [fcs needs to be tile-connected before the relabelling]         
+    NB fcs needs to be tile-connected before the renumbering and
+    the renumbering need not be 1-1 (hence Relabelling is not used)      
 -}
 correctTouchingVs ::  [TileFace] -> ReportFail Tgraph
 correctTouchingVs fcs = 
     onFail ("correctTouchingVs:\n" ++ show touchVs) $ 
-    checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling touchVs) fcs
+    checkTgraphProps $ nub $ renumberFaces touchVs fcs
+--    checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling touchVs) fcs
     where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
+        -- renumberFaces allows for a non 1-1 relabelling represented by a list 
 
 {-*
 Advanced drawing tools for Tgraphs

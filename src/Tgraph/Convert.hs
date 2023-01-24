@@ -380,7 +380,7 @@ vertex locations for 2 different vertices in a VPatch using unit scale for short
 It is used in touchingVertices and touchingVerticesGen)
 -}
 touching :: Point V2 Double -> Point V2 Double -> Bool
-touching p p1 = quadrance (p .-. p1) < 0.5--0.0625 -- quadrance is square of length of a vector
+touching p p1 = quadrance (p .-. p1) < 0.24--0.0625 -- quadrance is square of length of a vector
 
 {-*  Generalised Touching Vertices
 -}
