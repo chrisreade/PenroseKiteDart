@@ -217,7 +217,7 @@ instead of raising an error
 -}
 tryForceWith:: UpdateGenerator -> Tgraph -> Try Tgraph
 tryForceWith uGen g = 
-    do fs0 <- initForceStateWith uGen g
+    do fs0 <- tryInitForceStateWith uGen g
        fs1 <- tryForceStateWith uGen fs0
        return (recoverGraph $ boundaryState fs1)
 
@@ -228,14 +228,14 @@ tryForceStateWith :: UpdateGenerator -> ForceState -> Try ForceState
 tryForceStateWith uGen = retry where
   retry fs = case findSafeUpdate (updateMap fs) of
              Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
-                          uMap <- reviseUpdates uGen bdChange (updateMap fs)
+                          uMap <- tryReviseUpdates uGen bdChange (updateMap fs)
                           retry $ ForceState{ boundaryState = newBoundaryState bdChange 
                                             , updateMap = uMap
                                             }
              _  -> do maybeBdC <- tryUnsafes fs
                       case maybeBdC of
                         Nothing  -> return fs  -- no more updates
-                        Just bdC -> do uMap <- reviseUpdates uGen bdC (updateMap fs)
+                        Just bdC -> do uMap <- tryReviseUpdates uGen bdC (updateMap fs)
                                        retry $ ForceState{ boundaryState = newBoundaryState bdC
                                                          , updateMap = uMap
                                                          }
@@ -262,12 +262,12 @@ tryForceBoundaryWith uGen bd =  do
 tryForceBoundary :: BoundaryState -> Try BoundaryState
 tryForceBoundary = tryForceBoundaryWith defaultAllUGen
 
-{-| initForceStateWith uGen g calculates an initial force state with boundary state information from g
+{-| tryInitForceStateWith uGen g calculates an initial force state with boundary state information from g
      and uses uGen on all boundary edges to initialise the updateMap.
     It produces Left report if it finds a stuck/incorrect graph.                                                     
 -}
-initForceStateWith :: UpdateGenerator -> Tgraph -> Try ForceState
-initForceStateWith uGen g = 
+tryInitForceStateWith :: UpdateGenerator -> Tgraph -> Try ForceState
+tryInitForceStateWith uGen g = 
   do let bd = makeBoundaryState g
      umap <- uGen bd (boundary bd)
      return ForceState { boundaryState = bd , updateMap = umap }
@@ -277,13 +277,13 @@ initForceStateWith uGen g =
     using defaultAllUgen.
     It produces Left report if it finds a stuck/incorrect graph.                                                     
 -}
-initForceState :: Tgraph -> Try ForceState
-initForceState = initForceStateWith  defaultAllUGen
+tryInitForceState :: Tgraph -> Try ForceState
+tryInitForceState = tryInitForceStateWith  defaultAllUGen
 
--- |reviseUpdates uGen bdChange: updates the UpdateMap after boundary change (bdChange)
+-- |tryReviseUpdates uGen bdChange: updates the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
-reviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
-reviseUpdates uGen bdChange umap = 
+tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
+tryReviseUpdates uGen bdChange umap = 
   do let umap' = foldr Map.delete umap (removedEdges bdChange)
      umap'' <- uGen (newBoundaryState bdChange) (revisedEdges bdChange) 
      return (Map.union umap'' umap')
@@ -314,7 +314,7 @@ stepForce g  = runTry . tryStepForce g
 -- |tryStepForce is a version of stepForce which produces Left report for a stuck/incorrect graph
 -- (tryStepForce 0 g can be used to calculate the initial force state from g.)
 tryStepForce :: Tgraph -> Int -> Try ForceState
-tryStepForce g n = do fs0 <- initForceStateWith defaultAllUGen g
+tryStepForce g n = do fs0 <- tryInitForceStateWith defaultAllUGen g
                       tryStepForceFrom fs0 n
 
 -- |stepForceFrom advances a forcestate a given number of steps.
@@ -331,7 +331,7 @@ tryStepForceFrom = tryStepForceWith defaultAllUGen
 tryStepForceWith :: UpdateGenerator -> ForceState -> Int -> Try ForceState
 tryStepForceWith updateGen = count where
   count fs 0 = return fs
-  count fs n = do result <- oneStepWith updateGen fs
+  count fs n = do result <- tryOneStepWith updateGen fs
                   case result of
                    Nothing -> return fs
                    Just (fs', _) ->  count fs' (n-1)
@@ -340,24 +340,24 @@ tryStepForceWith updateGen = count where
 Single Force Steps
 -}
 
--- |oneStepWith uGen fs uses uGen to find updates and does one force step.
+-- |tryOneStepWith uGen fs uses uGen to find updates and does one force step.
 -- It returns a (Try maybe) with a new force sate paired with the boundary change for debugging purposes.
 -- It produces Left report for a stuck/incorrect graph
-oneStepWith :: UpdateGenerator -> ForceState -> Try (Maybe (ForceState,BoundaryChange))
-oneStepWith uGen fs = 
+tryOneStepWith :: UpdateGenerator -> ForceState -> Try (Maybe (ForceState,BoundaryChange))
+tryOneStepWith uGen fs = 
       case findSafeUpdate (updateMap fs) of
       Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
-                   umap <- reviseUpdates uGen bdChange (updateMap fs)
+                   umap <- tryReviseUpdates uGen bdChange (updateMap fs)
                    return $ Just (ForceState{ boundaryState = newBoundaryState bdChange, updateMap = umap},bdChange)
       _  -> do maybeBdC <- tryUnsafes fs
                case maybeBdC of
-                Just bdC -> do umap <- reviseUpdates uGen bdC (updateMap fs)
+                Just bdC -> do umap <- tryReviseUpdates uGen bdC (updateMap fs)
                                return $ Just (ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap},bdC)
                 Nothing  -> return Nothing           -- no more updates
 
--- |oneStepF is a special case of oneStepWith only used for debugging
-oneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
-oneStepF = oneStepWith defaultAllUGen
+-- |tryOneStepF is a special case of tryOneStepWith only used for debugging
+tryOneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
+tryOneStepF = tryOneStepWith defaultAllUGen
 
 
 {-| tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap.
@@ -867,40 +867,40 @@ Six Update Checkers
 completeHalf :: UChecker      
 completeHalf bd (LD(a,b,_)) = checkUpdate makeFace x where
         makeFace v = RD(a,v,b)
-        x = findThirdV bd (b,a) (3,1) --anglesForJoinRD
+        x = tryFindThirdV bd (b,a) (3,1) --anglesForJoinRD
 completeHalf bd (RD(a,_,b)) = checkUpdate makeFace x where
         makeFace v = LD(a,b,v)
-        x = findThirdV bd (a,b) (1,3) --anglesForJoinLD
+        x = tryFindThirdV bd (a,b) (1,3) --anglesForJoinLD
 completeHalf bd (LK(a,_,b)) = checkUpdate makeFace x where
         makeFace v = RK(a,b,v)
-        x = findThirdV bd (a,b) (1,2) --anglesForJoinRK
+        x = tryFindThirdV bd (a,b) (1,2) --anglesForJoinRK
 completeHalf bd (RK(a,b,_)) = checkUpdate makeFace x where
         makeFace v = LK(a,v,b)
-        x = findThirdV bd (b,a) (2,1) --anglesForJoinLK
+        x = tryFindThirdV bd (b,a) (2,1) --anglesForJoinLK
 
 -- |add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE :: UChecker         
 addKiteShortE bd (RD(_,b,c)) = checkUpdate makeFace x where
     makeFace v = LK(v,c,b)
-    x = findThirdV bd (c,b) (2,2) --anglesForShortLK
+    x = tryFindThirdV bd (c,b) (2,2) --anglesForShortLK
 addKiteShortE bd (LD(_,b,c)) = checkUpdate makeFace x where
     makeFace v = RK(v,c,b)
-    x = findThirdV bd (c,b) (2,2) --anglesForShortRK
+    x = tryFindThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (LK(_,b,c)) = checkUpdate makeFace x where
     makeFace v = RK(v,c,b)
-    x = findThirdV bd (c,b) (2,2) --anglesForShortRK
+    x = tryFindThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (RK(_,b,c)) = checkUpdate makeFace x where
     makeFace v = LK(v,c,b)
-    x = findThirdV bd (c,b) (2,2) --anglesForShortLK
+    x = tryFindThirdV bd (c,b) (2,2) --anglesForShortLK
 
 -- |add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: UChecker         
 addDartShortE bd (RK(_,b,c)) = checkUpdate makeFace x where
         makeFace v = LD(v,c,b)
-        x = findThirdV bd (c,b) (3,1) --anglesForShortLD
+        x = tryFindThirdV bd (c,b) (3,1) --anglesForShortLD
 addDartShortE bd (LK(_,b,c)) = checkUpdate makeFace x where
         makeFace v = RD(v,c,b)
-        x = findThirdV bd (c,b) (1,3) --anglesForShortRD
+        x = tryFindThirdV bd (c,b) (1,3) --anglesForShortRD
 addDartShortE bd _ = error "addDartShortE applied to non-kite face\n"
 
 -- |add a kite half to a kite long edge or dart half to a dart long edge
@@ -913,32 +913,32 @@ completeSunStar bd fc = if isKite fc
 addKiteLongE :: UChecker            
 addKiteLongE bd (LD(a,_,c)) = checkUpdate makeFace x where
     makeFace v = RK(c,v,a)
-    x = findThirdV bd (a,c) (2,1) -- anglesForLongRK
+    x = tryFindThirdV bd (a,c) (2,1) -- anglesForLongRK
 addKiteLongE bd (RD(a,b,_)) = checkUpdate makeFace x where
     makeFace v = LK(b,a,v)
-    x = findThirdV bd (b,a) (1,2) -- anglesForLongLK
+    x = tryFindThirdV bd (b,a) (1,2) -- anglesForLongLK
 addKiteLongE bd (RK(a,_,c)) = checkUpdate makeFace x where
   makeFace v = LK(a,c,v)
-  x = findThirdV bd (a,c) (1,2) -- anglesForLongLK
+  x = tryFindThirdV bd (a,c) (1,2) -- anglesForLongLK
 addKiteLongE bd (LK(a,b,_)) = checkUpdate makeFace x where
   makeFace v = RK(a,v,b)
-  x = findThirdV bd (b,a) (2,1) -- anglesForLongRK
+  x = tryFindThirdV bd (b,a) (2,1) -- anglesForLongRK
 
 -- |add a half dart on a boundary long edge of a dart or kite
 addDartLongE :: UChecker            
 addDartLongE bd (LD(a,_,c)) = checkUpdate makeFace x where
   makeFace v = RD(a,c,v)
-  x = findThirdV bd (a,c) (1,1) -- anglesForLongRD
+  x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongRD
 addDartLongE bd (RD(a,b,_)) = checkUpdate makeFace x where
   makeFace v = LD(a,v,b)
-  x = findThirdV bd (b,a) (1,1) -- anglesForLongLD
+  x = tryFindThirdV bd (b,a) (1,1) -- anglesForLongLD
 
 addDartLongE bd (LK(a,b,_)) = checkUpdate makeFace x where
   makeFace v = RD(b,a,v)
-  x = findThirdV bd (b,a) (1,1) -- anglesForLongRD
+  x = tryFindThirdV bd (b,a) (1,1) -- anglesForLongRD
 addDartLongE bd (RK(a,_,c)) = checkUpdate makeFace x where
   makeFace v = LD(c,v,a)
-  x = findThirdV bd (a,c) (1,1) -- anglesForLongLD
+  x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongLD
 
 -- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
 anglesForJoinRD,anglesForJoinLD,anglesForJoinRK,anglesForJoinLK::(Int,Int)
@@ -1203,12 +1203,12 @@ findLoops es = collectLoops $ VMap.fromList es where
 
 
 {-*
-Adding faces (findThirdV)
+Adding faces (tryFindThirdV)
 -}
 
 {-------------------------------------------
 ****************************
-ADDING FACES with findThirdV
+ADDING FACES with tryFindThirdV
 ****************************
   
 The difficulty is determining if any edges of a new face already exist.
@@ -1222,24 +1222,24 @@ No crossing boundary property:
 It is important that there are no crossing boundaries, otherwise external angle calculations can be wrong.
 
 Possible Touching Vertices.
-When findThirdV returns Nothing, this means a new vertex needs to be created.
+When tryFindThirdV returns Nothing, this means a new vertex needs to be created.
 This will need to have its position checked against other (boundary) vertices to avoid
 creating a touching vertex/crossing boundary. (Taken care of in tryUnsafeUpdate)
 ---------------------------------}
 
-{-|findThirdV finds a neighbouring third vertex (if it is in the Tgraph) for a face added to
+{-|tryFindThirdV finds a neighbouring third vertex (if it is in the Tgraph) for a face added to
    the RIGHT HAND SIDE of a directed boundary edge.
-   In findThirdV bd (a,b) (n,m), the two integer arguments n and m are the INTERNAL angles
+   In tryFindThirdV bd (a,b) (n,m), the two integer arguments n and m are the INTERNAL angles
    for the new face on the boundary directed edge (a,b)
    (for a and b respectively) expressed as multiples of tt (tt being a tenth turn)
    and must both be either 1,2, or 3.
-   findThirdV compares these internal angles with the external angles of the boundary calculated at a and b.
+   tryFindThirdV compares these internal angles with the external angles of the boundary calculated at a and b.
    If one of them matches, then an adjacent boundary edge will lead to the required vertex.
    If either n or m is too large a Left report is returned indicating an incorrect graph (stuck tiling).
    If n and m are smaller than the respective external angles, Right Nothing is returned.
 -}
-findThirdV:: BoundaryState -> Dedge -> (Int,Int) -> Try (Maybe Vertex)
-findThirdV bd (a,b) (n,m) = maybeV where
+tryFindThirdV:: BoundaryState -> Dedge -> (Int,Int) -> Try (Maybe Vertex)
+tryFindThirdV bd (a,b) (n,m) = maybeV where
     aAngle = externalAngle bd a
     bAngle = externalAngle bd b
     maybeV | aAngle < n = err
@@ -1250,7 +1250,7 @@ findThirdV bd (a,b) (n,m) = maybeV where
            | bAngle == m = case find ((==b) . fst) (boundary bd) of
                              Just pr -> Right $ Just (snd pr)
            | otherwise =   Right $ Nothing
-    err = Left $ "findThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " ++ show (a,b)
+    err = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " ++ show (a,b)
                      ++ "\nwith graph:\n " ++ show (recoverGraph bd) ++ "\n"
 
 -- |externalAngle bd v - calculates the external angle at boundary vertex v in BoundaryState bd as an

@@ -47,36 +47,36 @@ Note that the other Tgraph properties are checked first, to ensure that calculat
 vertex locations can be done for a touching vertex check.
 -}
 makeTgraph :: [TileFace] -> Tgraph
-makeTgraph fcs = runTry $ onFail "makeTgraph: (failed):\n" $ touchCheckProps fcs
+makeTgraph fcs = runTry $ onFail "makeTgraph: (failed):\n" $ tryMakeTgraph fcs
 
 {-|
-touchCheckProps performs the same checks for Tgraph properties as checkTgraphProps but in addition
+tryMakeTgraph performs the same checks for Tgraph properties as checkTgraphProps but in addition
 it also checks that there are no touching vertices (distinct labels for the same vertex)
 using Tgraph.Convert.touchingVertices (which calculates vertex locations).
 It produces Left ... if either check fails and Right g otherwise where g is the Tgraph.
 Note that the other Tgraph properties are checked first, to ensure that calculation of 
 vertex locations can be done.
 -}
-touchCheckProps :: [TileFace] -> Try Tgraph
-touchCheckProps fcs =
+tryMakeTgraph :: [TileFace] -> Try Tgraph
+tryMakeTgraph fcs =
  do g <- checkTgraphProps fcs -- must be checked first
     let touchVs = touchingVertices (faces g)
     if null touchVs 
     then Right g 
     else Left ("Found touching vertices: " 
                ++ show touchVs
-               ++ "\n(To fix, use: correctTouchingVs)\n"
+               ++ "\n(To fix, use: tryCorrectTouchingVs)\n"
               )
 
-{-| correctTouchingVs fcs finds touching vertices by calculating locations for vertices in the faces fcs,
+{-| tryCorrectTouchingVs fcs finds touching vertices by calculating locations for vertices in the faces fcs,
     then renumbers to remove touching vertices (renumbers higher to lower numbers),
     then checks for Tgraph properties of the resulting faces to produce a Tgraph.
     NB fcs needs to be tile-connected before the renumbering and
     the renumbering need not be 1-1 (hence Relabelling is not used)      
 -}
-correctTouchingVs ::  [TileFace] -> Try Tgraph
-correctTouchingVs fcs = 
-    onFail ("correctTouchingVs:\n" ++ show touchVs) $ 
+tryCorrectTouchingVs ::  [TileFace] -> Try Tgraph
+tryCorrectTouchingVs fcs = 
+    onFail ("tryCorrectTouchingVs:\n" ++ show touchVs) $ 
     checkTgraphProps $ nub $ renumberFaces touchVs fcs
 --    checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling touchVs) fcs
     where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices

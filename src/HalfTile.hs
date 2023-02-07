@@ -59,10 +59,10 @@ type HalfTileLabel = HalfTile ()
 tileLabel :: HalfTile a -> HalfTileLabel
 tileLabel = fmap $ const () -- functor HalfTile
 
--- | matchingHalfTile t1 t2 is True if t1 and t2 have the same HalfTileLabel 
+-- | isMatched t1 t2 is True if t1 and t2 have the same HalfTileLabel 
 -- (i.e. use the same constructor - both LD or both RD or both LK or both RK)
-matchingHalfTile :: HalfTile rep1 -> HalfTile rep2 -> Bool
-matchingHalfTile t1 t2 = tileLabel t1 == tileLabel t2
+isMatched :: HalfTile rep1 -> HalfTile rep2 -> Bool
+isMatched t1 t2 = tileLabel t1 == tileLabel t2
 
 
 

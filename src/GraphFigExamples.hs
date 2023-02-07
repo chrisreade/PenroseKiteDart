@@ -59,18 +59,18 @@ foolAndFoolD = padBorder $ hsep 1 [scale phi $ dashJVGraph fool, dashJVGraph foo
 
 {-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
 These will be caught by makeTgraph which raises an error.
-The error is not picked up by checkedTgraph. It can be fixed using correctTouchingVs.
+The error is not picked up by checkedTgraph. It can be fixed using tryCorrectTouchingVs.
 
 *** Exception: makeTgraph: touching vertices [(19,7)]
 
 > checkedTgraph touchErrorFaces
 Tgraph {maxV = 19, faces = ...}
 
-> correctTouchingVs touchErrorFaces
+> tryCorrectTouchingVs touchErrorFaces
 Right (Tgraph {maxV = 18, faces = [..., LK (7,17,18)]})
 
 test with:
-padBorder $ dashJVGraph $ runTry $ correctTouchingVs touchErrorFaces
+padBorder $ dashJVGraph $ runTry $ tryCorrectTouchingVs touchErrorFaces
 -}
 touchErrorFaces::[TileFace]
 touchErrorFaces = faces foolD ++ [RD(6,18,17),LK(19,17,18)]

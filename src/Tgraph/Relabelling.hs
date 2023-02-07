@@ -123,7 +123,7 @@ tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $
   do let g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
      fc2 <- find (`hasDedge` (x2,y2)) (faces g2prepared)
             `nothingFail` ("No face found for edge " ++ show (x2,y2))                      
-     maybef <- matchFace (relabelFace (newRelabelling [(x2,x1),(y2,y1)]) fc2) g1
+     maybef <- tryMatchFace (relabelFace (newRelabelling [(x2,x1),(y2,y1)]) fc2) g1
      fc1 <- maybef `nothingFail` 
                    ("No matching face found at edge "++show (x1,y1)++
                     "\nfor relabelled face " ++ show fc2)  
@@ -205,7 +205,7 @@ f1 `relabellingTo` f2 = newRelabelling $ zip (faceVList f1) (faceVList f2) -- f1
  
 
 -- |renumberFaces allows for a non 1-1 relabelling represented by a list of pairs.
--- It is used only for correctTouchingVs in Tgraphs which then checks the result 
+-- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result 
 renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
 renumberFaces prs fcs = fmap renumberFace fcs where
     mapping = VMap.fromList $ differing prs
@@ -231,11 +231,11 @@ to match with g1.
 -}
 findRelabelling:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Try Relabelling
 findRelabelling (g1,fc1) (g2,fc2) = onFail "findRelabelling:\n" $ 
-   growRelabel g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
+   tryGrowRelabel g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
 
 
-{-|growRelabel is used by findRelabelling to build a relabelling map which can fail, producing Left lines.
-In the successful case (growRelabel g processing awaiting rlab) produces a Right rel
+{-|tryGrowRelabel is used by findRelabelling to build a relabelling map which can fail, producing Left lines.
+In the successful case (tryGrowRelabel g processing awaiting rlab) produces a Right rel
 where rel is the required relabelling. The arguments are:
 g - the Tgraph being matched against.
 processing - a list of faces to be matched next where
@@ -254,13 +254,13 @@ apart from (possibly) the third vertex label,
 otherwise the faces do not match and this
 indicates a mismatch on the overlap and Left ... is returned.
 -}
-growRelabel:: Tgraph -> [TileFace] -> [TileFace] -> Relabelling -> Try Relabelling
-growRelabel g [] awaiting rlab = Right rlab -- awaiting are not tile-connected to overlap region
-growRelabel g (fc:fcs) awaiting rlab = 
-  do maybef <- matchFace (relabelFace rlab fc) g
+tryGrowRelabel:: Tgraph -> [TileFace] -> [TileFace] -> Relabelling -> Try Relabelling
+tryGrowRelabel g [] awaiting rlab = Right rlab -- awaiting are not tile-connected to overlap region
+tryGrowRelabel g (fc:fcs) awaiting rlab = 
+  do maybef <- tryMatchFace (relabelFace rlab fc) g
      case maybef of
-       Nothing   -> growRelabel g fcs awaiting rlab
-       Just orig -> growRelabel g (fcs++fcs') awaiting' rlab'
+       Nothing   -> tryGrowRelabel g fcs awaiting rlab
+       Just orig -> tryGrowRelabel g (fcs++fcs') awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
                           rlab' = relabelUnion (fc `relabellingTo` orig) rlab
 
@@ -303,16 +303,16 @@ matchByEdgesIgnore (g1,(x1,y1)) (g2,(x2,y2)) = relabelGraph rlab g2prepared wher
 -- which ignores non-matching faces rather than failing. It thus returns a definite Relabelling.
 findRelabellingIgnore:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Relabelling
 findRelabellingIgnore (g1,fc1) (g2,fc2) =  
-   growRelabelIgnore g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
+   tryGrowRelabelIgnore g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
 
--- |growRelabelIgnore is the same as growRelabel except that it uses matchFaceIgnore
+-- |tryGrowRelabelIgnore is the same as tryGrowRelabel except that it uses matchFaceIgnore
 -- which ignores non-matching faces rather than failing. It thus returns a definite Relabelling.
-growRelabelIgnore:: Tgraph -> [TileFace] -> [TileFace] -> Relabelling -> Relabelling
-growRelabelIgnore g [] awaiting rlab = rlab -- awaiting are not tile-connected to overlap region
-growRelabelIgnore g (fc:fcs) awaiting rlab = 
+tryGrowRelabelIgnore:: Tgraph -> [TileFace] -> [TileFace] -> Relabelling -> Relabelling
+tryGrowRelabelIgnore g [] awaiting rlab = rlab -- awaiting are not tile-connected to overlap region
+tryGrowRelabelIgnore g (fc:fcs) awaiting rlab = 
      case matchFaceIgnore (relabelFace rlab fc) g of
-       Nothing   -> growRelabelIgnore g fcs awaiting rlab
-       Just orig -> growRelabelIgnore g (fcs++fcs') awaiting' rlab'
+       Nothing   -> tryGrowRelabelIgnore g fcs awaiting rlab
+       Just orig -> tryGrowRelabelIgnore g (fcs++fcs') awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
                           rlab' = relabelUnion (fc `relabellingTo` orig) rlab
 
@@ -327,14 +327,14 @@ differing :: [(Vertex,Vertex)] -> [(Vertex,Vertex)]
 differing = filter (\(a,b) -> a/=b)
                      
 {-|
-matchFace f g - looks for a face in g that corresponds to f (sharing a directed edge),
+tryMatchFace f g - looks for a face in g that corresponds to f (sharing a directed edge),
 If the corresponding face does not match properly (with twoVMatch) this stops the
 matching process returning Left ... to indicate a failed match.
 Otherwise it returns either Right (Just f) where f is the matched face or
 Right Nothing if there is no corresponding face.
 -}
-matchFace:: TileFace -> Tgraph -> Try (Maybe TileFace)  
-matchFace face g = onFail "matchFace:\n" $
+tryMatchFace:: TileFace -> Tgraph -> Try (Maybe TileFace)  
+tryMatchFace face g = onFail "tryMatchFace:\n" $
   case find (`hasDedgeIn` (faceDedges face)) (faces g) of
     Nothing      -> Right Nothing
     Just corresp -> if twoVMatch corresp face
@@ -344,17 +344,17 @@ matchFace face g = onFail "matchFace:\n" $
 -- |twoVMatch f1 f2 is True if the two tilefaces are the same except
 -- for a single vertex label possibly not matching.
 twoVMatch:: TileFace -> TileFace -> Bool
-twoVMatch f1 f2 = matchingHalfTile f1 f2 &&
+twoVMatch f1 f2 = isMatched f1 f2 &&
                   if firstV f1 == firstV f2
                   then secondV f1 == secondV f2 || thirdV f1 == thirdV f2
                   else secondV f1 == secondV f2 && thirdV f1 == thirdV f2
 
-{-|A version of matchFace that just ignores mismatches.
+{-|A version of tryMatchFace that just ignores mismatches.
 matchFaceIgnore f g - looks for a face in g that corresponds to f (sharing a directed edge),
 If there is a corresponding face f' which matches label and corresponding directed edge then Just f' is returned
 Otherwise Nothing is returned. (Thus ignoring a clash)
 -}
 matchFaceIgnore:: TileFace -> Tgraph -> Maybe TileFace  
-matchFaceIgnore face g = case matchFace face g of
+matchFaceIgnore face g = case tryMatchFace face g of
    Right mf -> mf
    Left _   -> Nothing
