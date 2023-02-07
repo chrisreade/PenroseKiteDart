@@ -7,7 +7,7 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 This module includes force plus related operations for testing and experimenting.
-For example tryForce is a version of Force returning a ReportFail.
+For example tryForce is a version of Force returning a Try.
 It also exposes the calculation of relative angle of edges at vertices used to find existing edges.
 It uses a touching check for adding new vertices (using Tgraph.Convert.creatVPoints for vertex locations)
 -}
@@ -140,11 +140,11 @@ data ForceState = ForceState
                    }
 
 {-|UpdateGenerator abbreviates the type of functions which implement the forcing rules.
-They produce a (ReportFail) UpdateMap when given a BoundaryState and a focus list of particular directed boundary edges.  
+They produce a (Try) UpdateMap when given a BoundaryState and a focus list of particular directed boundary edges.  
 Each forcing rule has a particular UpdateGenerator,
 but they can also be combined in sequence (e.g. allUgenerator).
 -}
-type UpdateGenerator = BoundaryState -> [Dedge] -> ReportFail UpdateMap
+type UpdateGenerator = BoundaryState -> [Dedge] -> Try UpdateMap
 
 {-| BoundaryChange records the new boundary state after an update (by either trySafeUpdate or tryUnsafeUpdate)
      along with a list of directed edges which are no longer on the boundary,
@@ -192,11 +192,11 @@ forcing operations
 -- |The main force function using defaultAllUGen representing all 10 rules for updates.
 -- This raises an error on discovering a stuck/incorrect Tgraph.
 force:: Tgraph -> Tgraph
-force = getResult . tryForce
+force = runTry . tryForce
 
 -- |A version of the main force function using defaultAllUGen representing all 10 rules for updates.
 -- This returns Left report on discovering a stuck Tgraph and Right g (with g the resulting Tgraph) otherwise.
-tryForce:: Tgraph -> ReportFail Tgraph
+tryForce:: Tgraph -> Try Tgraph
 tryForce = tryForceWith defaultAllUGen
 
 -- |special case of forcing only half tiles to whole tiles
@@ -210,12 +210,12 @@ wholeTiles = forceWith wholeTileUpdates
      This raises an error if it encounters a stuck/incorrect graph
 -}
 forceWith:: UpdateGenerator -> Tgraph -> Tgraph
-forceWith uGen = getResult . tryForceWith uGen
+forceWith uGen = runTry . tryForceWith uGen
 
 {-| version of forceWith which produces Left report if it encounters a stuck/incorrect graph
 instead of raising an error
 -}
-tryForceWith:: UpdateGenerator -> Tgraph -> ReportFail Tgraph
+tryForceWith:: UpdateGenerator -> Tgraph -> Try Tgraph
 tryForceWith uGen g = 
     do fs0 <- initForceStateWith uGen g
        fs1 <- tryForceStateWith uGen fs0
@@ -224,7 +224,7 @@ tryForceWith uGen g =
 {-| tryForceStateWith uGen fs recursively does updates using uGen until there are no more updates.
 It produces Left report if it encounters a stuck/incorrect graph.
 -}
-tryForceStateWith :: UpdateGenerator -> ForceState -> ReportFail ForceState
+tryForceStateWith :: UpdateGenerator -> ForceState -> Try ForceState
 tryForceStateWith uGen = retry where
   retry fs = case findSafeUpdate (updateMap fs) of
              Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
@@ -243,12 +243,12 @@ tryForceStateWith uGen = retry where
 {-| tryForceState fs recursively does updates using defaultAllUGen until there are no more updates.
 It produces Left report if it encounters a stuck/incorrect graph.
 -}
-tryForceState :: ForceState -> ReportFail ForceState
+tryForceState :: ForceState -> Try ForceState
 tryForceState = tryForceStateWith defaultAllUGen
 
 {-| tryForceBoundaryWith uGen is the same as tryForceStateWith ugen but from BoundaryState to BoundaryState.
 -}
-tryForceBoundaryWith :: UpdateGenerator -> BoundaryState -> ReportFail BoundaryState
+tryForceBoundaryWith :: UpdateGenerator -> BoundaryState -> Try BoundaryState
 tryForceBoundaryWith uGen bd =  do
        uMap <- uGen bd (boundary bd)
        let fsStart = ForceState{ boundaryState = bd 
@@ -259,14 +259,14 @@ tryForceBoundaryWith uGen bd =  do
 
 {-| tryForceBoundary is the same as tryForceState but from BoundaryState to BoundaryState.
 -}
-tryForceBoundary :: BoundaryState -> ReportFail BoundaryState
+tryForceBoundary :: BoundaryState -> Try BoundaryState
 tryForceBoundary = tryForceBoundaryWith defaultAllUGen
 
 {-| initForceStateWith uGen g calculates an initial force state with boundary state information from g
      and uses uGen on all boundary edges to initialise the updateMap.
     It produces Left report if it finds a stuck/incorrect graph.                                                     
 -}
-initForceStateWith :: UpdateGenerator -> Tgraph -> ReportFail ForceState
+initForceStateWith :: UpdateGenerator -> Tgraph -> Try ForceState
 initForceStateWith uGen g = 
   do let bd = makeBoundaryState g
      umap <- uGen bd (boundary bd)
@@ -277,12 +277,12 @@ initForceStateWith uGen g =
     using defaultAllUgen.
     It produces Left report if it finds a stuck/incorrect graph.                                                     
 -}
-initForceState :: Tgraph -> ReportFail ForceState
+initForceState :: Tgraph -> Try ForceState
 initForceState = initForceStateWith  defaultAllUGen
 
 -- |reviseUpdates uGen bdChange: updates the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
-reviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> ReportFail UpdateMap
+reviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
 reviseUpdates uGen bdChange umap = 
   do let umap' = foldr Map.delete umap (removedEdges bdChange)
      umap'' <- uGen (newBoundaryState bdChange) (revisedEdges bdChange) 
@@ -309,26 +309,26 @@ Inspecting Force Steps
 -- It raises an error if it encounters a stuck/incorrect graph
 -- (stepForce 0 g can be used to calculate the initial force state from g.)
 stepForce :: Tgraph -> Int -> ForceState
-stepForce g  = getResult . tryStepForce g
+stepForce g  = runTry . tryStepForce g
 
 -- |tryStepForce is a version of stepForce which produces Left report for a stuck/incorrect graph
 -- (tryStepForce 0 g can be used to calculate the initial force state from g.)
-tryStepForce :: Tgraph -> Int -> ReportFail ForceState
+tryStepForce :: Tgraph -> Int -> Try ForceState
 tryStepForce g n = do fs0 <- initForceStateWith defaultAllUGen g
                       tryStepForceFrom fs0 n
 
 -- |stepForceFrom advances a forcestate a given number of steps.
 -- raising an error if a forcestate produces a stuck graph
 stepForceFrom :: ForceState -> Int -> ForceState
-stepForceFrom fs = getResult . tryStepForceFrom fs
+stepForceFrom fs = runTry . tryStepForceFrom fs
 
 -- |tryStepForceFrom advances a forcestate a given number of steps.
 -- It produces Left report for a stuck/incorrect graph
-tryStepForceFrom :: ForceState -> Int -> ReportFail ForceState
+tryStepForceFrom :: ForceState -> Int -> Try ForceState
 tryStepForceFrom = tryStepForceWith defaultAllUGen
 
 -- |try a number of force steps using a given UpdateGenerator (used by tryStepForce)
-tryStepForceWith :: UpdateGenerator -> ForceState -> Int -> ReportFail ForceState
+tryStepForceWith :: UpdateGenerator -> ForceState -> Int -> Try ForceState
 tryStepForceWith updateGen = count where
   count fs 0 = return fs
   count fs n = do result <- oneStepWith updateGen fs
@@ -341,9 +341,9 @@ Single Force Steps
 -}
 
 -- |oneStepWith uGen fs uses uGen to find updates and does one force step.
--- It returns a (ReportFail maybe) with a new force sate paired with the boundary change for debugging purposes.
+-- It returns a (Try maybe) with a new force sate paired with the boundary change for debugging purposes.
 -- It produces Left report for a stuck/incorrect graph
-oneStepWith :: UpdateGenerator -> ForceState -> ReportFail (Maybe (ForceState,BoundaryChange))
+oneStepWith :: UpdateGenerator -> ForceState -> Try (Maybe (ForceState,BoundaryChange))
 oneStepWith uGen fs = 
       case findSafeUpdate (updateMap fs) of
       Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
@@ -356,7 +356,7 @@ oneStepWith uGen fs =
                 Nothing  -> return Nothing           -- no more updates
 
 -- |oneStepF is a special case of oneStepWith only used for debugging
-oneStepF :: ForceState -> ReportFail (Maybe (ForceState,BoundaryChange))
+oneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
 oneStepF = oneStepWith defaultAllUGen
 
 
@@ -367,7 +367,7 @@ oneStepF = oneStepWith defaultAllUGen
    where bdC is the resulting boundary change (if there was one) and Right Nothing if all unsafes are blocked.
    It produces Left report for a stuck/incorrect graph
 -}
-tryUnsafes:: ForceState -> ReportFail (Maybe BoundaryChange)
+tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
 tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
   bd = boundaryState fs
   tryList [] = return Nothing
@@ -383,7 +383,7 @@ tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
      returning Right Nothing if there is a touching vertex (blocked case).
      Otherwise it returns Right (Just bdc) with bdc a boundary change.
 -}
-tryUnsafeUpdate:: BoundaryState -> Update -> ReportFail (Maybe BoundaryChange)
+tryUnsafeUpdate:: BoundaryState -> Update -> Try (Maybe BoundaryChange)
 tryUnsafeUpdate bd (SafeUpdate _) = error  "tryUnsafeUpdate: applied to safe update.\n"
 tryUnsafeUpdate bd (UnsafeUpdate makeFace) = 
    let v = nextVertex bd       
@@ -433,7 +433,7 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
     It should cater for the exceptional case where the update removes 3 boundary edges
     in a triangle (and removes 3 boundary vertices), closing a hole.
 -}
-trySafeUpdate:: BoundaryState -> Update -> ReportFail BoundaryChange
+trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
 trySafeUpdate bd (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newFace) = 
    let fDedges = faceDedges newFace
@@ -483,7 +483,7 @@ commonVs es = error $ "commonVs: unexpected argument edges (not 2 consecutive di
 -- |tryUpdate: tries a single update (safe or unsafe),
 -- producing Left report if the update creates a touching vertex in the unsafe case,
 -- or if it discovers a stuck/incorrect graph
-tryUpdate:: BoundaryState -> Update -> ReportFail BoundaryChange
+tryUpdate:: BoundaryState -> Update -> Try BoundaryChange
 tryUpdate bd u@(SafeUpdate _) = trySafeUpdate bd u
 tryUpdate bd u@(UnsafeUpdate _) = 
   do maybeBdC <- tryUnsafeUpdate bd u
@@ -589,7 +589,7 @@ type UFinder = BoundaryState -> [Dedge] -> [(Dedge,TileFace)]
 -- Such a function can be used with a UFinder that either returns dart halves with short edge on the boundary
 -- (nonKDarts in rule 2) or returns kite halves with short edge on the boundary
 -- (kitesWingDartOrigin in rule 3).
-type UChecker = BoundaryState -> TileFace -> ReportFail Update      
+type UChecker = BoundaryState -> TileFace -> Try Update      
 
 {-|This is a general purpose filter used to create UFinder functions for each force rule.
  It requires a face predicate.
@@ -615,7 +615,7 @@ makeUpdate f (Just v) = SafeUpdate (f v)
 makeUpdate f Nothing  = UnsafeUpdate f
 
 -- |checkUpdate lifts makeUpdate to deal with third vertex search returning Left ..
-checkUpdate:: (Vertex -> TileFace) -> ReportFail (Maybe Vertex) -> ReportFail Update
+checkUpdate:: (Vertex -> TileFace) -> Try (Maybe Vertex) -> Try Update
 checkUpdate f  = tryApply (makeUpdate f) 
 
 {-*
@@ -988,7 +988,7 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
     if isDartOrigin bd (wingV fc) then mapItem e (addKiteShortE bd fc) else -- rule 3
     Right Map.empty
   mapItem e = tryApply (\u -> Map.insert e u Map.empty)
-  combine = tryApply mconcat . concatFail -- concatenates all failure reports
+  combine = tryApply mconcat . concatFails -- concatenates all failure reports
   
 
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
@@ -1022,19 +1022,19 @@ addHalfKite, addHalfDart, forceLDB, forceLKC
 -- It will raise an error if the edge is a dart join or if a conflict (stuck graph) is detected
 -- or if the edge is not a boundary edge.
 addHalfKite :: Dedge -> Tgraph -> Tgraph
-addHalfKite e  = getResult . tryAddHalfKite e
+addHalfKite e  = runTry . tryAddHalfKite e
 
--- |tryAddHalfKite is a version of addHalfKite which returns a ReportFail
+-- |tryAddHalfKite is a version of addHalfKite which returns a Try
 -- with a Left report if it finds a stuck/incorrect graph, or 
 -- if the edge is a dart join, or
 -- if the edge is not a boundary edge.   
-tryAddHalfKite :: Dedge -> Tgraph -> ReportFail Tgraph
+tryAddHalfKite :: Dedge -> Tgraph -> Try Tgraph
 tryAddHalfKite e g = 
   do bdFinal <- tryAddHalfKiteBoundary e $ makeBoundaryState g
      return $ recoverGraph bdFinal
 
 -- |tryAddHalfKiteBoundary is a version of tryAddHalfKite which is from BoundaryState to BoundaryState
-tryAddHalfKiteBoundary :: Dedge -> BoundaryState -> ReportFail BoundaryState
+tryAddHalfKiteBoundary :: Dedge -> BoundaryState -> Try BoundaryState
 tryAddHalfKiteBoundary e bd = 
   do de <- case [e, reverseD e] `intersect` boundary bd of
              [de] -> Right de
@@ -1055,19 +1055,19 @@ tryAddHalfKiteBoundary e bd =
 -- or if a conflict (stuck graph) is detected or if
 -- the edge is not a boundary edge.
 addHalfDart :: Dedge -> Tgraph -> Tgraph
-addHalfDart e = getResult . tryAddHalfDart e
+addHalfDart e = runTry . tryAddHalfDart e
   
--- |tryAddHalfDart is a version of addHalfDart which returns a ReportFail
+-- |tryAddHalfDart is a version of addHalfDart which returns a Try
 -- with a Left report if it finds a stuck/incorrect graph, or
 -- if the edge is a dart short edge or kite join, or
 -- if the edge is not a boundary edge.
-tryAddHalfDart :: Dedge -> Tgraph -> ReportFail Tgraph
+tryAddHalfDart :: Dedge -> Tgraph -> Try Tgraph
 tryAddHalfDart e g = 
   do bdFinal <- tryAddHalfDartBoundary e $ makeBoundaryState g
      return $ recoverGraph bdFinal
 
 -- |tryAddHalfDartBoundary is a version of tryAddHalfDart which is from BoundaryState to BoundaryState
-tryAddHalfDartBoundary :: Dedge -> BoundaryState -> ReportFail BoundaryState
+tryAddHalfDartBoundary :: Dedge -> BoundaryState -> Try BoundaryState
 tryAddHalfDartBoundary e bd = 
   do de <- case [e, reverseD e] `intersect` boundary bd of
             [de] -> Right de
@@ -1087,13 +1087,13 @@ tryAddHalfDartBoundary e bd =
 -- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
 -- raising an error otherwise.
 forceLDB :: Vertex -> Tgraph -> Tgraph
-forceLDB v = getResult . tryForceLDB v
+forceLDB v = runTry . tryForceLDB v
 
--- |A version of forceLDB which returns a ReportFail Tgraph, with a Left report
+-- |A version of forceLDB which returns a Try Tgraph, with a Left report
 -- if the result is a stuck/incorrect graph. 
 -- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
 -- returning a Left report  otherwise.  
-tryForceLDB :: Vertex -> Tgraph -> ReportFail Tgraph
+tryForceLDB :: Vertex -> Tgraph -> Try Tgraph
 tryForceLDB v g =
   let bd = makeBoundaryState g
       vFaces = facesAtBV bd v
@@ -1120,13 +1120,13 @@ tryForceLDB v g =
 -- provided the existing dart half has no kite or a full kite below.
 -- If it has only a half kite below, but the new farK exists, then v will already be a crossing boundary.
 forceLKC :: Vertex -> Tgraph -> Tgraph
-forceLKC v = getResult . tryForceLKC v
+forceLKC v = runTry . tryForceLKC v
 
--- |A version of forceLKC which returns a ReportFail Tgraph, with a Left report
+-- |A version of forceLKC which returns a Try Tgraph, with a Left report
 -- if the result is a stuck/incorrect graph. 
 -- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
 -- returning a Left report  otherwise.        
-tryForceLKC :: Vertex -> Tgraph -> ReportFail Tgraph
+tryForceLKC :: Vertex -> Tgraph -> Try Tgraph
 tryForceLKC v g = 
   do let bd0 = makeBoundaryState g
          vFaces0 = facesAtBV bd0 v
@@ -1238,7 +1238,7 @@ creating a touching vertex/crossing boundary. (Taken care of in tryUnsafeUpdate)
    If either n or m is too large a Left report is returned indicating an incorrect graph (stuck tiling).
    If n and m are smaller than the respective external angles, Right Nothing is returned.
 -}
-findThirdV:: BoundaryState -> Dedge -> (Int,Int) -> ReportFail (Maybe Vertex)
+findThirdV:: BoundaryState -> Dedge -> (Int,Int) -> Try (Maybe Vertex)
 findThirdV bd (a,b) (n,m) = maybeV where
     aAngle = externalAngle bd a
     bAngle = externalAngle bd b

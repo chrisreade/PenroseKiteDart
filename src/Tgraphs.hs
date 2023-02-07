@@ -47,7 +47,7 @@ Note that the other Tgraph properties are checked first, to ensure that calculat
 vertex locations can be done for a touching vertex check.
 -}
 makeTgraph :: [TileFace] -> Tgraph
-makeTgraph fcs = getResult $ onFail "makeTgraph: (failed):\n" $ touchCheckProps fcs
+makeTgraph fcs = runTry $ onFail "makeTgraph: (failed):\n" $ touchCheckProps fcs
 
 {-|
 touchCheckProps performs the same checks for Tgraph properties as checkTgraphProps but in addition
@@ -57,7 +57,7 @@ It produces Left ... if either check fails and Right g otherwise where g is the 
 Note that the other Tgraph properties are checked first, to ensure that calculation of 
 vertex locations can be done.
 -}
-touchCheckProps :: [TileFace] -> ReportFail Tgraph
+touchCheckProps :: [TileFace] -> Try Tgraph
 touchCheckProps fcs =
  do g <- checkTgraphProps fcs -- must be checked first
     let touchVs = touchingVertices (faces g)
@@ -74,7 +74,7 @@ touchCheckProps fcs =
     NB fcs needs to be tile-connected before the renumbering and
     the renumbering need not be 1-1 (hence Relabelling is not used)      
 -}
-correctTouchingVs ::  [TileFace] -> ReportFail Tgraph
+correctTouchingVs ::  [TileFace] -> Try Tgraph
 correctTouchingVs fcs = 
     onFail ("correctTouchingVs:\n" ++ show touchVs) $ 
     checkTgraphProps $ nub $ renumberFaces touchVs fcs
@@ -247,7 +247,7 @@ This will raise an error if the initial force fails with a stuck graph.
 -}
 forcedBoundaryECover:: Tgraph -> [Tgraph]
 forcedBoundaryECover g = fmap recoverGraph $ boundaryECover gforcedBdry where
-     gforcedBdry = getResult $ onFail "forcedBoundaryECover:Initial force failed (incorrect graph)\n" $
+     gforcedBdry = runTry $ onFail "forcedBoundaryECover:Initial force failed (incorrect graph)\n" $
                              tryForceBoundary $ makeBoundaryState g
 
 {-| forcedBoundaryVCover g - produces a list of all boundary covers of force g as with
@@ -255,14 +255,16 @@ forcedBoundaryECover g but covering all boundary vertices rather than just bound
 -}
 forcedBoundaryVCover:: Tgraph -> [Tgraph]
 forcedBoundaryVCover g = fmap recoverGraph $ boundaryVCover gforcedBdry where
-     gforcedBdry = getResult $ onFail "forcedBoundaryVCover:Initial force failed (incorrect graph)\n" $
+     gforcedBdry = runTry $ onFail "forcedBoundaryVCover:Initial force failed (incorrect graph)\n" $
                              tryForceBoundary $ makeBoundaryState g
 
 {-| boundaryECover bd - produces a list of all possible covers of the boundary directed edges in bd.
+[bd should be a boundary state resulting from forcing].
 A cover is an extension (of bd) such that the original boundary directed edges of bd are all internal edges.
 Extensions are made by repeatedly adding a face to any edge on the original boundary that is still on the boundary
 and forcing, repeating this until the orignal boundary is all internal edges.
-The resulting covers account for all possible ways the boundary can be extended that do not produce a (stuck graph) failure.
+The resulting covers account for all possible ways the boundary can be extended.
+This can raise an error if bd is a boundary state of an unforced Tgraph which is incorrect.
 -}
 boundaryECover:: BoundaryState -> [BoundaryState]
 boundaryECover bd = covers [(bd, Set.fromList (boundary bd))] where
@@ -279,6 +281,8 @@ onBoundary des b = des `Set.intersection` Set.fromList (boundary b)
 
 {-| boundaryVCover bd - similar to boundaryECover, but produces a list of all possible covers of 
     the boundary vertices in bd (rather than just boundary edges).
+    [bd should be a boundary state resulting from forcing].
+    This can raise an error if bd is a boundary state of an unforced Tgraph which is incorrect.
 -}
 boundaryVCover:: BoundaryState -> [BoundaryState]
 boundaryVCover bd = covers [(bd, startbds)] where
@@ -302,11 +306,11 @@ anyDartAndKite de b = ignoreFails $ tryDartAndKite de b
 -- | bothDartAndKite de b - returns the list of (2) cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. It will raise an error if either case fails.
 bothDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
-bothDartAndKite de b = getResult $ concatFail $ tryDartAndKite de b
+bothDartAndKite de b = runTry $ concatFails $ tryDartAndKite de b
 
 -- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de on boundary state b and forcing. Each result is a ReportFail.
-tryDartAndKite:: Dedge -> BoundaryState -> [ReportFail BoundaryState]
+-- to edge de on boundary state b and forcing. Each result is a Try.
+tryDartAndKite:: Dedge -> BoundaryState -> [Try BoundaryState]
 tryDartAndKite de b = 
     [ tryAddHalfDartBoundary de b >>= tryForceBoundary
     , tryAddHalfKiteBoundary de b >>= tryForceBoundary
@@ -338,7 +342,7 @@ empire1 g = makeSubTgraph g0 [fcs,faces g] where
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> SubTgraph
 empire2 g = makeSubTgraph g0 [fcs, faces g] where
-    covers1 = boundaryECover $ getResult $ onFail "empire2:Initial force failed (incorrect graph)\n" 
+    covers1 = boundaryECover $ runTry $ onFail "empire2:Initial force failed (incorrect graph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
     covers2 = concatMap boundaryECover covers1
     (g0:others) = fmap recoverGraph covers2
@@ -346,12 +350,13 @@ empire2 g = makeSubTgraph g0 [fcs, faces g] where
     de = lowestJoin (faces g)
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
+
 -- | empire2Plus g - produces a SubTgraph representing an extended level 2 empire of g
 -- similar to empire2, but using boundaryVCovers insrtead of boundaryECovers.
 -- On a kinGraph this currently takes about 4 hours 20 minutes.
 empire2Plus:: Tgraph -> SubTgraph
 empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
-    covers1 = boundaryVCover $ getResult $ onFail "empire2:Initial force failed (incorrect graph)\n" 
+    covers1 = boundaryVCover $ runTry $ onFail "empire2:Initial force failed (incorrect graph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
     covers2 = concatMap boundaryVCover covers1
     (g0:others) = fmap recoverGraph covers2

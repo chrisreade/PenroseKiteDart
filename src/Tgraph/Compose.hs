@@ -34,13 +34,13 @@ compose = snd . partCompose
 -- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
 -- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
 partCompose:: Tgraph -> ([TileFace],Tgraph)
-partCompose g = getResult $ onFail "partCompose:\n" $ tryPartCompose g
+partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
 
 -- |tryPartCompose g tries to produce a Tgraph by composing faces which uniquely compose in g,
 -- It checks the resulting new faces for connectedness and no crossing boundaries.
 -- If the check is OK it produces Right (remainder, g') where g' is the composed Tgraph and remainder is a list
 -- of unused faces from g.  If the check fails it produces Left s where s is a failure report.
-tryPartCompose:: Tgraph -> ReportFail ([TileFace],Tgraph)
+tryPartCompose:: Tgraph -> Try ([TileFace],Tgraph)
 tryPartCompose g = 
   do let (remainder,newGraph) = uncheckedPartCompose g
      checked <- onFail "tryPartCompose:/n" $ checkConnectedNoCross newGraph

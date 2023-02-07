@@ -57,7 +57,7 @@ isKite x = isLK x || isRK x
 type HalfTileLabel = HalfTile ()
 -- |convert a half tile to its label (HalfTileLabel can be compared for equality)
 tileLabel :: HalfTile a -> HalfTileLabel
-tileLabel = fmap (\_ -> ()) -- functor HalfTile
+tileLabel = fmap $ const () -- functor HalfTile
 
 -- | matchingHalfTile t1 t2 is True if t1 and t2 have the same HalfTileLabel 
 -- (i.e. use the same constructor - both LD or both RD or both LK or both RK)

@@ -10,15 +10,16 @@ Stability   : experimental
 
 Introduces Tgraphs and includes operations on vertices, edges and faces as well as Tgraphs.
 Includes experimental SubTgraphs and also
-type ReportFail for use as result of partial operations.
+type Try for use as result of partial operations.
 This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, union, nub, elemIndex,foldl',group,sort)
-import qualified Data.IntMap.Strict as VMap (IntMap, elems, filterWithKey, insert, empty, alter, lookup, fromList, fromListWith, (!),fromAscList)
+import Data.List ((\\), intersect, union, nub, elemIndex,foldl')
+import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!),fromAscList)
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax)
-import Control.Monad(liftM) -- for ReportFail
+import Control.Monad(liftM) -- for Try
+
 import HalfTile
 
 {---------------------
@@ -83,7 +84,7 @@ Note: This does not check for touching vertices (distinct labels for the same ve
 To perform this additional check use makeTgraph (which also calls checkTgraphProps) 
 -}
 checkedTgraph:: [TileFace] -> Tgraph
-checkedTgraph fcs = getResult $ onFail report (checkTgraphProps fcs)
+checkedTgraph fcs = runTry $ onFail report (checkTgraphProps fcs)
  where report = "checkedTgraph:\nFailed for faces: \n" ++ show fcs ++ "\n"
 
 
@@ -105,19 +106,19 @@ rkites g = filter isRK (faces g)
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
 selectFaces :: [TileFace] -> Tgraph -> Tgraph
-selectFaces fcs g = getResult $ checkConnectedNoCross $ 
+selectFaces fcs g = runTry $ checkConnectedNoCross $ 
                     Tgraph {faces = newfaces, maxV = facesMaxV newfaces}
                     where newfaces = faces g `intersect` fcs
---selectFaces fcs g = getResult $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g `intersect` fcs
+--selectFaces fcs g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g `intersect` fcs
 --selectFaces fcs g = checkedTgraph (faces g `intersect` fcs)
 
 -- |removes faces from a Tgraph,
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
 removeFaces :: [TileFace] -> Tgraph -> Tgraph
-removeFaces fcs g = getResult $ checkConnectedNoCross $ 
+removeFaces fcs g = runTry $ checkConnectedNoCross $ 
                     Tgraph {faces = newfaces, maxV = facesMaxV newfaces}
                     where newfaces = faces g \\ fcs
---removeFaces fcs g = getResult $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g \\ fcs
+--removeFaces fcs g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g \\ fcs
 --removeFaces fcs g = checkedTgraph (faces g \\ fcs)
 
 -- |removeVertices vs g - removes any vertex in the list vs from g
@@ -151,7 +152,7 @@ Required Tgraph properties
 Returns Right g where g is a Tgraph on passing checks.
 Returns Left lines if a test fails, where lines describes the problem found.
 -}
-checkTgraphProps:: [TileFace] -> ReportFail Tgraph
+checkTgraphProps:: [TileFace] -> Try Tgraph
 checkTgraphProps []       =  Right $ emptyTgraph 
 checkTgraphProps fcs
       | hasEdgeLoops fcs  =  Left $ "Non-valid tile-face(s)\n" ++
@@ -172,7 +173,7 @@ checkTgraphProps fcs
 -- Returns Left lines if a test fails, where lines describes the problem found.
 -- This is used by checkTgraphProps after other checks have been made,
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
-checkConnectedNoCross:: Tgraph -> ReportFail Tgraph
+checkConnectedNoCross:: Tgraph -> Try Tgraph
 checkConnectedNoCross g
   | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
   | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
@@ -570,45 +571,45 @@ makeVFMapFor vs = foldl' insertf start where
 
 {-* Failure reporting (for partial operations) -}
 
--- | ReportFail is a synonym for Either String.  Used for results of partial functions
+-- | Try is a synonym for Either String.  Used for results of partial functions
 -- which return either Right something when defined or Left string when there is a problem
 -- where string is a failure report.
 -- Note: Either String is a monad, and this is used frequently for combining  partial operations.
-type ReportFail a = Either String a
+type Try a = Either String a
 
 -- | onFail s exp - inserts s at the front of failure report if exp fails with Left report
-onFail:: String -> ReportFail a -> ReportFail a
+onFail:: String -> Try a -> Try a
 onFail s = either (Left . (s++)) Right
 
--- | Converts a Maybe Result into a ReportFail result by treating Nothing as a failure
+-- | Converts a Maybe Result into a Try result by treating Nothing as a failure
 -- (the string s is the failure report on failure).
 -- Usually used as infix (exp `nothingFail` s)
-nothingFail :: Maybe b -> String -> ReportFail b
+nothingFail :: Maybe b -> String -> Try b
 nothingFail a s = maybe (Left s) Right a
 
--- |Extract the (Right) result from a ReportFail, producing an error if the ReportFail is Left s.
+-- |Extract the (Right) result from a Try, producing an error if the Try is Left s.
 -- The failure report is passed to error for an error report.
-getResult:: ReportFail a -> a
-getResult = either error id
+runTry:: Try a -> a
+runTry = either error id
 
--- |tryApply f lifts f to work on a ReportFail argument                     
-tryApply :: (a -> r) -> ReportFail a -> ReportFail r
+-- |tryApply f lifts f to work on a Try argument                     
+tryApply :: (a -> r) -> Try a -> Try r
 tryApply = liftM 
 
--- |Combines a list of ReportFails into a single ReportFail with failure overriding success.
+-- |Combines a list of Trys into a single Try with failure overriding success.
 -- It concatenates all failure reports if there are any and returns a single Left r.
 -- Otherwise it produces Right rs where rs is the list of all (successful) results.
-concatFail:: [ReportFail a] -> ReportFail [a]
-concatFail ls = case [x | Left x <- ls] of
+concatFails:: [Try a] -> Try [a]
+concatFails ls = case [x | Left x <- ls] of
                  [] -> Right [x | Right x <- ls]
                  other -> Left $ mconcat other -- concatenates strings for single report
 
--- |Combines a list of ReportFails into a list of successes, ignoring any failures.
-ignoreFails:: [ReportFail a] -> [a]
+-- |Combines a list of Trys into a list of successes, ignoring any failures.
+ignoreFails:: [Try a] -> [a]
 ignoreFails ls = [x | Right x <- ls]
                           
 {-
-Can't automate concatFail by making (ReportFail a) a monoid
+Can't automate concatFails by making (Try a) a monoid
 (because there is a conflicting instance of semigroup)
 
 instance Semigroup a => Semigroup (Either String a) where

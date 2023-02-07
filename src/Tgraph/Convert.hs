@@ -17,11 +17,11 @@ touching vertex checks (touchingVertices, touchingVerticesGen).
 
 module Tgraph.Convert where
 
-import Data.List ((\\), find, partition, nub, intersect)
-import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, assocs, fromList, keys)
+import Data.List ((\\), nub)
+import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, assocs, keys)
 import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
-import Data.Maybe (mapMaybe, catMaybes)
+import Data.Maybe (catMaybes)
 
 import Diagrams.Prelude
 import TileLib

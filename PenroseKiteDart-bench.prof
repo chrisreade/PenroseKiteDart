@@ -219,8 +219,8 @@ MAIN                                                 MAIN                       
   force                                              Tgraph.Force                 src/Tgraph/Force.hs:202:1-34                    25150           1    0.0    0.0     0.0    0.0
    forceWith                                         Tgraph.Force                 src/Tgraph/Force.hs:214:1-83                    25151           1    0.0    0.0     0.0    0.0
     forceAll                                         Tgraph.Force                 src/Tgraph/Force.hs:(219,1)-(227,36)            25156           1    0.0    0.0     0.0    0.0
- CAF:getResult                                       Tgraph.Prelude               src/Tgraph/Prelude.hs:600:1-9                   24790           0    0.0    0.0     0.0    0.0
-  getResult                                          Tgraph.Prelude               src/Tgraph/Prelude.hs:600:1-27                  25055           1    0.0    0.0     0.0    0.0
+ CAF:runTry                                       Tgraph.Prelude               src/Tgraph/Prelude.hs:600:1-9                   24790           0    0.0    0.0     0.0    0.0
+  runTry                                          Tgraph.Prelude               src/Tgraph/Prelude.hs:600:1-27                  25055           1    0.0    0.0     0.0    0.0
  CAF:getU                                            Data.Tree.DUAL.Internal      src/Data/Tree/DUAL/Internal.hs:224:1-4          16111           0    0.0    0.0     0.0    0.0
   getU                                               Data.Tree.DUAL.Internal      src/Data/Tree/DUAL/Internal.hs:224:1-26         28099           1    0.0    0.0     0.0    0.0
  CAF:graphDedges                                     Tgraph.Prelude               src/Tgraph/Prelude.hs:467:1-11                  24799           0    0.0    0.0     0.0    0.0

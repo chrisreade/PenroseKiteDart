@@ -14,8 +14,9 @@ module Tgraph.Relabelling  where
 
 
 import Data.List (intersect, (\\), union,find,partition,nub)
-import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, lookup, insert, empty, fromList, fromAscList, union)
-import qualified Data.IntSet as IntSet (IntSet,fromList,union,intersection,findMax,elems,(\\),size,null,member)
+import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, fromAscList, union)
+import qualified Data.IntSet as IntSet (IntSet,fromList,intersection,findMax,elems,(\\),null,member)
+
 import Tgraph.Prelude
 import Tgraph.Convert (touchingVertices, touchingVerticesGen) -- used for fullUnion and commonFaces
 
@@ -71,7 +72,7 @@ Assisted Union (and matching) operations
     However the checks are not needed when there are no touching vertices.          
 -}
 fullUnion:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Tgraph
-fullUnion (g1,e1) (g2,e2) = getResult $ tryFullUnion (g1,e1) (g2,e2)
+fullUnion (g1,e1) (g2,e2) = runTry $ tryFullUnion (g1,e1) (g2,e2)
 
 {-| tryFullUnion (g1,e1) (g2,e2) will try to create the union of g1 and g2
     by matching the respective edges e1 and e2 and relabelling g2 to match g1 on a tile-connected region containing e1.
@@ -85,7 +86,7 @@ fullUnion (g1,e1) (g2,e2) = getResult $ tryFullUnion (g1,e1) (g2,e2)
     Since checkTgraphProps is expensive for large Tgraphs, 
     the union is not efficient when there are multiple overlapping regions.
 -}
-tryFullUnion:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> ReportFail Tgraph
+tryFullUnion:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Try Tgraph
 tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
   do g3 <- tryMatchByEdges (g1,e1) (g2,e2)
      let fcs = faces g1 `union` faces g3
@@ -106,7 +107,7 @@ CAVEAT:  If the overlap contains more than one tile-connected region the result 
 relabelling to match g1 in all overlapping regions)    
 -}
 matchByEdges:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Tgraph
-matchByEdges ge1 ge2 = getResult $ tryMatchByEdges ge1 ge2
+matchByEdges ge1 ge2 = runTry $ tryMatchByEdges ge1 ge2
  
 {-|tryMatchByEdges (g1,e1) (g2,e2) produces either Right g where g is a relabelled version of g2 that is
 consistent with g1 on an overlapping tile-connected region or Left lines if there is a mismatch (lines explaining the problem).
@@ -117,7 +118,7 @@ CAVEAT: The relabelling may not be complete if the overlap is not just a SINGLE 
 If the overlap is more than a single tile-connected region, then the union of the relabelled faces with faces in g1
 will be tile-connected but may have touching vertices.    
 -}
-tryMatchByEdges :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> ReportFail Tgraph
+tryMatchByEdges :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Try Tgraph
 tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $ 
   do let g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
      fc2 <- find (`hasDedge` (x2,y2)) (faces g2prepared)
@@ -228,7 +229,7 @@ In the successful case rel when applied to fc2 will be identical to fc1.
 CAVEAT: Only the single tile-connected region of common overlap (containing fc2) of g2 gets relabelled
 to match with g1.
 -}
-findRelabelling:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> ReportFail Relabelling
+findRelabelling:: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Try Relabelling
 findRelabelling (g1,fc1) (g2,fc2) = onFail "findRelabelling:\n" $ 
    growRelabel g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
 
@@ -253,7 +254,7 @@ apart from (possibly) the third vertex label,
 otherwise the faces do not match and this
 indicates a mismatch on the overlap and Left ... is returned.
 -}
-growRelabel:: Tgraph -> [TileFace] -> [TileFace] -> Relabelling -> ReportFail Relabelling
+growRelabel:: Tgraph -> [TileFace] -> [TileFace] -> Relabelling -> Try Relabelling
 growRelabel g [] awaiting rlab = Right rlab -- awaiting are not tile-connected to overlap region
 growRelabel g (fc:fcs) awaiting rlab = 
   do maybef <- matchFace (relabelFace rlab fc) g
@@ -332,7 +333,7 @@ matching process returning Left ... to indicate a failed match.
 Otherwise it returns either Right (Just f) where f is the matched face or
 Right Nothing if there is no corresponding face.
 -}
-matchFace:: TileFace -> Tgraph -> ReportFail (Maybe TileFace)  
+matchFace:: TileFace -> Tgraph -> Try (Maybe TileFace)  
 matchFace face g = onFail "matchFace:\n" $
   case find (`hasDedgeIn` (faceDedges face)) (faces g) of
     Nothing      -> Right Nothing

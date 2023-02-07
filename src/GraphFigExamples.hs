@@ -68,6 +68,9 @@ Tgraph {maxV = 19, faces = ...}
 
 > correctTouchingVs touchErrorFaces
 Right (Tgraph {maxV = 18, faces = [..., LK (7,17,18)]})
+
+test with:
+padBorder $ dashJVGraph $ runTry $ correctTouchingVs touchErrorFaces
 -}
 touchErrorFaces::[TileFace]
 touchErrorFaces = faces foolD ++ [RD(6,18,17),LK(19,17,18)]
@@ -932,7 +935,7 @@ testCasesE = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgra
       fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryECover $ bd 
       where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
             seeOrigin = ((circle 0.25 # fc red # lw none) <>) 
-            bd = getResult $ tryForceBoundary $ makeBoundaryState g
+            bd = runTry $ tryForceBoundary $ makeBoundaryState g
             vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
             fbdes = drawEdges (vLocs vp) (boundary bd) # lw thin
 
@@ -943,11 +946,11 @@ testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgra
       fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryVCover bd 
       where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
             seeOrigin = ((circle 0.25 # fc red # lw none) <>)
-            bd = getResult $ tryForceBoundary $ makeBoundaryState g
+            bd = runTry $ tryForceBoundary $ makeBoundaryState g
             vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
             fbdes = drawEdges (vLocs vp) (boundary bd) # lw thin
 
-{-
+{- OLD non-tree version
 -- | displays all cases for boundary edges by adding faces at either end and forcing.
 -- There are only 3 (left) starting points we need to consider with the edge shown in red
 -- (right versions will be symmetric, and joins and dart short edges have unique cases so not considered).
@@ -958,7 +961,7 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
     examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
     edge = (1,2)
     caseRows g = vsep (-1) $ fmap (hsep 1) $ chunks 7 $ fmap drawCase $ growBothEnds fbd 
-      where fbd = getResult $ tryForceBoundary $ makeBoundaryState g
+      where fbd = runTry $ tryForceBoundary $ makeBoundaryState g
             fvp = alignXaxis edge $ makeVPinned $ recoverGraph fbd
             fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (boundary fbd)) # lw thin
             drawCase = (fbdes <>) . drawPatch . makeAlignedPatch edge . recoverGraph
@@ -998,7 +1001,7 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap case
     edge = (1,2)
     caseRows g = vsep 3 $ fmap (centerX . hsep 1 # composeAligned alignT) $ levels $ treeFor g
     treeFor g = fmap drawCase $ growBothEnds fbd 
-      where fbd = getResult $ tryForceBoundary $ makeBoundaryState g
+      where fbd = runTry $ tryForceBoundary $ makeBoundaryState g
             fvp = alignXaxis edge $ makeVPinned $ recoverGraph fbd
             fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (boundary fbd)) # lw thin
             drawCase = (fbdes <>) . drawPatch . makeAlignedPatch edge . recoverGraph
@@ -1071,7 +1074,7 @@ testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
          g = removeFaces (faces $ recoverGraph bs1) (recoverGraph bs2)
          bs2 = head $ boundaryVCover bs1 
          bs1 = head $ boundaryVCover bs0
-         bs0 = getResult $ tryForceBoundary $ makeBoundaryState kingGraph
+         bs0 = runTry $ tryForceBoundary $ makeBoundaryState kingGraph
 --         bs0 = makeBoundaryState $ force kingGraph
 
 {-*
@@ -1221,26 +1224,26 @@ kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk,
 
 
 {-*
-Testing ReportFail functions
+Testing Try functions
 -}
 
--- | testing ReportFail  - try arguments 0..5  only 4 succeeds
-reportFailTest1 a = getResult $ onFail "reportFailTest1:\n" $ do
+-- | testing Try  - try arguments 0..5  only 4 succeeds
+reportFailTest1 a = runTry $ onFail "reportFailTest1:\n" $ do
   b <- maybeExample a `nothingFail` ("maybeExample: produced Nothing when applied to "++show a ++"\n")
   c <- onFail "first call:\n"  $ eitherExample (b-1)
   d <- onFail "second call:\n" $ eitherExample (c-1)
   e <- onFail "third call:\n"  $ eitherExample (d-1)
   return (a,b,c,d,e)
 
--- | testing ReportFail  - try arguments 0..3   only 2 succeeds
-reportFailTest2 a = getResult $ onFail "reportFailTest2:\n" $ do
+-- | testing Try  - try arguments 0..3   only 2 succeeds
+reportFailTest2 a = runTry $ onFail "reportFailTest2:\n" $ do
   b <- eitherMaybeExample a
   c <- b `nothingFail` "eitherMaybeExample produced Nothing\n"
   d <- onFail "trying eitherExample:\n" $ eitherExample (c-1)
   return (a,b,c,d)
 
 -- | for testing in reportFailTest1 and reportFailTest2
-eitherExample :: Int -> ReportFail Int
+eitherExample :: Int -> Try Int
 eitherExample a = if a==0 then Left "eitherExample: arg is zero\n" else Right a 
 
 -- | for testing in reportFailTest1
@@ -1248,7 +1251,7 @@ maybeExample :: Int -> Maybe Int
 maybeExample a = if a<5 then Just a else Nothing
 
 -- | for testing in reportFailTest1 and reportFailTest2
-eitherMaybeExample :: Int -> ReportFail (Maybe Int)
+eitherMaybeExample :: Int -> Try (Maybe Int)
 eitherMaybeExample a | a<1 = Right Nothing
                      | a<3 = Right (Just a) 
                      | otherwise = Left "eitherMaybeExample: arg >=3\n"
