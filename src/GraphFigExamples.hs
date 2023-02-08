@@ -264,7 +264,7 @@ brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap dashJVGraph [dartD4, brokenD
 badlyBrokenDartFig :: Diagram B
 badlyBrokenDartFig = padBorder $ hsep 1 $ fmap draw [badlyBrokenDart, compBBD, failed] where
     vp = makeVPinned badlyBrokenDart
-    draw g = dashJPatch $ subPatch (faces g) vp
+    draw g = dashJPatch $ subPatch vp $ faces g
     compBBD = compose badlyBrokenDart
     failed  = snd $ uncheckedPartCompose $ compBBD
 
@@ -937,7 +937,7 @@ testCasesE = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgra
             seeOrigin = ((circle 0.25 # fc red # lw none) <>) 
             bd = runTry $ tryForceBoundary $ makeBoundaryState g
             vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
-            fbdes = drawEdges (vLocs vp) (boundary bd) # lw thin
+            fbdes = drawEdgesWith vp (boundary bd) # lw thin
 
 -- | displays some test cases for boundary edge types using boundaryVCover
 testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
@@ -948,7 +948,7 @@ testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgra
             seeOrigin = ((circle 0.25 # fc red # lw none) <>)
             bd = runTry $ tryForceBoundary $ makeBoundaryState g
             vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
-            fbdes = drawEdges (vLocs vp) (boundary bd) # lw thin
+            fbdes = drawEdgesWith vp (boundary bd) # lw thin
 
 {- OLD non-tree version
 -- | displays all cases for boundary edges by adding faces at either end and forcing.
@@ -963,7 +963,7 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
     caseRows g = vsep (-1) $ fmap (hsep 1) $ chunks 7 $ fmap drawCase $ growBothEnds fbd 
       where fbd = runTry $ tryForceBoundary $ makeBoundaryState g
             fvp = alignXaxis edge $ makeVPinned $ recoverGraph fbd
-            fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (boundary fbd)) # lw thin
+            fbdes = ((drawEdgeWith fvp edge # lc red) <> drawEdges (vLocs fvp) (boundary fbd)) # lw thin
             drawCase = (fbdes <>) . drawPatch . makeAlignedPatch edge . recoverGraph
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
@@ -995,16 +995,63 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
 -- In each case, whenever there is a Tgraph where the red edge is still on the boundary,
 -- that Tgraph appears extended with both a kite and a dart on the red edge amongst the diagrams below it in the tree.
 -- This provides a completeness argument for forcing.
+compBoundaryEdgeCaseTrees:: Diagram B
+compBoundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap caseRows examples where
+    examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
+    edge = (1,2)
+    caseRows g = vsep 3 $ fmap (centerX . hsep 1 # composeAligned alignT) $ levels $ treeFor g
+    treeFor g = fmap drawCase $ growBothEnds fbd where
+      fbd = runTry $ tryForceBoundary $ makeBoundaryState g
+      drawCase bd = fbdes <> drawg <> drawComp where
+                    g = recoverGraph bd
+                    vp = alignXaxis edge $ makeVPinned g
+                    drawg = drawPatch (dropLabels vp)
+                    drawComp = lw none $ drawPatchWith (fillDK yellow yellow) $ subPatch vp (faces (compose g))
+                    fbdes = ((drawEdgeWith vp edge # lc red) <> drawEdgesWith vp (boundary fbd)) # lw thin
+
+    addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
+      case filter ((==(snd edge)). fst) (boundary bd) of
+          [] -> []
+          [de] -> bothDartAndKite de bd
+    addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
+      case filter ((==(fst edge)). snd) (boundary bd) of
+          [] -> []
+          [de] -> bothDartAndKite de bd
+-- growBothEnds:: BoundaryState -> Tree BoundaryState
+    growBothEnds bd = goB bd where
+      continue bd = edge `elem` boundary bd
+-- to avoid repetitions, goB produces right and left cases but then recurses to the right only,
+-- using goL to deal with left cases recursively.
+      goB bd = if continue bd
+               then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd) ++ fmap goB (addOnRight bd)}
+               else Node{ rootLabel=bd, subForest = []}
+      goL bd = if continue bd
+               then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd)}
+               else Node{ rootLabel=bd, subForest = []}
+
+-- | Figure displaying all cases for boundary edges of forced Tgraphs.
+-- These are produced as trees (but only the levels of the trees are displayed).
+-- We start with an edge (shown red) of a face on the boundary after forcing the face.
+-- There are only 3 (left-hand) starting face edges we need to consider, so there are 3 trees
+-- (Right versions will be symmetric, and joins and dart short edges are immediately covered by forcing so not shown).
+-- Each tree is grown by adding a kite/dart face at either end of the boundary edge
+-- and forcing, terminating as a leaf node when the red edge is no longer on the boundary.
+-- In each case, whenever there is a Tgraph where the red edge is still on the boundary,
+-- that Tgraph appears extended with both a kite and a dart on the red edge amongst the diagrams below it in the tree.
+-- This provides a completeness argument for forcing.
 boundaryEdgeCaseTrees:: Diagram B
 boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap caseRows examples where
     examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
     edge = (1,2)
     caseRows g = vsep 3 $ fmap (centerX . hsep 1 # composeAligned alignT) $ levels $ treeFor g
-    treeFor g = fmap drawCase $ growBothEnds fbd 
-      where fbd = runTry $ tryForceBoundary $ makeBoundaryState g
-            fvp = alignXaxis edge $ makeVPinned $ recoverGraph fbd
-            fbdes = ((drawEdge (vLocs fvp) edge # lc red) <> drawEdges (vLocs fvp) (boundary fbd)) # lw thin
-            drawCase = (fbdes <>) . drawPatch . makeAlignedPatch edge . recoverGraph
+    treeFor g = fmap drawCase $ growBothEnds fbd where
+      fbd = runTry $ tryForceBoundary $ makeBoundaryState g
+      drawCase bd = fbdes <> drawg where
+                    g = recoverGraph bd
+                    vp = alignXaxis edge $ makeVPinned g
+                    drawg = drawPatch (dropLabels vp)
+                    fbdes = ((drawEdgeWith vp edge # lc red) <> drawEdgesWith vp (boundary fbd)) # lw thin
+
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []

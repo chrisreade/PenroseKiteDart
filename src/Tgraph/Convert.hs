@@ -58,11 +58,10 @@ makeVPinned g = VPinned {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs =
 -- |Creates a VPinned from a list of tile faces, using the vertex locations from the given VPinned.
 -- The vertices in the tile faces must have points assigned in the given VPinned.
 -- (This is not checked for, but missing locations for vertices will raise an error when drawing.)
--- subVPinned fcs vp can be used for both subsets of tile faces of vp,
+-- subVPinned vp fcs can be used for both subsets of tile faces of vp,
 -- but also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
-subVPinned:: [TileFace] -> VPinned -> VPinned
-subVPinned fcs vp = vp {vpFaces  = fcs} 
---subVPinned fcs vp = VPinned {vLocs = vLocs vp, vpFaces  = fcs} 
+subVPinned:: VPinned -> [TileFace] -> VPinned
+subVPinned vp fcs = vp {vpFaces  = fcs} 
 
 {-|
 makePatch uses makeVPinned first then uses dropLabels to convert faces to located Pieces.
@@ -87,8 +86,8 @@ This function is intended to save recreating a VertexLocMap for several Patches
 with different subsets of the vertices.
 (E.g. in displaying subsets of faces of a graph in drawPCompose and in drawForce)
 -}
-subPatch :: [TileFace] -> VPinned -> Patch
-subPatch fcs = dropLabels . subVPinned fcs
+subPatch ::  VPinned -> [TileFace] -> Patch
+subPatch vp = dropLabels . subVPinned vp
 
 -- |Recover a Tgraph from a VPinned by dropping the vertex positions and checking Tgraph properties.
 graphFromVP:: VPinned -> Tgraph
@@ -96,7 +95,8 @@ graphFromVP = checkedTgraph . vpFaces
 
 -- |remove a list of faces from a VPinned
 removeFacesVP :: [TileFace] -> VPinned -> VPinned
-removeFacesVP fcs vp = vp {vpFaces = filter (not . (`elem` fcs)) $ vpFaces vp}
+removeFacesVP fcs vp = vp {vpFaces = vpFaces vp \\ fcs}
+--removeFacesVP fcs vp = vp {vpFaces = filter (not . (`elem` fcs)) $ vpFaces vp}
 
 -- |make a new VPinned with a list of selected faces from a VPinned.
 -- This will ignore any faces that are not in the given VPinned.
@@ -339,6 +339,19 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
 {-*  Drawing (located) Edges
 -}
 
+-- |produce a diagram of a list of edges (given a VPinned)
+drawEdgesWith :: VPinned -> [Dedge] -> Diagram B
+drawEdgesWith vp = drawEdges (vLocs vp) --foldMap (drawEdgeWith vp)
+
+-- |produce a diagram of a single edge (given a VPinned)
+drawEdgeWith :: VPinned -> Dedge -> Diagram B
+drawEdgeWith vp = drawEdge (vLocs vp)
+{-
+case (findLoc a vp, findLoc b vp) of
+                         (Just pa, Just pb) -> pa ~~ pb
+                         _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
+-}
+
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
 drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
 drawEdges vpMap = foldMap (drawEdge vpMap)
@@ -348,7 +361,8 @@ drawEdge :: VertexLocMap -> Dedge -> Diagram B
 drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
- 
+
+
 
 {-*  Touching Vertices
 -}

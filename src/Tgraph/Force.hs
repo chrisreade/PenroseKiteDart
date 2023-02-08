@@ -83,7 +83,7 @@ makeBoundaryState g =
      else
       BoundaryState
       { boundary = bdes
-      , bvFacesMap = makeVFMapFor bvs (faces g)
+      , bvFacesMap = vertexFacesMap bvs (faces g)
       , bvLocMap = bvLocs 
       , allFaces = faces g
       , nextVertex = 1+ maxV g

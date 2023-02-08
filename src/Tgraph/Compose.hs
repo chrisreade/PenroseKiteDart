@@ -71,7 +71,7 @@ data DartWingInfo =  DartWingInfo
 getDartWingInfo:: Tgraph -> DartWingInfo
 getDartWingInfo g =  DartWingInfo {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks, faceMap = dwFMap} where
   darts  = filter isDart (faces g)
-  dwFMap = makeVFMapFor (nub $ fmap wingV darts) (faces g)
+  dwFMap = vertexFacesMap (nub $ fmap wingV darts) (faces g)
   (kcs,dbs,unks) = foldl' processD ([],[],[]) darts  
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,

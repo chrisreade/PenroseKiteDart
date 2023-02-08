@@ -9,8 +9,7 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 Introduces Tgraphs and includes operations on vertices, edges and faces as well as Tgraphs.
-Includes experimental SubTgraphs and also
-type Try for use as result of partial operations.
+Includes type Try for use as result of partial operations.
 This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
@@ -557,24 +556,24 @@ edgeNb fc = any (`elem` edges) . faceDedges where
 -- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
 type VertexMap a = VMap.IntMap a
 
-{-|makeVFMapFor vs fcs -
+{-|vertexFacesMap vs fcs -
 For list of vertices vs and list of faces fcs,
 create an IntMap from each vertex in vs to a list of those faces in fcs that are at that vertex
 -}
-makeVFMapFor:: [Vertex] -> [TileFace] -> VertexMap [TileFace]
-makeVFMapFor vs = foldl' insertf start where
+vertexFacesMap:: [Vertex] -> [TileFace] -> VertexMap [TileFace]
+vertexFacesMap vs = foldl' insertf start where
     start = VMap.fromList $ fmap (\v -> (v,[])) vs
     insertf vfmap f = foldr (VMap.alter addf) vfmap (faceVList f)
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
 
-{-* Failure reporting (for partial operations) -}
+{-* Try - result types with failure reporting (for partial operations) -}
 
 -- | Try is a synonym for Either String.  Used for results of partial functions
 -- which return either Right something when defined or Left string when there is a problem
 -- where string is a failure report.
--- Note: Either String is a monad, and this is used frequently for combining  partial operations.
+-- Note: Either String (and hence Try) is a monad, and this is used frequently for combining  partial operations.
 type Try a = Either String a
 
 -- | onFail s exp - inserts s at the front of failure report if exp fails with Left report
@@ -599,27 +598,14 @@ tryApply = liftM
 -- |Combines a list of Trys into a single Try with failure overriding success.
 -- It concatenates all failure reports if there are any and returns a single Left r.
 -- Otherwise it produces Right rs where rs is the list of all (successful) results.
+-- In particular, concatFails [] = Try []
 concatFails:: [Try a] -> Try [a]
 concatFails ls = case [x | Left x <- ls] of
                  [] -> Right [x | Right x <- ls]
                  other -> Left $ mconcat other -- concatenates strings for single report
 
--- |Combines a list of Trys into a list of successes, ignoring any failures.
+-- |Combines a list of Trys into a list of the successes, ignoring any failures.
+-- In particular, ignoreFails [] = []
 ignoreFails:: [Try a] -> [a]
 ignoreFails ls = [x | Right x <- ls]
                           
-{-
-Can't automate concatFails by making (Try a) a monoid
-(because there is a conflicting instance of semigroup)
-
-instance Semigroup a => Semigroup (Either String a) where
-    Left a <> Left b = Left (a++b)
-    Right a <> Right b = Right (a <> b)
-    Left a <> _ = Left a
-    _ <> Left b = Left b
-
-instance Monoid a => Monoid (Either String a) where
-    mempty = Right mempty
-
-
--}

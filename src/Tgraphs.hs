@@ -10,7 +10,8 @@ Stability   : experimental
 This is the main module for Tgraph operations which collects and exports the other Tgraph modules. 
 It exports makeTgraph for constructing checked Tgraphs and excludes data constructor Tgraph.
 The module includes several functions for producing overlaid diagrams for graphs and
-a definition of emplace and other experimental combinations.
+experimental combinations such as emplace, boundary covers, boundary loops.
+It also includes experimental SubTgraphs (used for tracking subsets of faces of a Tgraph).
 -}
 module Tgraphs ( module Tgraphs
                , module Tgraph.Prelude -- export excludes data constructor Tgraph
@@ -99,15 +100,15 @@ drawSmartVGraph g = drawSmartVSub g $ makeVPinned g
 -- It requires vp to contain a suitable vertex location map for drawing g.
 -- This can be used instead of drawSmartGraph when such a map is already available.
 drawSmartSub:: Tgraph -> VPinned -> Diagram B
-drawSmartSub g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp) 
-                        <> drawPatch (subPatch (faces g) vp)
+drawSmartSub g vp = (drawPatchWith dashJ $ subPatch vp $ boundaryJoinFaces g) 
+                        <> drawPatch (subPatch vp (faces g))
 
 -- |drawSmartVSub g vp converts g to a diagram with vertex labels.
 -- It requires vp to contain a suitable vertex location map for drawing g.
 -- This can be used instead of drawSmartVGraph when a suitable VPinned is already available.
 drawSmartVSub:: Tgraph -> VPinned -> Diagram B
-drawSmartVSub g vp = (drawPatchWith dashJ $ subPatch (boundaryJoinFaces g) vp) 
-                        <> drawVPinned (subVPinned (faces g) vp)
+drawSmartVSub g vp = (drawPatchWith dashJ $ subPatch vp $ boundaryJoinFaces g) 
+                        <> drawVPinned (subVPinned vp (faces g))
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
@@ -118,8 +119,8 @@ boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (drawPatch $ subPatch (faces g') vp)
-                 <> (lw thin $ lc lime $ dashJPatch $ subPatch fcs vp)
+drawPCompose g = (drawPatch $ subPatch vp $ faces g')
+                 <> (lw thin $ lc lime $ dashJPatch $ subPatch vp fcs)
   where (fcs,g') = partCompose g
         vp = makeVPinned g
 
@@ -142,11 +143,11 @@ drawWithMax g =  (dmax # lc red # lw thin) <> dg where
     vp = makeVPinned g
     dg = drawPatch $ dropLabels vp
     maxg = maxComp g
-    dmax = drawPatch $ subPatch (faces maxg) vp
+    dmax = drawPatch $ subPatch vp $ faces maxg
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (drawEdges (vLocs vp) bd # lc lime) <> drawVPinned vp where
+drawGBoundary g =  (drawEdgesWith vp bd # lc lime) <> drawVPinned vp where
     vp  = makeVPinned g
     bd = graphBoundary g
 
@@ -160,7 +161,7 @@ emphasizeFaces:: [TileFace] -> Tgraph -> Diagram B
 emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # lw ultraThin) where
     vp = makeVPinned g
     gPatch = dropLabels vp
-    emphPatch = subPatch (fcs `intersect` faces g) vp
+    emphPatch = subPatch vp (fcs `intersect` faces g)
 
 
  
@@ -441,7 +442,7 @@ SubTgraphs
 {-|
  SubTgraph - introduced to allow tracking of subsets of faces
  in both force and decompose oerations.
- A SubTgraph has a main Tgraph (fullgraph) and a list of subsets of faces (tracked).
+ A SubTgraph has a main Tgraph (tgraph) and a list of subsets of faces (tracked).
  The list allows for tracking different subsets of faces at the same time.
 -}
 data SubTgraph = SubTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]} deriving Show
@@ -458,12 +459,7 @@ makeSubTgraph g trackedlist = SubTgraph{ tgraph = g, tracked = fmap (`intersect`
 
 -- |pushFaces sub - pushes the maingraph tilefaces onto the stack of tracked subsets of sub
 pushFaces:: SubTgraph -> SubTgraph
-pushFaces sub = sub{ tracked = faces (tgraph sub):tracked sub } where
-{-
-pushFaces sub = makeSubTgraph g newTracked where
-    g = tgraph sub
-    newTracked = faces g:tracked sub
--}
+pushFaces sub = sub{ tracked = faces (tgraph sub):tracked sub }
 
 -- |unionTwoSub sub - combines the top two lists of tracked tilefaces replacing them with the list union.
 unionTwoSub:: SubTgraph -> SubTgraph
@@ -478,7 +474,6 @@ Forcing and Decomposing SubTgraphs
 -- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the tgraph.
 forceSub :: SubTgraph -> SubTgraph
 forceSub sub = sub{ tgraph = force $ tgraph sub }
---forceSub sub = makeSubTgraph (force $ tgraph sub) (tracked sub)
 
 -- |addHalfDartSub sub e - add a half dart to the tgraph of sub on the given edge e,
 -- and push the new singleton face list onto the tracked list.
@@ -521,12 +516,10 @@ decomposeSub sub = makeSubTgraph g' tlist where
     appropriately.
 -}
 drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
-drawSubTgraph drawList sub = drawAll drawList (pUntracked:pTrackedList) where
-          vp = makeVPinned (tgraph sub)
-          fcsFull = vpFaces vp    
-          pTrackedList = fmap (\fcs -> subPatch fcs vp) (tracked sub)
-          pUntracked = subPatch (fcsFull \\ concat (tracked sub)) vp
-          drawAll fs ps = mconcat $ reverse $ zipWith ($) fs ps
+drawSubTgraph drawList sub = mconcat $ reverse $ zipWith ($) drawList patchList where
+    vp = makeVPinned (tgraph sub)
+    untracked = vpFaces vp \\ concat (tracked sub)
+    patchList = fmap (subPatch vp) (untracked:tracked sub)
 
 {-
 -- |drawing non tracked faces only
@@ -545,12 +538,10 @@ drawWithoutTracked sub = drawSubTgraph [drawPatch] sub
     (to ensure labels are not rotated).
 -}
 drawSubTgraphV:: [VPinned -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
-drawSubTgraphV drawList a sub = drawAll drawList (vpUntracked:vpTrackedList) where
-          vp = rotate a $ makeVPinned (tgraph sub)
-          fcsFull = vpFaces vp    
-          vpTrackedList = fmap (\fcs -> subVPinned fcs vp) (tracked sub)
-          vpUntracked = subVPinned (fcsFull \\ concat (tracked sub)) vp
-          drawAll fs vps = mconcat $ reverse $ zipWith ($) fs vps
+drawSubTgraphV drawList a sub = mconcat $ reverse $ zipWith ($) drawList vpList where
+    vp = rotate a $ makeVPinned (tgraph sub)
+    untracked = vpFaces vp \\ concat (tracked sub)
+    vpList = fmap (subVPinned vp) (untracked:tracked sub)
 
 
 
