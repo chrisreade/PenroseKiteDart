@@ -927,7 +927,6 @@ kingFD6:: Diagram B
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makePatch $
           allForcedDecomps kingGraph !!6
 
-
 -- | displays some test cases for boundary edge types using boundaryECover
 testCasesE = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
     examples = [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
@@ -995,50 +994,7 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
 -- In each case, whenever there is a Tgraph where the red edge is still on the boundary,
 -- that Tgraph appears extended with both a kite and a dart on the red edge amongst the diagrams below it in the tree.
 -- This provides a completeness argument for forcing.
-compBoundaryEdgeCaseTrees:: Diagram B
-compBoundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap caseRows examples where
-    examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
-    edge = (1,2)
-    caseRows g = vsep 3 $ fmap (centerX . hsep 1 # composeAligned alignT) $ levels $ treeFor g
-    treeFor g = fmap drawCase $ growBothEnds fbd where
-      fbd = runTry $ tryForceBoundary $ makeBoundaryState g
-      drawCase bd = fbdes <> drawg <> drawComp where
-                    g = recoverGraph bd
-                    vp = alignXaxis edge $ makeVPinned g
-                    drawg = drawPatch (dropLabels vp)
-                    drawComp = lw none $ drawPatchWith (fillDK yellow yellow) $ subPatch vp (faces (compose g))
-                    fbdes = ((drawEdgeWith vp edge # lc red) <> drawEdgesWith vp (boundary fbd)) # lw thin
-
-    addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
-      case filter ((==(snd edge)). fst) (boundary bd) of
-          [] -> []
-          [de] -> bothDartAndKite de bd
-    addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
-      case filter ((==(fst edge)). snd) (boundary bd) of
-          [] -> []
-          [de] -> bothDartAndKite de bd
--- growBothEnds:: BoundaryState -> Tree BoundaryState
-    growBothEnds bd = goB bd where
-      continue bd = edge `elem` boundary bd
--- to avoid repetitions, goB produces right and left cases but then recurses to the right only,
--- using goL to deal with left cases recursively.
-      goB bd = if continue bd
-               then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd) ++ fmap goB (addOnRight bd)}
-               else Node{ rootLabel=bd, subForest = []}
-      goL bd = if continue bd
-               then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd)}
-               else Node{ rootLabel=bd, subForest = []}
-
--- | Figure displaying all cases for boundary edges of forced Tgraphs.
--- These are produced as trees (but only the levels of the trees are displayed).
--- We start with an edge (shown red) of a face on the boundary after forcing the face.
--- There are only 3 (left-hand) starting face edges we need to consider, so there are 3 trees
--- (Right versions will be symmetric, and joins and dart short edges are immediately covered by forcing so not shown).
--- Each tree is grown by adding a kite/dart face at either end of the boundary edge
--- and forcing, terminating as a leaf node when the red edge is no longer on the boundary.
--- In each case, whenever there is a Tgraph where the red edge is still on the boundary,
--- that Tgraph appears extended with both a kite and a dart on the red edge amongst the diagrams below it in the tree.
--- This provides a completeness argument for forcing.
+-- [The edge must be on the boundary if both additions are possible.]
 boundaryEdgeCaseTrees:: Diagram B
 boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap caseRows examples where
     examples = fmap  (makeTgraph . (:[])) [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
@@ -1090,6 +1046,71 @@ boundaryECoverFigs g =
 kingECoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryECoverFigs $ force kingGraph
 -- | diagram showing the boundaryVCover of a forced kingGraph
 kingVCoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryVCoverFigs $ force kingGraph
+
+
+{-*
+Boundary Edge Contexts
+-}
+
+-- |A directed edge with 3 lists of (left handed) contexts for the edge on a forced Tgraph boundary,
+-- This simple version does not extend cases with an empty composition.
+forcedBSimpleContexts:: (Dedge,([BoundaryState],[BoundaryState],[BoundaryState]))
+forcedBSimpleContexts = (edge, (dartLong,kiteLong,kiteShort)) where
+  edge = (1,2)
+  dartLong = casesFor $ force $ makeTgraph [LD(1,3,2)]
+  kiteLong = casesFor $ force $ makeTgraph [LK(2,1,3)] 
+  kiteShort = casesFor $ force $ makeTgraph [LK(3,2,1)]
+  casesFor g = boundaryEdgeContexts edge (makeBoundaryState g)
+
+{-
+A directed edge with  3 lists of (left handed) contexts for the edge on the boundary of a forced Tgraph.
+This extends forcedBSimpleContexts by adding further contexts for cases where the composition is empty.
+For each row, we consider both dart and kite additions either side of the edge of the leftmost starting Tgraph,
+plus further additions either side of the red edge in the results,
+and remove any Tgraphs where the red edge is no longer on the boundary.
+The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
+We can check that both ends of the red line are on a normal (non-crossed) boundary or not present in the composition.
+(N.B. Some repeated cases removed)  
+-}
+forcedBExtendedContexts:: (Dedge,([BoundaryState],[BoundaryState],[BoundaryState]))
+forcedBExtendedContexts = (edge, (dartLongE,kiteLongE,kiteShortE) ) where
+  (edge , (dartLong,kiteLong,kiteShort)) = forcedBSimpleContexts
+  dartLongE = extendContexts edge dartLong 
+  kiteLongE  = extendContexts edge kiteLong 
+  kiteShortE = extendContexts edge kiteShort 
+
+{-
+Diagram of all (extended) contexts for an edge on the boundary of a forced Tgraph (using forcedBExtendedContexts).
+The edge is shown in red in each case.
+There are 3 groups for the 3 edge types (right-hand variants are not shown).
+For each group, we consider both dart and kite additions either side of the red edge of the first Tgraph in the group.
+There are further dart and kite additions either side of the red edge in the results, and further additions on other boundary edges when
+the composition is empty.
+We remove any Tgraphs where the red edge is no longer on the boundary and remove any repeated cases.
+The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
+We can check that both ends of the red line are on a normal (non-crossed) boundary or not present in the composition.
+-}
+forcedBContextsFig :: Diagram B
+forcedBContextsFig = padBorder $ lw ultraThin $ vsep 5 
+                          [vsep 1 $ fmap (hsep 1) $ chunks 6 dartLongDiags
+                          ,hsep 1 kiteLongDiags
+                          ,vsep 1 $ fmap (hsep 1) $ chunks 6 kiteShortDiags
+                          ] where
+  (edge, (dartLongE,kiteLongE,kiteShortE) ) = forcedBExtendedContexts
+  dartLongDiags = fmap (drawContext edge) dartLongE 
+  kiteLongDiags = fmap (drawContext edge) kiteLongE
+  kiteShortDiags = fmap (drawContext edge) kiteShortE
+
+  -- drawContext::Dedge -> BoundaryState -> Diagram B
+  drawContext edge bd = drawe <> drawg <> drawComp where
+    g = recoverGraph bd
+    vp = alignXaxis edge $ makeVPinned g
+    drawg = drawPatch (dropLabels vp)
+    drawe = drawEdgeWith vp edge # lc red # lw medium
+    drawComp = lw none $ drawPatchWith (fillDK yellow yellow) $ subPatch vp (faces (compose g))
+
+
+
 
 -- |chunks n l -  split a list l into chunks of length n (n>0)
 chunks::Int -> [a] -> [[a]]

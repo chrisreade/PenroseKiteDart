@@ -595,6 +595,10 @@ runTry = either error id
 tryApply :: (a -> r) -> Try a -> Try r
 tryApply = liftM 
 
+-- |ifFail a tr - extracts the (Right) result from tr, producing a if tr is Left s.
+ifFail :: a -> Try a -> a
+ifFail a = either (const a) id 
+    
 -- |Combines a list of Trys into a single Try with failure overriding success.
 -- It concatenates all failure reports if there are any and returns a single Left r.
 -- Otherwise it produces Right rs where rs is the list of all (successful) results.

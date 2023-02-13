@@ -36,7 +36,7 @@ import ChosenBackend (B)
 import TileLib
 
 import Data.List (intersect, union, (\\), find, foldl',nub)      
-import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,map)-- used for boundary covers
+import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,map,delete,insert)-- used for boundary covers
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
 -- * Making valid Tgraphs (with a check for no touching vertices).
@@ -298,6 +298,51 @@ boundaryVCover bd = covers [(bd, startbds)] where
   covers ((open,es):opens) | otherwise = 
       covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite de open) ++opens)  
       where (de,des) = Set.deleteFindMin es
+
+
+{- |boundaryEdgeContexts bde bd - 
+requires bde to be a boundary edge of bd, and bd to be a BoundaryState of a forced graph.
+It calculates all possible face additions either side of the edge,
+forcing each case and discarding results where the edge is no longer on the boundary.
+It returns the results as a list of BoundaryStates.      
+-}
+boundaryEdgeContexts:: Dedge -> BoundaryState -> [BoundaryState]
+boundaryEdgeContexts bde bd = contexts [] [bd] where
+--contexts:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
+  contexts bds [] = reverse bds
+  contexts bds (open:opens) | not (Set.member bde (Set.fromList (boundary open))) = contexts bds opens
+  contexts bds (open:opens) | repeatCase bds open = contexts bds opens
+  contexts bds (open:opens) | otherwise = 
+     contexts (open:bds) (concatMap (\de ->  bothDartAndKite de open)
+                              (boundaryEdgeNbs bde open)
+                          ++ opens)
+  repeatCase bds b = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) bds)
+  edge = reverseD bde
+
+-- |boundaryEdgeNbs bde b - returns the list of 2 directed boundary edges either side
+--  of the directed boundary edge bde in BoundaryState b.
+-- It raises an error if bde is not a boundary edge of b.
+boundaryEdgeNbs bde b = -- edges 
+  case find (\(_,b) -> b == fst bde) (boundary b) of
+  Nothing -> error $ "boundaryEdgeNbs: not a boundary edge " ++ show bde
+  Just deC -> case find (\(a,_) -> a == snd bde) (boundary b) of
+                  Nothing -> error $ "boundaryEdgeNbs: not a boundary edge " ++ show bde
+                  Just deA -> [deC,deA]
+
+-- |extendContexts bde bds - where bds are boundary edge contexts for boundary directed edge bde,
+-- adds all extended contexts for any context which has an empty composition.
+extendContexts:: Dedge -> [BoundaryState] -> [BoundaryState]
+extendContexts bde bds = extend [] bds where
+  extend done [] = reverse done
+  extend done (c:more) | repeatCase done c = extend done more 
+                       | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
+                       | otherwise 
+    = extend (c:done) (stillB (concatMap (\de -> bothDartAndKite de c) (remoteBes c)) ++ more)
+  remoteBes c = boundary c \\ (bde:boundaryEdgeNbs bde c)
+  stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
+  repeatCase done b = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) done)
+  edge = reverseD bde
+ 
                   
 -- | anyDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)

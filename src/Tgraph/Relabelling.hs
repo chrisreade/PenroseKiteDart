@@ -317,6 +317,15 @@ tryGrowRelabelIgnore g (fc:fcs) awaiting rlab =
                           rlab' = relabelUnion (fc `relabellingTo` orig) rlab
 
 
+{- *
+Directed equality
+-}
+sameGraph :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Bool
+sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
+                             ifFail False tryResult where
+ tryResult = do g <- tryMatchByEdges (g1,e1) (g2,e2)
+                return (vertices g == vertices g1)
+
 
 {- *
 Other Auxiliary functions
