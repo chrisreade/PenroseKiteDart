@@ -273,7 +273,7 @@ boundaryECover bd = covers [(bd, Set.fromList (boundary bd))] where
   covers [] = []
   covers ((open,es):opens) | Set.null es = open:covers opens
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite de open) ++ opens)
+      covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite open de) ++ opens)
       where (de,des) = Set.deleteFindMin es
 
 -- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
@@ -294,9 +294,9 @@ boundaryVCover bd = covers [(bd, startbds)] where
   covers ((open,es):opens) | Set.null es
     = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers (fmap (\b -> (b, es))  (bothDartAndKite de open) ++opens)
+        Just de -> covers (fmap (\b -> (b, es))  (bothDartAndKite open de) ++opens)
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite de open) ++opens)  
+      covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite open de) ++opens)  
       where (de,des) = Set.deleteFindMin es
 
 
@@ -313,7 +313,7 @@ boundaryEdgeContexts bde bd = contexts [] [bd] where
   contexts bds (open:opens) | not (Set.member bde (Set.fromList (boundary open))) = contexts bds opens
   contexts bds (open:opens) | repeatCase bds open = contexts bds opens
   contexts bds (open:opens) | otherwise = 
-     contexts (open:bds) (concatMap (\de ->  bothDartAndKite de open)
+     contexts (open:bds) (concatMap (bothDartAndKite open)
                               (boundaryEdgeNbs bde open)
                           ++ opens)
   repeatCase bds b = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) bds)
@@ -337,27 +337,27 @@ extendContexts bde bds = extend [] bds where
   extend done (c:more) | repeatCase done c = extend done more 
                        | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
                        | otherwise 
-    = extend (c:done) (stillB (concatMap (\de -> bothDartAndKite de c) (remoteBes c)) ++ more)
+    = extend (c:done) (stillB (concatMap (bothDartAndKite c) (remoteBes c)) ++ more)
   remoteBes c = boundary c \\ (bde:boundaryEdgeNbs bde c)
   stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
   repeatCase done b = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) done)
   edge = reverseD bde
  
                   
--- | anyDartAndKite de b - returns the list of successful cases after adding a dart (respectively kite)
+-- | anyDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
-anyDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
-anyDartAndKite de b = ignoreFails $ tryDartAndKite de b
+anyDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
+anyDartAndKite b de = ignoreFails $ tryDartAndKite b de
 
--- | bothDartAndKite de b - returns the list of (2) cases after adding a dart (respectively kite)
+-- | bothDartAndKite b de - returns the list of (2) cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. It will raise an error if either case fails.
-bothDartAndKite:: Dedge -> BoundaryState -> [BoundaryState]
-bothDartAndKite de b = runTry $ concatFails $ tryDartAndKite de b
+bothDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
+bothDartAndKite b de = runTry $ concatFails $ tryDartAndKite b de
 
--- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
+-- | tryDartAndKite b de - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. Each result is a Try.
-tryDartAndKite:: Dedge -> BoundaryState -> [Try BoundaryState]
-tryDartAndKite de b = 
+tryDartAndKite:: BoundaryState -> Dedge -> [Try BoundaryState]
+tryDartAndKite b de = 
     [ tryAddHalfDartBoundary de b >>= tryForceBoundary
     , tryAddHalfKiteBoundary de b >>= tryForceBoundary
     ]

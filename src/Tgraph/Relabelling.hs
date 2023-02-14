@@ -320,6 +320,9 @@ tryGrowRelabelIgnore g (fc:fcs) awaiting rlab =
 {- *
 Directed equality
 -}
+                      
+-- | sameGraph (g1,e1) (g2,e2) checks to see if g1 and g2 are the same Tgraph after relabelling g2.
+-- The relabelling is based on directed edge e2 in g2 matching e1 in g1 (where the direction is clockwise round a face).
 sameGraph :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Bool
 sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
                              ifFail False tryResult where

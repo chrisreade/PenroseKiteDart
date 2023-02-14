@@ -967,11 +967,11 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []
-          [de] -> bothDartAndKite de bd
+          [de] -> bothDartAndKite bd de
     addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
       case filter ((==(fst edge)). snd) (boundary bd) of
           [] -> []
-          [de] -> bothDartAndKite de bd
+          [de] -> bothDartAndKite bd de
     growBothEnds bd = bd: goBoth (filter continue [bd]) where
       continue bd = edge `elem` boundary bd
 -- to avoid repetitions, goBoth produces right and left cases but then recurses to the right only,
@@ -1011,11 +1011,11 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap case
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []
-          [de] -> bothDartAndKite de bd
+          [de] -> bothDartAndKite bd de
     addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
       case filter ((==(fst edge)). snd) (boundary bd) of
           [] -> []
-          [de] -> bothDartAndKite de bd
+          [de] -> bothDartAndKite bd de
 -- growBothEnds:: BoundaryState -> Tree BoundaryState
     growBothEnds bd = goB bd where
       continue bd = edge `elem` boundary bd
@@ -1046,7 +1046,6 @@ boundaryECoverFigs g =
 kingECoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryECoverFigs $ force kingGraph
 -- | diagram showing the boundaryVCover of a forced kingGraph
 kingVCoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryVCoverFigs $ force kingGraph
-
 
 {-*
 Boundary Edge Contexts
@@ -1101,16 +1100,47 @@ forcedBContextsFig = padBorder $ lw ultraThin $ vsep 5
   kiteLongDiags = fmap (drawContext edge) kiteLongE
   kiteShortDiags = fmap (drawContext edge) kiteShortE
 
-  -- drawContext::Dedge -> BoundaryState -> Diagram B
-  drawContext edge bd = drawe <> drawg <> drawComp where
+-- |drawContext edge bd - draws the (forced boundary) context bd for (boundary) edge
+-- It emphasises the edge with red and adds the composition filled yellow. 
+drawContext::Dedge -> BoundaryState -> Diagram B
+drawContext edge bd = drawe <> drawg <> drawComp where
     g = recoverGraph bd
     vp = alignXaxis edge $ makeVPinned g
     drawg = drawPatch (dropLabels vp)
     drawe = drawEdgeWith vp edge # lc red # lw medium
     drawComp = lw none $ drawPatchWith (fillDK yellow yellow) $ subPatch vp (faces (compose g))
 
+-- |drawContextV edge v bd - draws the (forced boundary) context bd for (boundary) edge
+-- It emphasises the vertex as a blue dot and
+-- also shows the edge with red and adds the composition filled yellow.
+-- It raises an error if the vertex is not found. 
+drawContextV::Dedge -> Vertex -> BoundaryState -> Diagram B
+drawContextV edge v bd = drawv <> drawe <> drawg <> drawComp where
+    g = recoverGraph bd
+    vp = alignXaxis edge $ makeVPinned g
+    drawg = drawPatch (dropLabels vp)
+    drawe = drawEdgeWith vp edge # lc red
+    drawv = case findLoc v vp of
+              Nothing -> error $ "drawContextV: vertex not found " ++ show v
+              Just loc -> circle 0.2 # fc red # lc red # moveTo loc
+    drawComp = lw none $ drawPatchWith (fillDK yellow yellow) $ subPatch vp (faces (compose g))
 
+foolVContextsFig:: Diagram B
+foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
+    opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 9 $
+            (fmap (drawContextV (1,4) 3) $ extendContexts (1,4) [makeBoundaryState fool])
+            ++ (fmap (drawContextV (4,7) 3) $ extendContexts (4,7) [makeBoundaryState fool])
+            ++ (fmap (drawContextV (7,6) 3) $ extendContexts (7,6) [makeBoundaryState fool])      
+    covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 5 $
+             fmap (drawContextV (1,4) 3) $ reverse $ boundaryVCover $ makeBoundaryState fool 
 
+sunVContextsFig:: Diagram B
+sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
+    opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 10 $
+            (fmap (drawContextV (2,3) 1) $ extendContexts (2,3) [makeBoundaryState sunGraph])
+    covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 4 $
+             fmap (drawContextV (2,3) 1) $ boundaryVCover $ makeBoundaryState sunGraph 
+    
 
 -- |chunks n l -  split a list l into chunks of length n (n>0)
 chunks::Int -> [a] -> [[a]]
