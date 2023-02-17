@@ -1055,11 +1055,11 @@ kingECoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryECoverFi
 kingVCoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryVCoverFigs $ force kingGraph
 
 {-*
-Boundary Edge Contexts
+Forced Boundary Edge and Vertex Contexts
 -}
 
 {-
-Diagram of all (extended) contexts for an edge on the boundary of a forced Tgraph (using forcedBEContexts).
+Diagram of contexts for an edge on the boundary of a forced Tgraph (using forcedBEContexts).
 The edge is shown in red in each case.
 There are 3 groups for the 3 edge types (right-hand variants are not shown).
 For each group, we consider both dart and kite additions either side of the red edge of the first Tgraph in the group.
@@ -1077,7 +1077,8 @@ forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (vsep 1 . fmap (h
     kiteLongDiags = drawCases edge $ force $ makeTgraph [LK(2,1,3)] 
     kiteShortDiags = drawCases edge $ force $ makeTgraph [LK(3,2,1)]
 
--- |drawBEContext e bd - draws the (forced boundary) context bd for (boundary) edge e
+-- |drawBEContext e bd - draws the (forced boundary) context bd for edge e,
+-- aligning e on the x-axis.
 -- It emphasises the edge e with red and adds the composition filled yellow. 
 drawBEContext::Dedge -> BoundaryState -> Diagram B
 drawBEContext edge bd = drawe <> drawg <> drawComp where
@@ -1103,10 +1104,9 @@ forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (vsep 1 . fmap (h
   kiteOppDiags = drawCases 1 edge $ makeTgraph [LK(3,2,1)]
   edge = (1,2)
 
--- |drawVContext v e bd - draws the (forced boundary) context bd for (boundary) edge e.
--- It emphasises the vertex as a red dot and
--- also shows the edge with red and adds the composition filled yellow.
--- It raises an error if the vertex is not found. 
+-- |drawVContext v e bd - draws the (forced boundary) context bd aligning edge e on the x-axis.
+-- It emphasises the vertex v as a red dot and adds the composition filled yellow.
+-- It raises an error if the vertex or edge is not found.
 drawVContext::Vertex -> Dedge -> BoundaryState -> Diagram B
 drawVContext v edge bd = drawv <> drawg <> drawComp where
     g = recoverGraph bd
@@ -1120,24 +1120,30 @@ drawVContext v edge bd = drawv <> drawg <> drawComp where
     
 -- |Diagram showing all contexts in a forced Tgraph for a fool/ace vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
+-- The first 12 cases are for a (left) dart long edge on the boundary, 
+-- which are exactly the same as a kite short edge on the boundary (so not repeated).
+-- The next 3 are for a kite long edge on the boundary, and the rest are covers (no edge of fool on the boundary)
 foolVContextsFig:: Diagram B
 foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
-    opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 9 $
+    opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 8 $
             (fmap (drawVContext 3 (1,4)) $ extendEContexts (1,4) [makeBoundaryState fool])
-            ++ (fmap (drawVContext 3 (4,7)) $ extendEContexts (4,7) [makeBoundaryState fool])
+-- The cases for the kite short on the boundary are exactly the same as for dart long on the boundary
+-- so not repeated here.
+--            ++ (fmap (drawVContext 3 (4,7)) $ extendEContexts (4,7) [makeBoundaryState fool])
             ++ (fmap (drawVContext 3 (7,6)) $ extendEContexts (7,6) [makeBoundaryState fool])      
     covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 5 $
              fmap (drawVContext 3 (1,4)) $ reverse $ boundaryVCover $ makeBoundaryState fool 
 
 -- |Diagram showing all contexts in a forced Tgraph for a sun vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
+-- The first 19 cases are for at least one edge of the sun Tgraph on the boundary.
+-- The rest are covers with no edge of the sun Tgraph on the boundary (2 cases but with 5 symmetries each).
 sunVContextsFig:: Diagram B
 sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
     opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 10 $
             (fmap (drawVContext 1 (2,3)) $ extendEContexts (2,3) [makeBoundaryState sunGraph])
     covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 4 $
              fmap (drawVContext 1 (2,3)) $ boundaryVCover $ makeBoundaryState sunGraph 
-    
 
 -- |boundaryLoopFill tests the calculation of boundary loops of a Tgraph and conversion to a (Diagrams) Path, using
 -- boundaryLoopsG and pathFromBoundaryLoops. The conversion of the Path to a Diagram allows

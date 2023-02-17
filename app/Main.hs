@@ -47,7 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = forcedBEContextsFig--foolVContextsFig--forcedBContextsFig
+fig = sunVContextsFig--forcedBContextsFig
 --dartWingContextsFig--kiteWingContextsFig--kiteOppContextsFig--kiteOriginContextsFig--dartOriginContextsFig --sunVContextsFig--checkFool--forcedExtendedContexts--compBoundaryEdgeCaseTrees--boundaryEdgeCaseTrees --starFlakeCardsSmall --padBorder $ drawEmpire2 jackGraph
  --curioPic --kingEmpire--testCommonFacesFig --testKingEmpire--kingEmpireCheck 
 
