@@ -29,6 +29,13 @@ import Tgraphs
 padBorder:: Diagram B -> Diagram B
 padBorder = pad 1.2 . centerXY
 
+-- |chunks n l -  split a list l into chunks of length n (n>0)
+chunks::Int -> [a] -> [[a]]
+chunks n 
+  | n < 1 = error "chunks: argument <1\n"
+  | otherwise = ch where 
+      ch [] = []
+      ch as = take n as : ch (drop n as)
 
 
     
@@ -1051,104 +1058,86 @@ kingVCoverFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryVCoverFi
 Boundary Edge Contexts
 -}
 
--- |A directed edge with 3 lists of (left handed) contexts for the edge on a forced Tgraph boundary,
--- This simple version does not extend cases with an empty composition.
-forcedBSimpleContexts:: (Dedge,([BoundaryState],[BoundaryState],[BoundaryState]))
-forcedBSimpleContexts = (edge, (dartLong,kiteLong,kiteShort)) where
-  edge = (1,2)
-  dartLong = casesFor $ force $ makeTgraph [LD(1,3,2)]
-  kiteLong = casesFor $ force $ makeTgraph [LK(2,1,3)] 
-  kiteShort = casesFor $ force $ makeTgraph [LK(3,2,1)]
-  casesFor g = boundaryEdgeContexts edge (makeBoundaryState g)
-
 {-
-A directed edge with  3 lists of (left handed) contexts for the edge on the boundary of a forced Tgraph.
-This extends forcedBSimpleContexts by adding further contexts for cases where the composition is empty.
-For each row, we consider both dart and kite additions either side of the edge of the leftmost starting Tgraph,
-plus further additions either side of the red edge in the results,
-and remove any Tgraphs where the red edge is no longer on the boundary.
-The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
-We can check that both ends of the red line are on a normal (non-crossed) boundary or not present in the composition.
-(N.B. Some repeated cases removed)  
--}
-forcedBExtendedContexts:: (Dedge,([BoundaryState],[BoundaryState],[BoundaryState]))
-forcedBExtendedContexts = (edge, (dartLongE,kiteLongE,kiteShortE) ) where
-  (edge , (dartLong,kiteLong,kiteShort)) = forcedBSimpleContexts
-  dartLongE = extendContexts edge dartLong 
-  kiteLongE  = extendContexts edge kiteLong 
-  kiteShortE = extendContexts edge kiteShort 
-
-{-
-Diagram of all (extended) contexts for an edge on the boundary of a forced Tgraph (using forcedBExtendedContexts).
+Diagram of all (extended) contexts for an edge on the boundary of a forced Tgraph (using forcedBEContexts).
 The edge is shown in red in each case.
 There are 3 groups for the 3 edge types (right-hand variants are not shown).
 For each group, we consider both dart and kite additions either side of the red edge of the first Tgraph in the group.
-There are further dart and kite additions either side of the red edge in the results, and further additions on other boundary edges when
+There are further additions on other boundary edges when
 the composition is empty.
 We remove any Tgraphs where the red edge is no longer on the boundary and remove any repeated cases.
 The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
-We can check that both ends of the red line are on a normal (non-crossed) boundary or not present in the composition.
 -}
-forcedBContextsFig :: Diagram B
-forcedBContextsFig = padBorder $ lw ultraThin $ vsep 5 
-                          [vsep 1 $ fmap (hsep 1) $ chunks 6 dartLongDiags
-                          ,hsep 1 kiteLongDiags
-                          ,vsep 1 $ fmap (hsep 1) $ chunks 6 kiteShortDiags
-                          ] where
-  (edge, (dartLongE,kiteLongE,kiteShortE) ) = forcedBExtendedContexts
-  dartLongDiags = fmap (drawContext edge) dartLongE 
-  kiteLongDiags = fmap (drawContext edge) kiteLongE
-  kiteShortDiags = fmap (drawContext edge) kiteShortE
+forcedBEContextsFig :: Diagram B
+forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (vsep 1 . fmap (hsep 1) . chunks 8) 
+                      [dartLongDiags, kiteLongDiags, kiteShortDiags] where  
+    drawCases e g = fmap (drawBEContext e) $ forcedBEContexts e $ makeBoundaryState $ force g 
+    edge = (1,2)
+    dartLongDiags = drawCases edge $ force $ makeTgraph [LD(1,3,2)]
+    kiteLongDiags = drawCases edge $ force $ makeTgraph [LK(2,1,3)] 
+    kiteShortDiags = drawCases edge $ force $ makeTgraph [LK(3,2,1)]
 
--- |drawContext edge bd - draws the (forced boundary) context bd for (boundary) edge
--- It emphasises the edge with red and adds the composition filled yellow. 
-drawContext::Dedge -> BoundaryState -> Diagram B
-drawContext edge bd = drawe <> drawg <> drawComp where
+-- |drawBEContext e bd - draws the (forced boundary) context bd for (boundary) edge e
+-- It emphasises the edge e with red and adds the composition filled yellow. 
+drawBEContext::Dedge -> BoundaryState -> Diagram B
+drawBEContext edge bd = drawe <> drawg <> drawComp where
     g = recoverGraph bd
     vp = alignXaxis edge $ makeVPinned g
     drawg = drawPatch (dropLabels vp)
-    drawe = drawEdgeWith vp edge # lc red # lw medium
+    drawe = drawEdgeWith vp edge # lc red # lw thin
     drawComp = lw none $ drawPatchWith (fillDK yellow yellow) $ subPatch vp (faces (compose g))
 
--- |drawContextV edge v bd - draws the (forced boundary) context bd for (boundary) edge
--- It emphasises the vertex as a blue dot and
+{- |
+Diagram showing boundary vertex contexts for a forced Tgraph using forcedBVContexts.
+There are 5 groups for (left hand only) dart origin, dart wing, kite origin, kite wing, kite opp.
+(A dart opp cannot be on the boundary of a forced Tgraph).
+-}
+forcedBVContextsFig :: Diagram B
+forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (vsep 1 . fmap (hsep 1) . chunks 11) 
+  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
+  drawCases v e g = fmap (drawVContext v e) $ forcedBVContexts v e $ makeBoundaryState $ force g
+  dartOriginDiags = drawCases 1 edge $ makeTgraph [LD(1,3,2)]
+  dartWingDiags = drawCases 2 edge $ makeTgraph [LD(1,3,2)]
+  kiteOriginDiags = drawCases 2 edge $ makeTgraph [LK(2,1,3)] 
+  kiteWingDiags = drawCases 1 edge $ makeTgraph [LK(2,1,3)]
+  kiteOppDiags = drawCases 1 edge $ makeTgraph [LK(3,2,1)]
+  edge = (1,2)
+
+-- |drawVContext v e bd - draws the (forced boundary) context bd for (boundary) edge e.
+-- It emphasises the vertex as a red dot and
 -- also shows the edge with red and adds the composition filled yellow.
 -- It raises an error if the vertex is not found. 
-drawContextV::Dedge -> Vertex -> BoundaryState -> Diagram B
-drawContextV edge v bd = drawv <> drawe <> drawg <> drawComp where
+drawVContext::Vertex -> Dedge -> BoundaryState -> Diagram B
+drawVContext v edge bd = drawv <> drawg <> drawComp where
     g = recoverGraph bd
     vp = alignXaxis edge $ makeVPinned g
     drawg = drawPatch (dropLabels vp)
-    drawe = drawEdgeWith vp edge # lc red
+--    drawe = drawEdgeWith vp edge # lc red
     drawv = case findLoc v vp of
-              Nothing -> error $ "drawContextV: vertex not found " ++ show v
+              Nothing -> error $ "drawVContext: vertex not found " ++ show v
               Just loc -> circle 0.2 # fc red # lc red # moveTo loc
     drawComp = lw none $ drawPatchWith (fillDK yellow yellow) $ subPatch vp (faces (compose g))
-
+    
+-- |Diagram showing all contexts in a forced Tgraph for a fool/ace vertex.
+-- The vertex is shown with a red dot and the composition filled yellow.
 foolVContextsFig:: Diagram B
 foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
     opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 9 $
-            (fmap (drawContextV (1,4) 3) $ extendContexts (1,4) [makeBoundaryState fool])
-            ++ (fmap (drawContextV (4,7) 3) $ extendContexts (4,7) [makeBoundaryState fool])
-            ++ (fmap (drawContextV (7,6) 3) $ extendContexts (7,6) [makeBoundaryState fool])      
+            (fmap (drawVContext 3 (1,4)) $ extendEContexts (1,4) [makeBoundaryState fool])
+            ++ (fmap (drawVContext 3 (4,7)) $ extendEContexts (4,7) [makeBoundaryState fool])
+            ++ (fmap (drawVContext 3 (7,6)) $ extendEContexts (7,6) [makeBoundaryState fool])      
     covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 5 $
-             fmap (drawContextV (1,4) 3) $ reverse $ boundaryVCover $ makeBoundaryState fool 
+             fmap (drawVContext 3 (1,4)) $ reverse $ boundaryVCover $ makeBoundaryState fool 
 
+-- |Diagram showing all contexts in a forced Tgraph for a sun vertex.
+-- The vertex is shown with a red dot and the composition filled yellow.
 sunVContextsFig:: Diagram B
 sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
     opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 10 $
-            (fmap (drawContextV (2,3) 1) $ extendContexts (2,3) [makeBoundaryState sunGraph])
+            (fmap (drawVContext 1 (2,3)) $ extendEContexts (2,3) [makeBoundaryState sunGraph])
     covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 4 $
-             fmap (drawContextV (2,3) 1) $ boundaryVCover $ makeBoundaryState sunGraph 
+             fmap (drawVContext 1 (2,3)) $ boundaryVCover $ makeBoundaryState sunGraph 
     
-
--- |chunks n l -  split a list l into chunks of length n (n>0)
-chunks::Int -> [a] -> [[a]]
-chunks n 
-  | n < 1 = error "chunks: argument <1\n"
-  | otherwise = ch where 
-      ch [] = []
-      ch as = take n as : ch (drop n as)
 
 -- |boundaryLoopFill tests the calculation of boundary loops of a Tgraph and conversion to a (Diagrams) Path, using
 -- boundaryLoopsG and pathFromBoundaryLoops. The conversion of the Path to a Diagram allows

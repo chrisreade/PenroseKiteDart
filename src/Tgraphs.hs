@@ -37,6 +37,8 @@ import TileLib
 
 import Data.List (intersect, union, (\\), find, foldl',nub)      
 import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,map,delete,insert)-- used for boundary covers
+import qualified Data.IntSet as IntSet (IntSet,fromList,isSubsetOf,intersection,null,member,notMember) -- for boundary vertex set
+
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
 -- * Making valid Tgraphs (with a check for no touching vertices).
@@ -299,25 +301,58 @@ boundaryVCover bd = covers [(bd, startbds)] where
       covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite open de) ++opens)  
       where (de,des) = Set.deleteFindMin es
 
+-- | returns the set of boundary vertices of a BoundaryState
+boundaryVertices :: BoundaryState -> VertexSet
+boundaryVertices bd = IntSet.fromList $ fmap fst (boundary bd)
 
-{- |boundaryEdgeContexts bde bd - 
-requires bde to be a boundary edge of bd, and bd to be a BoundaryState of a forced graph.
+
+{- |forcedBEContexts e bd - 
+requires bd to be a BoundaryState of a forced Tgraph and e to be a boundary edge of bd.
 It calculates all possible face additions either side of the edge,
 forcing each case and discarding results where the edge is no longer on the boundary.
-It returns the results as a list of BoundaryStates.      
+It then generates further extensions for those cases which have empty composition
+by making additions round the rest of the boundary.
+Repetitions are removed using 'sameGraph'.
+The resulting contexts are returned as a list of BoundaryStates.      
 -}
-boundaryEdgeContexts:: Dedge -> BoundaryState -> [BoundaryState]
-boundaryEdgeContexts bde bd = contexts [] [bd] where
---contexts:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
-  contexts bds [] = reverse bds
-  contexts bds (open:opens) | not (Set.member bde (Set.fromList (boundary open))) = contexts bds opens
-  contexts bds (open:opens) | repeatCase bds open = contexts bds opens
-  contexts bds (open:opens) | otherwise = 
-     contexts (open:bds) (concatMap (bothDartAndKite open)
-                              (boundaryEdgeNbs bde open)
-                          ++ opens)
-  repeatCase bds b = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) bds)
-  edge = reverseD bde
+forcedBEContexts:: Dedge -> BoundaryState -> [BoundaryState]
+forcedBEContexts bde bd = extend [] (locals [] [bd]) where
+--locals:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
+  locals bds [] = reverse bds
+  locals bds (open:opens) | not (Set.member bde (Set.fromList (boundary open))) = locals bds opens
+  locals bds (open:opens) | occursIn bds open bde = locals bds opens
+  locals bds (open:opens) | otherwise = 
+     locals (open:bds) (concatMap (bothDartAndKite open)
+                                  (boundaryEdgeNbs bde open)
+                        ++ opens)
+--extend:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
+  extend done [] = reverse done
+  extend done (c:more) | occursIn done c bde = extend done more 
+                       | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
+                       | otherwise 
+    = extend (c:done) (stillB (concatMap (bothDartAndKite c) (remoteBes c)) ++ more)
+  remoteBes c = boundary c \\ (bde:boundaryEdgeNbs bde c)
+  stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
+
+-- | occursIn bds b e - asks if (the Tgraph of) b occurs in the list (of Tgraphs of) bds
+-- after relabelling to match edge e in each case.
+-- Actually e must be a boundary directed edge, so gets reversed before matching.
+occursIn:: [BoundaryState] -> BoundaryState -> Dedge -> Bool
+occursIn bds b e
+  = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) bds)
+    where edge = reverseD e
+
+-- |extendEContexts bde bds - where bds are boundary edge contexts for boundary directed edge bde,
+-- adds all extended contexts for any context which has an empty composition.
+extendEContexts:: Dedge -> [BoundaryState] -> [BoundaryState]
+extendEContexts bde bds = extend [] bds where
+  extend done [] = reverse done
+  extend done (c:more) | occursIn done c bde = extend done more 
+                       | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
+                       | otherwise 
+    = extend (c:done) (stillB (concatMap (bothDartAndKite c) (remoteBes c)) ++ more)
+  remoteBes c = boundary c \\ [bde]
+  stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
 
 -- |boundaryEdgeNbs bde b - returns the list of 2 directed boundary edges either side
 --  of the directed boundary edge bde in BoundaryState b.
@@ -329,20 +364,42 @@ boundaryEdgeNbs bde b = -- edges
                   Nothing -> error $ "boundaryEdgeNbs: not a boundary edge " ++ show bde
                   Just deA -> [deC,deA]
 
--- |extendContexts bde bds - where bds are boundary edge contexts for boundary directed edge bde,
--- adds all extended contexts for any context which has an empty composition.
-extendContexts:: Dedge -> [BoundaryState] -> [BoundaryState]
-extendContexts bde bds = extend [] bds where
-  extend done [] = reverse done
-  extend done (c:more) | repeatCase done c = extend done more 
-                       | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
-                       | otherwise 
-    = extend (c:done) (stillB (concatMap (bothDartAndKite c) (remoteBes c)) ++ more)
-  remoteBes c = boundary c \\ (bde:boundaryEdgeNbs bde c)
-  stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
-  repeatCase done b = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) done)
-  edge = reverseD bde
- 
+-- |boundaryEdgesAt v bd - returns boundary edges with vertex v in BoundaryState bd.
+boundaryEdgesAt:: Vertex -> BoundaryState -> [Dedge]
+boundaryEdgesAt v = filter (\(x,y) -> x==v || y==v) . boundary 
+
+-- |boundaryButOne v bd - returns the list of 2 directed boundary edges that are
+-- one step away from the boundary directed edges either side of v in BoundaryState bd.
+boundaryButOne:: Vertex -> BoundaryState -> [Dedge]
+boundaryButOne v bd = affectedBoundary bd es \\ es where
+  es = boundaryEdgesAt v bd
+
+
+-- |forcedBVContexts v e bd - where bd is a boundary state of a forced Tgraph,
+-- e is a boundary directed edge of bd, and v is one of the vertices of edge e.
+-- This will generate the possible boundary contexts of v.
+-- It first generates extensions of bd by adding kite/dart on the boundary either side of v and forcing,
+-- and then generates further extensions in each case with the next 2 nearest boundary edges to v.
+-- Any case where v is no longer on the boundary is excluded in each case.
+-- The edge argument is necessary for doing 'sameGraph' comparisons to remove repetitions. 
+forcedBVContexts:: Vertex -> Dedge -> BoundaryState -> [BoundaryState]
+forcedBVContexts x (a,b) bd 
+  | x/=a && x/=b = error $ ":vertex " ++ show x ++ " must be from edge " ++ show (a,b)
+  | otherwise = extend x [] (locals x [] [bd]) where
+--    locals:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
+      locals x bds [] = reverse bds
+      locals x bds (open:opens) | not (IntSet.member x $ boundaryVertices open) = locals x bds opens
+      locals x bds (open:opens) | occursIn bds open (a,b) = locals x bds opens
+      locals x bds (open:opens) | otherwise = 
+          locals x (open:bds) (concatMap (bothDartAndKite open)
+                                         (boundaryEdgesAt x open)
+                              ++ opens)
+--    extend:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
+      extend x done [] = reverse done
+      extend x done (c:more) | occursIn done c (a,b) = extend x done more 
+                             | otherwise 
+         = extend x (c:done) (stillB x (concatMap (bothDartAndKite c) (boundaryButOne x c)) ++ more)
+      stillB v = filter (\bd -> v `IntSet.member` boundaryVertices bd)
                   
 -- | anyDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
