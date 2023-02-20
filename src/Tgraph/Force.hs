@@ -79,7 +79,7 @@ makeBoundaryState g =
   let bdes = graphBoundary g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ faces g
-  in if not $ null $ crossingVertices bdes then error $ "makeBoundaryState: found crossing boundary in Tgraph:\n"++show g++"\n"
+  in if not $ null $ crossingVertices bdes then error $ "makeBoundaryState: found crossing boundary in faces:\n"++show (faces g)++"\n"
      else
       BoundaryState
       { boundary = bdes

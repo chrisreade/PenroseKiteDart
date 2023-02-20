@@ -174,9 +174,10 @@ checkTgraphProps fcs
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
 checkConnectedNoCross:: Tgraph -> Try Tgraph
 checkConnectedNoCross g
-  | not (connected g) =    Left "Non-valid Tgraph (Not connected)\n" 
+  | not (connected g) =    Left $ "Non-valid Tgraph (Not connected)\n" ++ show (faces g) ++ "\n"
   | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
-                                  "Crossing boundaries found at " ++ show (crossingBVs g) ++ "\n"
+                                  "Crossing boundaries found at " ++ show (crossingBVs g) 
+                                  ++ "\nwith faces\n" ++ show (faces g)
   | otherwise            = Right g 
 
 -- |Returns any repeated vertices in a single tileface for a list of tilefaces.

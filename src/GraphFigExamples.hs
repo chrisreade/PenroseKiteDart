@@ -974,11 +974,11 @@ boundaryEdgeCases = pad 1.02 $ centerXY $ lw ultraThin $ vsep 5 $ fmap caseRows 
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []
-          [de] -> bothDartAndKite bd de
+          [de] -> atLeastOneDartAndKite bd de
     addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
       case filter ((==(fst edge)). snd) (boundary bd) of
           [] -> []
-          [de] -> bothDartAndKite bd de
+          [de] -> atLeastOneDartAndKite bd de
     growBothEnds bd = bd: goBoth (filter continue [bd]) where
       continue bd = edge `elem` boundary bd
 -- to avoid repetitions, goBoth produces right and left cases but then recurses to the right only,
@@ -1018,11 +1018,11 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap case
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
           [] -> []
-          [de] -> bothDartAndKite bd de
+          [de] -> atLeastOneDartAndKite bd de
     addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
       case filter ((==(fst edge)). snd) (boundary bd) of
           [] -> []
-          [de] -> bothDartAndKite bd de
+          [de] -> atLeastOneDartAndKite bd de
 -- growBothEnds:: BoundaryState -> Tree BoundaryState
     growBothEnds bd = goB bd where
       continue bd = edge `elem` boundary bd
@@ -1137,7 +1137,7 @@ foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] w
 -- |Diagram showing all contexts in a forced Tgraph for a sun vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- The first 19 cases are for at least one edge of the sun Tgraph on the boundary.
--- The rest are covers with no edge of the sun Tgraph on the boundary (2 cases but with 5 symmetries each).
+-- The rest are covers with no edge of the sun Tgraph on the boundary (3 cases but with rotational repetitions).
 sunVContextsFig:: Diagram B
 sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
     opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 10 $
@@ -1310,10 +1310,29 @@ kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk,
     fdfk = forcedDecomp fk
     fdfdfk = forcedDecomp fdfk
 
+{- | A failure inspection tool.
+If a Tgraph is found to be incorrect when forced, findMistake applied to the list of incorrect faces
+will track back to g - the last successfully forced Tgraph and returns the next face added (the mistake) paired with g.
+This relies on forcing order and new faces being added at the front of the list of faces by forcing.
+-}
+findMistake :: [TileFace] -> (TileFace,Tgraph)
+findMistake [] = error "findMistake: ??"
+findMistake (fc:fcs) = inspect fc fcs where
+  inspect fc fcs = either (\_ -> inspect (head fcs) (tail fcs)) 
+                          (\g -> (fc,g)) (tryForce $ makeUncheckedTgraph fcs)
 
-
-
-
+{- | Another inspection tool. For a Tgraph g,
+findCore g finds a Tgraph with the shortest tail of the faces of g that still produces g when forced.
+It does this by removing faces from the front of the list of faces one at a time.
+If g is not a forced Tgraph, the result will just be g or an error if g is found to be incorrect.
+-}
+findCore :: Tgraph -> Tgraph
+findCore g = if nullGraph g then g else inspect firstf rest where
+    (firstf:rest) = faces g
+    inspect fc fcs = if head (faces g0) == firstf
+                     then inspect (head fcs) (tail fcs)
+                     else makeUncheckedTgraph (fc:fcs)
+       where g0 = force $ makeUncheckedTgraph fcs
 
 
 {-*

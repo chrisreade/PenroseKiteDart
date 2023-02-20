@@ -68,7 +68,9 @@ tryMakeTgraph fcs =
     then Right g 
     else Left ("Found touching vertices: " 
                ++ show touchVs
-               ++ "\n(To fix, use: tryCorrectTouchingVs)\n"
+               ++ "\nwith faces:\n"
+               ++ show fcs
+               ++ "\n\n(To fix, use: tryCorrectTouchingVs)\n\n"
               )
 
 {-| tryCorrectTouchingVs fcs finds touching vertices by calculating locations for vertices in the faces fcs,
@@ -250,7 +252,7 @@ This will raise an error if the initial force fails with a stuck graph.
 -}
 forcedBoundaryECover:: Tgraph -> [Tgraph]
 forcedBoundaryECover g = fmap recoverGraph $ boundaryECover gforcedBdry where
-     gforcedBdry = runTry $ onFail "forcedBoundaryECover:Initial force failed (incorrect graph)\n" $
+     gforcedBdry = runTry $ onFail "forcedBoundaryECover:Initial force failed (incorrect Tgraph)\n" $
                              tryForceBoundary $ makeBoundaryState g
 
 {-| forcedBoundaryVCover g - produces a list of all boundary covers of force g as with
@@ -258,7 +260,7 @@ forcedBoundaryECover g but covering all boundary vertices rather than just bound
 -}
 forcedBoundaryVCover:: Tgraph -> [Tgraph]
 forcedBoundaryVCover g = fmap recoverGraph $ boundaryVCover gforcedBdry where
-     gforcedBdry = runTry $ onFail "forcedBoundaryVCover:Initial force failed (incorrect graph)\n" $
+     gforcedBdry = runTry $ onFail "forcedBoundaryVCover:Initial force failed (incorrect Tgraph)\n" $
                              tryForceBoundary $ makeBoundaryState g
 
 {-| boundaryECover bd - produces a list of all possible covers of the boundary directed edges in bd.
@@ -275,7 +277,7 @@ boundaryECover bd = covers [(bd, Set.fromList (boundary bd))] where
   covers [] = []
   covers ((open,es):opens) | Set.null es = open:covers opens
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite open de) ++ opens)
+      covers (fmap (\b -> (b, onBoundary des b)) (atLeastOneDartAndKite open de) ++ opens)
       where (de,des) = Set.deleteFindMin es
 
 -- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
@@ -296,15 +298,26 @@ boundaryVCover bd = covers [(bd, startbds)] where
   covers ((open,es):opens) | Set.null es
     = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers (fmap (\b -> (b, es))  (bothDartAndKite open de) ++opens)
+        Just de -> covers (fmap (\b -> (b, es))  (atLeastOneDartAndKite open de) ++opens)
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, onBoundary des b)) (bothDartAndKite open de) ++opens)  
+      covers (fmap (\b -> (b, onBoundary des b)) (atLeastOneDartAndKite open de) ++opens)  
       where (de,des) = Set.deleteFindMin es
                   
 -- | anyDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
 anyDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
 anyDartAndKite b de = ignoreFails $ tryDartAndKite b de
+
+-- | atLeastOneDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
+-- to edge de on boundary state b and forcing but will raise an error if there are no successes.
+-- THIS IS TEMPORARILY replacing anyDartAndKite in many functions in order to record counter examples.
+-- If we find a forced Tgraph where neither addition succeeds, it shows a successful force does not guarantee correctness.
+atLeastOneDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
+atLeastOneDartAndKite b de = case [x | Left x <- results] of
+                 [] -> error $ "atLeastOneDartAndKite: no successful results for boundary edge\n" ++ show de
+                               ++ "\nand Tgraph:\n" ++ show (recoverGraph b)
+                 _ -> ignoreFails results 
+            where results = tryDartAndKite b de
 
 -- | bothDartAndKite b de - returns the list of (2) cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. It will raise an error if either case fails.
@@ -345,7 +358,7 @@ empire1 g = makeSubTgraph g0 [fcs,faces g] where
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> SubTgraph
 empire2 g = makeSubTgraph g0 [fcs, faces g] where
-    covers1 = boundaryECover $ runTry $ onFail "empire2:Initial force failed (incorrect graph)\n" 
+    covers1 = boundaryECover $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
     covers2 = concatMap boundaryECover covers1
     (g0:others) = fmap recoverGraph covers2
@@ -359,7 +372,7 @@ empire2 g = makeSubTgraph g0 [fcs, faces g] where
 -- On a kinGraph this currently takes about 4 hours 20 minutes.
 empire2Plus:: Tgraph -> SubTgraph
 empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
-    covers1 = boundaryVCover $ runTry $ onFail "empire2:Initial force failed (incorrect graph)\n" 
+    covers1 = boundaryVCover $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
     covers2 = concatMap boundaryVCover covers1
     (g0:others) = fmap recoverGraph covers2
@@ -404,7 +417,7 @@ forcedBEContexts bde bd = extend [] (locals [] [bd]) where
   locals bds (open:opens) | not (Set.member bde (Set.fromList (boundary open))) = locals bds opens
   locals bds (open:opens) | occursIn bds open bde = locals bds opens
   locals bds (open:opens) | otherwise = 
-     locals (open:bds) (concatMap (bothDartAndKite open)
+     locals (open:bds) (concatMap (atLeastOneDartAndKite open)
                                   (boundaryEdgeNbs bde open)
                         ++ opens)
 --extend:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
@@ -412,7 +425,7 @@ forcedBEContexts bde bd = extend [] (locals [] [bd]) where
   extend done (c:more) | occursIn done c bde = extend done more 
                        | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
                        | otherwise 
-    = extend (c:done) (stillB (concatMap (bothDartAndKite c) (remoteBes c)) ++ more)
+    = extend (c:done) (stillB (concatMap (atLeastOneDartAndKite c) (remoteBes c)) ++ more)
   remoteBes c = boundary c \\ (bde:boundaryEdgeNbs bde c)
   stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
 
@@ -432,7 +445,7 @@ extendEContexts bde bds = extend [] bds where
   extend done (c:more) | occursIn done c bde = extend done more 
                        | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
                        | otherwise 
-    = extend (c:done) (stillB (concatMap (bothDartAndKite c) (remoteBes c)) ++ more)
+    = extend (c:done) (stillB (concatMap (atLeastOneDartAndKite c) (remoteBes c)) ++ more)
   remoteBes c = boundary c \\ [bde]
   stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
 
@@ -483,14 +496,14 @@ forcedBVContexts x (a,b) bd
       locals x bds (open:opens) | not (IntSet.member x $ boundaryVertices open) = locals x bds opens
       locals x bds (open:opens) | occursIn bds open (a,b) = locals x bds opens
       locals x bds (open:opens) | otherwise = 
-          locals x (open:bds) (concatMap (bothDartAndKite open)
+          locals x (open:bds) (concatMap (atLeastOneDartAndKite open)
                                          (boundaryEdgesAt x open)
                               ++ opens)
 --    extend:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
       extend x done [] = reverse done
       extend x done (c:more) | occursIn done c (a,b) = extend x done more 
                              | otherwise 
-         = extend x (c:done) (stillB x (concatMap (bothDartAndKite c) (boundaryButOne x c)) ++ more)
+         = extend x (c:done) (stillB x (concatMap (atLeastOneDartAndKite c) (boundaryButOne x c)) ++ more)
       stillB v = filter (\bd -> v `IntSet.member` boundaryVertices bd)
 
 -- | returns the set of boundary vertices of a BoundaryState
