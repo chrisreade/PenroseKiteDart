@@ -46,7 +46,7 @@ tryPartCompose g =
      checked <- onFail "tryPartCompose:/n" $ checkConnectedNoCross newGraph
      return (remainder,checked)
 
--- |tuncheckedPartCompose produces a Tgraph by composing faces which uniquely compose,
+-- |uncheckedPartCompose produces a Tgraph by composing faces which uniquely compose,
 -- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
 -- It does NOT check the composed Tgraph for connectedness and no crossing boundaries.
 uncheckedPartCompose:: Tgraph -> ([TileFace],Tgraph)

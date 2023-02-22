@@ -174,10 +174,12 @@ emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # l
 {-*
 Combining force, compose, decompose
 -}
--- |compForced does a force then compose. 
--- (the connectedNoCross check may be redundant on the composed graph because the argument was forced.)
+-- |compForced does a force then compose.
+-- It omits the check for connected, and no crossing boundaries because the argument is forced first.
+-- This requires a proof! 
 compForced:: Tgraph -> Tgraph
-compForced = compose . force
+compForced = snd . uncheckedPartCompose . force 
+--compForced = compose . force
 
 -- |force after a decomposition
 forcedDecomp:: Tgraph -> Tgraph
@@ -309,18 +311,19 @@ anyDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
 anyDartAndKite b de = ignoreFails $ tryDartAndKite b de
 
 -- | atLeastOneDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
--- to edge de on boundary state b and forcing but will raise an error if there are no successes.
+-- to edge de on boundary state b and forcing each case but will raise an error if there are no successes.
 -- THIS IS TEMPORARILY replacing anyDartAndKite in many functions in order to record counter examples.
 -- If we find a forced Tgraph where neither addition succeeds, it shows a successful force does not guarantee correctness.
 atLeastOneDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
-atLeastOneDartAndKite b de = case [x | Left x <- results] of
+atLeastOneDartAndKite b de = case [x | Right x <- results] of
                  [] -> error $ "atLeastOneDartAndKite: no successful results for boundary edge\n" ++ show de
                                ++ "\nand Tgraph:\n" ++ show (recoverGraph b)
                  _ -> ignoreFails results 
             where results = tryDartAndKite b de
 
 -- | bothDartAndKite b de - returns the list of (2) cases after adding a dart (respectively kite)
--- to edge de on boundary state b and forcing. It will raise an error if either case fails.
+-- to edge de on boundary state b and forcing. It will raise an error if either case fails, and
+-- concatenates the failure reports if both cases fail.
 bothDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
 bothDartAndKite b de = runTry $ concatFails $ tryDartAndKite b de
 
@@ -328,8 +331,10 @@ bothDartAndKite b de = runTry $ concatFails $ tryDartAndKite b de
 -- to edge de on boundary state b and forcing. Each result is a Try.
 tryDartAndKite:: BoundaryState -> Dedge -> [Try BoundaryState]
 tryDartAndKite b de = 
-    [ tryAddHalfDartBoundary de b >>= tryForceBoundary
-    , tryAddHalfKiteBoundary de b >>= tryForceBoundary
+    [ onFail ("tryDartAndKite: Dart on edge: " ++ show de ++ "\n") $ 
+        tryAddHalfDartBoundary de b >>= tryForceBoundary
+    , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $ 
+        tryAddHalfKiteBoundary de b >>= tryForceBoundary
     ]
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCover g

@@ -163,43 +163,10 @@ counterK = padBorder $ lw thin $ hsep 1 $
                  newfaces = map fst compositions
                  groups = map snd compositions
                  remainder = faces g \\ concat groups
-{-
-{-|
-This example illustrates that an experimental version of composition (composeK)
-which defaults to kites when there are choices (unknowns) can produce incorrect Tgraphs.
-The first 3 Tgraphs are correct. The second is composeK of the first and the third is force applied to the second
-(a forced queen vertex).  
-The fourth Tgraph is a further composeK and this is clearly an incorrect Tgraph (applying force to this fails).
-In one further composition (either composeK or compose) the incomplete mistake1 graph is produced - fifth graph.
--}
-counterK :: Diagram B
-counterK = padBorder $ hsep 1 $ rotations [8,0,0,6,5] $ scales [1,phi,phi,1+phi,1+2*phi] $ 
-           fmap dashJVGraph [g,cg,fcg, cfcg, compose cfcg]
-        where g = sunPlus3Dart'
-              cg = composeK g
-              fcg = force cg
-              cfcg = composeK fcg
--- An experimental version of composition which defaults to kites when there are choices (unknowns).
--- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
--- composeK :: Tgraph -> Tgraph
-              composeK = snd . partComposeK
--- partComposeK:: Tgraph -> ([TileFace],Tgraph)
-              partComposeK g = (remainder,newGraph) where
-                 newGraph = makeTgraph newfaces
-                 dwInfo = getDartWingInfo g
-                 changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
-                                     , unknowns = []
-                                     }
-                 compositions = composedFaceGroups changedInfo
-                 newfaces = map fst compositions
-                 groups = map snd compositions
-                 remainder = faces g \\ concat groups
--}
-
 
 {-* Forced Tgraph figures
 -}
--- |diagram of foolDminus and the reult of forcing              
+-- |diagram of foolDminus and the result of forcing              
 forceFoolDminus :: Diagram B              
 forceFoolDminus = padBorder $ hsep 1 $ fmap dashJVGraph [foolDminus, force foolDminus]
 
@@ -1132,7 +1099,7 @@ foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] w
 --            ++ (fmap (drawVContext 3 (4,7)) $ extendEContexts (4,7) [makeBoundaryState fool])
             ++ (fmap (drawVContext 3 (7,6)) $ extendEContexts (7,6) [makeBoundaryState fool])      
     covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 5 $
-             fmap (drawVContext 3 (1,4)) $ reverse $ boundaryVCover $ makeBoundaryState fool 
+             fmap (drawVContext 3 (1,4)) $ reverse $ boundaryECover $ makeBoundaryState fool 
 
 -- |Diagram showing all contexts in a forced Tgraph for a sun vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
@@ -1143,12 +1110,35 @@ sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] wh
     opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 10 $
             (fmap (drawVContext 1 (2,3)) $ extendEContexts (2,3) [makeBoundaryState sunGraph])
     covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 4 $
-             fmap (drawVContext 1 (2,3)) $ boundaryVCover $ makeBoundaryState sunGraph 
+             fmap (drawVContext 1 (2,3)) $ boundaryECover $ makeBoundaryState sunGraph 
+
+
+{-
+This figure shows a successfully forced Tgraph and below is an extension (added half kite)
+which fails as an incorrect Tgraph on forcing, and below that a successful extension
+(added half dart on the same boundary edge) after forcing.
+It establishes that a single face addition to a forced Tgraph can produce an incorrect Tgraph.
+-}
+incorrectExample:: Diagram B
+incorrectExample = padBorder $ lw ultraThin $ vsep 1 $ 
+                   fmap drawSmartVGraph [okForced,incorrectExtension,successful] where
+  successful = force $ addHalfDart (217,218) okForced
+  incorrectExtension = addHalfKite (217,218) okForced -- fails on forcing
+  okForced = force $ addHalfDart (196,200) $ force $ addHalfDart (97,104) $ force $ startGraph  
+  startGraph = makeTgraph
+    [RD (42,35,41),LK (33,41,35),RK (33,40,41),LK (33,39,40),RK (33,38,39),LK (33,37,38),RK (33,36,37),LK (33,32,36)
+    ,RD (31,36,32),RK (33,35,34),LD (24,34,35),RD (24,30,34),LK (33,34,30),RK (33,30,32),LD (31,32,30),RK (30,28,31)
+    ,LK (26,31,28),LK (30,29,28),LK (30,24,23),RK (30,23,29),LD (20,29,23),RD (20,28,29),RK (26,28,27),LD (20,27,28)
+    ,RD (20,22,27),LK (26,27,22),RK (26,22,25),LK (18,25,22),RK (17,23,24),LK (17,21,23),RD (20,23,21),RK (18,22,19)
+    ,LD (20,19,22),LD (20,21,16),RK (17,16,21),RD (20,16,10),LD (20,10,9),RD (20,9,19),LK (18,19,9),RK (18,9,1)
+    ,LK (17,8,16),LK (6,10,16),RK (6,16,8),RK (4,15,5),LK (4,14,15),RK (4,13,14),LK (4,12,13),RK (4,11,12),LK (4,7,11)
+    ,RD (8,11,7),RK (6,9,10),LK (6,1,9),LD (8,7,6),RK (4,6,7),LK (4,3,6),RD (1,6,3),LK (4,5,2),RK (4,2,3),LD (1,3,2)
+    ]
 
 -- |boundaryLoopFill tests the calculation of boundary loops of a Tgraph and conversion to a (Diagrams) Path, using
 -- boundaryLoopsG and pathFromBoundaryLoops. The conversion of the Path to a Diagram allows
 -- a fill colour to be used for the entire internal part of the Tgraph - i.e. not by filling the individual tilefaces.
--- It also associates vertex labels with the respective positions in the diagram.
+-- It also associates vertex labels with the respective positions in the diagram using a vertexNames attribute.
 boundaryLoopFill:: Colour Double -> Tgraph -> Diagram B
 boundaryLoopFill c g = dg # lw ultraThin <> d # fc c where
     vp = makeVPinned g
