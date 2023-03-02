@@ -162,7 +162,7 @@ drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g
 
 -- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background g.
 emphasizeFaces:: [TileFace] -> Tgraph -> Diagram B
-emphasizeFaces fcs g =  (drawPatch emphPatch # lw thin) <> (drawPatch gPatch # lw ultraThin) where
+emphasizeFaces fcs g =  (dashJPatch emphPatch # lw thin) <> (drawPatch gPatch # lw ultraThin) where
     vp = makeVPinned g
     gPatch = dropLabels vp
     emphPatch = subPatch vp (fcs `intersect` faces g)
@@ -245,36 +245,36 @@ makeChoices g = choices unks [g] where
 Boundary Covers and Empires
 -}
 
-{-| forcedBoundaryECover g - produces a list of all boundary covers of force g, each of which
+{-| forcedBoundaryECovers g - produces a list of all boundary covers of force g, each of which
 extends force g to cover the entire boundary directed edges in (force g).
 (So the boundary of force g is entirely internal edges in each cover).
 The covers include all possible ways faces can be added on the boundary that are correct.
 The common faces of the covers constitute the empire (level 1) of g.
 This will raise an error if the initial force fails with a stuck graph.
 -}
-forcedBoundaryECover:: Tgraph -> [Tgraph]
-forcedBoundaryECover g = fmap recoverGraph $ boundaryECover gforcedBdry where
-     gforcedBdry = runTry $ onFail "forcedBoundaryECover:Initial force failed (incorrect Tgraph)\n" $
+forcedBoundaryECovers:: Tgraph -> [Tgraph]
+forcedBoundaryECovers g = fmap recoverGraph $ boundaryECovers gforcedBdry where
+     gforcedBdry = runTry $ onFail "forcedBoundaryECovers:Initial force failed (incorrect Tgraph)\n" $
                              tryForceBoundary $ makeBoundaryState g
 
-{-| forcedBoundaryVCover g - produces a list of all boundary covers of force g as with
-forcedBoundaryECover g but covering all boundary vertices rather than just boundary edges.                        
+{-| forcedBoundaryVCovers g - produces a list of all boundary covers of force g as with
+forcedBoundaryECovers g but covering all boundary vertices rather than just boundary edges.                        
 -}
-forcedBoundaryVCover:: Tgraph -> [Tgraph]
-forcedBoundaryVCover g = fmap recoverGraph $ boundaryVCover gforcedBdry where
-     gforcedBdry = runTry $ onFail "forcedBoundaryVCover:Initial force failed (incorrect Tgraph)\n" $
+forcedBoundaryVCovers:: Tgraph -> [Tgraph]
+forcedBoundaryVCovers g = fmap recoverGraph $ boundaryVCovers gforcedBdry where
+     gforcedBdry = runTry $ onFail "forcedBoundaryVCovers:Initial force failed (incorrect Tgraph)\n" $
                              tryForceBoundary $ makeBoundaryState g
 
-{-| boundaryECover bd - produces a list of all possible covers of the boundary directed edges in bd.
+{-| boundaryECovers bd - produces a list of all possible covers of the boundary directed edges in bd.
 [bd should be a boundary state resulting from forcing].
 A cover is an extension (of bd) such that the original boundary directed edges of bd are all internal edges.
 Extensions are made by repeatedly adding a face to any edge on the original boundary that is still on the boundary
 and forcing, repeating this until the orignal boundary is all internal edges.
 The resulting covers account for all possible ways the boundary can be extended.
-This can raise an error if bd is a boundary state of an unforced Tgraph which is incorrect.
+This can raise an error if bd is a boundary state of an unforced Tgraph.
 -}
-boundaryECover:: BoundaryState -> [BoundaryState]
-boundaryECover bd = covers [(bd, Set.fromList (boundary bd))] where
+boundaryECovers:: BoundaryState -> [BoundaryState]
+boundaryECovers bd = covers [(bd, Set.fromList (boundary bd))] where
 --covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
   covers ((open,es):opens) | Set.null es = open:covers opens
@@ -286,13 +286,13 @@ boundaryECover bd = covers [(bd, Set.fromList (boundary bd))] where
 onBoundary:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
 onBoundary des b = des `Set.intersection` Set.fromList (boundary b)
 
-{-| boundaryVCover bd - similar to boundaryECover, but produces a list of all possible covers of 
+{-| boundaryVCovers bd - similar to boundaryECovers, but produces a list of all possible covers of 
     the boundary vertices in bd (rather than just boundary edges).
     [bd should be a boundary state resulting from forcing].
-    This can raise an error if bd is a boundary state of an unforced Tgraph which is incorrect.
+    This can raise an error if bd is a boundary state of an unforced Tgraph.
 -}
-boundaryVCover:: BoundaryState -> [BoundaryState]
-boundaryVCover bd = covers [(bd, startbds)] where
+boundaryVCovers:: BoundaryState -> [BoundaryState]
+boundaryVCovers bd = covers [(bd, startbds)] where
   startbds = Set.fromList $ boundary bd
   startbvs = Set.map fst startbds
 --covers:: [(BoundaryState,Set.Set Dedge)] -> [BoundaryState]
@@ -337,10 +337,10 @@ tryDartAndKite b de =
         tryAddHalfKiteBoundary de b >>= tryForceBoundary
     ]
 
--- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCover g
-drawFBCover:: Tgraph -> Diagram B
-drawFBCover g = lw ultraThin $ vsep 1 $ 
-     fmap drawGraph $ forcedBoundaryVCover g
+-- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovers g
+drawFBCovers:: Tgraph -> Diagram B
+drawFBCovers g = lw ultraThin $ vsep 1 $ 
+     fmap drawGraph $ forcedBoundaryVCovers g
 
 -- | empire1 g - produces a SubTgraph representing the level 1 empire of g.
 -- The tgraph of the result is an arbitrarily chosen boundary vertex cover of force g,
@@ -348,7 +348,7 @@ drawFBCover g = lw ultraThin $ vsep 1 $
 -- at the head, followed by the original faces of g.
 empire1:: Tgraph -> SubTgraph
 empire1 g = makeSubTgraph g0 [fcs,faces g] where
-    (g0:others) = forcedBoundaryVCover g
+    (g0:others) = forcedBoundaryVCovers g
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
@@ -363,9 +363,9 @@ empire1 g = makeSubTgraph g0 [fcs,faces g] where
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> SubTgraph
 empire2 g = makeSubTgraph g0 [fcs, faces g] where
-    covers1 = boundaryECover $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
+    covers1 = boundaryECovers $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
-    covers2 = concatMap boundaryECover covers1
+    covers2 = concatMap boundaryECovers covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
@@ -377,9 +377,9 @@ empire2 g = makeSubTgraph g0 [fcs, faces g] where
 -- On a kinGraph this currently takes about 4 hours 20 minutes.
 empire2Plus:: Tgraph -> SubTgraph
 empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
-    covers1 = boundaryVCover $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
+    covers1 = boundaryVCovers $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
-    covers2 = concatMap boundaryVCover covers1
+    covers2 = concatMap boundaryVCovers covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
