@@ -382,6 +382,8 @@ mistake4Explore = padBorder $ lw ultraThin $ vsep 1
                    mistake4 = decompositions mistake !!4
                    mistake4' = decompositions mistake' !!4
 
+
+newTest = padBorder $ lw ultraThin $ drawForce $ addHalfKite (37,59) $ force kingGraph
 {-*
 Figures fof 7 vertex types
 -} 
@@ -1142,39 +1144,43 @@ sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] wh
     allopens = (fmap (drawVContext 1 (2,3)) $ extendEContexts (2,3) [makeBoundaryState sunGraph])
     allcovers = fmap (drawVContext 1 (2,3)) $ boundaryECovers $ makeBoundaryState sunGraph 
 
+
+
+-- | oneChoiceGraph is a forced Tgraph where one boundary edge (259,260) has one of its 2 legal extensions
+-- an incorrect Tgraph
+oneChoiceGraph:: Tgraph
+oneChoiceGraph = force $ addHalfDart (37,59) $ force kingGraph
+
 {-
-This figure shows a successfully forced Tgraph (oneChoiceExample) and below is an extension (added half kite)
-on edge (217,218) which fails as an incorrect Tgraph on forcing, and below that a successful extension
+This figure shows a successfully forced Tgraph (oneChoiceGraph) and below is an extension (added half kite)
+on edge (76,77) which fails on forcing showing it is an incorrect Tgraph, and below that a successful extension
 (added half dart on the same boundary edge) after forcing.
-It establishes that a legal face addition to a forced Tgraph can produce an incorrect Tgraph.
+It establishes that a single legal face addition to a forced Tgraph can be an incorrect Tgraph.
 -}
 oneChoiceFig:: Diagram B
 oneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $ 
-                     fmap drawSmartVGraph [oneChoiceExample,incorrectExtension,successful] where
-  successful = force $ addHalfDart (217,218) oneChoiceExample
-  incorrectExtension = addHalfKite (217,218) oneChoiceExample -- fails on forcing
+                     fmap drawSmartVGraph [oneChoiceGraph,incorrectExtension,successful] where
+  successful = force $ addHalfDart (76,77) oneChoiceGraph
+  incorrectExtension = addHalfKite (76,77) oneChoiceGraph -- fails on forcing
 
--- | Figure showing boundaryECovers of oneChoiceExample
+-- | Figure showing boundaryECovers of oneChoiceGraph
 coverOneChoiceFig:: Diagram B
-coverOneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $ 
-                   fmap drawCase beCover where
-  beCover = boundaryECovers (makeBoundaryState oneChoiceExample)
-  drawCase bd = overlay <> drawGraph (recoverGraph bd) 
-  overlay = drawGraph oneChoiceExample # lc red
+coverOneChoiceFig = pad 1.02 . centerXY $ lw ultraThin $ vsep 1 $ fmap (hsep 1) $ chunks 3 $
+  fmap drawCase beCover where
+    beCover = boundaryECovers (makeBoundaryState oneChoiceGraph)
+    drawCase bd = overlay <> drawGraph (recoverGraph bd) 
+    overlay = drawGraph oneChoiceGraph # lc red
 
--- | oneChoiceExample is a forced Tgraph where one boundary edge (217,218) has one of its 2 legal extensions
--- producing an incorrect Tgraph
-oneChoiceExample:: Tgraph
-oneChoiceExample = force $ addHalfDart (196,200) $ force $ addHalfDart (97,104) $ force $ startGraph  where
-  startGraph = makeTgraph
-    [RD (42,35,41),LK (33,41,35),RK (33,40,41),LK (33,39,40),RK (33,38,39),LK (33,37,38),RK (33,36,37),LK (33,32,36)
-    ,RD (31,36,32),RK (33,35,34),LD (24,34,35),RD (24,30,34),LK (33,34,30),RK (33,30,32),LD (31,32,30),RK (30,28,31)
-    ,LK (26,31,28),LK (30,29,28),LK (30,24,23),RK (30,23,29),LD (20,29,23),RD (20,28,29),RK (26,28,27),LD (20,27,28)
-    ,RD (20,22,27),LK (26,27,22),RK (26,22,25),LK (18,25,22),RK (17,23,24),LK (17,21,23),RD (20,23,21),RK (18,22,19)
-    ,LD (20,19,22),LD (20,21,16),RK (17,16,21),RD (20,16,10),LD (20,10,9),RD (20,9,19),LK (18,19,9),RK (18,9,1)
-    ,LK (17,8,16),LK (6,10,16),RK (6,16,8),RK (4,15,5),LK (4,14,15),RK (4,13,14),LK (4,12,13),RK (4,11,12),LK (4,7,11)
-    ,RD (8,11,7),RK (6,9,10),LK (6,1,9),LD (8,7,6),RK (4,6,7),LK (4,3,6),RD (1,6,3),LK (4,5,2),RK (4,2,3),LD (1,3,2)
-    ]
+{- Older larger example
+oldOneChoiceFig:: Diagram B
+oldOneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $ 
+                     fmap (rotate (ttangle 1) . drawSmartVGraph) [oldOneChoiceGraph,incorrectExtension,successful] where
+  successful = force $ addHalfDart (259,260) oldOneChoiceGraph
+  incorrectExtension = addHalfKite (259,260) oldOneChoiceGraph -- fails on forcing
+
+oldOneChoiceGraph:: Tgraph
+oldOneChoiceGraph = force $ addHalfDart (220,221) $ force $ decompositions fool !!3
+-}
 
 -- |boundaryLoopFill tests the calculation of boundary loops of a Tgraph and conversion to a (Diagrams) Path, using
 -- boundaryLoopsG and pathFromBoundaryLoops. The conversion of the Path to a Diagram allows
