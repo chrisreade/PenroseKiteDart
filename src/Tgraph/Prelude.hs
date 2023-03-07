@@ -17,6 +17,7 @@ module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 import Data.List ((\\), intersect, union, nub, elemIndex,foldl')
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!),fromAscList)
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax)
+import qualified Data.Map.Strict as Map (Map, fromList, lookup)
 import Control.Monad(liftM) -- for Try
 
 import HalfTile
@@ -553,6 +554,15 @@ edgeNb::TileFace -> TileFace -> Bool
 edgeNb fc = any (`elem` edges) . faceDedges where
       edges = fmap reverseD (faceDedges fc)
 
+-- | Produces a mapping from the directed edges of a Tgraph to the unique tileface with that directed edge
+-- (expensive)
+edgeFaceMap :: Tgraph -> Map.Map Dedge TileFace
+edgeFaceMap g = Map.fromList $ concatMap assign (faces g) where
+  assign f = fmap (\e -> (e,f)) (faceDedges f)
+
+-- | look up a face for an edge in an edge face map
+faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
+faceForEdge = Map.lookup
 
 -- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
 type VertexMap a = VMap.IntMap a

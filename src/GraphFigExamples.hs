@@ -24,6 +24,9 @@ import ChosenBackend (B)
 import TileLib
 import Tgraphs
 
+{-*
+Some Layout tools
+-}
 
 -- |used for most diagrams to give border padding
 padBorder:: Diagram B -> Diagram B
@@ -37,10 +40,15 @@ chunks n
       ch [] = []
       ch as = take n as : ch (drop n as)
 
+-- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
+-- The result is a single diagram (seperation is 1 unit vertically and horizontally)
+arrangeRows::Int -> [Diagram B] -> Diagram B
+arrangeRows n = centerY . vsep 1 . fmap (centerX . hsep 1) . chunks n
+
 
     
 {-*
-Example Tgraphs with Figures
+Basic Tgraphs with Figures
 -}
 fool, foolD, foolDminus:: Tgraph
 -- |fool: fool's kite - a decomposed left and right kite back-to-back (i.e. not sharing join edge)
@@ -372,6 +380,12 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap dashJVPinned $ scales [phi,1,1,phi] $ 
                [ mistake1 , mistake1D, force mistake1D, compose mistake1D]
                where mistake1D = decompose mistake1
 
+-- |Diagram showing where a (4 times) decomposed version of mistake goes wrong.
+-- It shows (top) mistake4 = 4 times decomposed mistake Tgraph - in incorrect Tgraph which fails on forcing.
+-- (centre) mistake4' = 4 times decomposed [mistake Tgraph with a half dart removed],
+-- (bottom) a forced mistake4' with the common faces of mistke4 emphasised.
+-- Thus mistake4' (where the half dart is removed) does not go wrong on forcing and
+-- the incorrect mistake4 clashes only near the wing tip of the removed half dart.
 mistake4Explore :: Diagram B
 mistake4Explore = padBorder $ lw ultraThin $ vsep 1  
                 [ drawSmartVGraph $ mistake4
@@ -383,9 +397,8 @@ mistake4Explore = padBorder $ lw ultraThin $ vsep 1
                    mistake4' = decompositions mistake' !!4
 
 
-newTest = padBorder $ lw ultraThin $ drawForce $ addHalfKite (37,59) $ force kingGraph
 {-*
-Figures fof 7 vertex types
+Figures for 7 vertex types
 -} 
 {-| vertexTypesFig is 7 vertex types single diagram as a row -}
 vertexTypesFig:: Diagram B
@@ -1032,15 +1045,15 @@ boundaryECoverFigs g =
             alig = lowestJoin (faces g)
 
 -- | diagram showing the boundaryECovers of a forced kingGraph
-kingECoversFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryECoverFigs $ force kingGraph
+kingECoversFig = padBorder $ arrangeRows 3 $ boundaryECoverFigs $ force kingGraph
 -- | diagram showing the boundaryVCovers of a forced kingGraph
-kingVCoversFig = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 3 $ boundaryVCoverFigs $ force kingGraph
+kingVCoversFig = padBorder $ arrangeRows 3 $ boundaryVCoverFigs $ force kingGraph
 
 {-*
 Forced Boundary Edge and Vertex Contexts
 -}
 
-{-
+{- |
 Diagram of contexts for an edge on the boundary of a forced Tgraph (using forcedBEContexts).
 The edge is shown in red in each case.
 There are 3 groups for the 3 edge types (right-hand variants are not shown).
@@ -1051,7 +1064,7 @@ We remove any Tgraphs where the red edge is no longer on the boundary and remove
 The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
 -}
 forcedBEContextsFig :: Diagram B
-forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (vsep 1 . fmap (hsep 1) . chunks 8) 
+forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 8) 
                       [dartLongDiags, kiteLongDiags, kiteShortDiags] where  
     drawCases e g = fmap (drawBEContext e) $ forcedBEContexts e $ makeBoundaryState $ force g 
     edge = (1,2)
@@ -1117,23 +1130,23 @@ drawVContext v edge bd = drawv <> drawg <> drawComp where
               Just loc -> circle 0.2 # fc red # lc red # moveTo loc
     drawComp = lw none $ drawPatchWith (fillDK yellow yellow) $ subPatch vp (faces (compose g))
     
--- |Diagram showing all contexts in a forced Tgraph for a fool/ace vertex.
+-- |Diagram showing local contexts in a forced Tgraph for a fool/ace vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- The first 12 cases are for a (left) dart long edge on the boundary, 
 -- which are exactly the same as a kite short edge on the boundary (so not repeated).
 -- The next 3 are for a kite long edge on the boundary, and the rest are covers (no edge of fool on the boundary)
 foolVContextsFig:: Diagram B
 foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
-    opens = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 8 $
-            (fmap (drawVContext 3 (1,4)) $ extendEContexts (1,4) [makeBoundaryState fool])
+    opens = arrangeRows 8 $
+              (fmap (drawVContext 3 (1,4)) $ extendEContexts (1,4) [makeBoundaryState fool])
 -- The cases for the kite short on the boundary are exactly the same as for dart long on the boundary
 -- so not repeated here.
 --            ++ (fmap (drawVContext 3 (4,7)) $ extendEContexts (4,7) [makeBoundaryState fool])
-            ++ (fmap (drawVContext 3 (7,6)) $ extendEContexts (7,6) [makeBoundaryState fool])      
-    covers = vsep 1 # composeAligned alignL $ fmap (hsep 1) $ chunks 5 $
-             fmap (drawVContext 3 (1,4)) $ reverse $ boundaryECovers $ makeBoundaryState fool 
+              ++ (fmap (drawVContext 3 (7,6)) $ extendEContexts (7,6) [makeBoundaryState fool])      
+    covers = centerX $ hsep 1 $
+              fmap (drawVContext 3 (1,4)) $ reverse $ boundaryECovers $ makeBoundaryState fool 
 
--- |Diagram showing all contexts in a forced Tgraph for a sun vertex.
+-- |Diagram showing local contexts in a forced Tgraph for a sun vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- The first 19 cases are for at least one edge of the sun Tgraph on the boundary.
 -- The rest are covers with no edge of the sun Tgraph on the boundary (3 cases but with rotational repetitions).
@@ -1151,7 +1164,13 @@ sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] wh
 oneChoiceGraph:: Tgraph
 oneChoiceGraph = force $ addHalfDart (37,59) $ force kingGraph
 
-{-
+
+superForceFig = padBorder $ lw ultraThin $ vsep 1 $
+  fmap (drawRotatedVGraph (ttangle 1)) [g, force g, superForce g] where 
+    g = addHalfDart (220,221) $ force $ decompositions fool !!3
+
+--testing = padBorder $ lw ultraThin $ drawVGraph $ superForce $ addHalfDart (37,59) $ force kingGraph
+{- |
 This figure shows a successfully forced Tgraph (oneChoiceGraph) and below is an extension (added half kite)
 on edge (76,77) which fails on forcing showing it is an incorrect Tgraph, and below that a successful extension
 (added half dart on the same boundary edge) after forcing.
@@ -1165,7 +1184,7 @@ oneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $
 
 -- | Figure showing boundaryECovers of oneChoiceGraph
 coverOneChoiceFig:: Diagram B
-coverOneChoiceFig = pad 1.02 . centerXY $ lw ultraThin $ vsep 1 $ fmap (hsep 1) $ chunks 3 $
+coverOneChoiceFig = pad 1.02 $ lw ultraThin $ arrangeRows 3 $
   fmap drawCase beCover where
     beCover = boundaryECovers (makeBoundaryState oneChoiceGraph)
     drawCase bd = overlay <> drawGraph (recoverGraph bd) 
@@ -1370,6 +1389,7 @@ findCore g = if nullGraph g then g else inspect firstf rest where
                      then inspect (head fcs) (tail fcs)
                      else makeUncheckedTgraph (fc:fcs)
        where g0 = force $ makeUncheckedTgraph fcs
+
 
 
 {-*

@@ -79,7 +79,7 @@ dropLabels vp = fmap convert (vpFaces vp) where
                 _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
                              ++ show (faceVList fc \\ VMap.keys locations))
 
-{-|Auxiliary function For converting a list of TileFaces to a Patch when given a VPinned with a suitable VertexLocMap.
+{-|Auxiliary function for converting a list of TileFaces to a Patch when given a VPinned with a suitable VertexLocMap.
 The VertexLocMap in the VPinned must contain locations for all the TileFace vertices.
 The alignment is dictated by the VertexLocMap.
 This function is intended to save recreating a VertexLocMap for several Patches
@@ -118,7 +118,7 @@ findLoc v = VMap.lookup v . vLocs
 
 
 
-{-* Drawing VPinned and Graphs
+{-* Drawing VPinned and Tgraphs
 -}
 
 -- |simplest drawing without vertex labels
@@ -166,6 +166,10 @@ relevantVPinnedWith pd vp = drawVlabels locVs <> drawPatchWith pd (dropLabels vp
 makeAlignedPatch:: (Vertex,Vertex) ->  Tgraph -> Patch        
 makeAlignedPatch vs g = dropLabels $ alignXaxis vs $ makeVPinned g
 
+-- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default.
+-- Note this does not rotate the labels themselves.
+drawRotatedVGraph:: Angle Double -> Tgraph -> Diagram B
+drawRotatedVGraph a = drawVPinned . rotate a . makeVPinned
 
 
 {-* VPinned Alignment with Vertices
