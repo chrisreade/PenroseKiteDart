@@ -96,6 +96,11 @@ Advanced drawing tools for Tgraphs
 drawSmartGraph :: Tgraph -> Diagram B
 drawSmartGraph g = drawSmartSub g $ makeVPinned g
 
+-- |drawSmartGraphAligned (v1,v2) g - same as drawSmartGraph g except except aligning with centre on v1 and v2
+-- on positive x axis. This will raise an error if v1 or v2 are not vertices of g.
+drawSmartGraphAligned :: (Vertex,Vertex) -> Tgraph -> Diagram B
+drawSmartGraphAligned vs g = drawSmartSub g $ alignXaxis vs $ makeVPinned g
+
 -- |same as drawVGraph except adding dashed lines on boundary join edges.
 drawSmartVGraph :: Tgraph -> Diagram B
 drawSmartVGraph g = drawSmartVSub g $ makeVPinned g

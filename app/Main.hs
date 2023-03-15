@@ -47,7 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = checkClash--superForceFig --oneChoiceFig--newTest--mistake4Explore--boundaryEdgeCaseTrees 
+fig = wrongRocket--superForceFig --oneChoiceFig--newTest--mistake4Explore--boundaryEdgeCaseTrees 
 
 main = mainWith fig
 

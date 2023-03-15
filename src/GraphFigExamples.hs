@@ -1205,9 +1205,12 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 -- after adding a half kite to the nose of the red rocket (see also superForceRocketsFig).
 wrongRocket:: Diagram B
 wrongRocket = padBorder $ lw thin $ rotate (ttangle 3 )(gDiag # lc red <> wrongDiag) where
-  wrongDiag =  drawPatch $ makeAlignedPatch (59,60) wrong 
+  wrongDiag =  drawSmartGraphAligned (59,60) wrong 
+--  wrongDiag =  dashJPatch $ makeAlignedPatch (59,60) wrong 
   gDiag = drawPatch $ makeAlignedPatch (59,60) g where
   g = force $ decompose $ sunPlus3Dart'
+  wrong = stuckGraphFrom $ addHalfKite (59,60) g
+{-
   wrong = makeUncheckedTgraph 
           [RK (219,140,222),LK (140,178,222),RD (221,222,178),LD (221,178,177),LD (181,220,176),RK (177,176,220)
           ,LK (219,218,140),LK (219,174,173),RK (219,173,218),RD (91,140,218),LD (91,218,173),LK (170,217,213)
@@ -1267,6 +1270,7 @@ wrongRocket = padBorder $ lw thin $ rotate (ttangle 3 )(gDiag # lc red <> wrongD
           ,RK (5,24,6),LK (5,22,24),RD (1,24,22),LK (7,6,24),RK (7,24,26),LD (1,26,24),RK (7,28,8),LK (7,26,28)
           ,RD (1,28,26),LK (9,8,28),RK (9,28,30),LD (1,30,28),RK (9,32,10),LK (9,30,32),RD (1,32,30)
           ,LK (11,10,32),RK (11,32,34),LD (1,34,32)]
+-}
               
 
 -- addHalfKite (59,60) $ force $ decompose $ sunPlus3Dart'

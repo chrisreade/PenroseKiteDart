@@ -314,7 +314,7 @@ stepForce g  = runTry . tryStepForce g
 -- |tryStepForce is a version of stepForce which produces Left report for a stuck/incorrect graph
 -- (tryStepForce 0 g can be used to calculate the initial force state from g.)
 tryStepForce :: Tgraph -> Int -> Try ForceState
-tryStepForce g n = do fs0 <- tryInitForceStateWith defaultAllUGen g
+tryStepForce g n = do fs0 <- tryInitForceState g
                       tryStepForceFrom fs0 n
 
 -- |stepForceFrom advances a forcestate a given number of steps.
@@ -335,6 +335,21 @@ tryStepForceWith updateGen = count where
                   case result of
                    Nothing -> return fs
                    Just (fs', _) ->  count fs' (n-1)
+
+
+-- | For a Tgraph g which is known to be incorrect (because force fails) this will return the last Tgraph formed
+-- before force fails (at the point where the Tgraph is found to be stuck).
+-- If force succeeds this just returns the forced Tgraph.
+stuckGraphFrom :: Tgraph -> Tgraph
+stuckGraphFrom g = lastG g where
+  lastFS fs = ifFail fs (tryLast fs)
+  tryLast fs = do
+    fs' <- tryStepForceFrom fs 1
+    return $ lastFS fs'
+  lastG g = ifFail g (tryG g)
+  tryG g = do
+    fs <- tryInitForceState g
+    return $ recoverGraph $ boundaryState $ lastFS fs 
 
 {-*
 Single Force Steps
