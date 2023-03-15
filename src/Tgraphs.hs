@@ -137,6 +137,15 @@ drawForce g = (dg # lc red # lw thin) <> dfg where
     dfg = drawPatch $ dropLabels vp
     dg = drawSmartSub g vp
 
+-- |drawSuperForce g is a diagram showing the argument g in blue overlayed on superForce g
+-- It adds dashed join edges on the boundary of g
+drawSuperForce:: Tgraph -> Diagram B
+drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
+    sfg = superForce g
+    vp = makeVPinned sfg
+    dfg = drawSmartSub (force g) vp
+    dg = drawSmartSub g vp
+    dsfg = drawPatch $ dropLabels vp
 {-|
 drawWithMax g - draws g and overlays the maximal composition of g in red.
 This may raise an error if any of the compositions of g upto the maximal one are invalid Tgraphs
@@ -520,38 +529,16 @@ boundaryVertices bd = IntSet.fromList $ fmap fst (boundary bd)
 Super Force with boundary edge covers
 -}
 
--- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
--- this returns the tile label for the face covering each edge in edglist (in corresponding order).
-reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
-reportCover bd edgelist = fmap (\e -> tileLabel (getf e)) edgelist where
-    efmap = edgeFaceMap (recoverGraph bd)
-    getf e = maybe (error $ "reportCover: no face found for edge " ++ show e)
-                   id
-                   (faceForEdge e efmap)
 
--- |commonToCovers bds edges - when bds are all the boundary edge covers of some forced Tgraph
--- whose boundary edges are edgelist, this looks for edges in edgelist that have the same tile label added in all covers.
--- This indicates there is a single correct choice for such an edge.
--- The result is a list of pairs: edge and a common tile label.
-commonToCovers :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
-commonToCovers bds edges = common edges (transpose labellists) where
-    labellists = fmap (\bd -> reportCover bd edges) bds
-    common [] lls = []
-    common (e:more) (l:ls) = if matching l 
-                             then (e,head l):common more ls
-                             else common more ls
-    matching [] = error "commonToCovers: empty list of labels" 
-    matching (l:ls) = all (==l) ls
 
--- |singleChoiceEdges bd - if bd is a boundary state of a forced Tgraph this finds those boundary edges of bd
--- which have a single correct choice, by inspecting boundary edge covers of bd.
--- The result a list of pairs of (edge,label) where edge is a boundary edge with a single choice
--- and label indicates the choice as the common face label.
-singleChoiceEdges :: BoundaryState -> [(Dedge,HalfTileLabel)]
-singleChoiceEdges bd = commonToCovers (boundaryECovers bd) (boundary bd)  
 
--- |superForce g - this looks for single choice edges after forcing g.
--- If there is at least one, it makes that choice and recurses, otherwise it returns the forced Tgraph (force g).
+-- |superForce g -after forcing g this looks for single choice boundary edges.
+-- That is a boundary edge for which only a dart or only a kite addition occurs in all boundary edge covers.
+-- If there is at least one such edge, it makes the choice for the first such edge and recurses,
+-- otherwise it returns the forced Tgraph (force g).
+-- This will raise an error if force encounters a stuck (incorrect) Tgraph or if
+-- both forced extensions fail for some boundary edge.
+-- Otherwise, the resulting Tgraph has exactly two correct possible extensions for each boundary edge.
 superForce :: Tgraph -> Tgraph
 superForce g = runTry $ trySuperForce g
 
@@ -561,7 +548,7 @@ superForceBdry = runTry . trySuperForceBdry
 
 -- |trySuperForce g - this looks for single choice edges after trying to force g.
 -- If there is at least one, it makes that choice and recurses.
--- It returns a Left s if any force or choice fails (where s is a failure report).
+-- It returns a Left s if force fails or if both choices fail for some edge (where s is a failure report).
 -- Otherwise Right g' is returned where g' is the super forced g.
 trySuperForce :: Tgraph -> Try Tgraph
 trySuperForce g = do bd <- trySuperForceBdry (makeBoundaryState g)
@@ -579,6 +566,35 @@ trySuperForceBdry bd =
   where
     addHT (e,l) fbd = if isDart l then tryAddHalfDartBoundary e fbd else tryAddHalfKiteBoundary e fbd
 
+-- |singleChoiceEdges bd - if bd is a boundary state of a forced Tgraph this finds those boundary edges of bd
+-- which have a single correct choice, by inspecting boundary edge covers of bd.
+-- The result a list of pairs of (edge,label) where edge is a boundary edge with a single choice
+-- and label indicates the choice as the common face label.
+singleChoiceEdges :: BoundaryState -> [(Dedge,HalfTileLabel)]
+singleChoiceEdges bd = commonToCovers (boundaryECovers bd) (boundary bd)  
+
+-- |commonToCovers bds edges - when bds are all the boundary edge covers of some forced Tgraph
+-- whose boundary edges are edgelist, this looks for edges in edgelist that have the same tile label added in all covers.
+-- This indicates there is a single correct choice for such an edge.
+-- The result is a list of pairs: edge and a common tile label.
+commonToCovers :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
+commonToCovers bds edges = common edges (transpose labellists) where
+    labellists = fmap (\bd -> reportCover bd edges) bds
+    common [] lls = []
+    common (e:more) (l:ls) = if matching l 
+                             then (e,head l):common more ls
+                             else common more ls
+    matching [] = error "commonToCovers: empty list of labels" 
+    matching (l:ls) = all (==l) ls
+
+-- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
+-- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
+reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
+reportCover bd edgelist = fmap (\e -> tileLabel (getf e)) edgelist where
+    efmap = edgeFaceMap (recoverGraph bd)
+    getf e = maybe (error $ "reportCover: no face found for edge " ++ show e)
+                   id
+                   (faceForEdge e efmap)
 
 {-*
 Boundary loops

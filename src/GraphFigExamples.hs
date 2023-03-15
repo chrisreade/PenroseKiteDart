@@ -505,13 +505,19 @@ boundaryFDart4, boundaryFDart5 :: Tgraph
 boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundaryState $ force (dartD4)
 boundaryFDart5 = checkedTgraph $ boundaryFaces $ makeBoundaryState $ force (dartDs!!5)
 
--- | figure to check that force can complete a hole
-forceHoleTest = padBorder $ lw ultraThin $ drawGraph $ force boundaryFDart5
-
 -- |figures of the boundary faces only of a forced graph
 boundaryFDart4Fig,boundaryFDart5Fig:: Diagram B
 boundaryFDart4Fig = padBorder $ lw ultraThin $ dashJVGraph boundaryFDart4
 boundaryFDart5Fig = padBorder $ lw ultraThin $ dashJVGraph boundaryFDart5
+
+-- | figure to check that force can complete a hole
+forceHoleTest :: Diagram B
+forceHoleTest = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce boundaryFDart5
+
+-- | figure to check that force can complete a hole and extend from boundary faces
+forceFillTest :: Diagram B
+forceFillTest = padBorder $  lw ultraThin $ rotate (ttangle 1) $ drawForce g 
+    where g = checkedTgraph $ boundaryFaces $ makeBoundaryState $ dartDs!!6
 
 -- |graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
@@ -533,6 +539,7 @@ gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
     , drawSmartGraph $ recoverGraph $ boundaryState $ stepForce g 2000
     ] where g = boundaryGapFDart5
 
+{-
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
 -- using stepForce 600 (finished at 820)
 gapProgress4 :: Diagram B
@@ -540,12 +547,13 @@ gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
     [ drawSmartGraph g
     , drawSmartGraph $ recoverGraph $ boundaryState $ stepForce g 600 --finished at 820
     ] where g = boundaryGapFDart4
+-}
 
 {-| bigPic is a diagram illustrating force/emplacement relationships for decomposed darts
      bigPic0 is main diagram for bigPic without the arrows
 -}
-bigPic0,bigPic :: Diagram B
-bigPic0 = padBorder $ lw ultraThin $ position $ concat
+dartPic0,kitePic0,bigPic :: Diagram B
+dartPic0 = padBorder $ lw ultraThin $ position $ concat
           [ zip pointsR1 $ rotations [0,1,1] partComps
           , zip pointsR2 $ zipWith named ["a4", "a3","a2","a1","a0"] (dots : rotations [1,1] forceDs)
           , zip pointsR3 $ zipWith named ["b4", "b3","b2","b1","b0"] (dots : rotations [1,1] drts)
@@ -558,27 +566,44 @@ bigPic0 = padBorder $ lw ultraThin $ position $ concat
               pointsR1 = map p2 [ (0, 70), (52, 70), (100, 70), (150, 70), (190, 70)]
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]    
-bigPic = 
-    bigPic0  # composeArcRight "a3" "a2"
-             # composeArcRight "a2" "a1"
-             # composeArcRight "a1" "a0"
-             # composeArcRight "a4" "a3"
-             # composeArcRight "b4" "b3"
-             # composeArcRight "b3" "b2"
-             # composeArcRight "b2" "b1"
-             # composeArcRight "b1" "b0"
-             # decompArrow "b3" "b4"
-             # decompArrow "b2" "b3"
-             # decompArrow "b1" "b2"
-             # decompArrow "b0" "b1"
-             # forceDecArrow "a3" "a4"
-             # forceDecArrow "a2" "a3"
-             # forceDecArrow "a1" "a2"
-             # forceDecArrow "a0" "a1"
-             # forceArrow "b0" "a0"
-             # forceArrow "b1" "a1"
-             # forceArrow "b2" "a2"
-             # forceArrow "b3" "a3"
+
+kitePic0 = padBorder $ lw ultraThin $ position $ concat
+          [ zip pointsR1 $ rotations [0,0,1,1] partComps
+          , zip pointsR2 $ zipWith named ["a4", "a3","a2","a1","a0"] (dots : rotations [0,1,1] forceDs)
+          , zip pointsR3 $ zipWith named ["b4", "b3","b2","b1","b0"] (dots : rotations [0,1,1] kts)
+          ]
+          where
+              partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ allForcedDecomps $ force kiteGraph
+              forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce kiteDs
+              kts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawSmartGraph kiteDs
+              dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
+              pointsR1 = map p2 [ (6, 70), (58, 70), (106, 70), (156, 70), (196, 70)]
+              pointsR2 = map p2 [ (0, 44), (42, 44), (95, 44), (140, 44), (186, 44)]
+              pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]    
+
+bigPic = addArrows dartPic0 === addArrows kitePic0
+
+addArrows d = d  # composeArcRight "a3" "a2"
+                 # composeArcRight "a2" "a1"
+                 # composeArcRight "a1" "a0"
+                 # composeArcRight "a4" "a3"
+                 # composeArcRight "b4" "b3"
+                 # composeArcRight "b3" "b2"
+                 # composeArcRight "b2" "b1"
+                 # composeArcRight "b1" "b0"
+                 # decompArrow "b3" "b4"
+                 # decompArrow "b2" "b3"
+                 # decompArrow "b1" "b2"
+                 # decompArrow "b0" "b1"
+                 # forceDecArrow "a3" "a4"
+                 # forceDecArrow "a2" "a3"
+                 # forceDecArrow "a1" "a2"
+                 # forceDecArrow "a0" "a1"
+                 # forceArrow "b0" "a0"
+                 # forceArrow "b1" "a1"
+                 # forceArrow "b2" "a2"
+                 # forceArrow "b3" "a3"
+    
 
 -- |add a force arrow (black) from named parts of 2 diagrams
 forceArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
@@ -726,7 +751,7 @@ testBoundary5 =  padBorder $ lw ultraThin $ drawGBoundary boundaryGapFDart5
 -- |Example for testing crossing boundary detection e.g. using 
 -- checkedTgraph testCrossingBoundary, or by using
 -- force (makeUncheckedTgraph testCrossingBoundary)
--- This produces a non-valid Tgraph.
+-- produces an error for a non-valid Tgraph.
 testCrossingBoundary :: [TileFace]
 testCrossingBoundary = [LK (1,8,3),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13),RD (6,13,10)
                        ,LK (3,2,13),RK (3,13,11),RK (3,14,4),LK (3,11,14),LK (7,4,14),RK (7,14,12)
@@ -763,7 +788,6 @@ hollowGraph = removeFaces (head (tracked exampleSub)) (tgraph exampleSub) where
 -- |figure showing hollowGraph and result of forcing
 forceHollowFig:: Diagram B
 forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap drawGraph [hollowGraph, force hollowGraph]
-
 
 {-
 N.B.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices...
@@ -1164,10 +1188,88 @@ sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] wh
 oneChoiceGraph:: Tgraph
 oneChoiceGraph = force $ addHalfDart (37,59) $ force kingGraph
 
-
+-- |Diagram showing superForce with initial Tgraph g (top), force g (middle), and superForce g (bottom)
+superForceFig :: Diagram B
 superForceFig = padBorder $ lw ultraThin $ vsep 1 $
   fmap (drawRotatedVGraph (ttangle 1)) [g, force g, superForce g] where 
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
+
+-- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
+-- of sunPlus3Dart'. The decompositions are in red with normal force in black and superforce additions in blue.
+superForceRocketsFig :: Diagram B
+superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $ 
+   fmap drawSuperForce decomps where
+      decomps = take 4 $ decompositions sunPlus3Dart'
+
+-- |Diagram showing an incorrect (stuck) tiling (at the point where force discovers the clash with RK(219,140,222))
+-- after adding a half kite to the nose of the red rocket (see also superForceRocketsFig).
+wrongRocket:: Diagram B
+wrongRocket = padBorder $ lw thin $ rotate (ttangle 3 )(gDiag # lc red <> wrongDiag) where
+  wrongDiag =  drawPatch $ makeAlignedPatch (59,60) wrong 
+  gDiag = drawPatch $ makeAlignedPatch (59,60) g where
+  g = force $ decompose $ sunPlus3Dart'
+  wrong = makeUncheckedTgraph 
+          [RK (219,140,222),LK (140,178,222),RD (221,222,178),LD (221,178,177),LD (181,220,176),RK (177,176,220)
+          ,LK (219,218,140),LK (219,174,173),RK (219,173,218),RD (91,140,218),LD (91,218,173),LK (170,217,213)
+          ,RK (170,216,217),LK (170,215,216),RK (170,214,215),RD (168,214,212),LK (170,212,214),RK (170,213,172)
+          ,LD (171,172,213),LD (168,212,169),RK (170,169,212),RK (167,210,211),LK (167,208,210),RD (163,210,208)
+          ,LD (163,209,210),RD (163,207,209),LD (163,208,166),RK (167,166,208),LD (163,162,207),RK (161,207,162)
+          ,LK (161,206,207),RK (161,205,206),LK (161,204,205),RK (161,200,204),LK (161,203,200),RD (156,200,203)
+          ,RK (161,160,203),LD (156,203,160),RD (202,199,158),LD (202,158,157),RD (202,157,201),LK (198,201,157)
+          ,LK (200,156,199),LK (110,158,199),RK (110,199,156),RK (198,157,155),LD (155,159,198),RK (154,198,159)
+          ,LK (154,197,198),RD (197,154,196),LK (195,196,154),RK (195,154,153),LK (195,153,152),RK (195,152,151)
+          ,LK (149,194,190),RK (149,193,194),LK (149,192,193),RK (149,191,192),RD (174,191,189),LK (149,189,191)
+          ,RK (149,190,150),LD (151,150,190),LD (174,189,90),RK (149,90,189),LD (148,188,183),RD (148,187,188)
+          ,RK (164,187,165),LD (148,165,187),LK (146,186,179),RK (146,185,186),LK (146,184,185),RK (146,183,184)
+          ,RD (148,183,182),LK (146,182,183),LD (148,182,145),RK (146,145,182),RD (181,176,144),LD (181,144,143)
+          ,RD (181,143,180),LK (179,180,143),RK (146,179,147),RK (179,143,142),LD (142,147,179),RK (140,177,178)
+          ,LK (140,175,177),RD (141,177,175),LK (177,141,176),LK (95,144,176),RK (95,176,141),LD (141,175,139)
+          ,RK (140,139,175),RK (90,173,174),LK (90,138,173),RD (91,173,138),RD (171,129,172),LK (170,172,129)
+          ,RD (171,132,131),LD (171,131,128),LD (171,130,129),RD (171,128,130),RK (170,129,127),LK (170,127,169)
+          ,RK (77,169,127),LK (77,126,169),RD (168,169,126),LD (168,137,136),LD (168,126,125),RD (168,125,137)
+          ,LK (167,123,166),RK (88,166,123),LK (88,122,166),RD (163,166,122),RD (148,120,165),LK (164,165,120)
+          ,RK (164,120,119),LD (163,122,118),RD (163,118,117),LD (163,117,116),RD (163,116,162),LK (161,162,116)
+          ,RK (161,116,115),LK (161,115,160),RK (51,160,115),LK (51,114,160),RD (156,160,114),RD (155,112,159)
+          ,LK (154,159,112),RK (110,157,158),LK (110,155,157),LD (156,111,110),LD (156,114,108),RD (156,108,111)
+          ,LD (155,113,112),RD (155,110,109),LD (155,109,107),RD (155,107,113),RK (154,112,106),LD (106,153,154)
+          ,RD (106,152,153),LD (106,105,152),RK (103,152,105),LK (103,151,152),RD (151,103,150),LK (149,150,103)
+          ,LK (149,104,90),RK (149,103,104),LD (148,121,120),RD (148,145,101),LD (148,101,100),RD (148,100,121)
+          ,RD (142,98,147),LK (146,147,98),RK (146,98,97),LK (146,97,145),LK (49,101,145),RK (49,145,97)
+          ,RK (95,143,144),LK (95,142,143),LD (142,99,98),RD (142,95,94),LD (142,94,93),RD (142,93,99)
+          ,LD (141,96,95),RD (141,139,102),LD (141,102,92),RD (141,92,96),LK (140,91,139),LK (57,102,139)
+          ,RK (57,139,91),LD (91,138,59),RK (90,59,138),LK (86,137,125),RK (86,136,137),LK (86,135,136)
+          ,RK (86,124,135),LD (119,85,134),RK (80,134,85),LK (80,133,134),RK (80,132,133),LK (80,131,132)
+          ,RK (80,128,131),LK (79,130,128),RK (79,129,130),LK (79,127,129),LK (80,73,128),RK (79,128,73)
+          ,RD (127,79,78),LD (127,78,77),RK (77,125,126),LK (77,84,125),RK (86,125,84),LK (86,89,124)
+          ,RD (123,124,89),LD (123,89,88),RK (88,118,122),LK (82,121,100),RK (82,120,121),LK (82,119,120)
+          ,RD (119,82,85),LK (53,117,118),LK (88,69,118),RK (53,118,69),RK (53,116,117),LK (53,115,116)
+          ,RD (115,53,52),LD (115,52,51),RK (51,108,114),LK (43,113,107),RK (43,112,113),LK (43,106,112)
+          ,LK (7,111,108),RK (7,110,111),LK (7,109,110),RK (7,107,109),LK (51,6,108),RK (7,108,6),LK (7,8,107)
+          ,RK (43,107,8),RD (106,43,62),LD (106,62,61),RD (106,61,105),LK (103,105,61),LD (60,104,103)
+          ,RD (60,90,104),RK (103,61,60),RK (57,92,102),RK (49,100,101),RK (82,100,67),LK (49,67,100)
+          ,LK (41,99,93),RK (41,98,99),LK (41,97,98),LD (97,50,49),RD (97,41,50),LK (11,96,92),RK (11,95,96)
+          ,LK (11,94,95),RK (11,93,94),RK (41,93,2),LK (11,2,93),RK (11,92,10),LK (57,10,92),LD (91,58,57)
+          ,RD (91,59,58),LK (90,60,59),RK (86,88,89),LK (86,87,88),RD (69,88,87),LD (69,87,83),RK (86,83,87)
+          ,LK (86,84,83),LK (80,85,82),RD (84,77,76),LD (84,76,68),RK (68,83,84),LK (68,75,83),RD (69,83,75)
+          ,RK (80,82,81),LD (67,81,82),RD (67,74,81),LK (80,81,74),RK (80,74,73),LD (73,72,79),RK (71,79,72)
+          ,LK (71,78,79),RK (71,77,78),LK (71,76,77),RK (71,68,76),LD (69,75,55),RK (68,55,75),LD (67,66,74)
+          ,RK (64,74,66),LK (64,73,74),RD (73,64,72),LK (71,72,64),LK (71,70,68),RK (71,64,65),LK (71,65,63)
+          ,RK (71,63,70),LD (56,70,63),RD (56,68,70),LD (69,54,53),RD (69,55,54),LK (68,56,55),RD (67,49,48)
+          ,LD (67,48,47),RD (67,47,66),LK (64,66,47),LD (46,65,64),RD (46,63,65),RK (64,47,46),RK (63,42,56)
+          ,LK (63,45,42),LK (63,46,44),RK (63,44,45),LK (14,62,43),RK (14,61,62),LK (14,60,61),RK (14,59,60)
+          ,LK (14,58,59),RK (14,57,58),LK (14,40,57),RD (10,57,40),LK (13,56,42),RK (13,55,56),LK (13,54,55)
+          ,RK (13,53,54),LK (13,52,53),RK (13,51,52),LK (13,38,51),RD (6,51,38),LK (12,50,41),RK (12,49,50)
+          ,LK (12,48,49),RK (12,47,48),LK (12,46,47),RK (12,44,46),LD (4,45,44),RD (4,42,45),LK (12,36,44)
+          ,RD (4,44,36),RK (14,43,39),LD (8,39,43),RK (13,42,37),LD (4,37,42),RK (12,41,35),LD (2,35,41)
+          ,RK (14,9,40),LD (10,40,9),LK (14,39,9),RD (8,9,39),RK (13,5,38),LD (6,38,5),LK (13,37,5),RD (4,5,37)
+          ,RK (12,3,36),LD (4,36,3),LK (12,35,3),RD (2,3,35),RK (11,16,2),LK (11,34,16),RD (1,16,34),LK (3,2,16)
+          ,RK (3,16,18),LD (1,18,16),RK (3,20,4),LK (3,18,20),RD (1,20,18),LK (5,4,20),RK (5,20,22),LD (1,22,20)
+          ,RK (5,24,6),LK (5,22,24),RD (1,24,22),LK (7,6,24),RK (7,24,26),LD (1,26,24),RK (7,28,8),LK (7,26,28)
+          ,RD (1,28,26),LK (9,8,28),RK (9,28,30),LD (1,30,28),RK (9,32,10),LK (9,30,32),RD (1,32,30)
+          ,LK (11,10,32),RK (11,32,34),LD (1,34,32)]
+              
+
+-- addHalfKite (59,60) $ force $ decompose $ sunPlus3Dart'
 
 --testing = padBorder $ lw ultraThin $ drawVGraph $ superForce $ addHalfDart (37,59) $ force kingGraph
 {- |
@@ -1391,7 +1493,15 @@ findCore g = if nullGraph g then g else inspect firstf rest where
        where g0 = force $ makeUncheckedTgraph fcs
 
 
-
+testFig = padBorder $ lw ultraThin $ vsep 1 $ fmap drawSmartGraph $
+          [k,dk,fdk,ddk,fddk,dfdk,fdfdk] where
+            k = kiteGraph
+            dk = decompose k
+            fdk = force dk
+            ddk = decompose dk
+            fddk = force ddk
+            dfdk = decompose fdk
+            fdfdk = force dfdk
 {-*
 Testing Try functions
 -}
