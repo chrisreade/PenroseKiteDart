@@ -83,9 +83,8 @@ tryCorrectTouchingVs ::  [TileFace] -> Try Tgraph
 tryCorrectTouchingVs fcs = 
     onFail ("tryCorrectTouchingVs:\n" ++ show touchVs) $ 
     checkTgraphProps $ nub $ renumberFaces touchVs fcs
---    checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling touchVs) fcs
-    where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
         -- renumberFaces allows for a non 1-1 relabelling represented by a list 
+    where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
 
 {-*
 Advanced drawing tools for Tgraphs
@@ -403,7 +402,7 @@ empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
 -- This is drawn over one of the possible boundary covers and the faces of g are shown in red.
 drawEmpire1:: Tgraph -> Diagram B
 drawEmpire1 g = drawSubTgraph [ lw ultraThin . drawPatch
-                              , lw thin . drawPatch
+                              , lw thin . drawPatchWith (fillDK lightgrey lightgrey)
                               , lw thin . lc red . drawPatch
                               ] $ empire1 g
 
@@ -411,7 +410,7 @@ drawEmpire1 g = drawSubTgraph [ lw ultraThin . drawPatch
 -- This is drawn over one of the possible doubly-extended boundary covers and the faces of g are shown in red.
 drawEmpire2:: Tgraph -> Diagram B
 drawEmpire2 g = drawSubTgraph [ lw ultraThin . drawPatch
-                              , lw thin . drawPatch
+                              , lw thin . drawPatchWith (fillDK lightgrey lightgrey)
                               , lw thin . lc red . drawPatch
                               ] $ empire2 g
 

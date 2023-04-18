@@ -156,10 +156,16 @@ newRelabelling prs
 -- | relabellingFrom n vs - make a relabelling from finite set of vertices vs.
 -- Elements of vs are ordered and relabelled from n upwards (an error is raised if n<1).
 -- The resulting relabelling excludes any identity mappings of vertices.
-relabellingFrom :: Vertex -> VertexSet -> Relabelling
+relabellingFrom :: Int -> VertexSet -> Relabelling
 relabellingFrom n vs 
     | n<1 = error $ "relabellingFrom: Label not positive " ++ show n
     | otherwise = Relabelling $ VMap.fromAscList $ differing $ zip (IntSet.elems vs) [n..] 
+
+-- | f1 `relabellingTo` f2  - creates a relabelling so that
+-- if applied to face f1, the vertices will match with face f2 exactly.
+-- It does not check that the tile faces have the same form (LK,RK,LD,RD).
+relabellingTo :: TileFace -> TileFace -> Relabelling
+f1 `relabellingTo` f2 = newRelabelling $ zip (faceVList f1) (faceVList f2) -- f1 relabels to f2
 
 -- | Combine relabellings (assumes disjoint representation domains and disjoint representation ranges but
 -- no check is made for these).
@@ -197,11 +203,6 @@ relabelFace rlab = fmap (all3 (relabelV rlab)) where -- fmap of HalfTile Functor
 relabelV:: Relabelling -> Vertex -> Vertex
 relabelV (Relabelling r) v = VMap.findWithDefault v v r
 
--- | f1 `relabellingTo` f2  - creates a relabelling so that
--- if applied to face f1, the vertices will match with face f2 exactly.
--- It does not check that the tile faces have the same form (LK,RK,LD,RD).
-relabellingTo :: TileFace -> TileFace -> Relabelling
-f1 `relabellingTo` f2 = newRelabelling $ zip (faceVList f1) (faceVList f2) -- f1 relabels to f2
  
 
 -- |renumberFaces allows for a non 1-1 relabelling represented by a list of pairs.

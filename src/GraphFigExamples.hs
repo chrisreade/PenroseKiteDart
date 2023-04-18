@@ -1176,12 +1176,10 @@ foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] w
 -- The rest are covers with no edge of the sun Tgraph on the boundary (3 cases but with rotational repetitions).
 sunVContextsFig:: Diagram B
 sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] where
-    opens = hsep 1 $ take 7 allopens -- repetitions after first 7
+    opens = hsep 1 $ take 7 allopens ++ [allopens!!10] -- others are repetitions
     covers = hsep 1 [ allcovers!!0,  allcovers!!1,  allcovers!!4] -- others are repetitions
     allopens = (fmap (drawVContext 1 (2,3)) $ extendEContexts (2,3) [makeBoundaryState sunGraph])
     allcovers = fmap (drawVContext 1 (2,3)) $ boundaryECovers $ makeBoundaryState sunGraph 
-
-
 
 -- | oneChoiceGraph is a forced Tgraph where one boundary edge (259,260) has one of its 2 legal extensions
 -- an incorrect Tgraph
@@ -1394,6 +1392,10 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
          --removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [8,7,6,23] fsunD2
      g2 = relabelContig reduced2
+
+
+kingEmpiresFig:: Diagram B
+kingEmpiresFig = padBorder $  hsep 10 [drawEmpire1 kingGraph, drawEmpire2 kingGraph]
 
 {-| Example showing the use of commonFaces.
  This is applied to the pairs from forcedKingChoicesFig
