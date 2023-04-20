@@ -623,4 +623,17 @@ concatFails ls = case [x | Left x <- ls] of
 -- In particular, ignoreFails [] = []
 ignoreFails:: [Try a] -> [a]
 ignoreFails ls = [x | Right x <- ls]
+
+-- | atLeastOne rs - returns the list of successful results if there are any, but fails with an error otherwise.
+-- The error report will will include the concatenated eports from the failures. 
+atLeastOne:: [Try a] -> [a]
+atLeastOne results = case [x | Right x <- results] of
+                 [] -> runTry $ onFail "atLeastOne: no successful results\n" $ concatFails results
+                 _ -> ignoreFails results 
+
+-- | noFails rs - returns the list of successes when all cases succeed, but fails with
+-- an error and a concatenated failure report of all failures if there is at least one failure
+-- noFails [] = []
+noFails:: [Try a] -> [a]
+noFails = runTry . concatFails
                           

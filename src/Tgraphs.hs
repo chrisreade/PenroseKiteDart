@@ -292,12 +292,12 @@ boundaryECovers bd = covers [(bd, Set.fromList (boundary bd))] where
   covers [] = []
   covers ((open,es):opens) | Set.null es = open:covers opens
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, onBoundary des b)) (atLeastOneDartAndKite open de) ++ opens)
+      covers (fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++ opens)
       where (de,des) = Set.deleteFindMin es
 
--- | onBoundary des b - returns those directed edges in des that are boundary directed edges of bd
-onBoundary:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
-onBoundary des b = des `Set.intersection` Set.fromList (boundary b)
+-- | commonBdry des b - returns those directed edges in des that are boundary directed edges of bd
+commonBdry:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
+commonBdry des b = des `Set.intersection` Set.fromList (boundary b)
 
 {-| boundaryVCovers bd - similar to boundaryECovers, but produces a list of all possible covers of 
     the boundary vertices in bd (rather than just boundary edges).
@@ -313,16 +313,19 @@ boundaryVCovers bd = covers [(bd, startbds)] where
   covers ((open,es):opens) | Set.null es
     = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers (fmap (\b -> (b, es))  (atLeastOneDartAndKite open de) ++opens)
+        Just de -> covers (fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKite open de) ++opens)
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, onBoundary des b)) (atLeastOneDartAndKite open de) ++opens)  
+      covers (fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++opens)  
       where (de,des) = Set.deleteFindMin es
                   
+{-
 -- | anyDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
 anyDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
 anyDartAndKite b de = ignoreFails $ tryDartAndKite b de
+-}
 
+{-
 -- | atLeastOneDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing each case but will raise an error if there are no successes.
 -- THIS IS TEMPORARILY replacing anyDartAndKite in many functions in order to record counter examples.
@@ -333,12 +336,8 @@ atLeastOneDartAndKite b de = case [x | Right x <- results] of
                                ++ "\nand Tgraph:\n" ++ show (recoverGraph b)
                  _ -> ignoreFails results 
             where results = tryDartAndKite b de
+-}
 
--- | bothDartAndKite b de - returns the list of (2) cases after adding a dart (respectively kite)
--- to edge de on boundary state b and forcing. It will raise an error if either case fails, and
--- concatenates the failure reports if both cases fail.
-bothDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
-bothDartAndKite b de = runTry $ concatFails $ tryDartAndKite b de
 
 -- | tryDartAndKite b de - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. Each result is a Try.
@@ -435,7 +434,7 @@ forcedBEContexts bde bd = extend [] (locals [] [bd]) where
   locals bds (open:opens) | not (Set.member bde (Set.fromList (boundary open))) = locals bds opens
   locals bds (open:opens) | occursIn bds open bde = locals bds opens
   locals bds (open:opens) | otherwise = 
-     locals (open:bds) (concatMap (atLeastOneDartAndKite open)
+     locals (open:bds) (concatMap (atLeastOne . tryDartAndKite open)
                                   (boundaryEdgeNbs bde open)
                         ++ opens)
 --extend:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
@@ -443,7 +442,7 @@ forcedBEContexts bde bd = extend [] (locals [] [bd]) where
   extend done (c:more) | occursIn done c bde = extend done more 
                        | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
                        | otherwise 
-    = extend (c:done) (stillB (concatMap (atLeastOneDartAndKite c) (remoteBes c)) ++ more)
+    = extend (c:done) (stillB (concatMap (atLeastOne . tryDartAndKite c) (remoteBes c)) ++ more)
   remoteBes c = boundary c \\ (bde:boundaryEdgeNbs bde c)
   stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
 
@@ -463,7 +462,7 @@ extendEContexts bde bds = extend [] bds where
   extend done (c:more) | occursIn done c bde = extend done more 
                        | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
                        | otherwise 
-    = extend (c:done) (stillB (concatMap (atLeastOneDartAndKite c) (remoteBes c)) ++ more)
+    = extend (c:done) (stillB (concatMap (atLeastOne . tryDartAndKite c) (remoteBes c)) ++ more)
   remoteBes c = boundary c \\ [bde]
   stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
 
@@ -514,14 +513,14 @@ forcedBVContexts x (a,b) bd
       locals x bds (open:opens) | not (IntSet.member x $ boundaryVertices open) = locals x bds opens
       locals x bds (open:opens) | occursIn bds open (a,b) = locals x bds opens
       locals x bds (open:opens) | otherwise = 
-          locals x (open:bds) (concatMap (atLeastOneDartAndKite open)
+          locals x (open:bds) (concatMap (atLeastOne . tryDartAndKite open)
                                          (boundaryEdgesAt x open)
                               ++ opens)
 --    extend:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
       extend x done [] = reverse done
       extend x done (c:more) | occursIn done c (a,b) = extend x done more 
                              | otherwise 
-         = extend x (c:done) (stillB x (concatMap (atLeastOneDartAndKite c) (boundaryButOne x c)) ++ more)
+         = extend x (c:done) (stillB x (concatMap (atLeastOne . tryDartAndKite c) (boundaryButOne x c)) ++ more)
       stillB v = filter (\bd -> v `IntSet.member` boundaryVertices bd)
 
 -- | returns the set of boundary vertices of a BoundaryState
