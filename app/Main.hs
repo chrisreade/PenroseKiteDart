@@ -47,7 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = padBorder $ drawEmpire1 kingGraph --wrongRocket--superForceFig --oneChoiceFig--newTest--mistake4Explore--boundaryEdgeCaseTrees 
+fig = padBorder $ wrongRocket --wrongRocket--superForceFig --oneChoiceFig--newTest--mistake4Explore--boundaryEdgeCaseTrees 
 
 main = mainWith fig
 
