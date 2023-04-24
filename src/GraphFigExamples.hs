@@ -549,10 +549,10 @@ gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
     ] where g = boundaryGapFDart4
 -}
 
-{-| bigPic is a diagram illustrating force/emplacement relationships for decomposed darts
-     bigPic0 is main diagram for bigPic without the arrows
--}
 dartPic0,kitePic0,bigPic :: Diagram B
+{-| dartPic0 is a diagram of force/emplacement relationships for decomposed darts
+    without arrows. 
+-}
 dartPic0 = padBorder $ lw ultraThin $ position $ concat
           [ zip pointsR1 $ rotations [0,1,1] partComps
           , zip pointsR2 $ zipWith named ["a4", "a3","a2","a1","a0"] (dots : rotations [1,1] forceDs)
@@ -567,6 +567,9 @@ dartPic0 = padBorder $ lw ultraThin $ position $ concat
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (140, 40), (186, 40)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]    
 
+{-| kitePic0 is a diagram of force/emplacement relationships for decomposed kites
+    without arrows. 
+-}
 kitePic0 = padBorder $ lw ultraThin $ position $ concat
           [ zip pointsR1 $ rotations [0,0,1,1] partComps
           , zip pointsR2 $ zipWith named ["a4", "a3","a2","a1","a0"] (dots : rotations [0,1,1] forceDs)
@@ -581,8 +584,12 @@ kitePic0 = padBorder $ lw ultraThin $ position $ concat
               pointsR2 = map p2 [ (0, 44), (42, 44), (95, 44), (140, 44), (186, 44)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]    
 
+{-| bigPic is a diagram illustrating force/emplacement relationships for decomposed darts
+    and decomposed kites. 
+-}
 bigPic = addArrows dartPic0 === addArrows kitePic0
 
+-- | addArrows is used to put arrows in both dartPic0 and kitePic0 (and bigPic)
 addArrows d = d  # composeArcRight "a3" "a2"
                  # composeArcRight "a2" "a1"
                  # composeArcRight "a1" "a0"
@@ -950,22 +957,22 @@ kingFD6:: Diagram B
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makePatch $
           allForcedDecomps kingGraph !!6
 
--- | displays some test cases for boundary edge types using boundaryECovers
+-- | displays some test cases for boundary edge types using boundaryECovering
 testCasesE = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
     examples = [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
     testcase alig g = hsep 1 $ 
-      fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryECovers $ bd 
+      fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryECovering $ bd 
       where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
             seeOrigin = ((circle 0.25 # fc red # lw none) <>) 
             bd = runTry $ tryForceBoundary $ makeBoundaryState g
             vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
             fbdes = drawEdgesWith vp (boundary bd) # lw thin
 
--- | displays some test cases for boundary edge types using boundaryVCovers
+-- | displays some test cases for boundary edge types using boundaryVCovering
 testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
     examples = [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
     testcase alig g = hsep 1 $ 
-      fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryVCovers bd 
+      fmap (((t <> fbdes) <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ boundaryVCovering bd 
       where t = seeOrigin $ drawPatchWith (fillDK black black) $ makeAlignedPatch alig g
             seeOrigin = ((circle 0.25 # fc red # lw none) <>)
             bd = runTry $ tryForceBoundary $ makeBoundaryState g
@@ -1054,24 +1061,24 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ hsep 5  [vsep 10 [k
                then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd)}
                else Node{ rootLabel=bd, subForest = []}
 
--- | boundaryVCoverFigs g - produces a list of diagrams for the boundaryVCovers of g  (with g shown in red in each case)
+-- | boundaryVCoverFigs g - produces a list of diagrams for the boundaryVCovering of g  (with g shown in red in each case)
 boundaryVCoverFigs g = 
     fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
-    boundaryVCovers $ makeBoundaryState g 
+    boundaryVCovering $ makeBoundaryState g 
       where redg = lc red $ drawPatch $ makeAlignedPatch alig g
             alig = lowestJoin (faces g)
 
--- | boundaryECoverFigs g - produces a list of diagrams for the boundaryECovers of g  (with g shown in red in each case)
+-- | boundaryECoverFigs g - produces a list of diagrams for the boundaryECovering of g  (with g shown in red in each case)
 boundaryECoverFigs g = 
     fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
-    boundaryECovers $ makeBoundaryState g 
+    boundaryECovering $ makeBoundaryState g 
       where redg = lc red $ drawPatch $ makeAlignedPatch alig g
             alig = lowestJoin (faces g)
 
--- | diagram showing the boundaryECovers of a forced kingGraph
-kingECoversFig = padBorder $ arrangeRows 3 $ boundaryECoverFigs $ force kingGraph
--- | diagram showing the boundaryVCovers of a forced kingGraph
-kingVCoversFig = padBorder $ arrangeRows 3 $ boundaryVCoverFigs $ force kingGraph
+-- | diagram showing the boundaryECovering of a forced kingGraph
+kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoverFigs $ force kingGraph
+-- | diagram showing the boundaryVCovering of a forced kingGraph
+kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoverFigs $ force kingGraph
 
 {-*
 Forced Boundary Edge and Vertex Contexts
@@ -1168,7 +1175,7 @@ foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] w
 --            ++ (fmap (drawVContext 3 (4,7)) $ extendEContexts (4,7) [makeBoundaryState fool])
               ++ (fmap (drawVContext 3 (7,6)) $ extendEContexts (7,6) [makeBoundaryState fool])      
     covers = centerX $ hsep 1 $
-              fmap (drawVContext 3 (1,4)) $ reverse $ boundaryECovers $ makeBoundaryState fool 
+              fmap (drawVContext 3 (1,4)) $ reverse $ boundaryECovering $ makeBoundaryState fool 
 
 -- |Diagram showing local contexts in a forced Tgraph for a sun vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
@@ -1179,7 +1186,7 @@ sunVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] wh
     opens = hsep 1 $ take 7 allopens -- repetitions after first 7
     covers = hsep 1 [ allcovers!!0,  allcovers!!1,  allcovers!!4] -- others are repetitions
     allopens = (fmap (drawVContext 1 (2,3)) $ extendEContexts (2,3) [makeBoundaryState sunGraph])
-    allcovers = fmap (drawVContext 1 (2,3)) $ boundaryECovers $ makeBoundaryState sunGraph 
+    allcovers = fmap (drawVContext 1 (2,3)) $ boundaryECovering $ makeBoundaryState sunGraph 
 
 
 
@@ -1285,11 +1292,11 @@ oneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $
   successful = force $ addHalfDart (76,77) oneChoiceGraph
   incorrectExtension = addHalfKite (76,77) oneChoiceGraph -- fails on forcing
 
--- | Figure showing boundaryECovers of oneChoiceGraph
+-- | Figure showing boundaryECovering of oneChoiceGraph
 coverOneChoiceFig:: Diagram B
 coverOneChoiceFig = pad 1.02 $ lw ultraThin $ arrangeRows 3 $
   fmap drawCase beCover where
-    beCover = boundaryECovers (makeBoundaryState oneChoiceGraph)
+    beCover = boundaryECovering (makeBoundaryState oneChoiceGraph)
     drawCase bd = overlay <> drawGraph (recoverGraph bd) 
     overlay = drawGraph oneChoiceGraph # lc red
 
@@ -1324,8 +1331,8 @@ testLoops1 = padBorder $ boundaryLoopFill honeydew boundaryGapFDart4
 -- | diagram using boundaryLoopFill with two boundary loops (i.e. a single hole)
 testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
          g = removeFaces (faces $ recoverGraph bs1) (recoverGraph bs2)
-         bs2 = head $ boundaryVCovers bs1 
-         bs1 = head $ boundaryVCovers bs0
+         bs2 = head $ boundaryVCovering bs1 
+         bs1 = head $ boundaryVCovering bs0
          bs0 = runTry $ tryForceBoundary $ makeBoundaryState kingGraph
 --         bs0 = makeBoundaryState $ force kingGraph
 
@@ -1391,6 +1398,12 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
          --removeFaces [RK(1,16,36)] (removeVertices [20,48,49,35,37] sunD2)
      reduced2 = removeVertices [8,7,6,23] fsunD2
      g2 = relabelContig reduced2
+
+-- | figures showing King's empires (1 and 2)
+kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig::Diagram B
+kingEmpiresFig = padBorder $ hsep 10 [kingEmpire1Fig, kingEmpire2Fig]
+kingEmpire1Fig = drawEmpire1 kingGraph
+kingEmpire2Fig = drawEmpire2 kingGraph
 
 {-| Example showing the use of commonFaces.
  This is applied to the pairs from forcedKingChoicesFig
@@ -1493,7 +1506,8 @@ findCore g = if nullGraph g then g else inspect firstf rest where
                      else makeUncheckedTgraph (fc:fcs)
        where g0 = force $ makeUncheckedTgraph fcs
 
-
+{-
+-- | checking f d d  = f d f d for example kingGraph
 testFig = padBorder $ lw ultraThin $ vsep 1 $ fmap drawSmartGraph $
           [k,dk,fdk,ddk,fddk,dfdk,fdfdk] where
             k = kiteGraph
@@ -1503,6 +1517,8 @@ testFig = padBorder $ lw ultraThin $ vsep 1 $ fmap drawSmartGraph $
             fddk = force ddk
             dfdk = decompose fdk
             fdfdk = force dfdk
+-}
+
 {-*
 Testing Try functions
 -}
@@ -1535,6 +1551,5 @@ eitherMaybeExample :: Int -> Try (Maybe Int)
 eitherMaybeExample a | a<1 = Right Nothing
                      | a<3 = Right (Just a) 
                      | otherwise = Left "eitherMaybeExample: arg >=3\n"
-
 
 

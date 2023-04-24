@@ -255,39 +255,39 @@ makeChoices g = choices unks [g] where
     choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
 
 {-*
-Boundary Covers and Empires
+Boundary Covering and Empires
 -}
 
-{-| forcedBoundaryECovers g - produces a list of all boundary covers of force g, each of which
+{-| forcedBoundaryECovering g - produces a list of all boundary covers of force g, each of which
 extends force g to cover the entire boundary directed edges in (force g).
 (So the boundary of force g is entirely internal edges in each cover).
 The covers include all possible ways faces can be added on the boundary that are correct.
 The common faces of the covers constitute the empire (level 1) of g.
 This will raise an error if the initial force fails with a stuck graph.
 -}
-forcedBoundaryECovers:: Tgraph -> [Tgraph]
-forcedBoundaryECovers g = fmap recoverGraph $ boundaryECovers gforcedBdry where
-     gforcedBdry = runTry $ onFail "forcedBoundaryECovers:Initial force failed (incorrect Tgraph)\n" $
+forcedBoundaryECovering:: Tgraph -> [Tgraph]
+forcedBoundaryECovering g = fmap recoverGraph $ boundaryECovering gforcedBdry where
+     gforcedBdry = runTry $ onFail "forcedBoundaryECovering:Initial force failed (incorrect Tgraph)\n" $
                              tryForceBoundary $ makeBoundaryState g
 
-{-| forcedBoundaryVCovers g - produces a list of all boundary covers of force g as with
-forcedBoundaryECovers g but covering all boundary vertices rather than just boundary edges.                        
+{-| forcedBoundaryVCovering g - produces a list of all boundary covers of force g as with
+forcedBoundaryECovering g but covering all boundary vertices rather than just boundary edges.                        
 -}
-forcedBoundaryVCovers:: Tgraph -> [Tgraph]
-forcedBoundaryVCovers g = fmap recoverGraph $ boundaryVCovers gforcedBdry where
-     gforcedBdry = runTry $ onFail "forcedBoundaryVCovers:Initial force failed (incorrect Tgraph)\n" $
+forcedBoundaryVCovering:: Tgraph -> [Tgraph]
+forcedBoundaryVCovering g = fmap recoverGraph $ boundaryVCovering gforcedBdry where
+     gforcedBdry = runTry $ onFail "forcedBoundaryVCovering:Initial force failed (incorrect Tgraph)\n" $
                              tryForceBoundary $ makeBoundaryState g
 
-{-| boundaryECovers bd - produces a list of all possible covers of the boundary directed edges in bd.
+{-| boundaryECovering bd - produces a list of all possible covers of the boundary directed edges in bd.
 [bd should be a boundary state resulting from forcing].
-A cover is an extension (of bd) such that the original boundary directed edges of bd are all internal edges.
+A cover is a forced extension (of bd) such that the original boundary directed edges of bd are all internal edges.
 Extensions are made by repeatedly adding a face to any edge on the original boundary that is still on the boundary
 and forcing, repeating this until the orignal boundary is all internal edges.
 The resulting covers account for all possible ways the boundary can be extended.
 This can raise an error if bd is a boundary state of an unforced Tgraph.
 -}
-boundaryECovers:: BoundaryState -> [BoundaryState]
-boundaryECovers bd = covers [(bd, Set.fromList (boundary bd))] where
+boundaryECovering:: BoundaryState -> [BoundaryState]
+boundaryECovering bd = covers [(bd, Set.fromList (boundary bd))] where
 --covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
   covers ((open,es):opens) | Set.null es = open:covers opens
@@ -299,13 +299,13 @@ boundaryECovers bd = covers [(bd, Set.fromList (boundary bd))] where
 commonBdry:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
 commonBdry des b = des `Set.intersection` Set.fromList (boundary b)
 
-{-| boundaryVCovers bd - similar to boundaryECovers, but produces a list of all possible covers of 
+{-| boundaryVCovering bd - similar to boundaryECovering, but produces a list of all possible covers of 
     the boundary vertices in bd (rather than just boundary edges).
     [bd should be a boundary state resulting from forcing].
     This can raise an error if bd is a boundary state of an unforced Tgraph.
 -}
-boundaryVCovers:: BoundaryState -> [BoundaryState]
-boundaryVCovers bd = covers [(bd, startbds)] where
+boundaryVCovering:: BoundaryState -> [BoundaryState]
+boundaryVCovering bd = covers [(bd, startbds)] where
   startbds = Set.fromList $ boundary bd
   startbvs = Set.map fst startbds
 --covers:: [(BoundaryState,Set.Set Dedge)] -> [BoundaryState]
@@ -349,10 +349,10 @@ tryDartAndKite b de =
         tryAddHalfKiteBoundary de b >>= tryForceBoundary
     ]
 
--- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovers g
-drawFBCovers:: Tgraph -> Diagram B
-drawFBCovers g = lw ultraThin $ vsep 1 $ 
-     fmap drawGraph $ forcedBoundaryVCovers g
+-- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g
+drawFBCovering:: Tgraph -> Diagram B
+drawFBCovering g = lw ultraThin $ vsep 1 $ 
+     fmap drawGraph $ forcedBoundaryVCovering g
 
 -- | empire1 g - produces a SubTgraph representing the level 1 empire of g.
 -- The tgraph of the result is an arbitrarily chosen boundary vertex cover of force g,
@@ -360,7 +360,7 @@ drawFBCovers g = lw ultraThin $ vsep 1 $
 -- at the head, followed by the original faces of g.
 empire1:: Tgraph -> SubTgraph
 empire1 g = makeSubTgraph g0 [fcs,faces g] where
-    (g0:others) = forcedBoundaryVCovers g
+    (g0:others) = forcedBoundaryVCovering g
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
@@ -375,9 +375,9 @@ empire1 g = makeSubTgraph g0 [fcs,faces g] where
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> SubTgraph
 empire2 g = makeSubTgraph g0 [fcs, faces g] where
-    covers1 = boundaryECovers $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
+    covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
-    covers2 = concatMap boundaryECovers covers1
+    covers2 = concatMap boundaryECovering covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
@@ -385,13 +385,13 @@ empire2 g = makeSubTgraph g0 [fcs, faces g] where
 
 
 -- | empire2Plus g - produces a SubTgraph representing an extended level 2 empire of g
--- similar to empire2, but using boundaryVCovers insrtead of boundaryECovers.
+-- similar to empire2, but using boundaryVCovering insrtead of boundaryECovering.
 -- On a kinGraph this currently takes about 4 hours 20 minutes.
 empire2Plus:: Tgraph -> SubTgraph
 empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
-    covers1 = boundaryVCovers $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
+    covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForceBoundary $ makeBoundaryState g
-    covers2 = concatMap boundaryVCovers covers1
+    covers2 = concatMap boundaryVCovering covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
@@ -574,20 +574,20 @@ trySuperForceBdry bd =
 -- The result a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
 singleChoiceEdges :: BoundaryState -> [(Dedge,HalfTileLabel)]
-singleChoiceEdges bd = commonToCovers (boundaryECovers bd) (boundary bd)  
+singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)  
 
--- |commonToCovers bds edges - when bds are all the boundary edge covers of some forced Tgraph
+-- |commonToCovering bds edges - when bds are all the boundary edge covers of some forced Tgraph
 -- whose boundary edges are edgelist, this looks for edges in edgelist that have the same tile label added in all covers.
 -- This indicates there is a single correct choice for such an edge.
 -- The result is a list of pairs: edge and a common tile label.
-commonToCovers :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
-commonToCovers bds edges = common edges (transpose labellists) where
+commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
+commonToCovering bds edges = common edges (transpose labellists) where
     labellists = fmap (\bd -> reportCover bd edges) bds
     common [] lls = []
     common (e:more) (l:ls) = if matching l 
                              then (e,head l):common more ls
                              else common more ls
-    matching [] = error "commonToCovers: empty list of labels" 
+    matching [] = error "commonToCovering: empty list of labels" 
     matching (l:ls) = all (==l) ls
 
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
