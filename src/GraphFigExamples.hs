@@ -957,6 +957,7 @@ kingFD6:: Diagram B
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makePatch $
           allForcedDecomps kingGraph !!6
 
+{-
 -- | displays some test cases for boundary edge types using boundaryECovering
 testCasesE = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgraph . (:[])) examples where
     examples = [LD(1,3,2),LK(2,1,3),LK(3,2,1)]
@@ -978,6 +979,7 @@ testCasesV = padBorder $ lw ultraThin $ vsep 1 $ fmap (testcase (1,2) . makeTgra
             bd = runTry $ tryForceBoundary $ makeBoundaryState g
             vp = alignXaxis alig $ makeVPinned $ recoverGraph bd
             fbdes = drawEdgesWith vp (boundary bd) # lw thin
+-}
 
 {- OLD non-tree version
 -- | displays all cases for boundary edges by adding faces at either end and forcing.
@@ -1061,24 +1063,27 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ hsep 5  [vsep 10 [k
                then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd)}
                else Node{ rootLabel=bd, subForest = []}
 
--- | boundaryVCoverFigs g - produces a list of diagrams for the boundaryVCovering of g  (with g shown in red in each case)
-boundaryVCoverFigs g = 
+-- | boundaryVCoveringFigs g - produces a list of diagrams for the boundaryVCovering of g  (with g shown in red in each case)
+boundaryVCoveringFigs:: Tgraph -> [Diagram B]
+boundaryVCoveringFigs g = 
     fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
     boundaryVCovering $ makeBoundaryState g 
       where redg = lc red $ drawPatch $ makeAlignedPatch alig g
             alig = lowestJoin (faces g)
 
--- | boundaryECoverFigs g - produces a list of diagrams for the boundaryECovering of g  (with g shown in red in each case)
-boundaryECoverFigs g = 
+-- | boundaryECoveringFigs g - produces a list of diagrams for the boundaryECovering of g  (with g shown in red in each case)
+boundaryECoveringFigs:: Tgraph -> [Diagram B]
+boundaryECoveringFigs g = 
     fmap (lw ultraThin . (redg <>) . drawPatch . makeAlignedPatch alig . recoverGraph) $ 
     boundaryECovering $ makeBoundaryState g 
       where redg = lc red $ drawPatch $ makeAlignedPatch alig g
             alig = lowestJoin (faces g)
 
 -- | diagram showing the boundaryECovering of a forced kingGraph
-kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoverFigs $ force kingGraph
+kingECoveringFig,kingVCoveringFig :: Diagram B
+kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoveringFigs $ force kingGraph
 -- | diagram showing the boundaryVCovering of a forced kingGraph
-kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoverFigs $ force kingGraph
+kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoveringFigs $ force kingGraph
 
 {-*
 Forced Boundary Edge and Vertex Contexts
@@ -1293,8 +1298,8 @@ oneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $
   incorrectExtension = addHalfKite (76,77) oneChoiceGraph -- fails on forcing
 
 -- | Figure showing boundaryECovering of oneChoiceGraph
-coverOneChoiceFig:: Diagram B
-coverOneChoiceFig = pad 1.02 $ lw ultraThin $ arrangeRows 3 $
+coveringOneChoiceFig:: Diagram B
+coveringOneChoiceFig = pad 1.02 $ lw ultraThin $ arrangeRows 3 $
   fmap drawCase beCover where
     beCover = boundaryECovering (makeBoundaryState oneChoiceGraph)
     drawCase bd = overlay <> drawGraph (recoverGraph bd) 
@@ -1399,11 +1404,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
      reduced2 = removeVertices [8,7,6,23] fsunD2
      g2 = relabelContig reduced2
 
--- | figures showing King's empires (1 and 2)
-kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig::Diagram B
-kingEmpiresFig = padBorder $ hsep 10 [kingEmpire1Fig, kingEmpire2Fig]
-kingEmpire1Fig = drawEmpire1 kingGraph
-kingEmpire2Fig = drawEmpire2 kingGraph
+
 
 {-| Example showing the use of commonFaces.
  This is applied to the pairs from forcedKingChoicesFig
@@ -1418,6 +1419,18 @@ testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23)
         g1 = tgraph sub1
         g2 = tgraph sub2
 
+{-*
+Testing Empires
+-}
+
+-- | figures showing King's empires (1 and 2)
+kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig::Diagram B
+kingEmpiresFig = padBorder $ hsep 10 [kingEmpire1Fig, kingEmpire2Fig]
+kingEmpire1Fig = drawEmpire1 kingGraph
+kingEmpire2Fig = drawEmpire2 kingGraph
+
+
+{-
 -- | Diagram comparing two choices at 4 boundary edges of a forced kingGraph
 forcedKingChoicesFig :: Diagram B
 forcedKingChoicesFig = padBorder $ lw ultraThin $ vsep 1 $ fmap example [(57,58),(20,38),(16,23),(49,59)] where
@@ -1481,6 +1494,11 @@ kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawVGraph [fk, fdfk,
     fk = force kingGraph
     fdfk = forcedDecomp fk
     fdfdfk = forcedDecomp fdfk
+-}
+
+{-*
+Inspection tools
+-}
 
 {- | A failure inspection tool.
 If a Tgraph is found to be incorrect when forced, findMistake applied to the list of incorrect faces
@@ -1506,18 +1524,6 @@ findCore g = if nullGraph g then g else inspect firstf rest where
                      else makeUncheckedTgraph (fc:fcs)
        where g0 = force $ makeUncheckedTgraph fcs
 
-{-
--- | checking f d d  = f d f d for example kingGraph
-testFig = padBorder $ lw ultraThin $ vsep 1 $ fmap drawSmartGraph $
-          [k,dk,fdk,ddk,fddk,dfdk,fdfdk] where
-            k = kiteGraph
-            dk = decompose k
-            fdk = force dk
-            ddk = decompose dk
-            fddk = force ddk
-            dfdk = decompose fdk
-            fdfdk = force dfdk
--}
 
 {-*
 Testing Try functions

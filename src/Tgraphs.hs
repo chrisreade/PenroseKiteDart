@@ -285,15 +285,28 @@ Extensions are made by repeatedly adding a face to any edge on the original boun
 and forcing, repeating this until the orignal boundary is all internal edges.
 The resulting covers account for all possible ways the boundary can be extended.
 This can raise an error if bd is a boundary state of an unforced Tgraph.
+It will raise an error if both choices on a boundary edge fail when forced (using atLeastOne).
 -}
+boundaryECovering:: BoundaryState -> [BoundaryState]
+boundaryECovering bs = covers [(bs, Set.fromList (boundary bs))] where
+-- covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
+  covers [] = []
+  covers ((bs,es):opens) 
+    | Set.null es = bs:covers opens -- bs is a completed cover
+    | otherwise = covers (newcases ++ opens)
+       where (de,des) = Set.deleteFindMin es
+             newcases = fmap (\b -> (b, commonBdry des b))
+                             (atLeastOne $ tryDartAndKite bs de)
+{-
 boundaryECovering:: BoundaryState -> [BoundaryState]
 boundaryECovering bd = covers [(bd, Set.fromList (boundary bd))] where
 --covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
   covers ((open,es):opens) | Set.null es = open:covers opens
   covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++ opens)
+      covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++ opens
       where (de,des) = Set.deleteFindMin es
+-}
 
 -- | commonBdry des b - returns those directed edges in des that are boundary directed edges of bd
 commonBdry:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
@@ -310,13 +323,12 @@ boundaryVCovering bd = covers [(bd, startbds)] where
   startbvs = Set.map fst startbds
 --covers:: [(BoundaryState,Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
-  covers ((open,es):opens) | Set.null es
-    = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
+  covers ((open,es):opens) 
+    | Set.null es = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers (fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKite open de) ++opens)
-  covers ((open,es):opens) | otherwise = 
-      covers (fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++opens)  
-      where (de,des) = Set.deleteFindMin es
+        Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKite open de) ++opens
+    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++opens  
+    where (de,des) = Set.deleteFindMin es
                   
 {-
 -- | anyDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
