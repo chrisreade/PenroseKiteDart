@@ -497,6 +497,49 @@ relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2(-10,-10))) <>  mainfig wh
             a = named "A" (rect 0 0.1 # lw none)
             b = named "B" (rect 0 0.1 # lw none)
 
+        
+-- |forceRules shows cases for a proof.
+-- Each line has the form  g, decompose g, force (decompose g), compose(force (decompose g)), force g
+-- (An empty Tgraph is represented as a red circle with diagonal line through it)
+-- We note that in each line the last 2 are the same  iff the first is a perfect composition of the second.
+forceRules:: Diagram B
+forceRules = pad 1.05 $ centerXY $ lw ultraThin $ vsep 1 $ fmap expandLine lines where
+  lines = [ [RD(1,2,3)]
+          , [LK(1,2,3)]
+          , [RD(1,2,3),LD(1,3,4)]
+          , [LK(1,2,3),RK(1,3,4)]
+          , [LK(1,2,3),RD(5,3,2)]
+          , [LK(1,2,3),RK(1,3,4),RD(5,3,2)]
+          , [LK(1,2,3),RD(2,1,4)]
+          , [LK(1,2,3),RD(2,1,4),LK(5,4,1)]
+          , [LK(1,2,3),RD(2,1,4),LD(2,4,5)]
+          , [LK(1,2,3),RD(2,1,4),LD(2,4,5),RK(1,3,6)]
+          , [LK(1,2,3),RD(2,1,4),LK(5,4,1),RK(1,3,6)]
+          , [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3)]          
+          , [LK(1,2,3),RK(1,3,4),RD(5,3,2),LD(6,4,3)]          
+          , [RK(1,2,8),LK(1,3,2),RK(1,4,3),LK(1,5,4),RK(1,6,5),LK(1,7,6)]
+          , [RK(1,2,11),LK(1,3,2),RK(1,4,3),LK(1,9,8),RK(1,10,9),LK(1,11,10)]
+          , [LD(1,2,3),RD(1,11,2),LD(1,8,9),RD(1,7,8),LD(1,6,7),RD(1,5,6),LD(1,4,5),RD(1,3,4)]
+          , [LD(1,2,3),RD(1,11,2),LD(1,10,11),RD(1,7,8),LD(1,6,7),RD(1,5,6),LD(1,4,5),RD(1,3,4)]
+          , [LK(1,2,3),RD(2,1,4),LD(2,4,5),RK(1,3,6),RD(2,5,7),LD(2,7,8)]
+          , [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2)]          
+          , [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(1,8,7),LK(9,2,7),RK(9,7,10)]          
+          , [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(9,2,7)]          
+          , [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(1,8,7)]          
+          ]
+  emptyRep r = lc red $ (circle r :: QDiagram B V2 Double Any) <> rotate (45@@deg) (hrule (2*r))
+  expandLine fs1 = hsep 3 line where
+    line = [d1,d2,d3,d4,d0]
+    d4 = if nullGraph g4
+         then emptyRep phi
+         else scale phi $ drawSmartGraphAligned (1,2) g4
+    [d1,d2,d3,d0] = scales [phi,1,1,phi] $ fmap (drawSmartGraphAligned (1,2)) [g1, g2, g3, g0] 
+    g1 = makeTgraph fs1
+    g2 = decompose g1
+    g3 = force g2
+    g4 = compose g3
+    g0 = force g1
+
 {-*
 Other miscelaneous Tgraphs and Diagrams
 -}

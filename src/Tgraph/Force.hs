@@ -234,7 +234,8 @@ tryForceStateWith uGen = retry where
                                             }
              _  -> do maybeBdC <- tryUnsafes fs
                       case maybeBdC of
-                        Nothing  -> return fs  -- no more updates
+                        Nothing  -> tryFinalStuckCheck fs  -- no more updates
+--                        Nothing  -> return fs  -- no more updates
                         Just bdC -> do uMap <- tryReviseUpdates uGen bdC (updateMap fs)
                                        retry $ ForceState{ boundaryState = newBoundaryState bdC
                                                          , updateMap = uMap
@@ -520,6 +521,25 @@ noConflict fc fcs = null (faceDedges fc `intersect` facesDedges fcs) &&
                     null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
 
 
+{- |
+tryFinalStuckCheck is designed to check a final force state.
+The final state is rejected as having a stuck Tgraph if any boundary vertex external angle is less than 4 (tenth turns).
+This check is now included in tryForceStateWith to catch examples like
+
+  makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)] 
+
+Forcing will not discover that the result is stuck without the check.            
+-}
+tryFinalStuckCheck:: ForceState -> Try ForceState
+tryFinalStuckCheck fs =
+  case find ((<4) . externalAngle bs) bvs of
+     Nothing -> Right fs
+     Just v -> Left $ "tryFinalStuckCheck: stuck/incorrect tiling: external angle problem found at vertex " ++ show v ++
+                      " in Tgraph:\n" ++ show (recoverGraph bs)
+  where bs = boundaryState fs
+        bvs = fmap fst (boundary bs)
+
+      
 {-*
 Forcing Rules and Individual Update Generators (for each rule)
 -}
@@ -656,9 +676,11 @@ mustbeKing:: BoundaryState -> Vertex -> Bool
 mustbeKing bd v = isKiteWing bd v && length dartOrigins ==4
    where  dartOrigins = filter ((==v) . originV) $ filter isDart $ facesAtBV bd v
 
--- |A booundary vertex which is a kite wing and dart origin must be either a king or queen
+{-
+-- |A boundary vertex which is a kite wing and dart origin must be either a king or queen
 mustbeQorK:: BoundaryState -> Vertex -> Bool
 mustbeQorK bd v = isDartOrigin bd v && isKiteWing bd v
+-}
 
 -- |isKiteWing bd v - Vertex v is a kite wing in BoundaryState bd
 isKiteWing:: BoundaryState -> Vertex -> Bool
@@ -749,7 +771,7 @@ nonKDarts = boundaryFilter bShortDarts where
 
 
 -- |Update generator for rule (3)
- -- queen and king vertices add a missing kite half
+ -- queen and king vertices add a missing kite half (on a boundary kite short edge)
 queenOrKingUpdates :: UpdateGenerator
 queenOrKingUpdates = makeGenerator addKiteShortE kitesWingDartOrigin
 
@@ -758,7 +780,6 @@ kitesWingDartOrigin :: UFinder
 kitesWingDartOrigin = boundaryFilter kiteWDO where
    kiteWDO bd (a,b) fc = shortE fc == (b,a) 
                          && isKite fc && isDartOrigin bd (wingV fc)
-   isDartOrigin bd v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
 
 
 {-| Update generator for rule (4)
