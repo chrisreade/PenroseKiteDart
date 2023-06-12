@@ -169,9 +169,9 @@ drawWithMax g =  (dmax # lc red # lw thin) <> dg where
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (drawEdgesWith vp bd # lc lime) <> drawVPinned vp where
+drawGBoundary g =  (drawEdgesWith vp edges # lc lime) <> drawVPinned vp where
     vp  = makeVPinned g
-    bd = graphBoundary g
+    edges = graphBoundary g
 
 -- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces (g1,e1) (g2,e2) to find the common faces
 -- and emphasizes them on the background g1

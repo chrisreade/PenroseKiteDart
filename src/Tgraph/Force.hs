@@ -712,7 +712,7 @@ kiteWingCount bd v = length $ filter ((==v) . wingV) $ filter isKite (facesAtBV 
 -- (false means it is either undetermined or is a large kite centre  - deuce)
 mustbeJack :: BoundaryState -> Vertex -> Bool
 mustbeJack bd v =
-  (length dWings == 2 && not (hasAnyMatchingE (fmap longE dWings))) ||
+  (length dWings == 2 && not (hasAnyMatchingE (fmap longE dWings))) || -- 2 dart wings and dart long edges not shared.
   (length dWings == 1 && isKiteOrigin) 
   where fcs = facesAtBV bd v
         dWings = filter ((==v) . wingV) $ filter isDart fcs
