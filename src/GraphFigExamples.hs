@@ -143,19 +143,20 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 {-|
 This example illustrates that an experimental version of composition (composeK)
-which defaults to kites when there are choices (unknowns) can produce incorrect Tgraphs.
-(A counter example to composeK being correct)
-The second Tgraph shown (force queenGraph) is correct and its normal (partial) composition is shown to the left.
-The third Tgraph is the result of applying composeK and the last Tgraph is the result of applying composeK again
-- the mistake1 Tgraph.
-Both these last 2 Tgraphs are incorrect (and will fail when forced).
+which defaults to kites when there are choices (unknowns) is erroneous (does not preserve correctness).
+The left Tgraph is force queenGraph and is correct.
+The middle Tgraph is the result of applying composeK to the left Tgraph and is an incorrect Tgraph (fails on forcing).
+On the right is our usual composition with remainder faces shown green.
+
+Note that both compose and composeK applied to the middle Tgraph produce the mistake1 Tgraph (also incorrect).
 -}
 counterK :: Diagram B
 counterK = padBorder $ lw thin $ hsep 1 $ 
-             drawPCompose g : (rotations [0,6,5] $ phiScales $ fmap drawSmartGraph [g,kg,kkg])
+--             drawPCompose g : (rotations [0,6,5] $ phiScales $ fmap dashJGraph [g,kg,kkg])
+           (rotations [0,6] $ phiScales $ fmap dashJGraph [g,kg]) ++ [drawPCompose g]
         where g = force queenGraph
               kg = composeK g
-              kkg = composeK kg
+--              kkg = composeK kg
 -- An experimental version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
 -- composeK :: Tgraph -> Tgraph
