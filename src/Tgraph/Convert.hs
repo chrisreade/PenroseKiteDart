@@ -152,7 +152,7 @@ drawVPinnedWith pd vp = drawVlabels (vLocs vp) <> drawPatchWith pd (dropLabels v
 -- |draws vertex labels at assigned points.
 drawVlabels :: VertexLocMap -> Diagram B
 drawVlabels vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
-    where label v = baselineText (show v) # fontSize (global 0.3) # fc red
+    where label v = baselineText (show v) # fontSize (normalized 0.02) # fc red  -- was global 0.3
 
 -- |relevantVPinnedWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
 -- BUT drops drawing of vertices that are not mentioned in the faces.
@@ -170,6 +170,12 @@ makeAlignedPatch vs g = dropLabels $ alignXaxis vs $ makeVPinned g
 -- Note this does not rotate the labels themselves.
 drawRotatedVGraph:: Angle Double -> Tgraph -> Diagram B
 drawRotatedVGraph a = drawVPinned . rotate a . makeVPinned
+
+-- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default,
+-- with dashed joins.
+-- Note this does not rotate the labels themselves.
+dashJRotatedVGraph:: Angle Double -> Tgraph -> Diagram B
+dashJRotatedVGraph a = dashJVPinned . rotate a . makeVPinned
 
 
 {-* VPinned Alignment with Vertices

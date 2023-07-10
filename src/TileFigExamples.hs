@@ -117,7 +117,7 @@ sun5Over6Fig::Diagram B
 sun5Over6Fig = (drawPatch sun5 # lc red # dashingN [0.003,0.003] 0 <> drawPatch sun6) # lw thin
 -- |Using experiment (defined in Tilelib) on sun6 clearly illustrates the embedded sun5
 experimentFig::Diagram B
-experimentFig = drawPatchWith experiment sun6 # lw thin
+experimentFig = pad 1.1 $ lw thin $ drawPatchWith experiment sun6
 -- |Using experiment (defined in Tilelib) on sun4 clearly illustrates the embedded sun3
 twoLevelsFig::Diagram B
 twoLevelsFig = drawPatchWith experiment (suns!!4)

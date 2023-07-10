@@ -127,6 +127,31 @@ dartDs =  decompositions dartGraph
 dartD4 :: Tgraph
 dartD4 = dartDs!!4
 
+-- |Diagram showing decomposition of (left hand) half-tiles.
+decompHalf :: Diagram B
+decompHalf = (vsep 1 [hsep 2 [dartFig, ddartFig], hsep 2 [kiteFig, dkiteFig]])
+              # decompArrow "dart" "ddart" 
+              # decompArrow "kite" "dkite"
+              # padBorder <> (baselineText "decompose" # fontSize (normalized 0.05) # fc blue)
+    where d = makeTgraph [LD(1,2,3)]
+          k = makeTgraph [LK(1,2,3)]
+          dartFig = named "dart" $ centerXY $ dashJVPinned $ scale phi $ makeVPinned d
+          ddartFig = named "ddart" $ centerXY $ dashJVGraph $ decompose d
+          kiteFig = named "kite" $ centerXY $ scale phi $ dashJVGraph k
+          dkiteFig = named "dkite" $ centerXY $ dashJRotatedVGraph (ttangle 1) (decompose k)
+{-
+decompHalf = (vsep 4 [hsep 10 [dartFig, ddartFig], hsep 10 [kiteFig, dkiteFig]])
+              # decompArrow "dart" "ddart" 
+              # decompArrow "kite" "dkite"
+              # padBorder <> (baselineText "decompose" # fontSize (normalized 0.05) # fc blue)
+    where d = makeTgraph [LD(1,2,3)]
+          k = makeTgraph [LK(1,2,3)]
+          dartFig = named "dart" $ centerXY $ dashJVPinned $ scale (5*phi) $ makeVPinned d
+          ddartFig = named "ddart" $ centerXY $ scale 5 $ dashJVGraph $ decompose d
+          kiteFig = named "kite" $ centerXY $ scale (5*phi) $ dashJVGraph k
+          dkiteFig = named "dkite" $ centerXY $ scale 5 $ dashJRotatedVGraph (ttangle 1) (decompose k)
+-}
+
 
 {-* Partial Composition figures
 -} 
@@ -502,7 +527,7 @@ relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2(-10,-10))) <>  mainfig wh
 -- The yellow half-tile is the one being added in each case.
 -- Mirror symmetric versions are omitted.
 forceRules:: Diagram B
-forceRules = padBorder $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap drawRule rules where
+forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap drawRule rules where
   rules = [ (  [LD(1,2,3)],                               RD(1,4,2)  )
           , (  [RK(1,2,3)],                               LK(1,4,2)  )
           , (  [LD(1,2,3)],                               RK(4,3,2)  )
@@ -773,7 +798,7 @@ forceDecArrow = connectOutside' arrowStyleFD where
 decompArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
 decompArrow = connectOutside' arrowStyleD where
   arrowStyleD  = with & headLength .~ verySmall & headStyle %~ fc blue  
-                      & shaftStyle %~ dashingG [1.5, 1.5] 0  
+                      & shaftStyle %~ dashingN [0.005, 0.005] 0  
                       & shaftStyle %~ lc blue & headGap .~ large & tailGap .~ large
 
 -- |add a compose arrow (green) from named parts of 2 diagrams

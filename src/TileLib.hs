@@ -30,8 +30,8 @@ Using Imported polymorphic HalfTile.
 type Piece = HalfTile (V2 Double)
 
 -- | get the vector representing the join edge in the direction away from the origin of a piece
-getJVec:: Piece -> V2 Double
-getJVec = tileRep
+joinVector:: Piece -> V2 Double
+joinVector = tileRep
 
 -- |Needed for Transformable Piece
 type instance N Piece = Double
@@ -163,11 +163,12 @@ dashJPiece piece = drawPiece piece <> dashJ piece
 
 -- |draw join edge only 
 drawJ:: Piece -> Diagram B
-drawJ piece = strokeLine (fromOffsets [getJVec piece]) 
+drawJ piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |draw join edge only 
 dashJ:: Piece -> Diagram B
-dashJ piece = (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
+dashJ piece = drawJ piece # dashingN [0.003,0.003] 0 # lw ultraThin
+--dashJ piece = (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
         
 -- |experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.
@@ -176,7 +177,7 @@ dashJ piece = (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
 -- Half kites have the long edge emphasised in black.
 experiment:: Piece -> Diagram B
 experiment pc = --emph pc <> (drawJPiece pc # dashingO [1,2] 0 # lw ultraThin)
-    emph pc <> (drawJPiece pc # dashingN [0.001,0.002] 0 # lwN 0.001)
+    emph pc <> (drawJPiece pc # dashingN [0.003,0.003] 0 # lw ultraThin)
   where emph pc = case pc of
           (LD v) -> (strokeLine . fromOffsets) [v] # lc red   -- emphasise join edge of darts in red
           (RD v) -> (strokeLine . fromOffsets) [v] # lc red 

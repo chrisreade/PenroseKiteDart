@@ -47,7 +47,8 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = counterK--coverForceRules--adBorder $ lw ultraThin $ hsep 1 $ rotations [9,9] $ phiScales $ reverse $ fmap drawSmartGraph $ take 4  $ decompositions $ makeTgraph [LD(1,2,3)] --wrongRocket--superForceFig --oneChoiceFig--newTest--mistake4Explore--boundaryEdgeCaseTrees 
+fig = experimentFig
+--coverForceRules--adBorder $ lw ultraThin $ hsep 1 $ rotations [9,9] $ phiScales $ reverse $ fmap drawSmartGraph $ take 4  $ decompositions $ makeTgraph [LD(1,2,3)] --wrongRocket--superForceFig --oneChoiceFig--newTest--mistake4Explore--boundaryEdgeCaseTrees 
 
 main = mainWith fig
 
