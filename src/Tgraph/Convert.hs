@@ -1,12 +1,12 @@
 {-|
 Module      : Tgraph.Convert
-Description : Conversion of Tgraphs to Patches (and VPinned) for drawing Tgraphs
+Description : Conversion of Tgraphs to Patches (and VPatch) for drawing Tgraphs
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-Conversion operations from Tgraphs to Patches and Diagrams as well as the intermediate type VPinned
+Conversion operations from Tgraphs to Patches and Diagrams as well as the intermediate type VPatch
 (Vertex pinned) used when drawing vertex labels.
 The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint) and
 touching vertex checks (touchingVertices, touchingVerticesGen).
@@ -32,46 +32,40 @@ import ChosenBackend (B)
 type VertexLocMap = VMap.IntMap (Point V2 Double)
 
 
-{-* VPinned
+{-* VPatch
 -}
 
--- |A VPinned has a map from vertices to points along with a list of tile faces.
+-- |A VPatch has a map from vertices to points along with a list of tile faces.
 -- It is an intermediate form between Tgraphs and Patches
-data VPinned = VPinned {vLocs :: VertexLocMap,  vpFaces::[TileFace]} deriving Show
+data VPatch = VPatch {vLocs :: VertexLocMap,  vpFaces::[TileFace]} deriving Show
 
--- |needed for making VPinned transformable
-type instance V VPinned = V2
--- |needed for making VPinned transformable
-type instance N VPinned = Double
+-- |needed for making VPatch transformable
+type instance V VPatch = V2
+-- |needed for making VPatch transformable
+type instance N VPatch = Double
 
--- |Make VPinned Transformable.
-instance Transformable VPinned where 
+-- |Make VPatch Transformable.
+instance Transformable VPatch where 
     transform t vp = vp {vLocs = VMap.map (transform t) (vLocs vp)}
 
-{-|Convert a Tgraph to a VPinned.
+{-|Convert a Tgraph to a VPatch.
 This uses locateVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis.
 -}
-makeVPinned::Tgraph -> VPinned
-makeVPinned g = VPinned {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces g
+makeVP::Tgraph -> VPatch
+makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces g
 
--- |Creates a VPinned from a list of tile faces, using the vertex locations from the given VPinned.
--- The vertices in the tile faces must have points assigned in the given VPinned.
+-- |Creates a VPatch from a list of tile faces, using the vertex locations from the given VPatch.
+-- The vertices in the tile faces must have points assigned in the given VPatch.
 -- (This is not checked for, but missing locations for vertices will raise an error when drawing.)
--- subVPinned vp fcs can be used for both subsets of tile faces of vp,
+-- subVP vp fcs can be used for both subsets of tile faces of vp,
 -- but also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
-subVPinned:: VPinned -> [TileFace] -> VPinned
-subVPinned vp fcs = vp {vpFaces  = fcs} 
+subVP:: VPatch -> [TileFace] -> VPatch
+subVP vp fcs = vp {vpFaces  = fcs} 
 
-{-|
-makePatch uses makeVPinned first then uses dropLabels to convert faces to located Pieces.
-(So dropping the Vertices information.)
--}
-makePatch:: Tgraph -> Patch
-makePatch = dropLabels . makeVPinned
  
--- |converts a VPinned to a Patch, removing vertex information and converting faces to Located Pieces
-dropLabels :: VPinned -> Patch
+-- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces
+dropLabels :: VPatch -> Patch
 dropLabels vp = fmap convert (vpFaces vp) where
   locations = vLocs vp
   convert fc = case (VMap.lookup (originV fc) locations , VMap.lookup (oppV fc) locations) of
@@ -79,119 +73,142 @@ dropLabels vp = fmap convert (vpFaces vp) where
                 _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
                              ++ show (faceVList fc \\ VMap.keys locations))
 
-{-|Auxiliary function for converting a list of TileFaces to a Patch when given a VPinned with a suitable VertexLocMap.
-The VertexLocMap in the VPinned must contain locations for all the TileFace vertices.
+{-
+{-|Auxiliary function for converting a list of TileFaces to a Patch when given a VPatch with a suitable VertexLocMap.
+The VertexLocMap in the VPatch must contain locations for all the TileFace vertices.
 The alignment is dictated by the VertexLocMap.
 This function is intended to save recreating a VertexLocMap for several Patches
 with different subsets of the vertices.
 (E.g. in displaying subsets of faces of a graph in drawPCompose and in drawForce)
 -}
-subPatch ::  VPinned -> [TileFace] -> Patch
-subPatch vp = dropLabels . subVPinned vp
+subPatch ::  VPatch -> [TileFace] -> Patch
+subPatch vp = dropLabels . subVP vp
+-}
 
--- |Recover a Tgraph from a VPinned by dropping the vertex positions and checking Tgraph properties.
-graphFromVP:: VPinned -> Tgraph
+-- |Recover a Tgraph from a VPatch by dropping the vertex positions and checking Tgraph properties.
+graphFromVP:: VPatch -> Tgraph
 graphFromVP = checkedTgraph . vpFaces
 
--- |remove a list of faces from a VPinned
-removeFacesVP :: [TileFace] -> VPinned -> VPinned
+-- |remove a list of faces from a VPatch
+removeFacesVP :: [TileFace] -> VPatch -> VPatch
 removeFacesVP fcs vp = vp {vpFaces = vpFaces vp \\ fcs}
 --removeFacesVP fcs vp = vp {vpFaces = filter (not . (`elem` fcs)) $ vpFaces vp}
 
--- |make a new VPinned with a list of selected faces from a VPinned.
--- This will ignore any faces that are not in the given VPinned.
-selectFacesVP:: [TileFace] -> VPinned -> VPinned
+-- |make a new VPatch with a list of selected faces from a VPatch.
+-- This will ignore any faces that are not in the given VPatch.
+selectFacesVP:: [TileFace] -> VPatch -> VPatch
 selectFacesVP fcs vp = vp {vpFaces = filter (`elem` fcs) $ vpFaces vp}
 
 
--- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPinned
-selectFacesGtoVP :: [TileFace] -> Tgraph -> VPinned
-selectFacesGtoVP fcs g = selectFacesVP fcs (makeVPinned g)
+-- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
+selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
+selectFacesGtoVP fcs g = selectFacesVP fcs (makeVP g)
 
--- |removeFacesGtoVP fcs g - remove faces (fcs) after converting g to a VPinned
-removeFacesGtoVP :: [TileFace] -> Tgraph -> VPinned
-removeFacesGtoVP fcs g = removeFacesVP fcs (makeVPinned g)
+-- |removeFacesGtoVP fcs g - remove faces (fcs) after converting g to a VPatch
+removeFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
+removeFacesGtoVP fcs g = removeFacesVP fcs (makeVP g)
 
--- |find the location of a single vertex in a VPinned
-findLoc :: Vertex -> VPinned -> Maybe (Point V2 Double)
+-- |find the location of a single vertex in a VPatch
+findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
 findLoc v = VMap.lookup v . vLocs
 
 
 
-{-* Drawing VPinned and Tgraphs
+{-* Drawing VPatch and Tgraphs
 -}
 
 -- |simplest drawing without vertex labels
 drawGraph:: Tgraph -> Diagram B
-drawGraph = drawPatch . makePatch
+drawGraph = drawVP . makeVP
 
 -- |simplest drawing with dashed join edges but without vertex labels
-dashJGraph:: Tgraph -> Diagram B
-dashJGraph = dashJPatch . makePatch
+dashjGraph:: Tgraph -> Diagram B
+dashjGraph = dashjVP . makeVP
 
 -- |simplest drawing including vertex labels
-drawVGraph:: Tgraph -> Diagram B
-drawVGraph = drawVPinned . makeVPinned
-
--- |Convert a VPinned to a diagram showing vertex labels
-drawVPinned:: VPinned -> Diagram B
-drawVPinned = drawVPinnedWith drawPiece
+drawGraphLabelled:: Tgraph -> Diagram B
+drawGraphLabelled = drawVPLabelled . makeVP
 
 -- |simplest drawing with dashed join edges and vertex labels
-dashJVGraph:: Tgraph -> Diagram B
-dashJVGraph = dashJVPinned . makeVPinned
+dashjGraphLabelled:: Tgraph -> Diagram B
+dashjGraphLabelled = dashjVPLabelled . makeVP
 
--- |convert a VPinned to a diagram with vertex labels and dashed joins
-dashJVPinned:: VPinned -> Diagram B
-dashJVPinned = drawVPinnedWith dashJPiece
+-- |drawVPWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
+drawVPWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
+drawVPWith pd vp = drawPatchWith pd (dropLabels vp)
 
--- |drawVPinnedWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
-drawVPinnedWith :: (Piece -> Diagram B) -> VPinned -> Diagram B
-drawVPinnedWith pd vp = drawVlabels (vLocs vp) <> drawPatchWith pd (dropLabels vp)
+-- |convert a VPatch to a diagram without vertex labels and without dashed joins
+drawVP:: VPatch -> Diagram B
+drawVP = drawVPWith drawPiece
+
+-- |convert a VPatch to a diagram without vertex labels but with dashed joins
+dashjVP:: VPatch -> Diagram B
+dashjVP = drawVPWith dashjPiece
+
+
+-- |Convert a VPatch to a diagram showing vertex labels
+drawVPLabelled:: VPatch -> Diagram B
+drawVPLabelled = drawVPLabelledWith drawPiece
+
+
+-- |convert a VPatch to a diagram with vertex labels and dashed joins
+dashjVPLabelled:: VPatch -> Diagram B
+dashjVPLabelled = drawVPLabelledWith dashjPiece
+
+-- |drawVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
+drawVPLabelledWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
+drawVPLabelledWith pd vp = drawVlabels (vLocs vp) <> drawPatchWith pd (dropLabels vp)
 
 -- |draws vertex labels at assigned points.
 drawVlabels :: VertexLocMap -> Diagram B
 drawVlabels vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
-    where label v = baselineText (show v) # fontSize (normalized 0.02) # fc red  -- was global 0.3
+    where label v = baselineText (show v) # fontSize (normalized 0.01) # fc red  -- was global 0.3
 
--- |relevantVPinnedWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
+-- |relevantVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
 -- BUT drops drawing of vertices that are not mentioned in the faces.
-relevantVPinnedWith :: (Piece -> Diagram B) -> VPinned -> Diagram B
-relevantVPinnedWith pd vp = drawVlabels locVs <> drawPatchWith pd (dropLabels vp) where
+relevantVPLabelledWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
+relevantVPLabelledWith pd vp = drawVlabels locVs <> drawPatchWith pd (dropLabels vp) where
      vs = nub $ concatMap faceVList (vpFaces vp)
      locVs = VMap.filterWithKey (\v -> \_ -> (v `elem` vs)) $ vLocs vp
 
--- | makeAlignedPatch (a,b) g - make a Patch from g oriented with centre on a and b aligned on the x-axis.
+
+-- |colourDKG (c1,c2,c3) p fill in a VPatch vp with colour c1 for darts, colour c2 for kites and
+-- colour c3 for grout (that is, the non-join edges).
+-- Note the order D K G.
+colourDKG::  (Colour Double,Colour Double,Colour Double) -> VPatch -> Diagram B
+colourDKG (c1,c2,c3) vp = drawVPWith (fillDK c1 c2) vp # lc c3
+
+-- | alignedPatch (a,b) g - make a VPatch from g oriented with centre on a and b aligned on the x-axis.
 -- Will raise an error if either a or b is not a vertex in g.
-makeAlignedPatch:: (Vertex,Vertex) ->  Tgraph -> Patch        
-makeAlignedPatch vs g = dropLabels $ alignXaxis vs $ makeVPinned g
+alignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch        
+alignedVP vs g = alignXaxis vs $ makeVP g
 
 -- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default.
 -- Note this does not rotate the labels themselves.
-drawRotatedVGraph:: Angle Double -> Tgraph -> Diagram B
-drawRotatedVGraph a = drawVPinned . rotate a . makeVPinned
+drawGraphLabelledRotated:: Angle Double -> Tgraph -> Diagram B
+drawGraphLabelledRotated a = drawVPLabelled . rotate a . makeVP
 
 -- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default,
 -- with dashed joins.
 -- Note this does not rotate the labels themselves.
-dashJRotatedVGraph:: Angle Double -> Tgraph -> Diagram B
-dashJRotatedVGraph a = dashJVPinned . rotate a . makeVPinned
+dashjGraphLabelledRotated:: Angle Double -> Tgraph -> Diagram B
+dashjGraphLabelledRotated a = dashjVPLabelled . rotate a . makeVP
 
 
-{-* VPinned Alignment with Vertices
+{-* VPatch Alignment with Vertices
 -}
 
--- |center a VPinned on a particular vertex. (Raises an error if the vertex is not in the VPinned vertices)
-centerOn :: Vertex -> VPinned -> VPinned
+-- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
+centerOn :: Vertex -> VPatch -> VPatch
 centerOn a vp = 
     case findLoc a vp of
         Just loca -> translate (origin .-. loca) vp
         _ -> error ("centerOn: vertex not found: "++ show a)
 
--- |alignXaxis takes a vertex pair (a,b) and a VPinned vp
+-- |alignXaxis takes a vertex pair (a,b) and a VPatch vp
 -- for centering vp on a and rotating the result so that b is on the positive X axis.
--- (Raises an error if either a or b are not in the VPinned vertices)
-alignXaxis :: (Vertex, Vertex) -> VPinned -> VPinned    
+-- (Raises an error if either a or b are not in the VPatch vertices)
+alignXaxis :: (Vertex, Vertex) -> VPatch -> VPatch    
 alignXaxis (a,b) vp =  rotate angle newvp
   where newvp = centerOn a vp
         angle = signedAngleBetweenDirs (direction unitX) (direction (locb .-. origin)) 
@@ -199,19 +216,19 @@ alignXaxis (a,b) vp =  rotate angle newvp
                 Just l -> l
                 Nothing -> error ("alignXaxis: second alignment vertex not found (Vertex " ++ show b ++ ")")
 
--- |alignments takes a list of vertex pairs for respective rotations of VPinned in the second list.
--- For a pair (a,b) the corresponding VPinned is centered on a then b is aligned along the positive x axis. 
--- The vertex pair list can be shorter than the list of VPinned - the remaining VPinned are left as they are.
-alignments :: [(Vertex, Vertex)] -> [VPinned] -> [VPinned]     
+-- |alignments takes a list of vertex pairs for respective rotations of VPatch in the second list.
+-- For a pair (a,b) the corresponding VPatch is centered on a then b is aligned along the positive x axis. 
+-- The vertex pair list can be shorter than the list of VPatch - the remaining VPatch are left as they are.
+alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]     
 alignments [] vps = vps
 alignments prs [] = error "alignments: Too many alignment pairs"  -- prs non-null
 alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 
 -- |alignAll (a,b) vpList
--- provided both vertices a and b exist in each VPinned in vpList, the VPinned are all aligned
+-- provided both vertices a and b exist in each VPatch in vpList, the VPatch are all aligned
 -- centred on a, with b on the positive x axis.
--- An error is raised if any VPinned does not contain both a and b vertices.
-alignAll:: (Vertex, Vertex) -> [VPinned] -> [VPinned]     
+-- An error is raised if any VPatch does not contain both a and b vertices.
+alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]     
 alignAll (a,b) = fmap (alignXaxis (a,b))
 
 
@@ -349,12 +366,12 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
 {-*  Drawing (located) Edges
 -}
 
--- |produce a diagram of a list of edges (given a VPinned)
-drawEdgesWith :: VPinned -> [Dedge] -> Diagram B
+-- |produce a diagram of a list of edges (given a VPatch)
+drawEdgesWith :: VPatch -> [Dedge] -> Diagram B
 drawEdgesWith vp = drawEdges (vLocs vp) --foldMap (drawEdgeWith vp)
 
--- |produce a diagram of a single edge (given a VPinned)
-drawEdgeWith :: VPinned -> Dedge -> Diagram B
+-- |produce a diagram of a single edge (given a VPatch)
+drawEdgeWith :: VPatch -> Dedge -> Diagram B
 drawEdgeWith vp = drawEdge (vLocs vp)
 {-
 case (findLoc a vp, findLoc b vp) of

@@ -92,36 +92,36 @@ Advanced drawing tools for Tgraphs
 
 
 -- |same as drawGraph except adding dashed lines on boundary join edges. 
-drawSmartGraph :: Tgraph -> Diagram B
-drawSmartGraph g = drawSmartSub g $ makeVPinned g
+drawSmart :: Tgraph -> Diagram B
+drawSmart g = drawSmartSub g $ makeVP g
 
--- |drawSmartGraphAligned (v1,v2) g - same as drawSmartGraph g except except aligning with centre on v1 and v2
+-- |drawSmartAligned (v1,v2) g - same as drawSmart g except except aligning with centre on v1 and v2
 -- on positive x axis. This will raise an error if v1 or v2 are not vertices of g.
-drawSmartGraphAligned :: (Vertex,Vertex) -> Tgraph -> Diagram B
-drawSmartGraphAligned vs g = drawSmartSub g $ alignXaxis vs $ makeVPinned g
+drawSmartAligned :: (Vertex,Vertex) -> Tgraph -> Diagram B
+drawSmartAligned vs g = drawSmartSub g $ alignXaxis vs $ makeVP g
 
--- |drawSmartVGraphAligned (v1,v2) g - same as drawSmartVGraph g except except aligning with centre on v1 and v2
+-- |drawSmartLabelledAligned (v1,v2) g - same as drawSmartLabelled g except except aligning with centre on v1 and v2
 -- on positive x axis. This will raise an error if v1 or v2 are not vertices of g.
-drawSmartVGraphAligned :: (Vertex,Vertex) -> Tgraph -> Diagram B
-drawSmartVGraphAligned vs g = drawSmartVSub g $ alignXaxis vs $ makeVPinned g
+drawSmartLabelledAligned :: (Vertex,Vertex) -> Tgraph -> Diagram B
+drawSmartLabelledAligned vs g = drawSmartLabelledSub g $ alignXaxis vs $ makeVP g
 
--- |same as drawVGraph except adding dashed lines on boundary join edges.
-drawSmartVGraph :: Tgraph -> Diagram B
-drawSmartVGraph g = drawSmartVSub g $ makeVPinned g
+-- |same as drawGraphLabelled except adding dashed lines on boundary join edges.
+drawSmartLabelled :: Tgraph -> Diagram B
+drawSmartLabelled g = drawSmartLabelledSub g $ makeVP g
 
 -- |drawSmartSub g vp converts g to a diagram (without vertex labels).
 -- It requires vp to contain a suitable vertex location map for drawing g.
--- This can be used instead of drawSmartGraph when such a map is already available.
-drawSmartSub:: Tgraph -> VPinned -> Diagram B
-drawSmartSub g vp = (drawPatchWith dashJ $ subPatch vp $ boundaryJoinFaces g) 
-                        <> drawPatch (subPatch vp (faces g))
+-- This can be used instead of drawSmart when such a map is already available.
+drawSmartSub:: Tgraph -> VPatch -> Diagram B
+drawSmartSub g vp = (drawVPWith dashj $ subVP vp $ boundaryJoinFaces g) 
+                        <> drawVP (subVP vp (faces g))
 
--- |drawSmartVSub g vp converts g to a diagram with vertex labels.
+-- |drawSmartLabelledSub g vp converts g to a diagram with vertex labels.
 -- It requires vp to contain a suitable vertex location map for drawing g.
--- This can be used instead of drawSmartVGraph when a suitable VPinned is already available.
-drawSmartVSub:: Tgraph -> VPinned -> Diagram B
-drawSmartVSub g vp = (drawPatchWith dashJ $ subPatch vp $ boundaryJoinFaces g) 
-                        <> drawVPinned (subVPinned vp (faces g))
+-- This can be used instead of drawSmartLabelled when a suitable VPatch is already available.
+drawSmartLabelledSub:: Tgraph -> VPatch -> Diagram B
+drawSmartLabelledSub g vp = (drawVPWith dashj $ subVP vp $ boundaryJoinFaces g) 
+                        <> drawVPLabelled (subVP vp (faces g))
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
@@ -132,29 +132,30 @@ boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (drawPatch $ subPatch vp $ faces g')
-                 <> (lw thin $ lc lime $ dashJPatch $ subPatch vp fcs)
+drawPCompose g = (drawVP $ subVP vp $ faces g')
+                 <> (lw thin $ lc lime $ dashjVP $ subVP vp fcs)
   where (fcs,g') = partCompose g
-        vp = makeVPinned g
+        vp = makeVP g
 
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
 -- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
 drawForce g = (dg # lc red # lw thin) <> dfg where
     fg = force g
-    vp = makeVPinned fg
-    dfg = drawPatch $ dropLabels vp
+    vp = makeVP fg
+    dfg = drawVP vp
     dg = drawSmartSub g vp
 
--- |drawSuperForce g is a diagram showing the argument g in blue overlayed on superForce g
+-- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
+-- overlaid on superForce g in blue.
 -- It adds dashed join edges on the boundary of g
 drawSuperForce:: Tgraph -> Diagram B
 drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     sfg = superForce g
-    vp = makeVPinned sfg
+    vp = makeVP sfg
     dfg = drawSmartSub (force g) vp
     dg = drawSmartSub g vp
-    dsfg = drawPatch $ dropLabels vp
+    dsfg = drawVP vp
 {-|
 drawWithMax g - draws g and overlays the maximal composition of g in red.
 This may raise an error if any of the compositions of g upto the maximal one are invalid Tgraphs
@@ -162,15 +163,15 @@ This may raise an error if any of the compositions of g upto the maximal one are
 -}
 drawWithMax :: Tgraph -> Diagram B
 drawWithMax g =  (dmax # lc red # lw thin) <> dg where
-    vp = makeVPinned g
-    dg = drawPatch $ dropLabels vp
+    vp = makeVP g
+    dg = drawVP vp
     maxg = maxComp g
-    dmax = drawPatch $ subPatch vp $ faces maxg
+    dmax = drawVP $ subVP vp $ faces maxg
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (drawEdgesWith vp edges # lc lime) <> drawVPinned vp where
-    vp  = makeVPinned g
+drawGBoundary g =  (drawEdgesWith vp edges # lc lime) <> drawVPLabelled vp where
+    vp  = makeVP g
     edges = graphBoundary g
 
 -- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces (g1,e1) (g2,e2) to find the common faces
@@ -180,10 +181,9 @@ drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g
 
 -- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background g.
 emphasizeFaces:: [TileFace] -> Tgraph -> Diagram B
-emphasizeFaces fcs g =  (dashJPatch emphPatch # lw thin) <> (drawPatch gPatch # lw ultraThin) where
-    vp = makeVPinned g
-    gPatch = dropLabels vp
-    emphPatch = subPatch vp (fcs `intersect` faces g)
+emphasizeFaces fcs g =  (dashjVP emphvp # lw thin) <> (drawVP vp # lw ultraThin) where
+    vp = makeVP g
+    emphvp = subVP vp (fcs `intersect` faces g)
 
 
  
@@ -417,18 +417,18 @@ empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
 -- | drawEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
 -- This is drawn over one of the possible boundary covers and the faces of g are shown in red.
 drawEmpire1:: Tgraph -> Diagram B
-drawEmpire1 g = drawSubTgraph [ lw ultraThin . drawPatch
-                              , lw thin . drawPatchWith (fillDK lightgrey lightgrey)
-                              , lw thin . lc red . drawPatch
-                              ] $ empire1 g
+drawEmpire1 g = drawSubTgraph  [ lw ultraThin . drawVP
+                               , lw thin . drawVPWith (fillDK lightgrey lightgrey)
+                               , lw thin . lc red . drawVP
+                               ]  (empire1 g)
 
 -- | drawEmpire2 g - produces a diagram emphasising the common faces of a doubly-extended boundary cover of force g.
 -- This is drawn over one of the possible doubly-extended boundary covers and the faces of g are shown in red.
 drawEmpire2:: Tgraph -> Diagram B
-drawEmpire2 g = drawSubTgraph [ lw ultraThin . drawPatch
-                              , lw thin . drawPatchWith (fillDK lightgrey lightgrey)
-                              , lw thin . lc red . drawPatch
-                              ] $ empire2 g
+drawEmpire2 g = drawSubTgraph  [ lw ultraThin . drawVP
+                               , lw thin . drawVPWith (fillDK lightgrey lightgrey)
+                               , lw thin . lc red . drawVP
+                               ]  (empire2 g)
 
 {-*
 Contexts for (forced) Boundary Vertices and Edges
@@ -741,19 +741,20 @@ decomposeSub sub = makeSubTgraph g' tlist where
 
 {-*  Drawing with SubTgraphs
 -}                                          
+
 {-|
-    To draw a SubTgraph without vertex labels, we use a list of functions each turning a patch into a diagram.
-    The first function is applied to a patch for untracked faces
-    Subsequent functions are applied to patches for the respective tracked subsets.
-    Each diagram is atop earlier ones, so the diagram for the untracked patch is at the bottom.
-    The patches will all have been made from the same VPinned vertex location map so will be aligned/scaled
+    To draw a SubTgraph with, we use a list of functions each turning a VPatch into a diagram.
+    The first function is applied to a VPatch for untracked faces
+    Subsequent functions are applied to VPatches for the respective tracked subsets.
+    Each diagram is atop earlier ones, so the diagram for the untracked VPatch is at the bottom.
+    The VPatches will all have been made from the same VPatch vertex location map so will be aligned/scaled
     appropriately.
 -}
-drawSubTgraph:: [Patch -> Diagram B] -> SubTgraph -> Diagram B
-drawSubTgraph drawList sub = mconcat $ reverse $ zipWith ($) drawList patchList where
-    vp = makeVPinned (tgraph sub)
+drawSubTgraph:: [VPatch -> Diagram B] -> SubTgraph -> Diagram B
+drawSubTgraph drawList sub = mconcat $ reverse $ zipWith ($) drawList vpList where
+    vp = makeVP (tgraph sub)
     untracked = vpFaces vp \\ concat (tracked sub)
-    patchList = fmap (subPatch vp) (untracked:tracked sub)
+    vpList = fmap (subVP vp) (untracked:tracked sub)
 
 {-
 -- |drawing non tracked faces only
@@ -761,21 +762,19 @@ drawWithoutTracked:: SubTgraph -> Diagram B
 drawWithoutTracked sub = drawSubTgraph [drawPatch] sub
 -}
 
+
 {-|
-    To draw a SubTgraph with possible vertex labels, we use a list of functions each turning a VPinned into a diagram.
-    The first function is applied to a VPinned for untracked faces.
-    Subsequent functions are applied to VPinned for respective tracked subsets.
-    Each diagram is atop earlier ones, so the diagram for the untracked VPinned is at the bottom.
-    The VPinned all use the same vertex location map so will be aligned/scaled
-    appropriately.
+    To draw a SubTgraph rotated.
+    Same as drawSubTgraph but with additional angle argument for the rotation
+    The first function is applied to a VPatch for untracked faces.
     The angle argument is used to rotate the common vertex location map before drawing
     (to ensure labels are not rotated).
 -}
-drawSubTgraphV:: [VPinned -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
-drawSubTgraphV drawList a sub = mconcat $ reverse $ zipWith ($) drawList vpList where
-    vp = rotate a $ makeVPinned (tgraph sub)
+drawSubTgraphRotated:: [VPatch -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
+drawSubTgraphRotated drawList a sub = mconcat $ reverse $ zipWith ($) drawList vpList where
+    vp = rotate a $ makeVP (tgraph sub)
     untracked = vpFaces vp \\ concat (tracked sub)
-    vpList = fmap (subVPinned vp) (untracked:tracked sub)
+    vpList = fmap (subVP vp) (untracked:tracked sub)
 
 
 

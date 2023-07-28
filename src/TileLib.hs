@@ -13,7 +13,7 @@ Stability   : experimental
 
 This module includes the basic operations for creating and drawing finite patches
 of Penrose's Dart and Kite tilings.
-It includes a decompose operation, drawPatch, fillDK and colourDKG, sun and star example patches.
+It includes a decompose operation, drawPatch, fillDK and patchColourDKG, sun and star example patches.
 -}
 module TileLib where
 
@@ -157,8 +157,8 @@ fillMaybeDKG d k g piece = drawPiece piece # maybeGrout g <> filler where
                            (RK _) -> maybeFill k
 
 -- |same as drawPiece but with join edge added as dashed-line
-dashJPiece:: Piece -> Diagram B
-dashJPiece piece = drawPiece piece <> dashJ piece
+dashjPiece:: Piece -> Diagram B
+dashjPiece piece = drawPiece piece <> dashj piece
                                        -- (drawJ piece # dashingO [1,2] 0)
 
 -- |draw join edge only 
@@ -166,9 +166,9 @@ drawJ:: Piece -> Diagram B
 drawJ piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |draw join edge only 
-dashJ:: Piece -> Diagram B
-dashJ piece = drawJ piece # dashingN [0.003,0.003] 0 # lw ultraThin
---dashJ piece = (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
+dashj:: Piece -> Diagram B
+dashj piece = drawJ piece # dashingN [0.003,0.003] 0 # lw ultraThin
+--dashj piece = (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
         
 -- |experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.
@@ -199,15 +199,15 @@ drawPatchWith pd = position . fmap (viewLoc . mapLoc pd)
 drawPatch:: Patch -> Diagram B      
 drawPatch = drawPatchWith drawPiece
 
--- |special case of drawPatchWith - turn patches to diagrams with dashJPiece
-dashJPatch:: Patch -> Diagram B      
-dashJPatch = drawPatchWith dashJPiece
+-- |special case of drawPatchWith - turn patches to diagrams with dashjPiece
+dashjPatch:: Patch -> Diagram B      
+dashjPatch = drawPatchWith dashjPiece
 
--- |colourDKG (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and
+-- |patchColourDKG (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
-colourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
-colourDKG (c1,c2,c3) p = drawPatchWith (fillDK c1 c2) p # lc c3
+patchColourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
+patchColourDKG (c1,c2,c3) p = drawPatchWith (fillDK c1 c2) p # lc c3
 
 
 
