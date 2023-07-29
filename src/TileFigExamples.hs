@@ -144,9 +144,9 @@ newFillSun6 = drawWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
 -- |list of 3 diagrams for colour filled star,sun kite respectivly
 threeColouredShapes:: [Diagram B]
 threeColouredShapes = [star4,sun4,kite5] where
-        star4 = colourDKG_Patch (goldenrod, darkturquoise, saddlebrown) (decompositionsP TileLib.star !!4)
-        sun4 = colourDKG_Patch (darken 0.7 darkmagenta, indigo, gold) (suns!!4)
-        kite5 = colourDKG_Patch (darkblue,blend 0.9 red magenta, yellow) $
+        star4 = colourDKG (goldenrod, darkturquoise, saddlebrown) (decompositionsP TileLib.star !!4)
+        sun4 = colourDKG (darken 0.7 darkmagenta, indigo, gold) (suns!!4)
+        kite5 = colourDKG (darkblue,blend 0.9 red magenta, yellow) $
                  scale phi (decompositionsP [lkite `at` origin, rkite `at` origin] !!5)
 
 -- |diagram of three coloured shapes in a row

@@ -13,7 +13,7 @@ Stability   : experimental
 
 This module includes the basic operations for creating and drawing finite patches
 of Penrose's Dart and Kite tilings.
-It includes a decompose operation, draw, fillDK and colourDKG_Patch, sun and star example patches.
+It includes a decompose operation, draw, fillDK and colourDKG, sun and star example patches.
 -}
 module TileLib where
 
@@ -205,23 +205,11 @@ draw = drawWith drawPiece
 drawj :: Drawable a => a -> Diagram B
 drawj = drawWith dashjPiece
     
-{-
--- |special case of drawWith - turn patches to diagrams with drawPiece
-drawPatch:: Patch -> Diagram B      
-drawPatch = drawWith drawPiece
--}
-
-{-
--- |special case of drawWith - turn patches to diagrams with dashjPiece
-dashjPatch:: Patch -> Diagram B      
-dashjPatch = drawWith dashjPiece
--}
-
--- |colourDKG_Patch (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and
+-- |colourDKG (c1,c2,c3) p fill in a drawable with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
-colourDKG_Patch::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
-colourDKG_Patch (c1,c2,c3) p = drawWith (fillDK c1 c2) p # lc c3
+colourDKG::  Drawable a => (Colour Double,Colour Double,Colour Double) -> a -> Diagram B
+colourDKG (c1,c2,c3) p = drawWith (fillDK c1 c2) p # lc c3
 
 
 

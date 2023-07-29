@@ -161,6 +161,7 @@ relevantVPLabelledWith pd vp = drawVlabels locVs <> drawWith pd (dropLabels vp) 
      locVs = VMap.filterWithKey (\v -> \_ -> (v `elem` vs)) $ vLocs vp
 -}
 
+{-
 
 -- |colourDKG (c1,c2,c3) p fill in a VPatch vp with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
@@ -168,6 +169,7 @@ relevantVPLabelledWith pd vp = drawVlabels locVs <> drawWith pd (dropLabels vp) 
 colourDKG::  (Colour Double,Colour Double,Colour Double) -> VPatch -> Diagram B
 colourDKG (c1,c2,c3) vp = drawWith (fillDK c1 c2) vp # lc c3
 
+-}
 
 -- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default.
 -- Note this does not rotate the labels themselves.
