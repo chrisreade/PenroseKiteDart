@@ -43,8 +43,8 @@ markedTiles = hsep 1
         , dartDiag # showOrigin 
         , kiteDiag <> (pL ~~ pR # lc red # lw thick) 
         , dartDiag <> (origin ~~ p2(1,0) # lc red # lw thick)
-        ] where kiteDiag = drawPatch [lkite `at` origin, rkite `at` origin]
-                dartDiag = drawPatch [ldart `at` origin, rdart `at` origin]
+        ] where kiteDiag = draw [lkite `at` origin, rkite `at` origin]
+                dartDiag = draw [ldart `at` origin, rdart `at` origin]
                 pL = origin .+^ phi*^rotate (ttangle 1) unitX
                 pR = origin .+^ phi*^rotate (ttangle 9) unitX
 
@@ -53,8 +53,8 @@ markedTiles2:: Diagram B
 markedTiles2 = hsep 1  
         [ kiteDiag <> (pL ~~ pR # lc lime # lw thick) 
         , dartDiag <> (origin ~~ p2(1,0) # lc lime # lw thick)
-        ] where kiteDiag = drawPatch [lkite `at` origin, rkite `at` origin]
-                dartDiag = drawPatch [ldart `at` origin, rdart `at` origin]
+        ] where kiteDiag = draw [lkite `at` origin, rkite `at` origin]
+                dartDiag = draw [ldart `at` origin, rdart `at` origin]
                 pL = origin .+^ phi*^rotate (ttangle 1) unitX
                 pR = origin .+^ phi*^rotate (ttangle 9) unitX
 
@@ -79,13 +79,13 @@ Figures for decompositions and compChoices
 -- |figure showing 4 decompositions in a column for each of the four pieces
 fourDecomps:: Diagram B
 fourDecomps = hsep 1 $ fmap decomps thePieces # lw thin where
-         decomps pc = vsep 1 $ fmap drawPatch $ take 5 $ decompositionsP [pc `at` origin] 
+         decomps pc = vsep 1 $ fmap draw $ take 5 $ decompositionsP [pc `at` origin] 
 
 -- |example of compChoices in action with 5 chosen compChoices steps from a left dart.
 -- This shows inital and final piece together on the left,  
 -- and 5 decomposition of the final piece on the right.
 fiveCompChoices:: Diagram B
-fiveCompChoices = pad 1.1 $ hsep 1 $ fmap dashjPatch [[ld,lk'], decompositionsP [lk'] !! 5] where
+fiveCompChoices = pad 1.1 $ hsep 1 $ fmap drawj [[ld,lk'], decompositionsP [lk'] !! 5] where
      -- two seperate patches
        ld  = ldart `at` origin
        lk  = compChoices ld  !!1
@@ -96,7 +96,7 @@ fiveCompChoices = pad 1.1 $ hsep 1 $ fmap dashjPatch [[ld,lk'], decompositionsP 
 
 -- |diagram showing first five alternatives of 4-fold compNChoices of a right dart
 fiveAlternatives:: Diagram B
-fiveAlternatives = hsep 1 $ fmap (dashjPatch . (:[lp])) $ take 5 $ compNChoices 4 lp where
+fiveAlternatives = hsep 1 $ fmap (drawj . (:[lp])) $ take 5 $ compNChoices 4 lp where
                      lp = (rdart `at` origin)
 
 -- |An infinite list of patches of increasingly decomposed sun
@@ -110,23 +110,23 @@ sun5 = suns!!5
 
 -- |diagram for sun6
 sun6Fig::Diagram B
-sun6Fig = drawPatch sun6 # lw thin
+sun6Fig = draw sun6 # lw thin
 
 -- |diagram overlaying sun5 in red atop sun6
 sun5Over6Fig::Diagram B
-sun5Over6Fig = (drawPatch sun5 # lc red # dashingN [0.003,0.003] 0 <> drawPatch sun6) # lw thin
+sun5Over6Fig = (draw sun5 # lc red # dashingN [0.003,0.003] 0 <> draw sun6) # lw thin
 -- |Using experiment (defined in Tilelib) on sun6 clearly illustrates the embedded sun5
 experimentFig::Diagram B
-experimentFig = pad 1.1 $ lw thin $ drawPatchWith experiment sun6
+experimentFig = pad 1.1 $ lw thin $ drawWith experiment sun6
 -- |Using experiment (defined in Tilelib) on sun4 clearly illustrates the embedded sun3
 twoLevelsFig::Diagram B
-twoLevelsFig = drawPatchWith experiment (suns!!4)
+twoLevelsFig = drawWith experiment (suns!!4)
 
 -- |figure showing two types of dart wing vertices (largeKiteCentre, largeDartBase)                         
 dartWingFig::Diagram B
 dartWingFig = pad 1.2 $ hsep 1 [dkite, ddart] where
-  ddart = showOrigin (translate unit_X $ dashjPatch  $ decompPatch [ldart `at` origin, rdart `at` origin])
-  dkite = showOrigin (translate unit_X $ dashjPatch  $ decompPatch [lkite `at` origin, rkite `at` origin])
+  ddart = showOrigin (translate unit_X $ drawj  $ decompPatch [ldart `at` origin, rdart `at` origin])
+  dkite = showOrigin (translate unit_X $ drawj  $ decompPatch [lkite `at` origin, rkite `at` origin])
 
 {-*
 Colour-filled examples
@@ -134,19 +134,19 @@ Colour-filled examples
 
 -- |using leftFillDK
 filledSun6::Diagram B
-filledSun6 = drawPatchWith (leftFillDK red blue) sun6 # lw ultraThin
+filledSun6 = drawWith (leftFillDK red blue) sun6 # lw ultraThin
 -- |using fillDK
 newFillSun6::Diagram B
-newFillSun6 = drawPatchWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
+newFillSun6 = drawWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
 
 
 
 -- |list of 3 diagrams for colour filled star,sun kite respectivly
 threeColouredShapes:: [Diagram B]
 threeColouredShapes = [star4,sun4,kite5] where
-        star4 = patchColourDKG (goldenrod, darkturquoise, saddlebrown) (decompositionsP TileLib.star !!4)
-        sun4 = patchColourDKG (darken 0.7 darkmagenta, indigo, gold) (suns!!4)
-        kite5 = patchColourDKG (darkblue,blend 0.9 red magenta, yellow) $
+        star4 = colourDKG_Patch (goldenrod, darkturquoise, saddlebrown) (decompositionsP TileLib.star !!4)
+        sun4 = colourDKG_Patch (darken 0.7 darkmagenta, indigo, gold) (suns!!4)
+        kite5 = colourDKG_Patch (darkblue,blend 0.9 red magenta, yellow) $
                  scale phi (decompositionsP [lkite `at` origin, rkite `at` origin] !!5)
 
 -- |diagram of three coloured shapes in a row

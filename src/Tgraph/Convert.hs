@@ -6,8 +6,7 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-Conversion operations from Tgraphs to Patches and Diagrams as well as the intermediate type VPatch
-(Vertex pinned) used when drawing vertex labels.
+Conversion operations from Tgraphs to VPatches and Diagrams.
 The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint) and
 touching vertex checks (touchingVertices, touchingVerticesGen).
 -}
@@ -22,6 +21,8 @@ import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup,
 import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 import Data.Maybe (catMaybes)
+
+import qualified Data.IntSet as IntSet (IntSet,member) -- for vertex set in relevantVPLabelledWith
 
 import Diagrams.Prelude
 import TileLib
@@ -44,9 +45,11 @@ type instance V VPatch = V2
 -- |needed for making VPatch transformable
 type instance N VPatch = Double
 
+
 -- |Make VPatch Transformable.
 instance Transformable VPatch where 
     transform t vp = vp {vLocs = VMap.map (transform t) (vLocs vp)}
+
 
 {-|Convert a Tgraph to a VPatch.
 This uses locateVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
@@ -65,6 +68,7 @@ subVP vp fcs = vp {vpFaces  = fcs}
 
  
 -- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces
+-- This should be confined to use within drawing functions such as drawWith and drawLabelledWith
 dropLabels :: VPatch -> Patch
 dropLabels vp = fmap convert (vpFaces vp) where
   locations = vLocs vp
@@ -72,18 +76,6 @@ dropLabels vp = fmap convert (vpFaces vp) where
                 (Just p, Just p') -> fmap (\_ -> (p' .-. p)) fc `at` p -- using HalfTile functor fmap
                 _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
                              ++ show (faceVList fc \\ VMap.keys locations))
-
-{-
-{-|Auxiliary function for converting a list of TileFaces to a Patch when given a VPatch with a suitable VertexLocMap.
-The VertexLocMap in the VPatch must contain locations for all the TileFace vertices.
-The alignment is dictated by the VertexLocMap.
-This function is intended to save recreating a VertexLocMap for several Patches
-with different subsets of the vertices.
-(E.g. in displaying subsets of faces of a graph in drawPCompose and in drawForce)
--}
-subPatch ::  VPatch -> [TileFace] -> Patch
-subPatch vp = dropLabels . subVP vp
--}
 
 -- |Recover a Tgraph from a VPatch by dropping the vertex positions and checking Tgraph properties.
 graphFromVP:: VPatch -> Tgraph
@@ -99,7 +91,6 @@ removeFacesVP fcs vp = vp {vpFaces = vpFaces vp \\ fcs}
 selectFacesVP:: [TileFace] -> VPatch -> VPatch
 selectFacesVP fcs vp = vp {vpFaces = filter (`elem` fcs) $ vpFaces vp}
 
-
 -- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
 selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
 selectFacesGtoVP fcs g = selectFacesVP fcs (makeVP g)
@@ -107,6 +98,10 @@ selectFacesGtoVP fcs g = selectFacesVP fcs (makeVP g)
 -- |removeFacesGtoVP fcs g - remove faces (fcs) after converting g to a VPatch
 removeFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
 removeFacesGtoVP fcs g = removeFacesVP fcs (makeVP g)
+
+
+
+
 
 -- |find the location of a single vertex in a VPatch
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
@@ -117,82 +112,74 @@ findLoc v = VMap.lookup v . vLocs
 {-* Drawing VPatch and Tgraphs
 -}
 
--- |simplest drawing without vertex labels
-drawGraph:: Tgraph -> Diagram B
-drawGraph = drawVP . makeVP
+-- |Make drawing tools applicable to VPatch
+instance Drawable VPatch where
+    drawWith = drawVPWith
 
--- |simplest drawing with dashed join edges but without vertex labels
-dashjGraph:: Tgraph -> Diagram B
-dashjGraph = dashjVP . makeVP
-
--- |simplest drawing including vertex labels
-drawGraphLabelled:: Tgraph -> Diagram B
-drawGraphLabelled = drawVPLabelled . makeVP
-
--- |simplest drawing with dashed join edges and vertex labels
-dashjGraphLabelled:: Tgraph -> Diagram B
-dashjGraphLabelled = dashjVPLabelled . makeVP
-
--- |drawVPWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
+-- |drawVPWith pd vp - converts vp to a diagram without vertex labels using pd to draw pieces
 drawVPWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-drawVPWith pd vp = drawPatchWith pd (dropLabels vp)
+drawVPWith pd vp = drawWith pd (dropLabels vp)
 
--- |convert a VPatch to a diagram without vertex labels and without dashed joins
-drawVP:: VPatch -> Diagram B
-drawVP = drawVPWith drawPiece
+-- |Make drawing tools applicable to Tgraphs
+instance Drawable Tgraph where
+    drawWith pd = drawWith pd . makeVP
 
--- |convert a VPatch to a diagram without vertex labels but with dashed joins
-dashjVP:: VPatch -> Diagram B
-dashjVP = drawVPWith dashjPiece
+class DrawableLabelled a where
+  drawLabelledWith :: (Piece -> Diagram B) -> a -> Diagram B
 
-
--- |Convert a VPatch to a diagram showing vertex labels
-drawVPLabelled:: VPatch -> Diagram B
-drawVPLabelled = drawVPLabelledWith drawPiece
-
-
--- |convert a VPatch to a diagram with vertex labels and dashed joins
-dashjVPLabelled:: VPatch -> Diagram B
-dashjVPLabelled = drawVPLabelledWith dashjPiece
+instance DrawableLabelled VPatch where
+    drawLabelledWith = drawVPLabelledWith
 
 -- |drawVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
 drawVPLabelledWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-drawVPLabelledWith pd vp = drawVlabels (vLocs vp) <> drawPatchWith pd (dropLabels vp)
-
+drawVPLabelledWith pd vp = drawVlabels (vLocs vp) <> drawWith pd (dropLabels vp)
 -- |draws vertex labels at assigned points.
 drawVlabels :: VertexLocMap -> Diagram B
 drawVlabels vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
-    where label v = baselineText (show v) # fontSize (normalized 0.01) # fc red  -- was global 0.3
+    where label v = baselineText (show v) # fontSize (normalized 0.008) # fc red  -- was global 0.3
+
+instance DrawableLabelled Tgraph where
+    drawLabelledWith pd = drawLabelledWith pd . makeVP
+
+drawLabelled :: DrawableLabelled a => a -> Diagram B
+drawLabelled = drawLabelledWith drawPiece
+
+drawjLabelled :: DrawableLabelled a => a -> Diagram B
+drawjLabelled = drawLabelledWith dashjPiece
+
+
 
 -- |relevantVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
 -- BUT drops drawing of vertices that are not mentioned in the faces.
 relevantVPLabelledWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-relevantVPLabelledWith pd vp = drawVlabels locVs <> drawPatchWith pd (dropLabels vp) where
+relevantVPLabelledWith pd vp = drawVlabels locVs <> drawWith pd (dropLabels vp) where
+     vs = facesVSet (vpFaces vp)
+     locVs = VMap.filterWithKey (\v -> \_ -> (v `IntSet.member` vs)) $ vLocs vp
+
+{-
+relevantVPLabelledWith pd vp = drawVlabels locVs <> drawWith pd (dropLabels vp) where
      vs = nub $ concatMap faceVList (vpFaces vp)
      locVs = VMap.filterWithKey (\v -> \_ -> (v `elem` vs)) $ vLocs vp
+-}
 
 
 -- |colourDKG (c1,c2,c3) p fill in a VPatch vp with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
 colourDKG::  (Colour Double,Colour Double,Colour Double) -> VPatch -> Diagram B
-colourDKG (c1,c2,c3) vp = drawVPWith (fillDK c1 c2) vp # lc c3
+colourDKG (c1,c2,c3) vp = drawWith (fillDK c1 c2) vp # lc c3
 
--- | alignedPatch (a,b) g - make a VPatch from g oriented with centre on a and b aligned on the x-axis.
--- Will raise an error if either a or b is not a vertex in g.
-alignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch        
-alignedVP vs g = alignXaxis vs $ makeVP g
 
 -- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default.
 -- Note this does not rotate the labels themselves.
-drawGraphLabelledRotated:: Angle Double -> Tgraph -> Diagram B
-drawGraphLabelledRotated a = drawVPLabelled . rotate a . makeVP
+drawLabelledRotated:: Angle Double -> Tgraph -> Diagram B
+drawLabelledRotated a = drawLabelled . rotate a . makeVP
 
 -- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default,
 -- with dashed joins.
 -- Note this does not rotate the labels themselves.
-dashjGraphLabelledRotated:: Angle Double -> Tgraph -> Diagram B
-dashjGraphLabelledRotated a = dashjVPLabelled . rotate a . makeVP
+drawjLabelledRotated:: Angle Double -> Tgraph -> Diagram B
+drawjLabelledRotated a = drawjLabelled . rotate a . makeVP
 
 
 {-* VPatch Alignment with Vertices
@@ -230,6 +217,11 @@ alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 -- An error is raised if any VPatch does not contain both a and b vertices.
 alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]     
 alignAll (a,b) = fmap (alignXaxis (a,b))
+
+-- | alignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligned on the x-axis.
+-- Will raise an error if either a or b is not a vertex in g.
+alignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch        
+alignedVP vs g = alignXaxis vs $ makeVP g
 
 
 {-* Vertex Location Calculation -}

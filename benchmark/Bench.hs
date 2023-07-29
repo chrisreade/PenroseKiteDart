@@ -27,7 +27,7 @@ main =
        fkD ={-# SCC "forcing" #-} force kD
        cfkD = {-# SCC "composing" #-} last $ takeWhile (not . nullGraph) $ iterate compose fkD
 
-       fig = {-# SCC "drawing" #-} drawGraph fkD
+       fig = {-# SCC "drawing" #-} draw fkD
        w = width fig
 
 

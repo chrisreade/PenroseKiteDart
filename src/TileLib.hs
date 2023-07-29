@@ -13,7 +13,7 @@ Stability   : experimental
 
 This module includes the basic operations for creating and drawing finite patches
 of Penrose's Dart and Kite tilings.
-It includes a decompose operation, drawPatch, fillDK and patchColourDKG, sun and star example patches.
+It includes a decompose operation, draw, fillDK and colourDKG_Patch, sun and star example patches.
 -}
 module TileLib where
 
@@ -158,17 +158,16 @@ fillMaybeDKG d k g piece = drawPiece piece # maybeGrout g <> filler where
 
 -- |same as drawPiece but with join edge added as dashed-line
 dashjPiece:: Piece -> Diagram B
-dashjPiece piece = drawPiece piece <> dashj piece
-                                       -- (drawJ piece # dashingO [1,2] 0)
+dashjPiece piece = drawPiece piece <> dashjOnly piece
 
 -- |draw join edge only 
-drawJ:: Piece -> Diagram B
-drawJ piece = strokeLine $ fromOffsets [joinVector piece]
+drawJoin:: Piece -> Diagram B
+drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |draw join edge only 
-dashj:: Piece -> Diagram B
-dashj piece = drawJ piece # dashingN [0.003,0.003] 0 # lw ultraThin
---dashj piece = (drawJ piece # dashingN [0.001,0.002] 0 # lwN 0.001)
+dashjOnly:: Piece -> Diagram B
+dashjOnly piece = drawJoin piece # dashingN [0.002,0.002] 0 # lw ultraThin
+--dashjOnly piece = (drawJoin piece # dashingN [0.001,0.002] 0 # lwN 0.001)
         
 -- |experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.
@@ -194,20 +193,35 @@ type Patch = [Located Piece]
 drawPatchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
 drawPatchWith pd = position . fmap (viewLoc . mapLoc pd)
 
+
+class Drawable a where
+  drawWith :: (Piece -> Diagram B) -> a -> Diagram B
+
+instance Drawable Patch where
+    drawWith = drawPatchWith
+
+draw :: Drawable a => a -> Diagram B
+draw = drawWith drawPiece
+drawj :: Drawable a => a -> Diagram B
+drawj = drawWith dashjPiece
     
--- |special case of drawPatchWith - turn patches to diagrams with drawPiece
+{-
+-- |special case of drawWith - turn patches to diagrams with drawPiece
 drawPatch:: Patch -> Diagram B      
-drawPatch = drawPatchWith drawPiece
+drawPatch = drawWith drawPiece
+-}
 
--- |special case of drawPatchWith - turn patches to diagrams with dashjPiece
+{-
+-- |special case of drawWith - turn patches to diagrams with dashjPiece
 dashjPatch:: Patch -> Diagram B      
-dashjPatch = drawPatchWith dashjPiece
+dashjPatch = drawWith dashjPiece
+-}
 
--- |patchColourDKG (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and
+-- |colourDKG_Patch (c1,c2,c3) p fill in a patch p with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
-patchColourDKG::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
-patchColourDKG (c1,c2,c3) p = drawPatchWith (fillDK c1 c2) p # lc c3
+colourDKG_Patch::  (Colour Double,Colour Double,Colour Double) -> Patch -> Diagram B
+colourDKG_Patch (c1,c2,c3) p = drawWith (fillDK c1 c2) p # lc c3
 
 
 
