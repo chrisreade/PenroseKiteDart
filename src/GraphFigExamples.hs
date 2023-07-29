@@ -1146,7 +1146,7 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ hsep 5  [vsep 10 [k
                     g = recoverGraph bd
                     vp = alignedVP edge g
                     drawg = draw vp
-                    fbdes = ((drawEdgeWith vp edge # lc red) <> drawEdgesWith vp (boundary fbd)) # lw thin
+                    fbdes = ((drawEdgeWith vp edge # lc red) <> drawEdgesIn vp (boundary fbd)) # lw thin
 
     addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
       case filter ((==(snd edge)). fst) (boundary bd) of
@@ -1305,18 +1305,18 @@ remainderGroupsFig:: Diagram B
 remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
     halfFool = makeTgraph [LD(1,2,3),RK(4,3,2),LK(4,5,3)]
     hfVP = makeVP halfFool
-    hfDiag = (lc yellow $ drawEdgesWith hfVP [(1,2),(2,4)]) 
-             <> (lc red $ drawEdgesWith hfVP [(3,1),(5,3)]) 
+    hfDiag = (lc yellow $ drawEdgesIn hfVP [(1,2),(2,4)]) 
+             <> (lc red $ drawEdgesIn hfVP [(3,1),(5,3)]) 
              <> (drawj hfVP)
     kite = makeTgraph [RK(1,2,3),LK(1,4,2)]
     kVP = makeVP kite
     kDiag = (drawv 1 kVP)
-             <> (lc red $ drawEdgesWith kVP [(2,3),(4,2)]) 
+             <> (lc red $ drawEdgesIn kVP [(2,3),(4,2)]) 
              <> (drawj kVP)
     fool = makeTgraph [LD(1,2,3),RK(4,3,2),LK(4,5,3),RD(1,6,2),LK(4,2,6),RK(4,6,7)]
     fVP = makeVP fool
     fDiag = (drawv 4 fVP)
-             <> (lc red $ drawEdgesWith fVP [(3,1),(5,3),(1,6),(6,7)]) 
+             <> (lc red $ drawEdgesIn fVP [(3,1),(5,3),(1,6),(6,7)]) 
              <> (drawj fVP)
     drawv v vp = case findLoc v vp of
               Nothing -> error $ "remainderGroupsFig: vertex not found " ++ show v

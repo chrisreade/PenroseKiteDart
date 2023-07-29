@@ -1,5 +1,6 @@
 import Tgraphs
 import GraphFigExamples
+import TileLib (draw)
 import Diagrams.Prelude
 
 main :: IO ()

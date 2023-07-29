@@ -179,7 +179,7 @@ drawWithMax g =  (dmax # lc red # lw thin) <> dg where
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (drawEdgesWith vp edges # lc lime) <> drawLabelled vp where
+drawGBoundary g =  (drawEdgesIn vp edges # lc lime) <> drawLabelled vp where
     vp  = makeVP g
     edges = graphBoundary g
 

@@ -127,6 +127,12 @@ instance Drawable Tgraph where
 class DrawableLabelled a where
   drawLabelledWith :: (Piece -> Diagram B) -> a -> Diagram B
 
+drawLabelled :: DrawableLabelled a => a -> Diagram B
+drawLabelled = drawLabelledWith drawPiece
+
+drawjLabelled :: DrawableLabelled a => a -> Diagram B
+drawjLabelled = drawLabelledWith dashjPiece
+
 instance DrawableLabelled VPatch where
     drawLabelledWith = drawVPLabelledWith
 
@@ -140,13 +146,6 @@ drawVlabels vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
 
 instance DrawableLabelled Tgraph where
     drawLabelledWith pd = drawLabelledWith pd . makeVP
-
-drawLabelled :: DrawableLabelled a => a -> Diagram B
-drawLabelled = drawLabelledWith drawPiece
-
-drawjLabelled :: DrawableLabelled a => a -> Diagram B
-drawjLabelled = drawLabelledWith dashjPiece
-
 
 
 -- |relevantVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
@@ -359,8 +358,8 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
 -}
 
 -- |produce a diagram of a list of edges (given a VPatch)
-drawEdgesWith :: VPatch -> [Dedge] -> Diagram B
-drawEdgesWith vp = drawEdges (vLocs vp) --foldMap (drawEdgeWith vp)
+drawEdgesIn :: VPatch -> [Dedge] -> Diagram B
+drawEdgesIn vp = drawEdges (vLocs vp) --foldMap (drawEdgeWith vp)
 
 -- |produce a diagram of a single edge (given a VPatch)
 drawEdgeWith :: VPatch -> Dedge -> Diagram B
