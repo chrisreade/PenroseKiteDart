@@ -620,7 +620,7 @@ type UFinder = BoundaryState -> [Dedge] -> [(Dedge,TileFace)]
 
 -- |UChecker (Update checker functions). Given a BoundaryState and a particular tileface (on the boundary),
 -- such functions try to produce particular updates on the boundary edge of the given tileface.
--- For example, addKitreShortE will produce an update to add a half-kite with short edge against the boundary.
+-- For example, addKiteShortE will produce an update to add a half-kite with short edge against the boundary.
 -- Such a function can be used with a UFinder that either returns dart halves with short edge on the boundary
 -- (nonKDarts in rule 2) or returns kite halves with short edge on the boundary
 -- (kitesWingDartOrigin in rule 3).

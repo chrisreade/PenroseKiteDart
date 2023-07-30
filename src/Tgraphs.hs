@@ -119,14 +119,16 @@ drawSmartLabelledAligned vs g = drawSmartLabelledSub g $ alignXaxis vs $ makeVP 
 -- This can be used instead of drawSmart when such a map is already available.
 drawSmartSub:: Tgraph -> VPatch -> Diagram B
 drawSmartSub g vp = (drawWith dashjOnly $ subVP vp $ boundaryJoinFaces g) 
-                        <> draw (subVP vp (faces g))
+                    <> 
+                    draw (subVP vp (faces g))
 
 -- |drawSmartLabelledSub g vp converts g to a diagram with vertex labels.
 -- It requires vp to contain a suitable vertex location map for drawing g.
 -- This can be used instead of drawSmartLabelled when a suitable VPatch is already available.
 drawSmartLabelledSub:: Tgraph -> VPatch -> Diagram B
 drawSmartLabelledSub g vp = (drawWith dashjOnly $ subVP vp $ boundaryJoinFaces g) 
-                        <> drawLabelled (subVP vp (faces g))
+                            <> 
+                            drawLabelled (subVP vp (faces g))
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
@@ -143,8 +145,8 @@ Overlaid drawing tools for Tgraphs
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
 drawPCompose g = (draw $ subVP vp $ faces g')
-                 <> (lw thin $ lc lime $ drawj $ subVP vp fcs)
-  where (fcs,g') = partCompose g
+                 <> (lw thin $ lc lime $ drawj $ subVP vp remainder)
+  where (remainder,g') = partCompose g
         vp = makeVP g
 
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
@@ -203,7 +205,7 @@ Combining force, compose, decompose
 -}
 -- |compForced does a force then compose.
 -- It omits the check for connected, and no crossing boundaries because the argument is forced first.
--- This requires a proof! 
+-- This relies on a proof that composition does not need to be checked for a forced Tgraph.
 compForced:: Tgraph -> Tgraph
 compForced = snd . uncheckedPartCompose . force 
 --compForced = compose . force
@@ -212,9 +214,12 @@ compForced = snd . uncheckedPartCompose . force
 forcedDecomp:: Tgraph -> Tgraph
 forcedDecomp = force . decompose
         
--- |allCompForced g produces a list of all forced compositions starting from g up to but excluding the empty graph
+-- |allCompForced g produces a list of all forced compositions starting from g up to but excluding the empty Tgraph.
+-- This definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
+-- (2) a proof that composition does not need to be checked for a forced Tgraph.
 allCompForced:: Tgraph -> [Tgraph]
-allCompForced = takeWhile (not . nullGraph) . iterate compForced
+allCompForced g = takeWhile (not . nullGraph) $ g: (iterate (snd . uncheckedPartCompose) $ compForced g) 
+-- allCompForced = takeWhile (not . nullGraph) . iterate compForced
 
 -- | produces an infinite list of forced decompositions
 allForcedDecomps:: Tgraph -> [Tgraph]
@@ -222,7 +227,7 @@ allForcedDecomps = iterate forcedDecomp
 
 -- |maxCompForced produces a maximally composed forced graph.
 maxCompForced:: Tgraph -> Tgraph
-maxCompForced = force . last . allCompForced
+maxCompForced = last . allCompForced
 
 -- |maxComp may produce a maximally composed graph, but may raise an error if any intermediate composition 
 -- is not a valid Tgraph.

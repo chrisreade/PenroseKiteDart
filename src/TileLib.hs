@@ -193,19 +193,23 @@ type Patch = [Located Piece]
 drawPatchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
 drawPatchWith pd = position . fmap (viewLoc . mapLoc pd)
 
-
+-- | A class for things that can be turned to diagrams when given a function to draw pieces
 class Drawable a where
   drawWith :: (Piece -> Diagram B) -> a -> Diagram B
 
+-- | Patches are drawable
 instance Drawable Patch where
     drawWith = drawPatchWith
 
+-- | the main default case for drawing using drawPiece
 draw :: Drawable a => a -> Diagram B
 draw = drawWith drawPiece
+
+-- | alternative default case for drawing adding dashed lines for join edges
 drawj :: Drawable a => a -> Diagram B
 drawj = drawWith dashjPiece
     
--- |colourDKG (c1,c2,c3) p fill in a drawable with colour c1 for darts, colour c2 for kites and
+-- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
 colourDKG::  Drawable a => (Colour Double,Colour Double,Colour Double) -> a -> Diagram B

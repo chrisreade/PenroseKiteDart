@@ -124,17 +124,25 @@ drawVPWith pd vp = drawWith pd (dropLabels vp)
 instance Drawable Tgraph where
     drawWith pd = drawWith pd . makeVP
 
+-- | A class for things that can be drawn with labels when given a function to draw Pieces
 class DrawableLabelled a where
   drawLabelledWith :: (Piece -> Diagram B) -> a -> Diagram B
 
+-- | main default case for drawing with labels (using drawPiece)
 drawLabelled :: DrawableLabelled a => a -> Diagram B
 drawLabelled = drawLabelledWith drawPiece
 
+-- | alternative default case for drawing with labels and adding dashed join edges (using dashjPiece)
 drawjLabelled :: DrawableLabelled a => a -> Diagram B
 drawjLabelled = drawLabelledWith dashjPiece
 
+-- | VPatches can be drawn with labels
 instance DrawableLabelled VPatch where
     drawLabelledWith = drawVPLabelledWith
+
+-- | Tgraphs can be drawn with labels
+instance DrawableLabelled Tgraph where
+    drawLabelledWith pd = drawLabelledWith pd . makeVP
 
 -- |drawVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
 drawVPLabelledWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
@@ -144,32 +152,13 @@ drawVlabels :: VertexLocMap -> Diagram B
 drawVlabels vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
     where label v = baselineText (show v) # fontSize (normalized 0.008) # fc red  -- was global 0.3
 
-instance DrawableLabelled Tgraph where
-    drawLabelledWith pd = drawLabelledWith pd . makeVP
-
-
--- |relevantVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
--- BUT drops drawing of vertices that are not mentioned in the faces.
+-- |relevantVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces.
+-- The same as drawVPLabelledWith BUT drops drawing of vertices that are not mentioned in the faces.
+-- This is intended for when a subset of faces from a VPatch are being drawn.
 relevantVPLabelledWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
 relevantVPLabelledWith pd vp = drawVlabels locVs <> drawWith pd (dropLabels vp) where
      vs = facesVSet (vpFaces vp)
      locVs = VMap.filterWithKey (\v -> \_ -> (v `IntSet.member` vs)) $ vLocs vp
-
-{-
-relevantVPLabelledWith pd vp = drawVlabels locVs <> drawWith pd (dropLabels vp) where
-     vs = nub $ concatMap faceVList (vpFaces vp)
-     locVs = VMap.filterWithKey (\v -> \_ -> (v `elem` vs)) $ vLocs vp
--}
-
-{-
-
--- |colourDKG (c1,c2,c3) p fill in a VPatch vp with colour c1 for darts, colour c2 for kites and
--- colour c3 for grout (that is, the non-join edges).
--- Note the order D K G.
-colourDKG::  (Colour Double,Colour Double,Colour Double) -> VPatch -> Diagram B
-colourDKG (c1,c2,c3) vp = drawWith (fillDK c1 c2) vp # lc c3
-
--}
 
 -- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default.
 -- Note this does not rotate the labels themselves.

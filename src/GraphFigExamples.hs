@@ -139,19 +139,6 @@ decompHalf = (vsep 1 [hsep 2 [dartFig, ddartFig], hsep 2 [kiteFig, dkiteFig]])
           ddartFig = named "ddart" $ centerXY $ drawjLabelled $ decompose d
           kiteFig = named "kite" $ centerXY $ scale phi $ drawjLabelled k
           dkiteFig = named "dkite" $ centerXY $ drawjLabelledRotated (ttangle 1) (decompose k)
-{-
-decompHalf = (vsep 4 [hsep 10 [dartFig, ddartFig], hsep 10 [kiteFig, dkiteFig]])
-              # decompArrow "dart" "ddart" 
-              # decompArrow "kite" "dkite"
-              # padBorder <> (baselineText "decompose" # fontSize (normalized 0.05) # fc blue)
-    where d = makeTgraph [LD(1,2,3)]
-          k = makeTgraph [LK(1,2,3)]
-          dartFig = named "dart" $ centerXY $ drawjLabelled $ scale (5*phi) $ makeVP d
-          ddartFig = named "ddart" $ centerXY $ scale 5 $ drawjLabelled $ decompose d
-          kiteFig = named "kite" $ centerXY $ scale (5*phi) $ drawjLabelled k
-          dkiteFig = named "dkite" $ centerXY $ scale 5 $ drawjLabelledRotated (ttangle 1) (decompose k)
--}
-
 
 {-* Partial Composition figures
 -} 
@@ -316,11 +303,14 @@ touchingTestFig =
 
 
 -- |A function to remove halftile faces that do not have their matching halftile
--- This weill raise an error if the result is not a valid Tgraph.
+-- This will raise an error if the result is not a valid Tgraph.
 removeIncompleteTiles:: Tgraph -> Tgraph
+removeIncompleteTiles g = removeFaces (boundaryJoinFaces g) g
+{-
 removeIncompleteTiles g = removeFaces halfTiles g
        where bdry = makeBoundaryState g
              halfTiles = fmap snd $ incompleteHalves bdry $ boundary bdry
+-}
 
 -- |figure showing the result of applying removeIncompleteTiles to a 3 times decomposed sun.
 removeIncompletesFig::Diagram B
