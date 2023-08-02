@@ -39,6 +39,15 @@ piecesFig2 = hsep 1 $ fmap (leftFillDK red blue) thePieces ++ fmap drawPiece the
 -- |figure showing origins and markings on tiles
 markedTiles:: Diagram B
 markedTiles = hsep 1  
+        [ kiteDiag # showOrigin # centerXY # rotate (90@@deg)
+        , dartDiag # showOrigin # centerXY  # rotate (270@@deg)
+        , (kiteDiag <> (pL ~~ pR # lc red # lw thick)) # centerXY # rotate (90@@deg)
+        , (dartDiag <> (origin ~~ p2(1,0) # lc red # lw thick)) # centerXY # rotate (270@@deg)
+        ] where kiteDiag = draw [lkite `at` origin, rkite `at` origin]
+                dartDiag = draw [ldart `at` origin, rdart `at` origin]
+                pL = origin .+^ phi*^rotate (ttangle 1) unitX
+                pR = origin .+^ phi*^rotate (ttangle 9) unitX
+{-
         [ kiteDiag # showOrigin 
         , dartDiag # showOrigin 
         , kiteDiag <> (pL ~~ pR # lc red # lw thick) 
@@ -47,6 +56,7 @@ markedTiles = hsep 1
                 dartDiag = draw [ldart `at` origin, rdart `at` origin]
                 pL = origin .+^ phi*^rotate (ttangle 1) unitX
                 pR = origin .+^ phi*^rotate (ttangle 9) unitX
+-}
 
 -- |another figure showing origins and markings on tiles
 markedTiles2:: Diagram B
@@ -79,7 +89,7 @@ Figures for decompositions and compChoices
 -- |figure showing 4 decompositions in a column for each of the four pieces
 fourDecomps:: Diagram B
 fourDecomps = hsep 1 $ fmap decomps thePieces # lw thin where
-         decomps pc = vsep 1 $ fmap draw $ take 5 $ decompositionsP [pc `at` origin] 
+         decomps pc = vsep 1 $ fmap drawj $ take 5 $ decompositionsP [pc `at` origin] 
 
 -- |example of compChoices in action with 5 chosen compChoices steps from a left dart.
 -- This shows inital and final piece together on the left,  
@@ -141,7 +151,7 @@ newFillSun6 = drawWith (fillDK darkmagenta indigo) sun6 # lw ultraThin # lc gold
 
 
 
--- |list of 3 diagrams for colour filled star,sun kite respectivly
+-- |list of 3 diagrams for colour filled star,sun kite respectively
 threeColouredShapes:: [Diagram B]
 threeColouredShapes = [star4,sun4,kite5] where
         star4 = colourDKG (goldenrod, darkturquoise, saddlebrown) (decompositionsP TileLib.star !!4)

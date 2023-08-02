@@ -164,7 +164,7 @@ dashjPiece piece = drawPiece piece <> dashjOnly piece
 drawJoin:: Piece -> Diagram B
 drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
--- |draw join edge only 
+-- |draw join edge only (as dashed line)
 dashjOnly:: Piece -> Diagram B
 dashjOnly piece = drawJoin piece # dashingN [0.002,0.002] 0 # lw ultraThin
 --dashjOnly piece = (drawJoin piece # dashingN [0.001,0.002] 0 # lwN 0.001)
