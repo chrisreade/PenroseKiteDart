@@ -144,7 +144,7 @@ Overlaid drawing tools for Tgraphs
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (draw $ subVP vp $ faces g')
+drawPCompose g = (drawSmartSub g' vp)
                  <> (lw thin $ lc lime $ drawj $ subVP vp remainder)
   where (remainder,g') = partCompose g
         vp = makeVP g
