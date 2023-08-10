@@ -127,6 +127,7 @@ dartDs =  decompositions dartGraph
 dartD4 :: Tgraph
 dartD4 = dartDs!!4
 
+{-
 -- |Diagram showing decomposition of (left hand) half-tiles.
 decompHalf :: Diagram B
 decompHalf = (vsep 1 [hsep 2 [dartFig, ddartFig], hsep 2 [kiteFig, dkiteFig]])
@@ -139,6 +140,64 @@ decompHalf = (vsep 1 [hsep 2 [dartFig, ddartFig], hsep 2 [kiteFig, dkiteFig]])
           ddartFig = named "ddart" $ centerXY $ drawjLabelled $ decompose d
           kiteFig = named "kite" $ centerXY $ scale phi $ drawjLabelled k
           dkiteFig = named "dkite" $ centerXY $ drawjLabelledRotated (ttangle 1) (decompose k)
+-}
+
+-- |Diagram showing decomposition of (left hand) half-tiles.
+decompHalf :: Diagram B
+decompHalf = padBorder $ lw thin $ vsep 1 $ fmap centerX 
+   [ addArrow  [ drawjLabelled $ scale phi $ makeVP d
+               , drawjLabelled dd
+               ]
+   , addArrow  [ drawjLabelled $ scale phi $ makeVP k
+               , drawjLabelled $ rotate (ttangle 1) $ makeVP dk
+               ]
+   ]
+    where d = makeTgraph [LD(1,2,3)]
+          k = makeTgraph [LK(1,2,3)]
+          dd = decompose d
+          dk = decompose k
+          addArrow [a,b] = decompArrow "a" "b" $ hsep 2 $
+                           [named "a" $ centerXY a, named "b" $ centerXY b]
+{-
+    decompIllustrate = padBorder $ lw thin $ vsep 1 $ fmap centerX 
+       [ addArrow  [ drawjLabelled $ scale phi $ makeVP d
+                   , drawjLabelled dd
+                   ]
+       , addArrow  [ drawjLabelled $ scale phi $ makeVP k
+                   , drawjLabelled $ rotate (ttangle 1) $ makeVP dk
+                   ]
+       , addArrow  [ drawjLabelled kingGraph
+                   , scale (phi-1) $ drawjLabelled dKing
+                   ]
+       ]
+        where d = makeTgraph [LD(1,2,3)]
+              k = makeTgraph [LK(1,2,3)]
+              dd = decompose d
+              dk = decompose k
+              dKing = decompose kingGraph
+              addArrow [a,b] = decompArrow "a" "b" $ hsep 2 $
+                               [named "a" $ centerXY a, named "b" $ centerXY b]
+    
+-}
+
+-- | diagram illustrating compose, force, and decompose with kinGraph
+cdfIllustrate:: Diagram B
+cdfIllustrate = (position $ zip [p2(0,0), p2(0,7), p2(10,0), p2(10, -12)]
+                                [k,dk,fk,cfk]
+                ) # decompArrow "k" "dk"
+                  # forceArrow "k" "fk"
+                  # composeArrow "fk" "cfk"
+                  # labelAt (p2(0.5,4)) "decompose"
+                  # labelAt (p2(2.5, -1)) "force"
+                  # labelAt (p2(7,-7)) "compose"
+                  # lw thin
+                  # padBorder
+      where fKing = force kingGraph
+            k = drawLabelled kingGraph # named "k"
+            fk = drawLabelled fKing # named "fk"
+            dk = drawSmartLabelled (decompose kingGraph) # scale (phi-1) # named "dk"
+            cfk = drawLabelledRotated (ttangle 9) (compose fKing) # scale phi # named "cfk"
+
 
 {-* Partial Composition figures
 -} 
