@@ -26,7 +26,7 @@ import Tgraph.Convert (touchingVertices, touchingVerticesGen) -- used for fullUn
 -- neither in g nor in the set avoid. Vertices in g that are not in avoid will remain the same.
 relabelAvoid :: VertexSet -> Tgraph -> Tgraph
 relabelAvoid avoid g = relabelGraph rlab g where
-  gverts = vertices g
+  gverts = vertexSet g
   avoidMax = if IntSet.null avoid then 0 else IntSet.findMax avoid
   vertsToChange = gverts `IntSet.intersection` avoid
   rlab = relabellingFrom (1+ max (maxV g) avoidMax) vertsToChange
@@ -53,7 +53,7 @@ prepareFixAvoid fix avoid = relabelAvoid (avoid IntSet.\\ IntSet.fromList fix)
 -- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
 relabelContig :: Tgraph -> Tgraph
 relabelContig g = relabelGraph rlab g where
-   rlab = relabellingFrom 1 (vertices g)
+   rlab = relabellingFrom 1 (vertexSet g)
   -- assert: rlab is 1-1 on the vertices of g
   -- assert: the relabelled Tgraph satisfies Tgraph properties (if g does)
 
@@ -93,7 +93,7 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
          touchVs = touchingVertices fcs
      if null touchVs
      then return $ Tgraph { faces = fcs, maxV = facesMaxV fcs } -- no properties check needed!
-     else let vertg1 = vertices g1
+     else let vertg1 = vertexSet g1
               correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
           in checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling $ fmap correct touchVs) fcs
 
@@ -120,7 +120,7 @@ will be tile-connected but may have touching vertices.
 -}
 tryMatchByEdges :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Try Tgraph
 tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $ 
-  do let g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
+  do let g2prepared = prepareFixAvoid [x2,y2] (vertexSet g1) g2
      fc2 <- find (`hasDedge` (x2,y2)) (faces g2prepared)
             `nothingFail` ("No face found for edge " ++ show (x2,y2))                      
      maybef <- tryMatchFace (relabelFace (newRelabelling [(x2,x1),(y2,y1)]) fc2) g1
@@ -283,14 +283,14 @@ commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
   fcs = faces g1 `union` faces g3
   touchVs = touchingVerticesGen fcs -- requires generalised version of touchingVertices
   relFaces = fmap (relabelFace $ newRelabelling $ fmap correct touchVs) (faces g3)
-  vertg1 = vertices g1
+  vertg1 = vertexSet g1
   correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
 
 -- |same as matchByEdges but ignores non-matching faces (except for the initial 2)
 -- The initial 2 faces are those on the given edges, and an error is raised if they do not match.
 matchByEdgesIgnore :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Tgraph
 matchByEdgesIgnore (g1,(x1,y1)) (g2,(x2,y2)) = relabelGraph rlab g2prepared where
-  g2prepared = prepareFixAvoid [x2,y2] (vertices g1) g2
+  g2prepared = prepareFixAvoid [x2,y2] (vertexSet g1) g2
   fc2 = case find (`hasDedge` (x2,y2)) (faces g2prepared) of
            Nothing -> error $ "No face found for edge " ++ show (x2,y2)
            Just f -> f                      
@@ -328,7 +328,7 @@ sameGraph :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Bool
 sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
                              ifFail False tryResult where
  tryResult = do g <- tryMatchByEdges (g1,e1) (g2,e2)
-                return (vertices g == vertices g1)
+                return (vertexSet g == vertexSet g1)
 
 
 {- *

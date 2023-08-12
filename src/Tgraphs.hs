@@ -37,7 +37,7 @@ import TileLib
 
 import Data.List (intersect, union, (\\), find, foldl',nub, transpose)      
 import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,map,delete,insert)-- used for boundary covers
-import qualified Data.IntSet as IntSet (IntSet,fromList,isSubsetOf,intersection,null,member,notMember) -- for boundary vertex set
+import qualified Data.IntSet as IntSet (IntSet,fromList,isSubsetOf,intersection,null,member,notMember,(\\)) -- for boundary vertex set
 
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
@@ -316,16 +316,7 @@ boundaryECovering bs = covers [(bs, Set.fromList (boundary bs))] where
        where (de,des) = Set.deleteFindMin es
              newcases = fmap (\b -> (b, commonBdry des b))
                              (atLeastOne $ tryDartAndKite bs de)
-{-
-boundaryECovering:: BoundaryState -> [BoundaryState]
-boundaryECovering bd = covers [(bd, Set.fromList (boundary bd))] where
---covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
-  covers [] = []
-  covers ((open,es):opens) | Set.null es = open:covers opens
-  covers ((open,es):opens) | otherwise = 
-      covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++ opens
-      where (de,des) = Set.deleteFindMin es
--}
+
 
 -- | commonBdry des b - returns those directed edges in des that are boundary directed edges of bd
 commonBdry:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
@@ -449,6 +440,29 @@ Contexts for (forced) Boundary Vertices and Edges
 -}
 
 
+{-
+forcedContexts:: BoundaryState -> [BoundaryState]
+forcedContexts bs = contexts [(bs, boundary bs)] where
+-- covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
+  contexts [] = []
+  contexts ((bs,[]):opens) = bs:contexts opens
+  contexts ((bs,be:bes):opens) 
+   = contexts ((bs,bes):newcases ++ opens)
+     where newcases = fmap (\b -> (b, commonBdry bes b))
+                           (atLeastOne $ tryDartAndKite bs be)
+-}
+
+forcedContexts:: BoundaryState -> [BoundaryState]
+forcedContexts bs = contexts [(bs, Set.fromList (boundary bs))] where
+-- covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
+  contexts [] = []
+  contexts ((bs,es):opens) 
+    | Set.null es = bs:contexts opens -- bs is a completed cover
+    | otherwise = contexts ((bs,des):newcases ++ opens)
+       where (de,des) = Set.deleteFindMin es
+             newcases = fmap (\b -> (b, commonBdry des b))
+                             (atLeastOne $ tryDartAndKite bs de)
+
 {- |forcedBEContexts e bd - 
 assumes bd to be a BoundaryState of a forced Tgraph and e to be a boundary edge of bd.
 It calculates all possible face additions either side of the edge,
@@ -497,6 +511,8 @@ extendEContexts bde bds = extend [] bds where
   remoteBes c = boundary c \\ [bde]
   stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
 
+
+
 -- |boundaryEdgeNbs bde b - returns the list of 2 directed boundary edges either side
 --  of the directed boundary edge bde in BoundaryState b.
 -- It raises an error if bde is not a boundary edge of b.
@@ -541,7 +557,7 @@ forcedBVContexts x (a,b) bd
   | otherwise = extend x [] (locals x [] [bd]) where
 --    locals:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
       locals x bds [] = reverse bds
-      locals x bds (open:opens) | not (IntSet.member x $ boundaryVertices open) = locals x bds opens
+      locals x bds (open:opens) | not (IntSet.member x $ boundaryVertexSet open) = locals x bds opens
       locals x bds (open:opens) | occursIn bds open (a,b) = locals x bds opens
       locals x bds (open:opens) | otherwise = 
           locals x (open:bds) (concatMap (atLeastOne . tryDartAndKite open)
@@ -552,11 +568,15 @@ forcedBVContexts x (a,b) bd
       extend x done (c:more) | occursIn done c (a,b) = extend x done more 
                              | otherwise 
          = extend x (c:done) (stillB x (concatMap (atLeastOne . tryDartAndKite c) (boundaryButOne x c)) ++ more)
-      stillB v = filter (\bd -> v `IntSet.member` boundaryVertices bd)
+      stillB v = filter (\bd -> v `IntSet.member` boundaryVertexSet bd)
 
 -- | returns the set of boundary vertices of a BoundaryState
-boundaryVertices :: BoundaryState -> VertexSet
-boundaryVertices bd = IntSet.fromList $ fmap fst (boundary bd)
+boundaryVertexSet :: BoundaryState -> VertexSet
+boundaryVertexSet bd = IntSet.fromList $ fmap fst (boundary bd)
+
+-- | returns the set of internal vertices of a BoundaryState
+internalVertexSet :: BoundaryState -> VertexSet
+internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet bd
 
 
 {-*

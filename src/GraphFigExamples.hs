@@ -143,42 +143,24 @@ decompHalf = (vsep 1 [hsep 2 [dartFig, ddartFig], hsep 2 [kiteFig, dkiteFig]])
 -}
 
 -- |Diagram showing decomposition of (left hand) half-tiles.
-decompHalf :: Diagram B
-decompHalf = padBorder $ lw thin $ vsep 1 $ fmap centerX 
-   [ addArrow  [ drawjLabelled $ scale phi $ makeVP d
-               , drawjLabelled dd
+decompHalfTiles :: Diagram B
+decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX 
+   [ addArrow  [ scale phi $ draw d -- draw $ scale phi $ makeVP d
+               , draw dd
                ]
-   , addArrow  [ drawjLabelled $ scale phi $ makeVP k
-               , drawjLabelled $ rotate (ttangle 1) $ makeVP dk
+   , addArrow  [ scale phi $ draw k
+               , draw $ rotate (ttangle 1) $ makeVP dk
                ]
    ]
     where d = makeTgraph [LD(1,2,3)]
           k = makeTgraph [LK(1,2,3)]
           dd = decompose d
           dk = decompose k
+          draw = drawLabelLargeWith dashjPiece
           addArrow [a,b] = decompArrow "a" "b" $ hsep 2 $
                            [named "a" $ centerXY a, named "b" $ centerXY b]
-{-
-    decompIllustrate = padBorder $ lw thin $ vsep 1 $ fmap centerX 
-       [ addArrow  [ drawjLabelled $ scale phi $ makeVP d
-                   , drawjLabelled dd
-                   ]
-       , addArrow  [ drawjLabelled $ scale phi $ makeVP k
-                   , drawjLabelled $ rotate (ttangle 1) $ makeVP dk
-                   ]
-       , addArrow  [ drawjLabelled kingGraph
-                   , scale (phi-1) $ drawjLabelled dKing
-                   ]
-       ]
-        where d = makeTgraph [LD(1,2,3)]
-              k = makeTgraph [LK(1,2,3)]
-              dd = decompose d
-              dk = decompose k
-              dKing = decompose kingGraph
-              addArrow [a,b] = decompArrow "a" "b" $ hsep 2 $
-                               [named "a" $ centerXY a, named "b" $ centerXY b]
     
--}
+
 
 -- | diagram illustrating compose, force, and decompose with kinGraph
 cdfIllustrate:: Diagram B
@@ -316,7 +298,7 @@ brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [dartD4, broke
 -- that would result from an unchecked second composition which are not tile-connected.
 -- (Simply applying compose twice to badlyBrokenDart will raise an error).
 badlyBrokenDartFig :: Diagram B
-badlyBrokenDartFig = padBorder $ hsep 1 $ fmap draw [badlyBrokenDart, compBBD, failed] where
+badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap draw [badlyBrokenDart, compBBD, failed] where
     vp = makeVP badlyBrokenDart
     draw g = relevantVPLabelledWith dashjPiece $ subVP vp $ faces g
     compBBD = compose badlyBrokenDart
@@ -622,7 +604,7 @@ coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
           , [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(1,8,7),LK(9,2,7)]          
           , [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(1,8,7),LK(9,2,7),RK(9,7,10)]          
           ]
- lines2 = [[RD(1,2,3)]
+ lines2 = [ [RD(1,2,3)]
           , [LK(1,2,3)]
           , [RD(1,2,3),LD(1,4,2)]
           , [LK(1,2,3),RD(2,1,4)]
@@ -1338,6 +1320,8 @@ foolVContextsFig = pad 1.02 $ centerXY $ lw ultraThin $ vsep 1 [opens, covers] w
     covers = centerX $ hsep 1 $
               fmap (drawVContext 3 (1,4)) $ reverse $ boundaryECovering $ makeBoundaryState fool 
 
+
+
 -- |Diagram showing local contexts in a forced Tgraph for a sun vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- The first 19 cases are for at least one edge of the sun Tgraph on the boundary.
@@ -1550,8 +1534,8 @@ testRelabellingFig = padBorder $ lw ultraThin $ vsep 1
      g1 = removeFaces [RK(1,31,41)] (removeVertices [74,79,29] sunD2)
      reduced2 = removeVertices [8,7,6] fsunD2
      g2 = relabelContig reduced2
-     g2_A = prepareFixAvoid [1,10] (vertices g1) g2
-     g2_B = prepareFixAvoid [1,18] (vertices g1) g2
+     g2_A = prepareFixAvoid [1,10] (vertexSet g1) g2
+     g2_B = prepareFixAvoid [1,18] (vertexSet g1) g2
 
 {-| Example showing match relabelling failing as well as a successful fullUnion of graphs.
 The top right graph g2 is matched against the top left graph g1 

@@ -55,8 +55,8 @@ emptyTgraph :: Tgraph
 emptyTgraph = Tgraph { maxV = 0, faces = []} -- 0 never used as a vertex number
 
 -- |the set of vertices of a graph
-vertices:: Tgraph -> VertexSet
-vertices = facesVSet . faces
+vertexSet:: Tgraph -> VertexSet
+vertexSet = facesVSet . faces
 
 {-------------------------------------------
 ********************************************
@@ -282,7 +282,7 @@ crossingBoundaries g = not $ null $ crossingBVs g
 -- |Predicate to check a Tgraph is a connected graph.
 connected:: Tgraph -> Bool
 connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (IntSet.findMin vs) vs)
-                   where vs = vertices g
+                   where vs = vertexSet g
 
 -- |Auxiliary function for calculating connectedness.
 -- connectedBy edges v verts returns a pair of lists of vertices (conn,unconn)
