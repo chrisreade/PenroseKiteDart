@@ -330,37 +330,16 @@ commonBdry des b = des `Set.intersection` Set.fromList (boundary b)
 boundaryVCovering:: BoundaryState -> [BoundaryState]
 boundaryVCovering bd = covers [(bd, startbds)] where
   startbds = Set.fromList $ boundary bd
-  startbvs = Set.map fst startbds
+  startbvs = boundaryVertexSet bd
 --covers:: [(BoundaryState,Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
   covers ((open,es):opens) 
-    | Set.null es = case find (\(a,_) -> Set.member a startbvs) (boundary open) of
+    | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
         Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKite open de) ++opens
     | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++opens  
     where (de,des) = Set.deleteFindMin es
                   
-{-
--- | anyDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
--- to edge de on boundary state b and forcing. (A list of 0 to 2 new boundary states)
-anyDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
-anyDartAndKite b de = ignoreFails $ tryDartAndKite b de
--}
-
-{-
--- | atLeastOneDartAndKite b de - returns the list of successful cases after adding a dart (respectively kite)
--- to edge de on boundary state b and forcing each case but will raise an error if there are no successes.
--- THIS IS TEMPORARILY replacing anyDartAndKite in many functions in order to record counter examples.
--- If we find a forced Tgraph where neither addition succeeds, it shows a successful force does not guarantee correctness.
-atLeastOneDartAndKite:: BoundaryState -> Dedge -> [BoundaryState]
-atLeastOneDartAndKite b de = case [x | Right x <- results] of
-                 [] -> error $ "atLeastOneDartAndKite: no successful results for boundary edge\n" ++ show de
-                               ++ "\nand Tgraph:\n" ++ show (recoverGraph b)
-                 _ -> ignoreFails results 
-            where results = tryDartAndKite b de
--}
-
-
 -- | tryDartAndKite b de - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. Each result is a Try.
 tryDartAndKite:: BoundaryState -> Dedge -> [Try BoundaryState]
@@ -439,35 +418,11 @@ drawEmpire2 g = drawSubTgraph  [ lw ultraThin . draw
 Contexts for (forced) Boundary Vertices and Edges
 -}
 
-
-{-
-forcedContexts:: BoundaryState -> [BoundaryState]
-forcedContexts bs = contexts [(bs, boundary bs)] where
--- covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
-  contexts [] = []
-  contexts ((bs,[]):opens) = bs:contexts opens
-  contexts ((bs,be:bes):opens) 
-   = contexts ((bs,bes):newcases ++ opens)
-     where newcases = fmap (\b -> (b, commonBdry bes b))
-                           (atLeastOne $ tryDartAndKite bs be)
--}
-
-forcedContexts:: BoundaryState -> [BoundaryState]
-forcedContexts bs = contexts [(bs, Set.fromList (boundary bs))] where
--- covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
-  contexts [] = []
-  contexts ((bs,es):opens) 
-    | Set.null es = bs:contexts opens -- bs is a completed cover
-    | otherwise = contexts ((bs,des):newcases ++ opens)
-       where (de,des) = Set.deleteFindMin es
-             newcases = fmap (\b -> (b, commonBdry des b))
-                             (atLeastOne $ tryDartAndKite bs de)
-
 {- |forcedBEContexts e bd - 
 assumes bd to be a BoundaryState of a forced Tgraph and e to be a boundary edge of bd.
 It calculates all possible face additions either side of the edge,
 forcing each case and discarding results where the edge is no longer on the boundary.
-It then generates further singleChoiceEdges for those cases which have empty composition
+It then generates further results for those cases which have empty composition
 by making additions round the rest of the boundary.
 Repetitions are removed using 'sameGraph'.
 The resulting contexts are returned as a list of BoundaryStates.      
@@ -499,34 +454,12 @@ occursIn bds b e
   = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) bds)
     where edge = reverseD e
 
--- |extendEContexts bde bds - where bds are boundary edge contexts for boundary directed edge bde,
--- adds all extended contexts for any context which has an empty composition.
-extendEContexts:: Dedge -> [BoundaryState] -> [BoundaryState]
-extendEContexts bde bds = extend [] bds where
-  extend done [] = reverse done
-  extend done (c:more) | occursIn done c bde = extend done more 
-                       | not (nullGraph (compose (recoverGraph c))) = extend (c:done) more
-                       | otherwise 
-    = extend (c:done) (stillB (concatMap (atLeastOne . tryDartAndKite c) (remoteBes c)) ++ more)
-  remoteBes c = boundary c \\ [bde]
-  stillB = filter (\bd -> Set.member bde $ Set.fromList $ boundary bd)
-
-
 
 -- |boundaryEdgeNbs bde b - returns the list of 2 directed boundary edges either side
 --  of the directed boundary edge bde in BoundaryState b.
 -- It raises an error if bde is not a boundary edge of b.
 boundaryEdgeNbs:: Dedge -> BoundaryState -> [Dedge]
 boundaryEdgeNbs (a,b) bd = boundaryEdgesWith [a,b] bd \\ [(a,b)]
-{-
-boundaryEdgeNbs:: Dedge -> BoundaryState -> [Dedge]
-boundaryEdgeNbs bde b = -- edges 
-  case find (\(_,b) -> b == fst bde) (boundary b) of
-  Nothing -> error $ "boundaryEdgeNbs: not a boundary edge " ++ show bde
-  Just deClock -> case find (\(a,_) -> a == snd bde) (boundary b) of
-                  Nothing -> error $ "boundaryEdgeNbs: not a boundary edge " ++ show bde
-                  Just deAnti -> [deClock,deAnti]
--}
 
 -- |boundaryEdgesAt v bd - returns boundary edges with vertex v in BoundaryState bd.
 boundaryEdgesAt:: Vertex -> BoundaryState -> [Dedge]
@@ -582,9 +515,6 @@ internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet b
 {-*
 Super Force with boundary edge covers
 -}
-
-
-
 
 -- |superForce g -after forcing g this looks for single choice boundary edges.
 -- That is a boundary edge for which only a dart or only a kite addition occurs in all boundary edge covers.
