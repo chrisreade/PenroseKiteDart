@@ -1237,6 +1237,16 @@ We remove any Tgraphs where the red edge is no longer on the boundary and remove
 The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
 -}
 forcedBEContextsFig :: Diagram B
+forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7) 
+                      [ fmap (dartLongDiags!!)  [1,2,3,6,7,8,9,10,12,13,14,15,16] 
+                      , fmap (kiteLongDiags!!)  [2,3,4] ++ drop 6 kiteLongDiags
+                      , fmap (kiteShortDiags!!) [2,3,4,7,8,9,10,12,16,17,18,19,22] 
+                      ] where  
+    edge = (1,2)
+    dartLongDiags  = fmap (drawBEContext edge) dartLongContexts
+    kiteLongDiags  = fmap (drawBEContext edge) kiteLongContexts 
+    kiteShortDiags = fmap (drawBEContext edge) kiteShortContexts
+{-
 forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 8) 
                       [dartLongDiags, kiteLongDiags, kiteShortDiags] where  
     drawCases e g = fmap (drawBEContext e . recoverGraph) $ forcedBEContexts e $ makeBoundaryState $ force g 
@@ -1244,6 +1254,23 @@ forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 8)
     dartLongDiags = drawCases edge $ force $ makeTgraph [LD(1,3,2)]
     kiteLongDiags = drawCases edge $ force $ makeTgraph [LK(2,1,3)] 
     kiteShortDiags = drawCases edge $ force $ makeTgraph [LK(3,2,1)]
+-}
+
+dartLongContexts,kiteLongContexts,kiteShortContexts:: [Tgraph]
+dartLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LD(1,3,2)]
+kiteLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(2,1,3)]
+kiteShortContexts = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(3,2,1)]
+{-
+forcedBEContextsFig :: Diagram B
+forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 8) 
+                      [dartLongDiags, kiteLongDiags, kiteShortDiags] where  
+    drawCases e g = fmap (drawBEContext e . recoverGraph) $ forcedBEContexts e $ makeBoundaryState $ force g 
+    edge = (1,2)
+    dartLongDiags = drawCases edge $ force $ makeTgraph [LD(1,3,2)]
+    kiteLongDiags = drawCases edge $ force $ makeTgraph [LK(2,1,3)] 
+    kiteShortDiags = drawCases edge $ force $ makeTgraph [LK(3,2,1)]
+-}
+
 
 -- |drawBEContext e g - draws g, aligning e on the x-axis.
 -- It emphasises the edge e with red and shows the composition of g filled yellow. 
@@ -1262,10 +1289,33 @@ Note that dart wing cases are a subset of kite opp cases.
 Repetitions have been removed.
 -}
 forcedBVContextsFig :: Diagram B
-forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (hsep 1) $ 
+forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 3  
 --  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
   [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  drawCases v e g = fmap (drawVContext v e . recoverGraph) $ forcedBVContexts v e $ makeBoundaryState $ force g
+  edge = (1,2)
+  dartOriginDiags = arrangeRows 7 $ fmap (alldartOriginDiags!!) [1,2,3,4,5,10,11,12,13,16,17,26]
+  kiteOriginDiags = arrangeRows 2 $ fmap (allkiteOriginDiags!!) [2,3]
+  kiteWingDiags = arrangeRows 8 $ fmap (allkiteWingDiags!!) [2,3,4,5,6,9,10,14,15,21,22,30,33,34,35]
+  kiteOppDiags = arrangeRows 7 $ fmap (allkiteOppDiags!!) [3,4,5,7,8,9,12,16,18,19,23,31]
+
+  alldartOriginDiags = fmap (drawVContext 1 edge) dartOriginContexts
+  allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
+  allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
+  allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
+
+dartOriginContexts,kiteOriginContexts,kiteWingContexts,kiteOppContexts:: [Tgraph]
+dartOriginContexts = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LD(1,3,2)]
+kiteOriginContexts = fmap recoverGraph $ forcedBVContexts 2 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(2,1,3)]
+kiteWingContexts   = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(2,1,3)]
+kiteOppContexts    = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(3,2,1)]
+
+{-
+forcedBVContextsFig :: Diagram B
+forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 8) $ 
+--forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (hsep 1) $ 
+--  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
+  [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
+  drawCases v e g = fmap (drawVContext v e . recoverGraph) $ newforcedBVContexts v e $ makeBoundaryState $ force g
   dartOriginDiags = take 4 alldartOriginDiags ++ [alldartOriginDiags!!5]
 --  dartWingDiags = alldartWingDiags
   kiteOriginDiags =  take 7 allkiteOriginDiags ++ [allkiteOriginDiags!!19]
@@ -1277,6 +1327,7 @@ forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (hsep 1) $
   allkiteWingDiags = drawCases 1 edge $ makeTgraph [LK(2,1,3)]
   allkiteOppDiags = drawCases 1 edge $ makeTgraph [LK(3,2,1)]
   edge = (1,2)
+-}
 
 -- |drawVContext v e g - draws the Tgraph g with vertex v shown red and edge e aligned on the x-axis and
 -- the composition of g shown in yellow.
@@ -1297,6 +1348,12 @@ drawVContext v edge g = drawv <> drawg <> drawComp where
 -- 5 fold symmetry is used to remove rotated duplicates.
 sunVContextsFig :: Diagram B
 sunVContextsFig = padBorder $ lw ultraThin $ arrangeRows 7 $ fmap (drawVContext 1 (1,3)) sunContexts
+
+-- |Diagram showing only the cases from sunVContextFig where the vertex is on the composition boundary
+sunVContextsCompBoundary :: Diagram B
+sunVContextsCompBoundary = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawVContext 1 (1,3)) $
+     fmap (sunContexts!!) [2,3,4,7,9,11]
+   -- only show cases where v is on the composition boundary and remove one indexed as 10 - a mirror symetric version of 7
 
 -- |All local forced contexts for a sun vertex (as BoundaryStates).
 -- The vertex is shown with a red dot and the composition filled yellow.
@@ -1319,13 +1376,24 @@ sunContexts = fmap recoverGraph $ contexts [] [(bStart, Set.fromList (boundary b
                                 (atLeastOne $ tryDartAndKite bs de)
                          )) (Set.toList es)
 
+
+
 -- |Diagram showing local contexts in a forced Tgraph for a fool/ace vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- Mirror symmetric versions have been removed.
 foolVContextsFig:: Diagram B
 foolVContextsFig  = padBorder $ lw ultraThin $ arrangeRows 8 $ fmap (drawVContext 3 (1,4)) $
-   fmap (foolContexts!!) [0,1,2,3,4,5,6,7,9,12,13,14,15,16,17,18,19,20,21,23,26,27,28]
-   -- removes mirror symmetric cases
+   fmap (foolContexts!!) [0,1,2,3,4,5,6,7,9,13,14,15,16,17,18,19,20,21,23,26,27,28]
+   -- only include 1 of each mirror symmetric case
+
+-- |Diagram showing only the cases from foolVContextsFig where
+-- the vertex is on the composition boundary
+foolVContextsCompBoundary:: Diagram B
+foolVContextsCompBoundary  = padBorder $ lw ultraThin $ arrangeRows 4 $ fmap (drawVContext 3 (1,4)) $
+   fmap (foolContexts!!) [1,6,7,15,19,21,26,28]
+   -- only show cases where v is on the composition boundary
+
+-- | Generates the cases for fool vertex contexts in a forced Tgraph (some mirror symetric duplicates)
 foolContexts:: [Tgraph]
 foolContexts = fmap recoverGraph $ contexts [] [(bStart, Set.fromList (boundary bStart))] where
   edge = (1,4)
