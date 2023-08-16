@@ -16,10 +16,9 @@ module GraphFigExamples where
 -- used for testing
 -- import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
 
-import Data.List (intersect,foldl',(\\))      
 import Diagrams.Prelude
 import Data.Tree (Tree(..),levels) -- used for boundaryEdgeCaseTrees    
-import qualified Data.Set as Set  (null,fromList,toList,delete)-- used for bexperiment fool sun contexts
+import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
 
 import ChosenBackend (B)
 import TileLib
@@ -128,21 +127,6 @@ dartDs =  decompositions dartGraph
 dartD4 :: Tgraph
 dartD4 = dartDs!!4
 
-{-
--- |Diagram showing decomposition of (left hand) half-tiles.
-decompHalf :: Diagram B
-decompHalf = (vsep 1 [hsep 2 [dartFig, ddartFig], hsep 2 [kiteFig, dkiteFig]])
-              # decompArrow "dart" "ddart" 
-              # decompArrow "kite" "dkite"
-              # padBorder <> (baselineText "decompose" # fontSize (normalized 0.05) # fc blue)
-    where d = makeTgraph [LD(1,2,3)]
-          k = makeTgraph [LK(1,2,3)]
-          dartFig = named "dart" $ centerXY $ drawjLabelled $ scale phi $ makeVP d
-          ddartFig = named "ddart" $ centerXY $ drawjLabelled $ decompose d
-          kiteFig = named "kite" $ centerXY $ scale phi $ drawjLabelled k
-          dkiteFig = named "dkite" $ centerXY $ drawjLabelledRotated (ttangle 1) (decompose k)
--}
-
 -- |Diagram showing decomposition of (left hand) half-tiles.
 decompHalfTiles :: Diagram B
 decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX 
@@ -161,8 +145,6 @@ decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
           addArrow [a,b] = decompArrow "a" "b" $ hsep 2 $
                            [named "a" $ centerXY a, named "b" $ centerXY b]
     
-
-
 -- | diagram illustrating compose, force, and decompose with kinGraph
 cdfIllustrate:: Diagram B
 cdfIllustrate = (position $ zip [p2(0,0), p2(0,7), p2(10,0), p2(10, -12)]
@@ -181,9 +163,9 @@ cdfIllustrate = (position $ zip [p2(0,0), p2(0,7), p2(10,0), p2(10, -12)]
             dk = drawSmartLabelled (decompose kingGraph) # scale (phi-1) # named "dk"
             cfk = drawLabelledRotated (ttangle 9) (compose fKing) # scale phi # named "cfk"
 
-
 {-* Partial Composition figures
 -} 
+
 pCompFig1,pCompFig2,pCompFig:: Diagram B
 -- |diagram showing partial composition of a forced 3 times decomposed dart (with ignored faces in pale green)
 pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
@@ -206,29 +188,13 @@ Note that both compose and composeK applied to the middle Tgraph produce the mis
 -}
 counterK :: Diagram B
 counterK = padBorder $ lw thin $ hsep 1 $ 
---             drawPCompose g : (rotations [0,6,5] $ phiScales $ fmap drawj [g,kg,kkg])
            (rotations [0,6] $ phiScales $ fmap drawj [g,kg]) ++ [drawPCompose g]
         where g = force queenGraph
               kg = composeK g
---              kkg = composeK kg
--- An experimental version of composition which defaults to kites when there are choices (unknowns).
--- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
--- composeK :: Tgraph -> Tgraph
-              composeK = snd . partComposeK
--- partComposeK:: Tgraph -> ([TileFace],Tgraph)
-              partComposeK g = (remainder,newGraph) where
-                 newGraph = makeTgraph newfaces
-                 dwInfo = getDartWingInfo g
-                 changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
-                                     , unknowns = []
-                                     }
-                 compositions = composedFaceGroups changedInfo
-                 newfaces = map fst compositions
-                 groups = map snd compositions
-                 remainder = faces g \\ concat groups
 
 {-* Forced Tgraph figures
 -}
+          
 -- |diagram of foolDminus and the result of forcing              
 forceFoolDminus :: Diagram B              
 forceFoolDminus = padBorder $ hsep 1 $ fmap drawjLabelled [foolDminus, force foolDminus]
@@ -1246,31 +1212,12 @@ forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7)
     dartLongDiags  = fmap (drawBEContext edge) dartLongContexts
     kiteLongDiags  = fmap (drawBEContext edge) kiteLongContexts 
     kiteShortDiags = fmap (drawBEContext edge) kiteShortContexts
-{-
-forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 8) 
-                      [dartLongDiags, kiteLongDiags, kiteShortDiags] where  
-    drawCases e g = fmap (drawBEContext e . recoverGraph) $ forcedBEContexts e $ makeBoundaryState $ force g 
-    edge = (1,2)
-    dartLongDiags = drawCases edge $ force $ makeTgraph [LD(1,3,2)]
-    kiteLongDiags = drawCases edge $ force $ makeTgraph [LK(2,1,3)] 
-    kiteShortDiags = drawCases edge $ force $ makeTgraph [LK(3,2,1)]
--}
 
+-- | Local forced contexts for boundary edges: dart long, kite long, kite short.
 dartLongContexts,kiteLongContexts,kiteShortContexts:: [Tgraph]
 dartLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LD(1,3,2)]
 kiteLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(2,1,3)]
 kiteShortContexts = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(3,2,1)]
-{-
-forcedBEContextsFig :: Diagram B
-forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 8) 
-                      [dartLongDiags, kiteLongDiags, kiteShortDiags] where  
-    drawCases e g = fmap (drawBEContext e . recoverGraph) $ forcedBEContexts e $ makeBoundaryState $ force g 
-    edge = (1,2)
-    dartLongDiags = drawCases edge $ force $ makeTgraph [LD(1,3,2)]
-    kiteLongDiags = drawCases edge $ force $ makeTgraph [LK(2,1,3)] 
-    kiteShortDiags = drawCases edge $ force $ makeTgraph [LK(3,2,1)]
--}
-
 
 -- |drawBEContext e g - draws g, aligning e on the x-axis.
 -- It emphasises the edge e with red and shows the composition of g filled yellow. 
@@ -1296,38 +1243,19 @@ forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 3
   dartOriginDiags = arrangeRows 7 $ fmap (alldartOriginDiags!!) [1,2,3,4,5,10,11,12,13,16,17,26]
   kiteOriginDiags = arrangeRows 2 $ fmap (allkiteOriginDiags!!) [2,3]
   kiteWingDiags = arrangeRows 8 $ fmap (allkiteWingDiags!!) [2,3,4,5,6,9,10,14,15,21,22,30,33,34,35]
-  kiteOppDiags = arrangeRows 7 $ fmap (allkiteOppDiags!!) [3,4,5,7,8,9,12,16,18,19,23,31]
+  kiteOppDiags = arrangeRows 6 $ fmap (allkiteOppDiags!!) [2,3,4,7,8,9,12,16,18,19,23]
 
   alldartOriginDiags = fmap (drawVContext 1 edge) dartOriginContexts
   allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
   allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
   allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
 
+-- | Local forced contexts for vertex types: dart origin, kite origin, kite wing, kite opp
 dartOriginContexts,kiteOriginContexts,kiteWingContexts,kiteOppContexts:: [Tgraph]
 dartOriginContexts = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LD(1,3,2)]
 kiteOriginContexts = fmap recoverGraph $ forcedBVContexts 2 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(2,1,3)]
 kiteWingContexts   = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(2,1,3)]
 kiteOppContexts    = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK(3,2,1)]
-
-{-
-forcedBVContextsFig :: Diagram B
-forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 8) $ 
---forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (hsep 1) $ 
---  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  drawCases v e g = fmap (drawVContext v e . recoverGraph) $ newforcedBVContexts v e $ makeBoundaryState $ force g
-  dartOriginDiags = take 4 alldartOriginDiags ++ [alldartOriginDiags!!5]
---  dartWingDiags = alldartWingDiags
-  kiteOriginDiags =  take 7 allkiteOriginDiags ++ [allkiteOriginDiags!!19]
-  kiteWingDiags = allkiteWingDiags
-  kiteOppDiags = take 9 allkiteOppDiags
-  alldartOriginDiags = drawCases 1 edge $ makeTgraph [LD(1,3,2)]
---  alldartWingDiags = drawCases 2 edge $ makeTgraph [LD(1,3,2)]
-  allkiteOriginDiags = drawCases 2 edge $ makeTgraph [LK(2,1,3)] 
-  allkiteWingDiags = drawCases 1 edge $ makeTgraph [LK(2,1,3)]
-  allkiteOppDiags = drawCases 1 edge $ makeTgraph [LK(3,2,1)]
-  edge = (1,2)
--}
 
 -- |drawVContext v e g - draws the Tgraph g with vertex v shown red and edge e aligned on the x-axis and
 -- the composition of g shown in yellow.
@@ -1359,7 +1287,7 @@ sunVContextsCompBoundary = padBorder $ lw ultraThin $ hsep 1 $ fmap (drawVContex
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- 5 fold symmetry is used to remove rotated duplicates.
 sunContexts:: [Tgraph]
-sunContexts = fmap recoverGraph $ contexts [] [(bStart, Set.fromList (boundary bStart))] where
+sunContexts = fmap recoverGraph $ contexts [] [(bStart, boundaryEdgeSet bStart)] where
   bStart = makeBoundaryState sunGraph
 -- occursInRotated deals with 5 rotational symmetries of the sunGraph
 -- occursRotatedIn done bs is true if bs matches a case in done in any of 5 rotations
@@ -1395,7 +1323,7 @@ foolVContextsCompBoundary  = padBorder $ lw ultraThin $ arrangeRows 4 $ fmap (dr
 
 -- | Generates the cases for fool vertex contexts in a forced Tgraph (some mirror symetric duplicates)
 foolContexts:: [Tgraph]
-foolContexts = fmap recoverGraph $ contexts [] [(bStart, Set.fromList (boundary bStart))] where
+foolContexts = fmap recoverGraph $ contexts [] [(bStart, boundaryEdgeSet bStart)] where
   edge = (1,4)
   bStart = makeBoundaryState fool
   contexts done [] = reverse done

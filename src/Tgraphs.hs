@@ -203,6 +203,24 @@ emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) whe
 {-*
 Combining force, compose, decompose
 -}
+
+
+-- | An experimental version of composition which defaults to kites when there are choices (unknowns).
+-- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
+composeK :: Tgraph -> Tgraph
+composeK = snd . partComposeK where
+-- partComposeK:: Tgraph -> ([TileFace],Tgraph)
+  partComposeK g = (remainder,newGraph) where
+    newGraph = makeTgraph newfaces
+    dwInfo = getDartWingInfo g
+    changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
+                        , unknowns = []
+                        }
+    compositions = composedFaceGroups changedInfo
+    newfaces = map fst compositions
+    groups = map snd compositions
+    remainder = faces g \\ concat groups
+
 -- |compForced does a force then compose.
 -- It omits the check for connected, and no crossing boundaries because the argument is forced first.
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
@@ -234,7 +252,7 @@ maxCompForced = last . allCompForced
 maxComp:: Tgraph -> Tgraph
 maxComp = last . allComp
 
--- |allComp g may produce a list of all compositions starting from g up to but excluding the empty graph,
+-- |allComp g may produce a list of all compositions starting from g up to but excluding the empty Tgraph,
 -- but it may raise an error if any composition is not a valid Tgraph.
 allComp:: Tgraph -> [Tgraph]
 allComp = takeWhile (not . nullGraph) . iterate compose
@@ -307,7 +325,7 @@ This can raise an error if bd is a boundary state of an unforced Tgraph.
 It will raise an error if both choices on a boundary edge fail when forced (using atLeastOne).
 -}
 boundaryECovering:: BoundaryState -> [BoundaryState]
-boundaryECovering bs = covers [(bs, Set.fromList (boundary bs))] where
+boundaryECovering bs = covers [(bs, boundaryEdgeSet bs)] where
 -- covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
   covers ((bs,es):opens) 
@@ -317,10 +335,13 @@ boundaryECovering bs = covers [(bs, Set.fromList (boundary bs))] where
              newcases = fmap (\b -> (b, commonBdry des b))
                              (atLeastOne $ tryDartAndKite bs de)
 
+-- |Make a set of the directed boundary edges of a BoundaryState
+boundaryEdgeSet:: BoundaryState -> Set.Set Dedge
+boundaryEdgeSet = Set.fromList . boundary
 
 -- | commonBdry des b - returns those directed edges in des that are boundary directed edges of bd
 commonBdry:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
-commonBdry des b = des `Set.intersection` Set.fromList (boundary b)
+commonBdry des b = des `Set.intersection` boundaryEdgeSet b
 
 {-| boundaryVCovering bd - similar to boundaryECovering, but produces a list of all possible covers of 
     the boundary vertices in bd (rather than just boundary edges).
@@ -329,7 +350,7 @@ commonBdry des b = des `Set.intersection` Set.fromList (boundary b)
 -}
 boundaryVCovering:: BoundaryState -> [BoundaryState]
 boundaryVCovering bd = covers [(bd, startbds)] where
-  startbds = Set.fromList $ boundary bd
+  startbds = boundaryEdgeSet bd
   startbvs = boundaryVertexSet bd
 --covers:: [(BoundaryState,Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
@@ -453,11 +474,11 @@ The resulting contexts are returned as a list of BoundaryStates.
 forcedBEContexts:: Dedge -> BoundaryState -> [BoundaryState]
 forcedBEContexts edge bd = contexts [] $ fmap setup $ locals [] [bd] where
 -- after applying locals this setsup cases for processing by contexts
-  setup bd = (bd, Set.fromList (boundary bd \\ [edge]))
+  setup bd = (bd, Set.delete edge $ boundaryEdgeSet bd)
 --locals:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
 -- locals produces the cases where 1 edge either side of bde is changed
   locals bds [] = reverse bds
-  locals bds (open:opens) | not (Set.member edge (Set.fromList (boundary open))) = locals bds opens
+  locals bds (open:opens) | not (Set.member edge (boundaryEdgeSet open)) = locals bds opens
   locals bds (open:opens) | occursIn bds open edge = locals bds opens
   locals bds (open:opens) | otherwise = 
      locals (open:bds) (concatMap (atLeastOne . tryDartAndKite open)
@@ -466,20 +487,15 @@ forcedBEContexts edge bd = contexts [] $ fmap setup $ locals [] [bd] where
   contexts done [] = reverse done
   contexts done ((bs,es):opens) 
     | occursIn done bs edge = contexts done opens
-    | not (Set.member edge (Set.fromList (boundary bs))) = contexts done opens
+    | not (Set.member edge (boundaryEdgeSet bs)) = contexts done opens
     | nullGraph $ compose $ recoverGraph bs
-          = let newcases = concatMap (\de -> 
-                                     (fmap  (\b -> (b, commonBdry (Set.delete de es) b))
-                                            (atLeastOne $ tryDartAndKite bs de)
-                                     )) (boundary bs \\ [edge])
+          = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ [edge])
             in  contexts (bs:done) $ (newcases++opens)
     | Set.null es = contexts (bs:done) opens
     | otherwise = contexts (bs:done) (newcases ++ opens)
-        where newcases = concatMap (\de -> 
-                         (fmap  (\b -> (b, commonBdry es b))
-                                (atLeastOne $ tryDartAndKite bs de)
-                         )) (Set.toList es)
-
+        where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
+    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 -- | occursIn bds b e - asks if (the Tgraph of) b occurs in the list (of Tgraphs of) bds
 -- after relabelling to match edge e in each case.
@@ -554,7 +570,7 @@ forcedBVContexts x edge bStart
   | x/= fst edge && x/= snd edge = error $ ":vertex " ++ show x ++ " must be from edge " ++ show edge
   | otherwise =  contexts [] $ fmap setup $ (locals [] [bStart]) where
 -- after applying locals this sets up cases for processing by contexts
-      setup bs = (bs, Set.fromList (boundary bs))
+      setup bs = (bs, boundaryEdgeSet bs)
 --    locals:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
       locals bds [] = reverse bds
       locals bds (open:opens) | not (IntSet.member x $ boundaryVertexSet open) = locals bds opens
@@ -568,18 +584,14 @@ forcedBVContexts x edge bStart
         | occursIn done bs edge = contexts done opens
         | not (x `IntSet.member` boundaryVertexSet bs) = contexts done opens
         | nullGraph $ compose $ recoverGraph bs
-          = let newcases = concatMap (\de -> 
-                                     (fmap  (\b -> (b, commonBdry (Set.delete de es) b))
-                                            (atLeastOne $ tryDartAndKite bs de)
-                                     )) (boundary bs)
+          = let newcases = concatMap (makecases (bs,es)) (boundary bs)
             in  contexts (bs:done) $ (newcases++opens)
         | Set.null es = contexts (bs:done) opens
         | otherwise = contexts (bs:done) (newcases ++ opens)
-            where newcases = concatMap (\de -> 
-                             (fmap  (\b -> (b, commonBdry es b))
-                                    (atLeastOne $ tryDartAndKite bs de)
-                             )) (Set.toList es)
-
+            where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+      makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
+        where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
+    
 -- | returns the set of boundary vertices of a BoundaryState
 boundaryVertexSet :: BoundaryState -> VertexSet
 boundaryVertexSet bd = IntSet.fromList $ fmap fst (boundary bd)

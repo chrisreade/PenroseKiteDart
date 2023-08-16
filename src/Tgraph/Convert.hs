@@ -129,8 +129,8 @@ instance Drawable Tgraph where
 class Drawable_Labelled a where
   drawLabelSizeWith :: Measure Double -> (Piece -> Diagram B) -> a -> Diagram B
 
--- | Versions of drawLabelSizeWith for normal and small labels (both using normalized)
-drawLabelledWith, drawLabelSmallWith :: Drawable_Labelled a => (Piece -> Diagram B) -> a -> Diagram B
+-- | Versions of drawLabelSizeWith for normal, small, large labels (all using normalized)
+drawLabelledWith, drawLabelSmallWith, drawLabelLargeWith :: Drawable_Labelled a => (Piece -> Diagram B) -> a -> Diagram B
 drawLabelledWith = drawLabelSizeWith  (normalized 0.015) -- (output 9)
 drawLabelSmallWith = drawLabelSizeWith (normalized 0.008) --(output 5)
 drawLabelLargeWith = drawLabelSizeWith (normalized 0.030)
