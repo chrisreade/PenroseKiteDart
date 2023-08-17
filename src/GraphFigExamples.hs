@@ -1236,14 +1236,27 @@ Note that dart wing cases are a subset of kite opp cases.
 Repetitions have been removed.
 -}
 forcedBVContextsFig :: Diagram B
-forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 3  
+forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5  
 --  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
   [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
   edge = (1,2)
-  dartOriginDiags = arrangeRows 7 $ fmap (alldartOriginDiags!!) [1,2,3,4,5,10,11,12,13,16,17,26]
-  kiteOriginDiags = arrangeRows 2 $ fmap (allkiteOriginDiags!!) [2,3]
-  kiteWingDiags = arrangeRows 8 $ fmap (allkiteWingDiags!!) [2,3,4,5,6,9,10,14,15,21,22,30,33,34,35]
-  kiteOppDiags = arrangeRows 6 $ fmap (allkiteOppDiags!!) [2,3,4,7,8,9,12,16,18,19,23]
+  dartOriginDiags = arrangeRows 10 $ fmap (alldartOriginDiags!!) [3,4,6,7,8,9,10,18,21,23]
+  kiteOriginDiags = arrangeRows 12 $ fmap (allkiteOriginDiags!!) [2,3,5,6,7,9,10,11,12,13,30,36]
+  kiteWingDiags = arrangeRows 9 $ fmap (allkiteWingDiags!!) [2,3,4,5,6,8,9,10,12,13,14,15,27,29,32,33,37]
+  kiteOppDiags = arrangeRows 7 $ fmap (allkiteOppDiags!!) [4,5,6,8,9,10,11,12,23,24,25,27,28,31]
+
+  alldartOriginDiags = fmap (drawVContext 1 edge) dartOriginContexts
+  allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
+  allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
+  allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
+
+testBV =   padBorder $ lw ultraThin $ vsep 6  
+           [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
+  edge = (1,2)
+  dartOriginDiags = arrangeRows 7 alldartOriginDiags
+  kiteOriginDiags = arrangeRows 7 allkiteOriginDiags
+  kiteWingDiags = arrangeRows 8 allkiteWingDiags
+  kiteOppDiags = arrangeRows 6 allkiteOppDiags
 
   alldartOriginDiags = fmap (drawVContext 1 edge) dartOriginContexts
   allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
@@ -1299,11 +1312,9 @@ sunContexts = fmap recoverGraph $ contexts [] [(bStart, boundaryEdgeSet bStart)]
     | occursRotatedIn done bs = contexts done opens
     | Set.null es = contexts (bs:done) opens -- bs is a completed cover
     | otherwise = contexts (bs:done) (newcases ++ opens)
-        where newcases = concatMap (\de -> 
-                         (fmap  (\b -> (b, commonBdry es b))
-                                (atLeastOne $ tryDartAndKite bs de)
-                         )) (Set.toList es)
-
+        where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
+    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 
 -- |Diagram showing local contexts in a forced Tgraph for a fool/ace vertex.
@@ -1329,18 +1340,16 @@ foolContexts = fmap recoverGraph $ contexts [] [(bStart, boundaryEdgeSet bStart)
   contexts done [] = reverse done
   contexts done ((bs,es):opens) 
     | occursIn done bs edge = contexts done opens
+-- check null composition before null es
     | nullGraph $ compose $ recoverGraph bs
-          = let newcases = concatMap (\de -> 
-                                     (fmap  (\b -> (b, commonBdry (Set.delete de es) b))
-                                            (atLeastOne $ tryDartAndKite bs de)
-                                     )) (boundary bs)
+          = let newcases = concatMap (makecases (bs,es)) (boundary bs)
             in  contexts (bs:done) $ (newcases++opens)
     | Set.null es = contexts (bs:done) opens
     | otherwise = contexts (bs:done) (newcases ++ opens)
-        where newcases = concatMap (\de -> 
-                         (fmap  (\b -> (b, commonBdry es b))
-                                (atLeastOne $ tryDartAndKite bs de)
-                         )) (Set.toList es)
+        where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
+    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
       
 
 -- | Diagram illustrating 3 cases for groups of remainder half-tiles (when composing a forced Tgraph)
