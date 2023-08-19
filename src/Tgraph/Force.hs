@@ -1185,58 +1185,11 @@ tryForceLKC v g =
 
 {-| mustFind is used to search with definite result.
 mustFind p ls err returns the first item in ls satisfying predicate p and returns
-err argument when none found       
+err argument when none found (in a finite list)     
 -}
 mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
-mustFind p ls err = case find p ls of
-                     Just a  -> a
-                     Nothing -> err
-
-{-
--- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
--- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
--- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
-boundaryLoopsG:: Tgraph -> [[Vertex]] 
-boundaryLoopsG = findLoops . graphBoundary
-
--- | Returns a list of (looping) vertex trails for a BoundaryState.
--- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
--- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
-boundaryLoops:: BoundaryState -> [[Vertex]]
-boundaryLoops = findLoops . boundary
-
--- | When applied to a boundary edge list this returns a list of (looping) vertex trails.
--- I.e. if we follow the boundary edges of a Tgraph recording vertices visited as a list returning to the starting vertex
--- we get a looping trail.
--- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
--- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
-findLoops:: [Dedge] -> [[Vertex]]
-findLoops es = collectLoops $ VMap.fromList es where
-
-    -- Make a vertex to vertex map from the directed edges then delete items from the map as a trail is followed
-    -- from the lowest numbered vertex.
-    -- Vertices are collected in reverse order, then the list is reversed when a loop is complete.
-    -- This is repeated until the map is empty, to collect all boundary trials.
-   collectLoops vmap -- 
-     | VMap.null vmap = []
-     | otherwise = chase start vmap [start] 
-         where
-         (start,_) = VMap.findMin vmap
-         chase a vm sofar -- sofar is the collected trail in reverse order.
-            = case VMap.lookup a vm of
-                Just b -> chase b (VMap.delete a vm) (b:sofar)
-                Nothing -> if a == start 
-                           then reverse sofar: collectLoops vm -- look for more loops
-                           else error $ "boundaryLoops: non looping boundary component, starting at "
-                                        ++show start++
-                                        " and finishing at "
-                                        ++ show a ++ 
-                                        "\nwith edges "++ show es ++"\n"
--}
-
-
-
-
+mustFind p ls err
+  = maybe err id (find p ls)
 
 {-*
 Adding faces (tryFindThirdV)

@@ -269,7 +269,7 @@ badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap draw [badlyBrokenDart, 
     vp = makeVP badlyBrokenDart
     draw g = relevantVPLabelledWith dashjPiece $ subVP vp $ faces g
     compBBD = compose badlyBrokenDart
-    failed  = snd $ uncheckedPartCompose $ compBBD
+    failed  = uncheckedCompose compBBD
 
 -- |figure showing force badlyBrokenDart (which is the same as force dartD4)
 checkBrokenDartFig  :: Diagram B

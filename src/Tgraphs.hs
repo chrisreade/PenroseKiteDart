@@ -226,8 +226,7 @@ composeK = snd . partComposeK where
 -- It omits the check for connected, and no crossing boundaries because the argument is forced first.
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
 compForced:: Tgraph -> Tgraph
-compForced = snd . uncheckedPartCompose . force 
---compForced = compose . force
+compForced = uncheckedCompose . force 
 
 -- |force after a decomposition
 forcedDecomp:: Tgraph -> Tgraph
@@ -237,7 +236,7 @@ forcedDecomp = force . decompose
 -- This definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
 allCompForced:: Tgraph -> [Tgraph]
-allCompForced g = takeWhile (not . nullGraph) $ g: (iterate (snd . uncheckedPartCompose) $ compForced g) 
+allCompForced g = takeWhile (not . nullGraph) $ g: (iterate uncheckedCompose $ compForced g)
 -- allCompForced = takeWhile (not . nullGraph) . iterate compForced
 
 -- | produces an infinite list of forced decompositions
@@ -467,6 +466,7 @@ forcedBEContexts edge bd = contexts [] $ fmap setup $ locals [] [bd] where
   contexts done ((bs,es):opens) 
     | occursIn done bs edge = contexts done opens
     | not (Set.member edge (boundaryEdgeSet bs)) = contexts done opens
+-- check null composition before null es
     | nullGraph $ compose $ recoverGraph bs
           = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ [edge])
             in  contexts (bs:done) $ (newcases++opens)
@@ -533,6 +533,7 @@ forcedBVContexts x edge bStart
       contexts done ((bs,es):opens) 
         | occursIn done bs edge = contexts done opens
         | not (x `IntSet.member` boundaryVertexSet bs) = contexts done opens
+-- check null composition before null es
         | nullGraph $ compose $ recoverGraph bs
           = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ boundary4  x bs)
             in  contexts (bs:done) $ (newcases++opens)

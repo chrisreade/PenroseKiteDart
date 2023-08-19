@@ -57,6 +57,11 @@ uncheckedPartCompose g = (remainder,newGraph) where
   groups = map snd $ compositions
   remainder = faces g \\ concat groups
 
+-- |This does the same as compose but without checks for connectedness and no crossing boundaries in the result.
+-- It is intended for use on forced Tgraphs where we have a proof that the checks are not needed.
+uncheckedCompose:: Tgraph -> Tgraph
+uncheckedCompose = snd . uncheckedPartCompose
+
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.
 data DartWingInfo =  DartWingInfo 
