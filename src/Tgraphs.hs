@@ -259,38 +259,41 @@ allComp:: Tgraph -> [Tgraph]
 allComp = takeWhile (not . nullGraph) . iterate compose
 
 {-*
-Emplacements
+Emplace Choices
 -}
--- |emplace does maximal composing with force and compose, 
--- then applies decompose and force repeatedly back to the starting level.
--- It produces the emplacement of influence of the argument graph.   
-emplace:: Tgraph -> Tgraph
-emplace g | nullGraph g' = fg
-          | otherwise = (forcedDecomp . emplace) g'
-  where fg = force g
-        g' = compose fg 
 
--- |a version of emplace using makeChoices at the top level.
--- after makeChoices we use emplace to attempt further compositions but with no further choices
+-- |emplaceChoices forces then maximally composes. At this top level it
+-- produces a list of forced choices for the unknowns.
+-- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
+-- This version relies on compForce theorem and related theorems
 emplaceChoices:: Tgraph -> [Tgraph]
-emplaceChoices g | nullGraph g' = emplace <$> makeChoices fg
-                 | otherwise = forcedDecomp <$> emplaceChoices g'
-  where fg = force g
-        g' = compose fg 
+emplaceChoices g = emplaceChoices' $ forceBoundary $ makeBoundaryState g where
+
+-- |emplaceChoices' bd - assumes bd is forced. It maximally composes. At this top level it
+-- produces a list of forced choices for the unknowns.
+-- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
+-- This version relies on compForce theorem and related theorems
+emplaceChoices':: BoundaryState -> [Tgraph]
+emplaceChoices' bd | nullGraph g' = recoverGraph <$> forcedChoicesBoundary bd
+                   | otherwise = forcedDecomp <$> emplaceChoices' (makeBoundaryState g')
+  where   
+    g' = compose $ recoverGraph bd
+-- forcedChoicesBoundary makes choices for unknown dart wings on the boundary of bd.
+-- It chooses Kite/Dart for the first unknown then forces in each case, so the vertex will become a large dart base or large kite centre
+-- With the results, it looks to see if any more of the original unknowns are still unknown to make further choices.
+-- forcedChoicesBoundary :: BoundaryState -> [BoundaryState]
+    forcedChoicesBoundary bd =  choices [bd] where
+      startunknowns = unknowns $ getDartWingInfo $ recoverGraph bd
+      choices [] = []
+      choices (bd:bds) 
+        = case  startunknowns `intersect` (unknowns $ getDartWingInfo $ recoverGraph bd) of
+             [] -> bd:choices bds
+             (u:_) -> choices ((atLeastOne $ tryDartAndKite bd (findDartLongForWing u bd))++bds)
+      findDartLongForWing v bd 
+        = case find isDart (facesAtBV bd v) of
+            Just d -> longE d
+            Nothing -> error $ "forcedChoicesBoundary: dart not found for dart wing vertex " ++ show v
                                  
-{-| makeChoices should only be used on a forced Tgraph.
-It is a temporary tool which does not attempt to analyse choices for correctness.
-It can thus create some choices which will be incorrect.
-The unknowns returned from classifyDartWings can become largeKiteCentres or largeDartBases.
-This produces 2^n choices where n is the number of unknowns.
-(There will not be any dart wing tips with valency 2 in a forced graph).
--}
-makeChoices :: Tgraph -> [Tgraph]
-makeChoices g = choices unks [g] where
-    unks = unknowns (getDartWingInfo g) -- g not forced may allow solitary wing tips which will fail
---    unks = unknowns (classifyDartWings g) -- g not forced may allow solitary wing tips which will fail
-    choices [] gs = gs
-    choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
 
 {-*
 Boundary Covering and Empires
@@ -607,12 +610,12 @@ singleChoiceEdges :: BoundaryState -> [(Dedge,HalfTileLabel)]
 singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)  
 
 -- |commonToCovering bds edges - when bds are all the boundary edge covers of some forced Tgraph
--- whose boundary edges are edgelist, this looks for edges in edgelist that have the same tile label added in all covers.
+-- whose boundary edges were edgeList, this looks for edges in edgeList that have the same tile label added in all covers.
 -- This indicates there is a single correct choice for such an edge.
 -- The result is a list of pairs: edge and a common tile label.
 commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
-commonToCovering bds edges = common edges (transpose labellists) where
-    labellists = fmap (\bd -> reportCover bd edges) bds
+commonToCovering bds edgeList = common edgeList (transpose labellists) where
+    labellists = fmap (\bd -> reportCover bd edgeList) bds
     common [] lls = []
     common (e:more) (l:ls) = if matching l 
                              then (e,head l):common more ls

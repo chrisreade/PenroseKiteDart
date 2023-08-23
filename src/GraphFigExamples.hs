@@ -217,25 +217,126 @@ maxExampleFig :: Diagram B
 maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForcedDecomps dartPlusDart !! 4
 
 {-*
-Emplace with choices
+EmplaceChoices
 -}
--- |four choices for composing fool
+
+{- Now removed: foolChoices, emplace, makeChoices, forceLDB tryForceLDB, forceLKC, tryForceLKC
+
+-- |four choices for composing fool.
 foolChoices :: Diagram B
 foolChoices = padBorder $ vsep 1 
               [hsep 1 $ fmap ((redFool <>) . drawj) choices
               ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (drawj . compose) choices
               ] where choices = makeChoices fool
                       redFool = drawj fool # lc red
+
+{-| makeChoices no longer used
+It is better to use forcedChoices.
+makeChoices should only be used on a forced Tgraph.
+It is a temporary tool which does not attempt to analyse choices for correctness.
+It can thus create some choices which will be incorrect.
+The unknowns returned from classifyDartWings can become largeKiteCentres or largeDartBases.
+This produces 2^n choices where n is the number of unknowns.
+-}
+makeChoices :: Tgraph -> [Tgraph]
+makeChoices g = choices unks [g] where
+    unks = unknowns (getDartWingInfo g) -- g not forced may allow solitary wing tips which will fail
+    choices [] gs = gs
+    choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
+
+
+-- |emplace does maximal composing with force and compose, 
+-- then applies decompose and force repeatedly back to the starting level.
+-- It produces the emplacement of influence of the argument graph.   
+emplace:: Tgraph -> Tgraph
+emplace g | nullGraph g' = fg
+          | otherwise = (forcedDecomp . emplace) g'
+  where fg = force g
+        g' = compose fg 
+
+--  OLD VERSION of emplaceChoices
+emplaceChoices:: Tgraph -> [Tgraph]
+emplaceChoices g | nullGraph g' = emplace <$> makeChoices fg
+                 | otherwise = forcedDecomp <$> emplaceChoices g'
+  where fg = force g
+        g' = compose fg 
+
+
+-- |For an unclassifiable dart wing v in a Tgraph, force it to become a large dart base (largeDartBase) by
+-- adding a second half dart face (sharing the kite below the existing half dart face at v).
+-- It raises an error if the result is a stuck/incorrect graph.
+-- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
+-- raising an error otherwise.
+forceLDB :: Vertex -> Tgraph -> Tgraph
+forceLDB v = runTry . tryForceLDB v
+
+-- |A version of forceLDB which returns a Try Tgraph, with a Left report
+-- if the result is a stuck/incorrect graph. 
+-- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
+-- returning a Left report  otherwise.  
+tryForceLDB :: Vertex -> Tgraph -> Try Tgraph
+tryForceLDB v g =
+  let bd = makeBoundaryState g
+      vFaces = facesAtBV bd v
+      ks = filter ((==v) . oppV) $ filter isKite vFaces     
+  in do d <- case find ((v==) . wingV) (filter isDart vFaces) of
+               Just d -> Right d
+               Nothing -> Left $ "forceLDB: no dart wing at " ++ show v ++ "/n"
+        k <- case find ((/= oppV d) . wingV) ks of
+               Just k -> Right k
+               Nothing -> Left $ "forceLDB: incomplete kite below dart " ++ show d ++ "/n"
+        u <- addDartShortE bd k
+        bdC <- tryUpdate bd u
+        return $ recoverGraph $ newBoundaryState bdC
+
+-- |For an unclassifiable dart wing v in a Tgraph, force it to become a large kite centre (largeKiteCentres) by adding
+-- 3 faces - a second half dart face sharing the long edge of the existing half dart face at v,
+-- and then completing the kite on the new half dart short edge.
+-- This assumes exactly one dart wing tip is at v.
+-- (Note: farK for a half-dart d is that half of a full kite attached to the short edge of d
+-- which does not share an edge with d). 
+-- It is safe to add the 3 parts because v being unknown ensures the
+-- existing dart has a boundary long edge and 
+-- the new farK does not already exist (attached to existing dart farK),
+-- provided the existing dart half has no kite or a full kite below.
+-- If it has only a half kite below, but the new farK exists, then v will already be a crossing boundary.
+forceLKC :: Vertex -> Tgraph -> Tgraph
+forceLKC v = runTry . tryForceLKC v
+
+-- |A version of forceLKC which returns a Try Tgraph, with a Left report
+-- if the result is a stuck/incorrect graph. 
+-- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
+-- returning a Left report  otherwise.        
+tryForceLKC :: Vertex -> Tgraph -> Try Tgraph
+tryForceLKC v g = 
+  do let bd0 = makeBoundaryState g
+         vFaces0 = facesAtBV bd0 v
+     d <- case find ((v==) . wingV) (filter isDart vFaces0) of
+            Just d -> Right d
+            Nothing -> Left $ "forceLKC: no dart wing at " ++ show v ++ "/n"
+     u1 <- addDartLongE bd0 d
+     bdC1 <- tryUpdate bd0 u1
+     let bd1 = newBoundaryState bdC1
+         vFaces1 = facesAtBV bd1 v
+         newd = head (vFaces1 \\ vFaces0)
+     u2 <- addKiteShortE bd1 newd
+     bdC2 <- tryUpdate bd1 u2
+     let bd2 = newBoundaryState bdC2
+         vFaces2 = facesAtBV bd2 v
+         newk = head (vFaces2 \\ vFaces1)
+     u3 <- completeHalf bd2 newk
+     bdC3 <- tryUpdate bd2 u3
+     return $ recoverGraph $ newBoundaryState bdC3
+
+-}
                          
--- |showing 4 emplacement choices for foolD 
-emplaceFoolDChoices :: Diagram B
-emplaceFoolDChoices = padBorder $ hsep 1 $
+-- |showing 4 emplaceChoices for foolD 
+-- Uses revised emplaceChoices.
+emplaceChoicesFoolD :: Diagram B
+emplaceChoicesFoolD = padBorder $ hsep 1 $
         fmap (addFoolD . lw ultraThin . draw) vpChoices where
-        (vpFoolD:vpChoices) = alignments [(1,6),(1,6),(1,6),(1,6),(28,6)] --(29,6)] 
-                                         (fmap makeVP (foolD:emplaceChoices foolD))
+        (vpFoolD:vpChoices) = alignAll (1,6) $ fmap makeVP (foolD:emplaceChoices foolD)
         addFoolD fig = (lc red . lw thin . drawj) vpFoolD <> fig
---  WARNING: relies on numbering which can change with changes to forcing
---  Vertex 1 is not present in the final choice (hence 28)
 
 {-*
 Removed faces (forcing and composing)
@@ -285,11 +386,11 @@ brokenKites = removeFaces deleted kPlusKD where
 Figure showing a decomposed pair of adjacent kites, followed by
 brokenKites (3 faces removed from decomposed pair of kites), followed by
 compositon of brokenKites (a kite) which is also the composition of forced brokenKites, followed by
-the emplacement of brokenKites (which is the same as force brokenKites).
+force brokenKites).
 -}
 brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap drawjLabelled $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVP 
-                  [decompose kitePlusKite, brokenKites, compose brokenKites, emplace brokenKites]
+                  [decompose kitePlusKite, brokenKites, compose brokenKites, force brokenKites]
 
 -- |diagram illustrating touching vertex situation and forced result.
 -- The faces shown in lime are removed from a twice decomposed sun.
@@ -1070,18 +1171,24 @@ kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $
 maxShapesFig:: Diagram B
 maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 
+{-
 -- |compareForceEmplace g is a diagram showing g embedded (in red) in force g, followed by emplace g
 compareForceEmplace :: Tgraph -> Diagram B
 compareForceEmplace g = padBorder $ hsep 1 $
                         [ drawForce g
                         , draw $ emplace g
                         ]
+-}
 
 -- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
 -- This example has an emplacement that does not include the original but is still a correct Tgraph.
 -- The figure shows the force and emplace difference.
 emplaceProblemFig:: Diagram B
-emplaceProblemFig = compareForceEmplace sunPlus3Dart'
+emplaceProblemFig = padBorder $ hsep 1 $
+                        [ drawForce g
+                        , (draw . force . decompose . compose . force) g
+                        ]
+                where g = sunPlus3Dart'
 
 -- | force after adding half dart (rocket cone) to sunPlus3Dart'.
 -- Adding a kite half gives an incorrect graph discovered by forcing.
@@ -1250,6 +1357,7 @@ forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5
   allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
   allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
 
+{-
 testBV =   padBorder $ lw ultraThin $ vsep 6  
            [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
   edge = (1,2)
@@ -1262,6 +1370,7 @@ testBV =   padBorder $ lw ultraThin $ vsep 6
   allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
   allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
   allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
+-}
 
 -- | Local forced contexts for vertex types: dart origin, kite origin, kite wing, kite opp
 dartOriginContexts,kiteOriginContexts,kiteWingContexts,kiteOppContexts:: [Tgraph]

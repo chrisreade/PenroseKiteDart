@@ -263,6 +263,11 @@ tryForceBoundaryWith uGen bd =  do
 tryForceBoundary :: BoundaryState -> Try BoundaryState
 tryForceBoundary = tryForceBoundaryWith defaultAllUGen
 
+{-| forceBoundary is the same as tryForceState but from BoundaryState to BoundaryState.
+-}
+forceBoundary :: BoundaryState -> BoundaryState
+forceBoundary = runTry . tryForceBoundaryWith defaultAllUGen
+
 {-| tryInitForceStateWith uGen g calculates an initial force state with boundary state information from g
      and uses uGen on all boundary edges to initialise the updateMap.
     It produces Left report if it finds a stuck/incorrect graph.                                                     
@@ -1117,71 +1122,7 @@ tryAddHalfDartBoundary e bd =
      bdC <- tryUpdate bd u
      return $ newBoundaryState bdC
 
--- |For an unclassifiable dart wing v in a Tgraph, force it to become a large dart base (largeDartBase) by
--- adding a second half dart face (sharing the kite below the existing half dart face at v).
--- It raises an error if the result is a stuck/incorrect graph.
--- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
--- raising an error otherwise.
-forceLDB :: Vertex -> Tgraph -> Tgraph
-forceLDB v = runTry . tryForceLDB v
 
--- |A version of forceLDB which returns a Try Tgraph, with a Left report
--- if the result is a stuck/incorrect graph. 
--- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
--- returning a Left report  otherwise.  
-tryForceLDB :: Vertex -> Tgraph -> Try Tgraph
-tryForceLDB v g =
-  let bd = makeBoundaryState g
-      vFaces = facesAtBV bd v
-      ks = filter ((==v) . oppV) $ filter isKite vFaces     
-  in do d <- case find ((v==) . wingV) (filter isDart vFaces) of
-               Just d -> Right d
-               Nothing -> Left $ "forceLDB: no dart wing at " ++ show v ++ "/n"
-        k <- case find ((/= oppV d) . wingV) ks of
-               Just k -> Right k
-               Nothing -> Left $ "forceLDB: incomplete kite below dart " ++ show d ++ "/n"
-        u <- addDartShortE bd k
-        bdC <- tryUpdate bd u
-        return $ recoverGraph $ newBoundaryState bdC
-
--- |For an unclassifiable dart wing v in a Tgraph, force it to become a large kite centre (largeKiteCentres) by adding
--- 3 faces - a second half dart face sharing the long edge of the existing half dart face at v,
--- and then completing the kite on the new half dart short edge.
--- This assumes exactly one dart wing tip is at v.
--- (Note: farK for a half-dart d is that half of a full kite attached to the short edge of d
--- which does not share an edge with d). 
--- It is safe to add the 3 parts because v being unknown ensures the
--- existing dart has a boundary long edge and 
--- the new farK does not already exist (attached to existing dart farK),
--- provided the existing dart half has no kite or a full kite below.
--- If it has only a half kite below, but the new farK exists, then v will already be a crossing boundary.
-forceLKC :: Vertex -> Tgraph -> Tgraph
-forceLKC v = runTry . tryForceLKC v
-
--- |A version of forceLKC which returns a Try Tgraph, with a Left report
--- if the result is a stuck/incorrect graph. 
--- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
--- returning a Left report  otherwise.        
-tryForceLKC :: Vertex -> Tgraph -> Try Tgraph
-tryForceLKC v g = 
-  do let bd0 = makeBoundaryState g
-         vFaces0 = facesAtBV bd0 v
-     d <- case find ((v==) . wingV) (filter isDart vFaces0) of
-            Just d -> Right d
-            Nothing -> Left $ "forceLKC: no dart wing at " ++ show v ++ "/n"
-     u1 <- addDartLongE bd0 d
-     bdC1 <- tryUpdate bd0 u1
-     let bd1 = newBoundaryState bdC1
-         vFaces1 = facesAtBV bd1 v
-         newd = head (vFaces1 \\ vFaces0)
-     u2 <- addKiteShortE bd1 newd
-     bdC2 <- tryUpdate bd1 u2
-     let bd2 = newBoundaryState bdC2
-         vFaces2 = facesAtBV bd2 v
-         newk = head (vFaces2 \\ vFaces1)
-     u3 <- completeHalf bd2 newk
-     bdC3 <- tryUpdate bd2 u3
-     return $ recoverGraph $ newBoundaryState bdC3
 
 {-| mustFind is used to search with definite result.
 mustFind p ls err returns the first item in ls satisfying predicate p and returns
