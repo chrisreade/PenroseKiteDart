@@ -343,6 +343,15 @@ tryStepForceWith updateGen = count where
                    Just (fs', _) ->  count fs' (n-1)
 
 
+{-
+-- | For a Forcible a which is known to be incorrect (because force fails) this will return the last forcible formed
+-- before force fails (at the point where the forcible is found to be stuck).
+-- If force succeeds this just returns the result of forcing.
+stuckFrom :: Forcible a => a -> a
+stuckFrom g = last g where
+  last g = ifFail g (last (tryStepForce g 1))
+-}
+
 -- | For a Tgraph g which is known to be incorrect (because force fails) this will return the last Tgraph formed
 -- before force fails (at the point where the Tgraph is found to be stuck).
 -- If force succeeds this just returns the forced Tgraph.
@@ -356,6 +365,7 @@ stuckGraphFrom g = lastG g where
   tryG g = do
     fs <- tryInitForceState g
     return $ recoverGraph $ boundaryState $ lastFS fs 
+
 
 {-*
 Single Force Steps

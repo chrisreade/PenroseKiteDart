@@ -1171,22 +1171,18 @@ kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $
 maxShapesFig:: Diagram B
 maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 
-{-
--- |compareForceEmplace g is a diagram showing g embedded (in red) in force g, followed by emplace g
-compareForceEmplace :: Tgraph -> Diagram B
-compareForceEmplace g = padBorder $ hsep 1 $
-                        [ drawForce g
-                        , draw $ emplace g
-                        ]
--}
-
--- |sunPlus3Dart' is a sun with 3 darts on the boundary NOT all adjacent
--- This example has an emplacement that does not include the original but is still a correct Tgraph.
--- The figure shows the force and emplace difference.
+-- |An example showing emplace is inferior to force.
+-- (Emplace is no longer used, but was designed to force then maximally compose then forceDecomp repeatedly
+-- to the starting level.)
+-- On the left is sunPlus3Dart' - a sun with 3 darts on the boundary NOT all adjacent
+-- Next to that is force sunPlus3Dart' which extends sunPlus3Dart'.
+-- On the right is what emplace sunPlus3Dart' would produce.
+-- The emplacement does not include all the original sunPlus3Dart'
 emplaceProblemFig:: Diagram B
-emplaceProblemFig = padBorder $ hsep 1 $
-                        [ drawForce g
-                        , (draw . force . decompose . compose . force) g
+emplaceProblemFig = padBorder $ hsep 1 $ rotations [8,8] $ fmap draw
+                        [ g
+                        , force g
+                        , (force . decompose . compose . force) g
                         ]
                 where g = sunPlus3Dart'
 
