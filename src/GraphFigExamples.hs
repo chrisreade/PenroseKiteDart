@@ -788,18 +788,9 @@ boundaryGap5Fig = lw ultraThin $ drawjLabelled boundaryGapFDart5
 gapProgress5 :: Diagram B
 gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
     [ drawSmart g
-    , drawSmart $ recoverGraph $ boundaryState $ stepForce g 2000
+    , drawSmart $ stepForce g 2000
     ] where g = boundaryGapFDart5
 
-{-
--- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart4
--- using stepForce 600 (finished at 820)
-gapProgress4 :: Diagram B
-gapProgress4 = lw ultraThin $ hsep 1 $ center <$> rotations [5,5]
-    [ drawSmart g
-    , drawSmart $ recoverGraph $ boundaryState $ stepForce g 600 --finished at 820
-    ] where g = boundaryGapFDart4
--}
 
 dartPic0,kitePic0,bigPic :: Diagram B
 {-| dartPic0 is a diagram of force/emplacement relationships for decomposed darts
@@ -992,7 +983,7 @@ Testing (functions and figures and experiments)
 -- |diagrams of forced graphs for boundaryGapFDart4 and boundaryGapFDart5
 testForce4, testForce5 :: Diagram B
 testForce4 = padBorder $ lw ultraThin $ drawjLabelled $ force boundaryGapFDart4
-testForce5 = padBorder $ lw ultraThin $ drawjLabelled $ force boundaryGapFDart5        
+testForce5 = padBorder $ lw ultraThin $ drawjLabelSmall $ force boundaryGapFDart5        
 
   
 {-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) BoundaryState
@@ -1011,10 +1002,10 @@ testViewBoundary bd =  lc lime (drawEdges vpMap bdE) <> drawjLabelled g where
 -- e.g. n = 1900 for inspectForce5 or 200 for inspectForce3
 inspectForce5,inspectForce3 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
-                  testViewBoundary $ boundaryState $ stepForce boundaryGapFDart5 n
+                  testViewBoundary $ stepForce (makeBoundaryState boundaryGapFDart5) n
 
 inspectForce3 n = padBorder $ lw ultraThin $
-                  testViewBoundary $ boundaryState $ stepForce (dartDs!!3) n
+                  testViewBoundary $ stepForce (makeBoundaryState $ dartDs!!3) n
 
 
 -- |figures showing boundary edges of the boundary gap graphs boundaryGapFDart4 and boundaryGapFDart5 
@@ -1242,7 +1233,7 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ hsep 5  [vsep 10 [k
     caseRows g = vsep 1 $ fmap (centerX . hsep 1) $ levels $ treeFor g
 --    caseRows g = vsep 1 $ fmap (centerX . hsep 1 # composeAligned alignT) $ levels $ treeFor g
     treeFor g = fmap drawCase $ growBothEnds fbd where
-      fbd = runTry $ tryForceBoundary $ makeBoundaryState g
+      fbd = runTry $ tryForce $ makeBoundaryState g
       drawCase bd = fbdes <> drawg where
                     g = recoverGraph bd
                     vp = alignedVP edge g
@@ -1497,6 +1488,7 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
    fmap drawSuperForce decomps where
       decomps = take 4 $ decompositions sunPlus3Dart'
 
+{-
 -- |Diagram showing an incorrect (stuck) tiling (at the point where force discovers the clash with RK(219,140,222))
 -- after adding a half kite to the nose of the red rocket (see also superForceRocketsFig).
 wrongRocket:: Diagram B
@@ -1505,6 +1497,7 @@ wrongRocket = padBorder $ lw thin $ rotate (ttangle 3 )(gDiag # lc red <> wrongD
   gDiag = draw $ alignedVP (59,60) g where
   g = force $ decompose $ sunPlus3Dart'
   wrong = stuckGraphFrom $ addHalfKite (59,60) g
+-}
 {-
   wrong = makeUncheckedTgraph 
           [RK (219,140,222),LK (140,178,222),RD (221,222,178),LD (221,178,177),LD (181,220,176),RK (177,176,220)
@@ -1621,7 +1614,7 @@ testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
          g = removeFaces (faces $ recoverGraph bs1) (recoverGraph bs2)
          bs2 = head $ boundaryVCovering bs1 
          bs1 = head $ boundaryVCovering bs0
-         bs0 = runTry $ tryForceBoundary $ makeBoundaryState kingGraph
+         bs0 = force $ makeBoundaryState kingGraph
 --         bs0 = makeBoundaryState $ force kingGraph
 
 {-*

@@ -267,7 +267,7 @@ Emplace Choices
 -- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
 -- This version relies on compForce theorem and related theorems
 emplaceChoices:: Tgraph -> [Tgraph]
-emplaceChoices g = emplaceChoices' $ forceBoundary $ makeBoundaryState g where
+emplaceChoices g = emplaceChoices' $ force $ makeBoundaryState g where
 
 -- |emplaceChoices' bd - assumes bd is forced. It maximally composes. At this top level it
 -- produces a list of forced choices for the unknowns.
@@ -309,7 +309,7 @@ This will raise an error if the initial force fails with a stuck graph.
 forcedBoundaryECovering:: Tgraph -> [Tgraph]
 forcedBoundaryECovering g = fmap recoverGraph $ boundaryECovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryECovering:Initial force failed (incorrect Tgraph)\n" $
-                             tryForceBoundary $ makeBoundaryState g
+                             tryForce $ makeBoundaryState g
 
 {-| forcedBoundaryVCovering g - produces a list of all boundary covers of force g as with
 forcedBoundaryECovering g but covering all boundary vertices rather than just boundary edges.                        
@@ -317,7 +317,7 @@ forcedBoundaryECovering g but covering all boundary vertices rather than just bo
 forcedBoundaryVCovering:: Tgraph -> [Tgraph]
 forcedBoundaryVCovering g = fmap recoverGraph $ boundaryVCovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryVCovering:Initial force failed (incorrect Tgraph)\n" $
-                             tryForceBoundary $ makeBoundaryState g
+                             tryForce $ makeBoundaryState g
 
 {-| boundaryECovering bd - produces a list of all possible covers of the boundary directed edges in bd.
 [bd should be a boundary state resulting from forcing].
@@ -370,9 +370,9 @@ boundaryVCovering bd = covers [(bd, startbds)] where
 tryDartAndKite:: BoundaryState -> Dedge -> [Try BoundaryState]
 tryDartAndKite b de = 
     [ onFail ("tryDartAndKite: Dart on edge: " ++ show de ++ "\n") $ 
-        tryAddHalfDartBoundary de b >>= tryForceBoundary
+        tryAddHalfDartBoundary de b >>= tryForce
     , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $ 
-        tryAddHalfKiteBoundary de b >>= tryForceBoundary
+        tryAddHalfKiteBoundary de b >>= tryForce
     ]
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g
@@ -402,7 +402,7 @@ empire1 g = makeSubTgraph g0 [fcs,faces g] where
 empire2:: Tgraph -> SubTgraph
 empire2 g = makeSubTgraph g0 [fcs, faces g] where
     covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
-              $ tryForceBoundary $ makeBoundaryState g
+              $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryECovering covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl intersect (faces g0) $ fmap g0Intersect others
@@ -416,7 +416,7 @@ empire2 g = makeSubTgraph g0 [fcs, faces g] where
 empire2Plus:: Tgraph -> SubTgraph
 empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
     covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
-              $ tryForceBoundary $ makeBoundaryState g
+              $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryVCovering covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl intersect (faces g0) $ fmap g0Intersect others
@@ -594,7 +594,7 @@ trySuperForce g = do bd <- trySuperForceBdry (makeBoundaryState g)
 trySuperForceBdry :: BoundaryState -> Try BoundaryState
 trySuperForceBdry bd = 
     do forcebd <- onFail "trySuperForceBdry: force failed (incorrect Tgraph)\n" $
-                  tryForceBoundary bd
+                  tryForce bd
        case singleChoiceEdges forcebd of
           [] -> return forcebd
           (pr:_) -> do extended <-  addHT pr forcebd

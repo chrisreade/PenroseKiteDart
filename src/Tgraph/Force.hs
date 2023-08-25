@@ -114,6 +114,8 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
 boundaryFaces :: BoundaryState -> [TileFace]
 boundaryFaces = nub . concat . VMap.elems . bvFacesMap
 
+
+
 {-*
 Updates and ForceState types
 -}
@@ -145,6 +147,151 @@ Each forcing rule has a particular UpdateGenerator,
 but they can also be combined in sequence (e.g. allUgenerator).
 -}
 type UpdateGenerator = BoundaryState -> [Dedge] -> Try UpdateMap
+
+
+{-*
+Forcible class and instances for Tgraph, BoundaryState, and ForceState
+-}
+
+-- | Forcible class
+class Forcible a where
+-- | try forcing using a given UpdateGenerator
+    tryForceWith :: UpdateGenerator -> a -> Try a
+-- | try a number of force steps using a given UpdateGenerator
+    tryStepForceWith :: UpdateGenerator -> a -> Int -> Try a
+-- | try to create an initial ForceState (ready for forcing)
+    tryInitFSWith :: UpdateGenerator -> a -> Try ForceState
+
+-- ForceStates are Forcible
+instance Forcible ForceState where
+    tryForceWith = tryForceStateWith
+    tryStepForceWith = tryStepForceStateWith
+    tryInitFSWith ugen fs = return fs
+
+{-| tryForceStateWith uGen fs implements tryForceWith for ForceStates.
+tryForceStateWith uGen fs - recursively does updates using uGen until there are no more updates.
+It produces Left report if it encounters a ForceState representing stuck/incorrect Tgraph.
+-}
+tryForceStateWith :: UpdateGenerator -> ForceState -> Try ForceState
+tryForceStateWith uGen = retry where
+  retry fs = case findSafeUpdate (updateMap fs) of
+             Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
+                          uMap <- tryReviseUpdates uGen bdChange (updateMap fs)
+                          retry $ ForceState{ boundaryState = newBoundaryState bdChange 
+                                            , updateMap = uMap
+                                            }
+             _  -> do maybeBdC <- tryUnsafes fs
+                      case maybeBdC of
+                        Nothing  -> tryFinalStuckCheck fs  -- no more updates
+--                        Nothing  -> return fs  -- no more updates
+                        Just bdC -> do uMap <- tryReviseUpdates uGen bdC (updateMap fs)
+                                       retry $ ForceState{ boundaryState = newBoundaryState bdC
+                                                         , updateMap = uMap
+                                                         }
+-- |tryStepForceStateWith implements tryStepForceWith for ForceStates.
+-- try a number of force steps using a given UpdateGenerator
+tryStepForceStateWith :: UpdateGenerator -> ForceState -> Int -> Try ForceState
+tryStepForceStateWith updateGen = count where
+  count fs 0 = return fs
+  count fs n = do result <- tryOneStepWith updateGen fs
+                  case result of
+                   Nothing -> return fs
+                   Just (fs', _) ->  count fs' (n-1)
+
+-- | BoundaryStates are Forcible    
+instance Forcible BoundaryState where
+    tryForceWith ugen bd = do 
+        fs <- tryInitFSWith ugen bd
+        fs' <- tryForceWith ugen fs 
+        return $ boundaryState fs'
+    tryStepForceWith ugen bd n = do 
+        fs <- tryInitFSWith ugen bd
+        fs' <- tryStepForceWith ugen fs n
+        return $ boundaryState fs'
+    tryInitFSWith ugen bd = do
+        umap <- ugen bd (boundary bd)
+        return $ ForceState { boundaryState = bd , updateMap = umap }
+
+-- | Tgraphs are Forcible    
+instance Forcible Tgraph where
+    tryForceWith ugen g = 
+        fmap recoverGraph $ tryForceWith ugen $ makeBoundaryState g
+    tryStepForceWith ugen g n = 
+        fmap recoverGraph  $ tryStepForceWith ugen (makeBoundaryState g) n
+    tryInitFSWith ugen g = tryInitFSWith ugen (makeBoundaryState g)
+
+
+{-*
+Generalised forcing operations
+-}
+
+-- |A version of the main force function using defaultAllUGen representing all 10 rules for updates.
+-- This returns Left report on discovering a stuck Tgraph and Right a (with a the resulting forcible) otherwise.
+tryForce:: Forcible a => a -> Try a
+tryForce = tryForceWith defaultAllUGen
+
+-- |The main force function using defaultAllUGen representing all 10 rules for updates.
+-- This raises an error on discovering a stuck/incorrect Tgraph/forcible.
+force:: Forcible a => a -> a
+force = runTry . tryForce
+
+-- |special case of forcing only half tiles to whole tiles
+wholeTiles:: Forcible a => a -> a
+wholeTiles = forceWith wholeTileUpdates 
+
+-- | forceWith ugen: force using the given UpdateGenerator
+forceWith:: Forcible a => UpdateGenerator -> a -> a
+forceWith ugen = runTry . tryForceWith ugen
+
+-- | try to initialize a force state with the default UpdateGenerator.
+-- Returns a Left report if it finds a stuck forcible.
+tryInitFS :: Forcible a => a -> Try ForceState
+tryInitFS = tryInitFSWith defaultAllUGen
+
+-- | initialize a force state with the default UpdateGenerator.
+-- Raises aan error if it finds a stuck forcible.
+initFS :: Forcible a => a -> ForceState
+initFS = runTry . tryInitFS
+
+-- |tryStepForce produces a (Right) intermediate state after a given number of steps (face additions)
+-- or a Left report if it encounters a stuck/incorrect Tgraph/forcible
+tryStepForce :: Forcible a => a -> Int -> Try a 
+tryStepForce = tryStepForceWith defaultAllUGen-- Was called tryStepForceFrom
+
+-- |stepForce  produces an intermediate state after a given number of steps (face additions).
+-- It raises an error if it encounters a stuck/incorrect Tgraph/forcible
+stepForce :: Forcible a => a -> Int -> a
+stepForce a = runTry . tryStepForce a
+
+{-*
+Specialised forcing operations (used for inspecting steps)
+-}
+
+-- |tryOneStepWith uGen fs uses uGen to find updates and does one force step.
+-- It returns a (Try maybe) with a new force sate paired with the boundary change for debugging purposes.
+-- It produces Left report for a stuck/incorrect graph
+tryOneStepWith :: UpdateGenerator -> ForceState -> Try (Maybe (ForceState,BoundaryChange))
+tryOneStepWith uGen fs = 
+      case findSafeUpdate (updateMap fs) of
+      Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
+                   umap <- tryReviseUpdates uGen bdChange (updateMap fs)
+                   return $ Just (ForceState{ boundaryState = newBoundaryState bdChange, updateMap = umap},bdChange)
+      _  -> do maybeBdC <- tryUnsafes fs
+               case maybeBdC of
+                Just bdC -> do umap <- tryReviseUpdates uGen bdC (updateMap fs)
+                               return $ Just (ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap},bdC)
+                Nothing  -> return Nothing           -- no more updates
+
+-- |tryOneStepF is a special case of tryOneStepWith only used for debugging
+tryOneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
+tryOneStepF = tryOneStepWith defaultAllUGen
+
+
+
+{-*
+Updating BoundaryState and ForceState after a single force step
+-}
+
 
 {-| BoundaryChange records the new boundary state after an update (by either trySafeUpdate or tryUnsafeUpdate)
      along with a list of directed edges which are no longer on the boundary,
@@ -185,106 +332,6 @@ affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
 affectedBoundary bd [] = []
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected new boundary edges " ++ show edges ++ "\n"
 
-{-*
-forcing operations
--}
-
--- |The main force function using defaultAllUGen representing all 10 rules for updates.
--- This raises an error on discovering a stuck/incorrect Tgraph.
-force:: Tgraph -> Tgraph
-force = runTry . tryForce
-
--- |A version of the main force function using defaultAllUGen representing all 10 rules for updates.
--- This returns Left report on discovering a stuck Tgraph and Right g (with g the resulting Tgraph) otherwise.
-tryForce:: Tgraph -> Try Tgraph
-tryForce = tryForceWith defaultAllUGen
-
--- |special case of forcing only half tiles to whole tiles
-wholeTiles:: Tgraph -> Tgraph
-wholeTiles = forceWith wholeTileUpdates 
-
-{-| forceWith uGen: 
-     initialises force state before forcing (both using uGen to generate updates).
-     It recursively does all updates using tryForceStateWith uGen, 
-     then gets the BoundaryState from the final state and converts back to a Tgraph.
-     This raises an error if it encounters a stuck/incorrect graph
--}
-forceWith:: UpdateGenerator -> Tgraph -> Tgraph
-forceWith uGen = runTry . tryForceWith uGen
-
-{-| version of forceWith which produces Left report if it encounters a stuck/incorrect graph
-instead of raising an error
--}
-tryForceWith:: UpdateGenerator -> Tgraph -> Try Tgraph
-tryForceWith uGen g = 
-    do fs0 <- tryInitForceStateWith uGen g
-       fs1 <- tryForceStateWith uGen fs0
-       return (recoverGraph $ boundaryState fs1)
-
-{-| tryForceStateWith uGen fs recursively does updates using uGen until there are no more updates.
-It produces Left report if it encounters a stuck/incorrect graph.
--}
-tryForceStateWith :: UpdateGenerator -> ForceState -> Try ForceState
-tryForceStateWith uGen = retry where
-  retry fs = case findSafeUpdate (updateMap fs) of
-             Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
-                          uMap <- tryReviseUpdates uGen bdChange (updateMap fs)
-                          retry $ ForceState{ boundaryState = newBoundaryState bdChange 
-                                            , updateMap = uMap
-                                            }
-             _  -> do maybeBdC <- tryUnsafes fs
-                      case maybeBdC of
-                        Nothing  -> tryFinalStuckCheck fs  -- no more updates
---                        Nothing  -> return fs  -- no more updates
-                        Just bdC -> do uMap <- tryReviseUpdates uGen bdC (updateMap fs)
-                                       retry $ ForceState{ boundaryState = newBoundaryState bdC
-                                                         , updateMap = uMap
-                                                         }
-
-{-| tryForceState fs recursively does updates using defaultAllUGen until there are no more updates.
-It produces Left report if it encounters a stuck/incorrect graph.
--}
-tryForceState :: ForceState -> Try ForceState
-tryForceState = tryForceStateWith defaultAllUGen
-
-{-| tryForceBoundaryWith uGen is the same as tryForceStateWith ugen but from BoundaryState to BoundaryState.
--}
-tryForceBoundaryWith :: UpdateGenerator -> BoundaryState -> Try BoundaryState
-tryForceBoundaryWith uGen bd =  do
-       uMap <- uGen bd (boundary bd)
-       let fsStart = ForceState{ boundaryState = bd 
-                               , updateMap = uMap
-                               }
-       fsEnd <- tryForceStateWith uGen fsStart
-       return $ boundaryState fsEnd
-
-{-| tryForceBoundary is the same as tryForceState but from BoundaryState to BoundaryState.
--}
-tryForceBoundary :: BoundaryState -> Try BoundaryState
-tryForceBoundary = tryForceBoundaryWith defaultAllUGen
-
-{-| forceBoundary is the same as tryForceState but from BoundaryState to BoundaryState.
--}
-forceBoundary :: BoundaryState -> BoundaryState
-forceBoundary = runTry . tryForceBoundaryWith defaultAllUGen
-
-{-| tryInitForceStateWith uGen g calculates an initial force state with boundary state information from g
-     and uses uGen on all boundary edges to initialise the updateMap.
-    It produces Left report if it finds a stuck/incorrect graph.                                                     
--}
-tryInitForceStateWith :: UpdateGenerator -> Tgraph -> Try ForceState
-tryInitForceStateWith uGen g = 
-  do let bd = makeBoundaryState g
-     umap <- uGen bd (boundary bd)
-     return ForceState { boundaryState = bd , updateMap = umap }
-
-
-{-| Calculates an initial force state for a graph
-    using defaultAllUgen.
-    It produces Left report if it finds a stuck/incorrect graph.                                                     
--}
-tryInitForceState :: Tgraph -> Try ForceState
-tryInitForceState = tryInitForceStateWith  defaultAllUGen
 
 -- |tryReviseUpdates uGen bdChange: updates the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
@@ -294,12 +341,11 @@ tryReviseUpdates uGen bdChange umap =
      umap'' <- uGen (newBoundaryState bdChange) (revisedEdges bdChange) 
      return (Map.union umap'' umap')
 
-{-
--- |True if an update is safe.
-isSafeUpdate :: Update -> Bool
-isSafeUpdate (SafeUpdate _ ) = True
-isSafeUpdate (UnsafeUpdate _ ) = False
+
+{-*
+Auxilliary Functions for doing a force step
 -}
+
 
 -- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
 findSafeUpdate:: UpdateMap -> Maybe Update 
@@ -307,88 +353,6 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
   isSafeUpdate (SafeUpdate _ ) = True
   isSafeUpdate (UnsafeUpdate _ ) = False
 
-{-*
-Inspecting Force Steps
--}
-
--- |stepForce  produces an intermediate state after a given number of steps (face additions).
--- It raises an error if it encounters a stuck/incorrect graph
--- (stepForce 0 g can be used to calculate the initial force state from g.)
-stepForce :: Tgraph -> Int -> ForceState
-stepForce g  = runTry . tryStepForce g
-
--- |tryStepForce is a version of stepForce which produces Left report for a stuck/incorrect graph
--- (tryStepForce 0 g can be used to calculate the initial force state from g.)
-tryStepForce :: Tgraph -> Int -> Try ForceState
-tryStepForce g n = do fs0 <- tryInitForceState g
-                      tryStepForceFrom fs0 n
-
--- |stepForceFrom advances a forcestate a given number of steps.
--- raising an error if a forcestate produces a stuck graph
-stepForceFrom :: ForceState -> Int -> ForceState
-stepForceFrom fs = runTry . tryStepForceFrom fs
-
--- |tryStepForceFrom advances a forcestate a given number of steps.
--- It produces Left report for a stuck/incorrect graph
-tryStepForceFrom :: ForceState -> Int -> Try ForceState
-tryStepForceFrom = tryStepForceWith defaultAllUGen
-
--- |try a number of force steps using a given UpdateGenerator (used by tryStepForce)
-tryStepForceWith :: UpdateGenerator -> ForceState -> Int -> Try ForceState
-tryStepForceWith updateGen = count where
-  count fs 0 = return fs
-  count fs n = do result <- tryOneStepWith updateGen fs
-                  case result of
-                   Nothing -> return fs
-                   Just (fs', _) ->  count fs' (n-1)
-
-
-{-
--- | For a Forcible a which is known to be incorrect (because force fails) this will return the last forcible formed
--- before force fails (at the point where the forcible is found to be stuck).
--- If force succeeds this just returns the result of forcing.
-stuckFrom :: Forcible a => a -> a
-stuckFrom g = last g where
-  last g = ifFail g (last (tryStepForce g 1))
--}
-
--- | For a Tgraph g which is known to be incorrect (because force fails) this will return the last Tgraph formed
--- before force fails (at the point where the Tgraph is found to be stuck).
--- If force succeeds this just returns the forced Tgraph.
-stuckGraphFrom :: Tgraph -> Tgraph
-stuckGraphFrom g = lastG g where
-  lastFS fs = ifFail fs (tryLast fs)
-  tryLast fs = do
-    fs' <- tryStepForceFrom fs 1
-    return $ lastFS fs'
-  lastG g = ifFail g (tryG g)
-  tryG g = do
-    fs <- tryInitForceState g
-    return $ recoverGraph $ boundaryState $ lastFS fs 
-
-
-{-*
-Single Force Steps
--}
-
--- |tryOneStepWith uGen fs uses uGen to find updates and does one force step.
--- It returns a (Try maybe) with a new force sate paired with the boundary change for debugging purposes.
--- It produces Left report for a stuck/incorrect graph
-tryOneStepWith :: UpdateGenerator -> ForceState -> Try (Maybe (ForceState,BoundaryChange))
-tryOneStepWith uGen fs = 
-      case findSafeUpdate (updateMap fs) of
-      Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
-                   umap <- tryReviseUpdates uGen bdChange (updateMap fs)
-                   return $ Just (ForceState{ boundaryState = newBoundaryState bdChange, updateMap = umap},bdChange)
-      _  -> do maybeBdC <- tryUnsafes fs
-               case maybeBdC of
-                Just bdC -> do umap <- tryReviseUpdates uGen bdC (updateMap fs)
-                               return $ Just (ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap},bdC)
-                Nothing  -> return Nothing           -- no more updates
-
--- |tryOneStepF is a special case of tryOneStepWith only used for debugging
-tryOneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
-tryOneStepF = tryOneStepWith defaultAllUGen
 
 
 {-| tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap.
@@ -1059,8 +1023,8 @@ Other Forcing operations
 
 
 {-
-Other Force Related Functions
-addHalfKite, addHalfDart, forceLDB, forceLKC
+Related Functions
+addHalfKite, addHalfDart, tryAddHalfKite, tryAddHalfDart
 -}
 
 

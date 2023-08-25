@@ -143,6 +143,15 @@ drawLabelled = drawLabelledWith drawPiece
 drawjLabelled :: Drawable_Labelled a => a -> Diagram B
 drawjLabelled = drawLabelledWith dashjPiece
 
+
+-- | same as drawLabelled but smaller labels
+drawLabelSmall :: Drawable_Labelled a => a -> Diagram B
+drawLabelSmall = drawLabelSmallWith drawPiece
+
+-- | same as drawjLabelled but smaller labels
+drawjLabelSmall :: Drawable_Labelled a => a -> Diagram B
+drawjLabelSmall = drawLabelSmallWith dashjPiece
+
 -- | VPatches can be drawn with labels
 instance Drawable_Labelled VPatch where
   drawLabelSizeWith = drawVPLabelSizeWith
