@@ -25,7 +25,7 @@ DECOMPOSING - decompose
 ----------------------------------}
 
 
--- |Decompose a Tgraph. This is uniquely determined.
+-- |Decompose a Tgraph.
 decompose :: Tgraph -> Tgraph
 decompose g = Tgraph{ maxV = newMax
                     , faces = newFaces
@@ -47,11 +47,10 @@ maxAndPhiVMap g = (oldMax+sizeNew, (Map.!) edgeVMap) where
   (_, edgeVMap) = foldl' insert2 (newVs, Map.empty) phiReps
   insert2 (v:vs,emap) e = (vs, Map.insert e v $ Map.insert (reverseD e) v emap)
 
-
 -- |Decompose a face producing new faces. 
 -- This requires a function to get the unique vertex assigned to each phi edge
 -- (as created by maxAndPhiVMap)
-decompFace:: ((Vertex,Vertex)->Vertex) -> TileFace -> [TileFace]
+decompFace:: (Dedge->Vertex) -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
         where x = newVFor (a,b)

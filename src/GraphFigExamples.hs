@@ -211,10 +211,10 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 
  
--- |an example showing a 4 times forcedDecomp pair of darts,
--- with the maximal compForced Tgraph (a kite) overlaid in red
+-- |an example showing a 4 times forceDecomp pair of darts,
+-- with the maximal compForce Tgraph (a kite) overlaid in red
 maxExampleFig :: Diagram B
-maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForcedDecomps dartPlusDart !! 4
+maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlusDart !! 4
 
 {-*
 EmplaceChoices
@@ -250,14 +250,14 @@ makeChoices g = choices unks [g] where
 -- It produces the emplacement of influence of the argument graph.   
 emplace:: Tgraph -> Tgraph
 emplace g | nullGraph g' = fg
-          | otherwise = (forcedDecomp . emplace) g'
+          | otherwise = (forceDecomp . emplace) g'
   where fg = force g
         g' = compose fg 
 
 --  OLD VERSION of emplaceChoices
 emplaceChoices:: Tgraph -> [Tgraph]
 emplaceChoices g | nullGraph g' = emplace <$> makeChoices fg
-                 | otherwise = forcedDecomp <$> emplaceChoices g'
+                 | otherwise = forceDecomp <$> emplaceChoices g'
   where fg = force g
         g' = compose fg 
 
@@ -597,7 +597,7 @@ relatedVType0 = lw thin $
        deuceF = labelAt (p2(-4,2.1)) "force deuce" $ named "deuceF" $ forceVFigures!!6
 
 {-| relatedVTypeFig lays out figures from forceVFigures plus a kite as a single diagram with 3 columns
-    showing relationships - forcedDecomp (blue arrows) and compose (green arrows)
+    showing relationships - forceDecomp (blue arrows) and compose (green arrows)
  -}
 relatedVTypeFig:: Diagram B
 relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2(-10,-10))) <>  mainfig where
@@ -646,10 +646,14 @@ forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap draw
   
 
         
--- |coverForceRules shows cases for a proof.
--- Each line has the form  g, decompose g, force (decompose g), compose(force (decompose g)), force g
+-- |coverForceRules shows cases for a proof that 
+-- g' is a perfect composition => 𝚏𝚘𝚛𝚌𝚎 g' is included in (compose.force.decompose) g'
+-- Each line has the form  g', force g', force (decompose g'), compose(force (decompose g'))
 -- (An empty Tgraph is represented as a lime circle with diagonal line through it)
--- We note that in each line the last 2 are the same  iff the first is a perfect composition of the second.
+-- We note that in each line the second and fourth are the same iff the first is a perfect composition.
+-- (We only need to show the second is included in the fourth, but a later proof establishes they will indeed be the same)
+-- The left hand columns are perfect composition cases, the right hand columns are non-cases i.e not perfect compositions.
+-- The perfect composition cases cover each force rule with minimal (alternative) additions to make a perfect composition setting. 
 coverForceRules:: Diagram B
 coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
                      [ vsep 1 $ fmap expandLine lines1
@@ -698,28 +702,21 @@ coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
          then emptyRep
          else drawSmartSub g4 vp
     d0 = scale phi $ drawSmartAligned (1,2) g0
-{-
-  expandLine fs1 = hsep 3 line where
-    line = [d1,d2,d3,d4,d0]
-    d4 = if nullGraph g4
-         then emptyRep
-         else scale phi $ drawSmartAligned (1,2) g4
-    [d1,d2,d3,d0] = scales [phi,1,1,phi] $ fmap (drawSmartAligned (1,2)) [g1, g2, g3, g0] 
-    g1 = makeTgraph fs1
-    g2 = decompose g1
-    g3 = force g2
-    g4 = compose g3
-    g0 = force g1
--}
+
+-- | diagram used to indicate an empty Tgraph (lime circle with diagonal line through it).
+emptyRep:: Diagram B
+emptyRep = lc lime $ (circle phi :: QDiagram B V2 Double Any) <> rotate (45@@deg) (hrule (2*phi))
+
 {- |
-Diagam to check boundary vertices (of a forced Tgraph) after applying (compose . force . decompose).
+For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF, this
+diagram is to check boundary vertices (of a forced Tgraph) after applying (compose . force . decompose).
 This shows all boundary vertex contexts for a forced Tgraph using forcedBVContexts.
 For each context (with vertex marked with a red dot) the result of (compose . force . decompose)
 is shown underneath. This establishes that no boundary vertex changes for a forced Tgraph
 when applying (compose . force . decompose).
 -}
 checkCFDFig :: Diagram B
-checkCFDFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (hsep 1) $ 
+checkCFDFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 10) $ 
   [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
   drawCases v e g = fmap (drawCase v e) $ forcedBVContexts v e $ makeBoundaryState $ force g
   dartOriginDiags = take 4 alldartOriginDiags ++ [alldartOriginDiags!!5]
@@ -744,11 +741,11 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (hsep 1) $
      drawcfd = (draw . alignedVP edge . compose . force . decompose) g
  --    drawe = drawEdgeWith vp edge # lc red
  
-
--- | diagram used to indicate an empty Tgraph (lime circle with diagonal line through it).
-emptyRep:: Diagram B
-emptyRep = lc lime $ (circle phi :: QDiagram B V2 Double Any) <> rotate (45@@deg) (hrule (2*phi))
-
+-- | For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF
+-- All internal vertices are dealt with by relatedVTypeFig except for the star case
+-- which this figure deals with.
+checkCFDStar = padBorder $ hsep 1 [drawForce starGraph, draw $ compose sfDf, draw sfDf]
+   where sfDf = (force . decompose . force) starGraph
 {-*
 Other miscelaneous Tgraphs and Diagrams
 -}
@@ -802,7 +799,7 @@ dartPic0 = padBorder $ lw ultraThin $ position $ concat
           , zip pointsR3 $ zipWith named ["b4", "b3","b2","b1","b0"] (dots : rotations [1,1] drts)
           ]
           where
-              partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ allForcedDecomps $ force dartGraph
+              partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ allForceDecomps $ force dartGraph
               forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce dartDs
               drts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawSmart dartDs
               dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
@@ -819,7 +816,7 @@ kitePic0 = padBorder $ lw ultraThin $ position $ concat
           , zip pointsR3 $ zipWith named ["b4", "b3","b2","b1","b0"] (dots : rotations [0,1,1] kts)
           ]
           where
-              partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ allForcedDecomps $ force kiteGraph
+              partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ allForceDecomps $ force kiteGraph
               forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce kiteDs
               kts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawSmart kiteDs
               dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
@@ -982,7 +979,7 @@ Testing (functions and figures and experiments)
 -}          
 -- |diagrams of forced graphs for boundaryGapFDart4 and boundaryGapFDart5
 testForce4, testForce5 :: Diagram B
-testForce4 = padBorder $ lw ultraThin $ drawjLabelled $ force boundaryGapFDart4
+testForce4 = padBorder $ lw ultraThin $ drawjLabelSmall $ force boundaryGapFDart4
 testForce5 = padBorder $ lw ultraThin $ drawjLabelSmall $ force boundaryGapFDart5        
 
   
@@ -1180,36 +1177,36 @@ emplaceProblemFig = padBorder $ hsep 1 $ rotations [8,8] $ fmap draw
 -- | force after adding half dart (rocket cone) to sunPlus3Dart'.
 -- Adding a kite half gives an incorrect graph discovered by forcing.
 rocketCone1:: Tgraph
-rocketCone1 =  force $ addHalfDart (59,60) $ forcedDecomp sunPlus3Dart'
+rocketCone1 =  force $ addHalfDart (59,60) $ forceDecomp sunPlus3Dart'
 
 -- | figure for rocketCone
 rocketCone1Fig:: Diagram B
 rocketCone1Fig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [r1,rc1] where
-  r1 = forcedDecomp sunPlus3Dart'
+  r1 = forceDecomp sunPlus3Dart'
   rc1 = force $ addHalfDart (59,60) r1
   
 -- | figure for rocket5 showing its maximal forced composition
 rocket5Fig:: Diagram B
 rocket5Fig = padBorder $ lw ultraThin  drawWithMax rocket5
 
--- | rocket5 is the result of a chain of 5 forcedDecomps, each after
+-- | rocket5 is the result of a chain of 5 forceDecomps, each after
 -- adding a dart (cone) to the tip of the previous rocket starting with sunPlus3Dart'.
 -- As a quick check rocket5 was extends with both choices on a randomly chosen boundary edge (8414,8415)
 -- draw $ force $ addHalfKite rocket5 (8414,8415)
 -- draw $ force $ addHalfDart rocket5 (8414,8415)
 rocket5:: Tgraph
-rocket5 = forcedDecomp rc4 where
+rocket5 = forceDecomp rc4 where
   rc0 = sunPlus3Dart'
-  rc1 = force $ addHalfDart (59,60) (forcedDecomp rc0)
-  rc2 = force $ addHalfDart (326,327) (forcedDecomp rc1)
-  rc3 = force $ addHalfDart (1036,1037) (forcedDecomp rc2)
-  rc4 = force $ addHalfDart (3019,3020) (forcedDecomp rc3)
+  rc1 = force $ addHalfDart (59,60) (forceDecomp rc0)
+  rc2 = force $ addHalfDart (326,327) (forceDecomp rc1)
+  rc3 = force $ addHalfDart (1036,1037) (forceDecomp rc2)
+  rc4 = force $ addHalfDart (3019,3020) (forceDecomp rc3)
 
 -- |6 times forced and decomposed kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
 -- There are 2906 faces for kingD6 before forcing.
 kingFD6:: Diagram B
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makeVP $
-          allForcedDecomps kingGraph !!6
+          allForceDecomps kingGraph !!6
 
 
 
@@ -1757,19 +1754,19 @@ forcedKingEmbedding = padBorder $ lw ultraThin $ vsep 1
   , cases!!4
   ] where
     fk = force kingGraph
-    fdk = forcedDecomp fk
+    fdk = forceDecomp fk
     fkVP = makeVP fk
     backVP = makeVP fdk
     embed de = drawWith (fillDK yellow yellow) a <> draw b 
                 where [a,b] = fmap dropLabels $ alignments [(1,7), de] [fkVP, backVP]
     cases = fmap center $ rotations [8,2,1,9] $ fmap embed [(43,205),(33,188),(9,107),(5,91),(12,119)]
 
--- | Diagram to check vertex numbering for a forced kingGraph, a forcedDecomp forced kingGraph, and a
+-- | Diagram to check vertex numbering for a forced kingGraph, a forceDecomp forced kingGraph, and a
 -- twice forceDecomp forced kingGraph
 kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawLabelled [fk, fdfk, fdfdfk] where
     fk = force kingGraph
-    fdfk = forcedDecomp fk
-    fdfdfk = forcedDecomp fdfk
+    fdfk = forceDecomp fk
+    fdfdfk = forceDecomp fdfk
 -}
 
 {-*

@@ -168,15 +168,13 @@ drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     dg = drawSmartSub g vp
     dsfg = draw vp
 {-|
-drawWithMax g - draws g and overlays the maximal composition of g in red.
-The argument should be forced, otherwise
-this may raise an error if any of the compositions of g upto the maximal one are invalid Tgraphs
-(e.g. not tile connected).
+drawWithMax g - draws g and overlays the maximal composition of force g in red.
+This relies on g and all compositions of force g having vertices in force g.
 -}
 drawWithMax :: Tgraph -> Diagram B
 drawWithMax g =  (dmax # lc red # lw thin) <> dg where
-    vp = makeVP g
-    dg = draw vp
+    vp = makeVP (force g) -- duplicates force to get the locations of vertices in the forced Tgraph
+    dg = draw $ subVP vp (faces g) 
     maxg = maxComp g
     dmax = draw $ subVP vp $ faces maxg
 
@@ -222,41 +220,33 @@ composeK = snd . partComposeK where
     groups = map snd compositions
     remainder = faces g \\ concat groups
 
--- |compForced does a force then compose.
+-- |compForce does a force then compose.
 -- It omits the check for connected, and no crossing boundaries because the argument is forced first.
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
-compForced:: Tgraph -> Tgraph
-compForced = uncheckedCompose . force 
-
--- |force after a decomposition
-forcedDecomp:: Tgraph -> Tgraph
-forcedDecomp = force . decompose
+compForce:: Tgraph -> Tgraph
+compForce = uncheckedCompose . force 
         
--- |allCompForced g produces a list of all forced compositions starting from g up to but excluding the empty Tgraph.
+-- |allCompForce g produces a list of all forced compositions starting from g up to but excluding the empty Tgraph.
 -- This definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
-allCompForced:: Tgraph -> [Tgraph]
-allCompForced g = takeWhile (not . nullGraph) $ g: (iterate uncheckedCompose $ compForced g)
--- allCompForced = takeWhile (not . nullGraph) . iterate compForced
+allCompForce:: Tgraph -> [Tgraph]
+allCompForce g = takeWhile (not . nullGraph) $ g: (iterate uncheckedCompose $ compForce g)
 
--- | produces an infinite list of forced decompositions
-allForcedDecomps:: Tgraph -> [Tgraph]
-allForcedDecomps = iterate forcedDecomp
-
--- |maxCompForced produces a maximally composed forced graph.
-maxCompForced:: Tgraph -> Tgraph
-maxCompForced = last . allCompForced
-
--- |maxComp g may produce a maximally composed Tgraph of g.
--- If g is not already forced it may raise an error if any intermediate composition 
--- is not a valid Tgraph.
+-- |maxComp g produces the maximally composed (non-empty) Tgraph from force g, provided g is non-empty
+-- and just the emptyGraph otherwise.
+-- It may raise an error if the initial force fails with an incorrect Tgraph.
 maxComp:: Tgraph -> Tgraph
-maxComp = last . allComp
+maxComp g | nullGraph g = g
+          | otherwise = last $ allCompForce g
 
--- |allComp g may produce a list of all compositions starting from g up to but excluding the empty Tgraph,
--- but if g is not already forced, it may raise an error if any composition is not a valid Tgraph.
-allComp:: Tgraph -> [Tgraph]
-allComp = takeWhile (not . nullGraph) . iterate compose
+
+-- |force after a decomposition
+forceDecomp:: Tgraph -> Tgraph
+forceDecomp = force . decompose
+
+-- | allForceDecomps g - produces an infinite list of forced decompositions of g
+allForceDecomps:: Tgraph -> [Tgraph]
+allForceDecomps = iterate forceDecomp
 
 {-*
 Emplace Choices
@@ -275,7 +265,7 @@ emplaceChoices g = emplaceChoices' $ force $ makeBoundaryState g where
 -- This version relies on compForce theorem and related theorems
 emplaceChoices':: BoundaryState -> [Tgraph]
 emplaceChoices' bd | nullGraph g' = recoverGraph <$> forcedChoicesBoundary bd
-                   | otherwise = forcedDecomp <$> emplaceChoices' (makeBoundaryState g')
+                   | otherwise = forceDecomp <$> emplaceChoices' (makeBoundaryState g')
   where   
     g' = compose $ recoverGraph bd
 -- forcedChoicesBoundary makes choices for unknown dart wings on the boundary of bd.
@@ -692,6 +682,7 @@ SubTgraphs
 {-|
  SubTgraph - introduced to allow tracking of subsets of faces
  in both force and decompose oerations.
+ Mainly used for drawing purposes but also for empires.
  A SubTgraph has a main Tgraph (tgraph) and a list of subsets of faces (tracked).
  The list allows for tracking different subsets of faces at the same time.
 -}
