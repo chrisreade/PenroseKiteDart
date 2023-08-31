@@ -66,6 +66,16 @@ makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces
 subVP:: VPatch -> [TileFace] -> VPatch
 subVP vp fcs = vp {vpFaces  = fcs} 
 
+-- | removes locations for vertices not used in the faces of a VPatch
+relevantVP :: VPatch -> VPatch
+relevantVP vp = vp{vLocs = locVs} where
+     vs = facesVSet (vpFaces vp)
+     locVs = VMap.filterWithKey (\v -> \_ -> (v `IntSet.member` vs)) $ vLocs vp
+
+-- | Restrict a vp to a list of faces, removing locations for vertices not in the faces.
+restrictVP:: VPatch -> [TileFace] -> VPatch
+restrictVP vp fcs = relevantVP (subVP vp fcs)
+
  
 -- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces
 -- This should be confined to use within drawing functions such as drawWith and drawLabelledWith
@@ -143,7 +153,6 @@ drawLabelled = drawLabelledWith drawPiece
 drawjLabelled :: Drawable_Labelled a => a -> Diagram B
 drawjLabelled = drawLabelledWith dashjPiece
 
-
 -- | same as drawLabelled but smaller labels
 drawLabelSmall :: Drawable_Labelled a => a -> Diagram B
 drawLabelSmall = drawLabelSmallWith drawPiece
@@ -154,49 +163,17 @@ drawjLabelSmall = drawLabelSmallWith dashjPiece
 
 -- | VPatches can be drawn with labels
 instance Drawable_Labelled VPatch where
-  drawLabelSizeWith = drawVPLabelSizeWith
---    drawLabelledWith = drawVPLabelledWith
+  drawLabelSizeWith = drawVPLabelSizeWith where
+ -- drawVPLabelSizeWith :: Measure Double -> (Piece -> Diagram B) -> VPatch -> Diagram B
+    drawVPLabelSizeWith r pd vp = drawLabelSize r (vLocs vp) <> drawWith pd (dropLabels vp)
+-- |draws vertex labels at assigned points with given size.
+ -- drawLabelSize :: Measure Double -> VertexLocMap -> Diagram B
+    drawLabelSize r vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
+       where label v = baselineText (show v) # fontSize r # fc red
 
 -- | Tgraphs can be drawn with labels
 instance Drawable_Labelled Tgraph where
   drawLabelSizeWith r pd = drawLabelSizeWith r pd . makeVP
---    drawLabelledWith pd = drawLabelledWith pd . makeVP
-
--- |drawVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
-drawVPLabelSizeWith :: Measure Double -> (Piece -> Diagram B) -> VPatch -> Diagram B
-drawVPLabelSizeWith r pd vp = drawLabelSize r (vLocs vp) <> drawWith pd (dropLabels vp)
-
--- |draws vertex labels at assigned points with given (output) size.
-drawLabelSize :: Measure Double -> VertexLocMap -> Diagram B
-drawLabelSize r vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
-    where label v = baselineText (show v) # fontSize r # fc red  -- was global 0.3
---    where label v = baselineText (show v) # fontSize (normalized 0.008) # fc red  -- was global 0.3
-
-{-
--- |drawVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces
-drawVPLabelledWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-drawVPLabelledWith pd vp = drawLabelSize (vLocs vp) <> drawWith pd (dropLabels vp)
--}
-
-
--- |relevantVPLabelledWith pd vp - converts vp to a diagram with vertex labels using pd to draw pieces.
--- The same as drawVPLabelledWith BUT drops drawing of vertices that are not mentioned in the faces.
--- This is intended for when a subset of faces from a VPatch are being drawn.
-relevantVPLabelledWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-relevantVPLabelledWith pd vp = drawLabelledWith pd (vp{vLocs = locVs}) where
-     vs = facesVSet (vpFaces vp)
-     locVs = VMap.filterWithKey (\v -> \_ -> (v `IntSet.member` vs)) $ vLocs vp
-{-
-relevantVPLabelledWith pd vp = drawLabelSize 9 locVs <> drawWith pd (dropLabels vp) where
-     vs = facesVSet (vpFaces vp)
-     locVs = VMap.filterWithKey (\v -> \_ -> (v `IntSet.member` vs)) $ vLocs vp
--}
-
--- |relevantVPLabelSmallWith is the same as relevantVPLabelledWith but with smaller sized labels
-relevantVPLabelSmallWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-relevantVPLabelSmallWith pd vp = drawLabelSmallWith pd (vp{vLocs = locVs}) where
-     vs = facesVSet (vpFaces vp)
-     locVs = VMap.filterWithKey (\v -> \_ -> (v `IntSet.member` vs)) $ vLocs vp
 
 
 -- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default.

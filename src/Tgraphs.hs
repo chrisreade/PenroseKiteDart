@@ -761,7 +761,7 @@ drawSubTgraph:: [VPatch -> Diagram B] -> SubTgraph -> Diagram B
 drawSubTgraph drawList sub = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeVP (tgraph sub)
     untracked = vpFaces vp \\ concat (tracked sub)
-    vpList = fmap (subVP vp) (untracked:tracked sub)
+    vpList = fmap (restrictVP vp) (untracked:tracked sub)
 
 {-
 -- |drawing non tracked faces only
@@ -780,7 +780,7 @@ drawSubTgraphRotated:: [VPatch -> Diagram B] -> Angle Double -> SubTgraph -> Dia
 drawSubTgraphRotated drawList a sub = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = rotate a $ makeVP (tgraph sub)
     untracked = vpFaces vp \\ concat (tracked sub)
-    vpList = fmap (subVP vp) (untracked:tracked sub)
+    vpList = fmap (restrictVP vp) (untracked:tracked sub)
 
 
 
