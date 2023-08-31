@@ -124,11 +124,10 @@ findLoc v = VMap.lookup v . vLocs
 
 -- |Make drawing tools applicable to VPatch
 instance Drawable VPatch where
-    drawWith = drawVPWith
-
--- |drawVPWith pd vp - converts vp to a diagram without vertex labels using pd to draw pieces
-drawVPWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-drawVPWith pd vp = drawWith pd (dropLabels vp)
+    drawWith = drawVPWith where
+   -- |drawVPWith pd vp - converts vp to a diagram without vertex labels using pd to draw pieces
+   -- drawVPWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
+        drawVPWith pd vp = drawWith pd (dropLabels vp)
 
 -- |Make drawing tools applicable to Tgraphs
 instance Drawable Tgraph where
@@ -176,16 +175,9 @@ instance Drawable_Labelled Tgraph where
   drawLabelSizeWith r pd = drawLabelSizeWith r pd . makeVP
 
 
--- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default.
--- Note this does not rotate the labels themselves.
-drawLabelledRotated:: Angle Double -> Tgraph -> Diagram B
-drawLabelledRotated a = drawLabelled . rotate a . makeVP
-
--- |drawing a graph including vertex labels with a given angle of clockwise rotation from the default,
--- with dashed joins.
--- Note this does not rotate the labels themselves.
-drawjLabelledRotated:: Angle Double -> Tgraph -> Diagram B
-drawjLabelledRotated a = drawjLabelled . rotate a . makeVP
+-- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun
+rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
+rotateBefore dr angle = dr . rotate angle . makeVP
 
 
 {-* VPatch Alignment with Vertices

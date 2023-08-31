@@ -161,7 +161,7 @@ cdfIllustrate = (position $ zip [p2(0,0), p2(0,7), p2(10,0), p2(10, -12)]
             k = drawLabelled kingGraph # named "k"
             fk = drawLabelled fKing # named "fk"
             dk = drawSmartLabelled (decompose kingGraph) # scale (phi-1) # named "dk"
-            cfk = drawLabelledRotated (ttangle 9) (compose fKing) # scale phi # named "cfk"
+            cfk = rotateBefore drawLabelled (ttangle 9) (compose fKing) # scale phi # named "cfk"
 
 {-* Partial Composition figures
 -} 
@@ -1479,7 +1479,7 @@ oneChoiceGraph = force $ addHalfDart (37,59) $ force kingGraph
 -- |Diagram showing superForce with initial Tgraph g (top), force g (middle), and superForce g (bottom)
 superForceFig :: Diagram B
 superForceFig = padBorder $ lw ultraThin $ vsep 1 $
-  fmap (drawLabelledRotated (ttangle 1)) [g, force g, superForce g] where 
+  fmap (rotateBefore drawLabelled (ttangle 1)) [g, force g, superForce g] where 
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
 
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
