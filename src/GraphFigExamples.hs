@@ -220,7 +220,7 @@ maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlu
 EmplaceChoices
 -}
 
-{- Now removed: foolChoices, emplace, makeChoices, forceLDB tryForceLDB, forceLKC, tryForceLKC
+{- Now removed: foolChoices, emplace, makeChoices, forceLDB, tryForceLDB, forceLKC, tryForceLKC
 
 -- |four choices for composing fool.
 foolChoices :: Diagram B
@@ -1038,17 +1038,17 @@ dartsOnlyFig = padBorder $ lw thin $ draw $ selectFacesGtoVP darts g where
     darts = filter isDart $ faces g
 
 {-*
-Using SubTgraphs
+Using TrackedTgraphs
 -}
--- |hollowgraph illustrates an essential use of SubTgraphs.
+-- |hollowgraph illustrates an essential use of TrackedTgraphs.
 -- Starting with fd2 = force (dartDs!!2) we want to make 3 further decompositions,
 -- but also make 3 forced decompositions and then subtract the former faces from the latter.
 -- The result happens to be a valid Tgraph but this is not generally the case.
--- SubTgraphs are essential to ensure numbering of new vertices in decompositions
+-- TrackedTgraphs are essential to ensure numbering of new vertices in decompositions
 -- match up in the 2 cases which they would not do if treated separately.
 hollowGraph::Tgraph
-hollowGraph = removeFaces (head (tracked exampleSub)) (tgraph exampleSub) where
-  exampleSub = iterate (forceSub . decomposeSub) (pushFaces (newSubTgraph fd2)) !!3
+hollowGraph = removeFaces (head (tracked exampleTracked)) (tgraph exampleTracked) where
+  exampleTracked = iterate (forceTracked . decomposeTracked) (trackFaces (newTrackedTgraph fd2)) !!3
   fd2 = force (dartDs!!2)
 
 -- |figure showing hollowGraph and result of forcing
@@ -1066,36 +1066,36 @@ to view the vertex numbers
 checkChoiceEdge g = padBorder $ lw ultraThin $ drawLabelled $ force g
 
 -- |given a boundary directed edge of a forced graph (either direction)
--- construct two SubTgraphs with half dart/kite addition on the edge respectively
--- track the resulting faces and also the singleton new face, then force both SubTgraphs
-trackTwoChoices:: Dedge -> Tgraph -> [SubTgraph]
-trackTwoChoices de g = [sub1,sub2] where
-          sub1 = forceSub $ pushFaces $ addHalfDartSub de $ newSubTgraph g
-          sub2 = forceSub $ pushFaces $ addHalfKiteSub de $ newSubTgraph g
+-- construct two TrackedTgraphs with half dart/kite addition on the edge respectively
+-- track the resulting faces and also the singleton new face, then force both TrackedTgraphs
+trackTwoChoices:: Dedge -> Tgraph -> [TrackedTgraph]
+trackTwoChoices de g = [ttg1,ttg2] where
+          ttg1 = forceTracked $ trackFaces $ addHalfDartTracked de $ newTrackedTgraph g
+          ttg2 = forceTracked $ trackFaces $ addHalfKiteTracked de $ newTrackedTgraph g
 
 -- |forced 4 times decomposed dart (used for identifying particular boundary
 -- edges in twoChoices and moreChoices)
 forceDartD4Fig:: Diagram B
 forceDartD4Fig = padBorder $ lw ultraThin $ drawjLabelled $ force $ dartD4
 -- |Take a forced, 4 times decomposed dart, then track the two choices
-twoChoices:: [SubTgraph]
+twoChoices:: [TrackedTgraph]
 twoChoices = trackTwoChoices (223,255) (force $ dartD4) --(233,201) 
 
 -- |show the result of (tracked) two choices
 -- with tracked faces in red, new face filled black. 
-drawChoice:: SubTgraph -> Diagram B
-drawChoice = drawSubTgraph [draw, lc red . draw, drawWith (fillDK black black)]
+drawChoice:: TrackedTgraph -> Diagram B
+drawChoice = drawTrackedTgraph [draw, lc red . draw, drawWith (fillDK black black)]
 
 -- |show the (tracked) twoChoices with (tracked faces in red, new face filled black)  
 twoChoicesFig:: Diagram B
 twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawChoice $ twoChoices
 
 -- |track two further choices with the first of twoChoices (fullgraph)  
-moreChoices0:: [SubTgraph]
+moreChoices0:: [TrackedTgraph]
 moreChoices0 = trackTwoChoices (200,241) (tgraph $ twoChoices !! 0) --(178,219)
 
 -- |track two further choices with the second of twoChoices (fullgraph)  
-moreChoices1:: [SubTgraph]
+moreChoices1:: [TrackedTgraph]
 moreChoices1 = trackTwoChoices (200,241) (tgraph $ twoChoices !! 1) --(178,219)
 
 -- |figures for 4 further choices
@@ -1689,12 +1689,12 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
 testCommonFacesFig :: Diagram B
 testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23),(49,59)] where
     fk = force $ kingGraph
-    drawSub = drawSubTgraph [draw, lc red . draw, drawWith (fillDK black black)]
-    edgecase e = hsep 1 $ fmap (lw ultraThin) [drawSub sub1, drawSub sub2, drawCommonFaces (g1,(1,2)) (g2,(1,2))]
+    drawTracked = drawTrackedTgraph [draw, lc red . draw, drawWith (fillDK black black)]
+    edgecase e = hsep 1 $ fmap (lw ultraThin) [drawTracked ttg1, drawTracked ttg2, drawCommonFaces (g1,(1,2)) (g2,(1,2))]
       where
-        [sub1, sub2] = trackTwoChoices e fk
-        g1 = tgraph sub1
-        g2 = tgraph sub2
+        [ttg1, ttg2] = trackTwoChoices e fk
+        g1 = tgraph ttg1
+        g2 = tgraph ttg2
 
 {-*
 Testing Empires
@@ -1706,72 +1706,6 @@ kingEmpiresFig = padBorder $ hsep 10 [kingEmpire1Fig, kingEmpire2Fig]
 kingEmpire1Fig = drawEmpire1 kingGraph
 kingEmpire2Fig = drawEmpire2 kingGraph
 
-
-{-
--- | Diagram comparing two choices at 4 boundary edges of a forced kingGraph
-forcedKingChoicesFig :: Diagram B
-forcedKingChoicesFig = padBorder $ lw ultraThin $ vsep 1 $ fmap example [(57,58),(20,38),(16,23),(49,59)] where
-    fk = force $ kingGraph
-    drawSub = drawSubTgraph [draw, lc red . draw, drawWith (fillDK black black)]
-    example e = hsep 1 $ fmap drawSub $ trackTwoChoices e fk 
-
--- | testing drawing of king empire based on forcedKingChoicesFig
-testKingEmpire :: Diagram B
-testKingEmpire =  padBorder $ drawCommonFaces (g4,(1,2)) (g3,(1,2)) where
-  fk = force $ kingGraph
-  g1 = addHalfKite (20,38) fk
-  g2 = addHalfKite (16,23) fk
-  g3 = fullUnion (g1,(1,2)) (g2,(1,2))
-  g4 = addHalfKite (49,59) fk
-
-{-|
-Diagram showing a calculation of some of the kings empire level 1 (done by hand - not using empire1).
-The top left graph shows the intersection faces of the the other 6 graphs (emphasised) with the second graph as background.
-The latter 6 graphs show all the possible ways of extending a forced kingGraph (forced kinGraph shown red)
-round its boundary.
--}
-kingEmpire:: Diagram B
-kingEmpire = padBorder $ lw ultraThin $ vsep 1 $ 
-             [ hsep 10 $ [emphasizeFaces fcs g1, drawChoice sub1]
-             , hsep 1 $ fmap drawChoice [sub2,sub3,sub4]
-             , hsep 1 $ fmap drawChoice [sub5,sub6]
-             ]  where
-    fkSub = newSubTgraph $ force $ kingGraph
-    sub1 = forceSub $ pushFaces $ addHalfKiteSub (49,59) fkSub
-    sub2 = forceSub $ pushFaces $ unionTwoSub $ addHalfKiteSub (16,23) $ addHalfKiteSub (20,38) fkSub
-    sub3 = forceSub $ pushFaces $ unionTwoSub $ addHalfDartSub (16,23) $ addHalfKiteSub (20,38) fkSub
-    sub4 = forceSub $ pushFaces $ unionTwoSub $ addHalfKiteSub (16,23) $ addHalfDartSub (20,38) fkSub
-    subX = unionTwoSub $ unionTwoSub $ addHalfDartSub (49,59) $ addHalfDartSub (16,23) $ addHalfDartSub (20,38) fkSub
-    sub5 = forceSub $ pushFaces $ unionTwoSub $ addHalfDartSub (56,57) subX
-    sub6 = forceSub $ pushFaces $ unionTwoSub $ addHalfKiteSub (56,57) subX
-    g1 = tgraph sub1
-    g1Intersect sub = commonFaces (g1,(1,2)) (tgraph sub,(1,2))
-    fcs = foldl' intersect (faces g1) $
-           fmap g1Intersect [sub2,sub3,sub4,sub5,sub6]
-
--- | Diagram showing 5 embeddings of a forced kingGraph in a forced decomposed kingGraph
-forcedKingEmbedding:: Diagram B
-forcedKingEmbedding = padBorder $ lw ultraThin $ vsep 1 
-  [ hsep 1 [draw fk, draw fdk]
-  , hsep 1 [cases!!0 , cases!!1]
-  , hsep 1 [cases!!2, cases!!3]
-  , cases!!4
-  ] where
-    fk = force kingGraph
-    fdk = forceDecomp fk
-    fkVP = makeVP fk
-    backVP = makeVP fdk
-    embed de = drawWith (fillDK yellow yellow) a <> draw b 
-                where [a,b] = fmap dropLabels $ alignments [(1,7), de] [fkVP, backVP]
-    cases = fmap center $ rotations [8,2,1,9] $ fmap embed [(43,205),(33,188),(9,107),(5,91),(12,119)]
-
--- | Diagram to check vertex numbering for a forced kingGraph, a forceDecomp forced kingGraph, and a
--- twice forceDecomp forced kingGraph
-kingEmpireCheck = padBorder $ lw ultraThin $ vsep 1 $ fmap drawLabelled [fk, fdfk, fdfdfk] where
-    fk = force kingGraph
-    fdfk = forceDecomp fk
-    fdfdfk = forceDecomp fdfk
--}
 
 {-*
 Inspection tools

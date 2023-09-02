@@ -11,7 +11,7 @@ This is the main module for Tgraph operations which collects and exports the oth
 It exports makeTgraph for constructing checked Tgraphs and excludes data constructor Tgraph.
 The module includes several functions for producing overlaid diagrams for graphs and
 experimental combinations such as emplace, boundary covers, boundary loops.
-It also includes experimental SubTgraphs (used for tracking subsets of faces of a Tgraph).
+It also includes experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
 -}
 module Tgraphs ( module Tgraphs
                , module Tgraph.Prelude -- export excludes data constructor Tgraph
@@ -370,18 +370,18 @@ drawFBCovering:: Tgraph -> Diagram B
 drawFBCovering g = lw ultraThin $ vsep 1 $ 
      fmap draw $ forcedBoundaryVCovering g
 
--- | empire1 g - produces a SubTgraph representing the level 1 empire of g.
+-- | empire1 g - produces a TrackedTgraph representing the level 1 empire of g.
 -- The tgraph of the result is an arbitrarily chosen boundary vertex cover of force g,
 -- and the tracked list of the result has the common faces of all the boundary vertex covers (of force g)
 -- at the head, followed by the original faces of g.
-empire1:: Tgraph -> SubTgraph
-empire1 g = makeSubTgraph g0 [fcs,faces g] where
+empire1:: Tgraph -> TrackedTgraph
+empire1 g = makeTrackedTgraph g0 [fcs,faces g] where
     (g0:others) = forcedBoundaryVCovering g
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
--- | empire2 g - produces a SubTgraph representing the level 2 empire of g.
+-- | empire2 g - produces a TrackedTgraph representing the level 2 empire of g.
 -- NB since very large graphs can be generated with boundary vertex covers, we use boundary edge covers only.
 -- That is, after finding all boundary edge covers of force g, 
 -- boundary edge covers are then found for each boundary edge cover to form a list of doubly-extended
@@ -389,8 +389,8 @@ empire1 g = makeSubTgraph g0 [fcs,faces g] where
 -- The tgraph  of the result is an arbitrarily chosen (doubly-extended) boundary edge cover (of force g),
 -- and the tracked list of the result has the common faces of all the (doubly-extended) boundary edge covers
 -- at the head, followed by the original faces of g.
-empire2:: Tgraph -> SubTgraph
-empire2 g = makeSubTgraph g0 [fcs, faces g] where
+empire2:: Tgraph -> TrackedTgraph
+empire2 g = makeTrackedTgraph g0 [fcs, faces g] where
     covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryECovering covers1
@@ -400,11 +400,11 @@ empire2 g = makeSubTgraph g0 [fcs, faces g] where
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
 
--- | empire2Plus g - produces a SubTgraph representing an extended level 2 empire of g
+-- | empire2Plus g - produces a TrackedTgraph representing an extended level 2 empire of g
 -- similar to empire2, but using boundaryVCovering insrtead of boundaryECovering.
 -- On a kinGraph this currently takes about 4 hours 20 minutes.
-empire2Plus:: Tgraph -> SubTgraph
-empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
+empire2Plus:: Tgraph -> TrackedTgraph
+empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
     covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryVCovering covers1
@@ -416,7 +416,7 @@ empire2Plus g = makeSubTgraph g0 [fcs, faces g] where
 -- | drawEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
 -- This is drawn over one of the possible boundary covers and the faces of g are shown in red.
 drawEmpire1:: Tgraph -> Diagram B
-drawEmpire1 g = drawSubTgraph  [ lw ultraThin . draw
+drawEmpire1 g = drawTrackedTgraph  [ lw ultraThin . draw
                                , lw thin . drawWith (fillDK lightgrey lightgrey)
                                , lw thin . lc red . draw
                                ]  (empire1 g)
@@ -424,7 +424,7 @@ drawEmpire1 g = drawSubTgraph  [ lw ultraThin . draw
 -- | drawEmpire2 g - produces a diagram emphasising the common faces of a doubly-extended boundary cover of force g.
 -- This is drawn over one of the possible doubly-extended boundary covers and the faces of g are shown in red.
 drawEmpire2:: Tgraph -> Diagram B
-drawEmpire2 g = drawSubTgraph  [ lw ultraThin . draw
+drawEmpire2 g = drawTrackedTgraph  [ lw ultraThin . draw
                                , lw thin . drawWith (fillDK lightgrey lightgrey)
                                , lw thin . lc red . draw
                                ]  (empire2 g)
@@ -677,110 +677,110 @@ pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!
 
 
 {-*
-SubTgraphs
+TrackedTgraphs
 -}
 {-|
- SubTgraph - introduced to allow tracking of subsets of faces
+ TrackedTgraph - introduced to allow tracking of subsets of faces
  in both force and decompose oerations.
  Mainly used for drawing purposes but also for empires.
- A SubTgraph has a main Tgraph (tgraph) and a list of subsets of faces (tracked).
+ A TrackedTgraph has a main Tgraph (tgraph) and a list of subsets of faces (tracked).
  The list allows for tracking different subsets of faces at the same time.
 -}
-data SubTgraph = SubTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]} deriving Show
+data TrackedTgraph = TrackedTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]} deriving Show
 
--- |newSubTgraph g creates a SubTgraph from a Tgraph g with an empty tracked list
-newSubTgraph :: Tgraph -> SubTgraph
-newSubTgraph g = makeSubTgraph g []
+-- |newTrackedTgraph g creates a TrackedTgraph from a Tgraph g with an empty tracked list
+newTrackedTgraph :: Tgraph -> TrackedTgraph
+newTrackedTgraph g = makeTrackedTgraph g []
 
--- |makeSubTgraph g trackedlist creates a SubTgraph from a Tgraph g
+-- |makeTrackedTgraph g trackedlist creates a TrackedTgraph from a Tgraph g
 -- from trackedlist where each list in trackedlist is a subset of the faces of g.
 -- Any faces not in g are ignored.
-makeSubTgraph :: Tgraph -> [[TileFace]] -> SubTgraph
-makeSubTgraph g trackedlist = SubTgraph{ tgraph = g, tracked = fmap (`intersect` faces g) trackedlist}
+makeTrackedTgraph :: Tgraph -> [[TileFace]] -> TrackedTgraph
+makeTrackedTgraph g trackedlist = TrackedTgraph{ tgraph = g, tracked = fmap (`intersect` faces g) trackedlist}
 
--- |pushFaces sub - pushes the maingraph tilefaces onto the stack of tracked subsets of sub
-pushFaces:: SubTgraph -> SubTgraph
-pushFaces sub = sub{ tracked = faces (tgraph sub):tracked sub }
+-- |trackFaces ttg - pushes the maingraph tilefaces onto the stack of tracked subsets of ttg
+trackFaces:: TrackedTgraph -> TrackedTgraph
+trackFaces ttg = ttg{ tracked = faces (tgraph ttg):tracked ttg }
 
--- |unionTwoSub sub - combines the top two lists of tracked tilefaces replacing them with the list union.
-unionTwoSub:: SubTgraph -> SubTgraph
-unionTwoSub sub = sub{ tracked = newTracked } where
-    newTracked = case tracked sub of
+-- |unionTwoTracked ttg - combines the top two lists of tracked tilefaces replacing them with the list union.
+unionTwoTracked:: TrackedTgraph -> TrackedTgraph
+unionTwoTracked ttg = ttg{ tracked = newTracked } where
+    newTracked = case tracked ttg of
                    (a:b:more) -> a `union` b:more
-                   _ -> error $ "unionTwoSub: Two tracked lists of faces not found: " ++ show sub ++"\n"
+                   _ -> error $ "unionTwoTracked: Two tracked lists of faces not found: " ++ show ttg ++"\n"
                    
 {-*
-Forcing and Decomposing SubTgraphs
+Forcing and Decomposing TrackedTgraphs
 -}
--- |force applied to a SubTgraph - has no effect on tracked subsets but applies force to the tgraph.
-forceSub :: SubTgraph -> SubTgraph
-forceSub sub = sub{ tgraph = force $ tgraph sub }
+-- |force applied to a TrackedTgraph - has no effect on tracked subsets but applies force to the tgraph.
+forceTracked :: TrackedTgraph -> TrackedTgraph
+forceTracked ttg = ttg{ tgraph = force $ tgraph ttg }
 
--- |addHalfDartSub sub e - add a half dart to the tgraph of sub on the given edge e,
+-- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.
-addHalfDartSub:: Dedge -> SubTgraph -> SubTgraph
-addHalfDartSub e sub =
-    makeSubTgraph g' (fcs:tracked sub) where
-    g = tgraph sub
+addHalfDartTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
+addHalfDartTracked e ttg =
+    makeTrackedTgraph g' (fcs:tracked ttg) where
+    g = tgraph ttg
     g' = addHalfDart e g
     fcs = faces g' \\ faces g
 
--- |addHalfKiteSub sub e - add a half kite to the tgraph of sub on the given edge e,
+-- |addHalfKiteTracked ttg e - add a half kite to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.
-addHalfKiteSub:: Dedge -> SubTgraph -> SubTgraph
-addHalfKiteSub e sub =
-    makeSubTgraph g' (fcs:tracked sub) where
-    g = tgraph sub
+addHalfKiteTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
+addHalfKiteTracked e ttg =
+    makeTrackedTgraph g' (fcs:tracked ttg) where
+    g = tgraph ttg
     g' = addHalfKite e g
     fcs = faces g' \\ faces g
 
--- |decompose a SubTgraph - applies decomposition to all tracked subsets as well as the full Tgraph.
+-- |decompose a TrackedTgraph - applies decomposition to all tracked subsets as well as the full Tgraph.
 -- Tracked subsets get the same numbering of new vertices as the main Tgraph. 
-decomposeSub :: SubTgraph -> SubTgraph
-decomposeSub sub = makeSubTgraph g' tlist where
-   g = tgraph sub
+decomposeTracked :: TrackedTgraph -> TrackedTgraph
+decomposeTracked ttg = makeTrackedTgraph g' tlist where
+   g = tgraph ttg
    g' = Local.Tgraph{ maxV = newMax
                     , faces = newFaces
                     }
    (newMax , newVFor) = maxAndPhiVMap g
    newFaces = concatMap (decompFace newVFor) (faces g)
-   tlist = fmap (concatMap (decompFace newVFor)) (tracked sub)
+   tlist = fmap (concatMap (decompFace newVFor)) (tracked ttg)
 
-{-*  Drawing with SubTgraphs
+{-*  Drawing with TrackedTgraphs
 -}                                          
 
 {-|
-    To draw a SubTgraph, we use a list of functions each turning a VPatch into a diagram.
+    To draw a TrackedTgraph, we use a list of functions each turning a VPatch into a diagram.
     The first function is applied to a VPatch for untracked faces
     Subsequent functions are applied to VPatches for the respective tracked subsets.
     Each diagram is atop earlier ones, so the diagram for the untracked VPatch is at the bottom.
     The VPatches will all have been made from the same VPatch vertex location map so will be aligned/scaled
     appropriately.
 -}
-drawSubTgraph:: [VPatch -> Diagram B] -> SubTgraph -> Diagram B
-drawSubTgraph drawList sub = mconcat $ reverse $ zipWith ($) drawList vpList where
-    vp = makeVP (tgraph sub)
-    untracked = vpFaces vp \\ concat (tracked sub)
-    vpList = fmap (restrictVP vp) (untracked:tracked sub)
+drawTrackedTgraph:: [VPatch -> Diagram B] -> TrackedTgraph -> Diagram B
+drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
+    vp = makeVP (tgraph ttg)
+    untracked = vpFaces vp \\ concat (tracked ttg)
+    vpList = fmap (restrictVP vp) (untracked:tracked ttg)
 
 {-
 -- |drawing non tracked faces only
-drawWithoutTracked:: SubTgraph -> Diagram B
-drawWithoutTracked sub = drawSubTgraph [draw] sub
+drawWithoutTracked:: TrackedTgraph -> Diagram B
+drawWithoutTracked ttg = drawTrackedTgraph [draw] ttg
 -}
 
 
 {-|
-    To draw a SubTgraph rotated.
-    Same as drawSubTgraph but with additional angle argument for the rotation.
+    To draw a TrackedTgraph rotated.
+    Same as drawTrackedTgraph but with additional angle argument for the rotation.
     The angle argument is used to rotate the common vertex location map before drawing
     (to ensure labels are not rotated).
 -}
-drawSubTgraphRotated:: [VPatch -> Diagram B] -> Angle Double -> SubTgraph -> Diagram B
-drawSubTgraphRotated drawList a sub = mconcat $ reverse $ zipWith ($) drawList vpList where
-    vp = rotate a $ makeVP (tgraph sub)
-    untracked = vpFaces vp \\ concat (tracked sub)
-    vpList = fmap (restrictVP vp) (untracked:tracked sub)
+drawTrackedTgraphRotated:: [VPatch -> Diagram B] -> Angle Double -> TrackedTgraph -> Diagram B
+drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
+    vp = rotate a $ makeVP (tgraph ttg)
+    untracked = vpFaces vp \\ concat (tracked ttg)
+    vpList = fmap (restrictVP vp) (untracked:tracked ttg)
 
 
 
