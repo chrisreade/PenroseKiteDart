@@ -625,7 +625,7 @@ ignoreFails:: [Try a] -> [a]
 ignoreFails ls = [x | Right x <- ls]
 
 -- | atLeastOne rs - returns the list of successful results if there are any, but fails with an error otherwise.
--- The error report will will include the concatenated eports from the failures. 
+-- The error report will include the concatenated reports from the failures. 
 atLeastOne:: [Try a] -> [a]
 atLeastOne [] = error "atLeastOne: applied to empty list"
 atLeastOne results = case [x | Right x <- results] of

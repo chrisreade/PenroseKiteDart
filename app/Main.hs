@@ -47,8 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = migA4Tiny --newfoolVContextsFig
---coverForceRules--adBorder $ lw ultraThin $ hsep 1 $ rotations [9,9] $ phiScales $ reverse $ fmap drawSmart $ take 4  $ decompositions $ makeTgraph [LD(1,2,3)] --wrongRocket--superForceFig --oneChoiceFig--newTest--mistake4Explore--boundaryEdgeCaseTrees 
+fig = testLoops2
 
 main = mainWith fig
 

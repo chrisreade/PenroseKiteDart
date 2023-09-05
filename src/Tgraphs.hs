@@ -205,7 +205,7 @@ Combining force, compose, decompose
 
 
 -- | An experimental version of composition which defaults to kites when there are choices (unknowns).
--- This is unsafe in that it can create an incorrect Tgraph from a correct Tgraph.
+-- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 composeK :: Tgraph -> Tgraph
 composeK = snd . partComposeK where
 -- partComposeK:: Tgraph -> ([TileFace],Tgraph)
@@ -681,9 +681,9 @@ TrackedTgraphs
 -}
 {-|
  TrackedTgraph - introduced to allow tracking of subsets of faces
- in both force and decompose oerations.
+ in both force and decompose operations.
  Mainly used for drawing purposes but also for empires.
- A TrackedTgraph has a main Tgraph (tgraph) and a list of subsets of faces (tracked).
+ A TrackedTgraph has a main Tgraph (tgraph) and a list of subsets (sublists) of faces (tracked).
  The list allows for tracking different subsets of faces at the same time.
 -}
 data TrackedTgraph = TrackedTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]} deriving Show
@@ -754,8 +754,7 @@ decomposeTracked ttg = makeTrackedTgraph g' tlist where
     The first function is applied to a VPatch for untracked faces
     Subsequent functions are applied to VPatches for the respective tracked subsets.
     Each diagram is atop earlier ones, so the diagram for the untracked VPatch is at the bottom.
-    The VPatches will all have been made from the same VPatch vertex location map so will be aligned/scaled
-    appropriately.
+    The VPatches are all restrictions of a single VPatch for the Tgraph, so consistent.
 -}
 drawTrackedTgraph:: [VPatch -> Diagram B] -> TrackedTgraph -> Diagram B
 drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
@@ -773,6 +772,7 @@ drawWithoutTracked ttg = drawTrackedTgraph [draw] ttg
 {-|
     To draw a TrackedTgraph rotated.
     Same as drawTrackedTgraph but with additional angle argument for the rotation.
+    This is useful for when labels are being drawn.
     The angle argument is used to rotate the common vertex location map before drawing
     (to ensure labels are not rotated).
 -}

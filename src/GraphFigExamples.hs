@@ -721,20 +721,20 @@ when applying (compose . force . decompose).
 checkCFDFig :: Diagram B
 checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10) $
   [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  drawCases v e g = fmap (drawCase v e) $ forcedBVContexts v e $ makeBoundaryState $ force g
   dartOriginDiags = take 11 alldartOriginDiags ++ fmap (alldartOriginDiags!!) [15,18,21,23]
   dartWingDiags = alldartWingDiags
   kiteOriginDiags = take 4 allkiteOriginDiags ++ fmap (allkiteOriginDiags!!) [5,6,7,8,9,10,12,13,19,21,26,29,30,37,59]
   kiteWingDiags = take 7 allkiteWingDiags ++ fmap (allkiteWingDiags!!) [8,9,10,12,13,15,24,25,26,27,29,30,31,32,33,34,35,37,44]
   kiteOppDiags = take 7 allkiteOppDiags ++ fmap (allkiteOppDiags!!) [8,9,10,11,12,13,19]
                  ++ take 13 (drop 19 allkiteOppDiags) ++ [(allkiteOppDiags!!44)]
-  alldartOriginDiags = drawCases 1 edge $ makeTgraph [LD (1,3,2)]
-  alldartWingDiags = drawCases 2 edge $ makeTgraph [LD (1,3,2)]
-  allkiteOriginDiags = drawCases 2 edge $ makeTgraph [LK (2,1,3)]
-  allkiteWingDiags = drawCases 1 edge $ makeTgraph [LK (2,1,3)]
-  allkiteOppDiags = drawCases 1 edge $ makeTgraph [LK (3,2,1)]
+  alldartOriginDiags = drawCases 1 $ makeTgraph [LD (1,3,2)]
+  alldartWingDiags = drawCases 2 $ makeTgraph [LD (1,3,2)]
+  allkiteOriginDiags = drawCases 2 $ makeTgraph [LK (2,1,3)]
+  allkiteWingDiags = drawCases 1 $ makeTgraph [LK (2,1,3)]
+  allkiteOppDiags = drawCases 1 $ makeTgraph [LK (3,2,1)]
   edge = (1,2)
-  drawCase v edge bd = vsep 1 [drawv <> drawg, drawcfd] where
+  drawCases v g = fmap (drawCase v) $ forcedBVContexts v edge $ makeBoundaryState $ force g
+  drawCase v bd = vsep 1 [drawv <> drawg, drawcfd] where
      g = recoverGraph bd
      vp = alignedVP edge g
      drawg = draw vp
@@ -1479,7 +1479,7 @@ oneChoiceGraph = force $ addHalfDart (37,59) $ force kingGraph
 -- |Diagram showing superForce with initial Tgraph g (top), force g (middle), and superForce g (bottom)
 superForceFig :: Diagram B
 superForceFig = padBorder $ lw ultraThin $ vsep 1 $
-  fmap (rotateBefore drawLabelled (ttangle 1)) [g, force g, superForce g] where
+  fmap (rotateBefore drawLabelSmall (ttangle 1)) [g, force g, superForce g] where
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
 
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
@@ -1582,16 +1582,6 @@ coveringOneChoiceFig = pad 1.02 $ lw ultraThin $ arrangeRows 3 $
     drawCase bd = overlay <> draw (recoverGraph bd)
     overlay = draw oneChoiceGraph # lc red
 
-{- Older larger example
-oldOneChoiceFig:: Diagram B
-oldOneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $ 
-                     fmap (rotate (ttangle 1) . drawSmartLabelled) [oldOneChoiceGraph,incorrectExtension,successful] where
-  successful = force $ addHalfDart (259,260) oldOneChoiceGraph
-  incorrectExtension = addHalfKite (259,260) oldOneChoiceGraph -- fails on forcing
-
-oldOneChoiceGraph:: Tgraph
-oldOneChoiceGraph = force $ addHalfDart (220,221) $ force $ decompositions fool !!3
--}
 
 -- |boundaryLoopFill tests the calculation of boundary loops of a Tgraph and conversion to a (Diagrams) Path, using
 -- boundaryLoopsG and pathFromBoundaryLoops. The conversion of the Path to a Diagram allows
@@ -1604,7 +1594,6 @@ boundaryLoopFill c g = dg # lw ultraThin <> d # fc c where
     vlocs = vLocs vp
     bdLoops = boundaryLoopsG g
     d = strokeP' (with & vertexNames .~ bdLoops) $ pathFromBoundaryLoops vlocs bdLoops
---    d = strokeP' (with & vertexNames .~ bdLoops) $ toPath $ map (glueTrail . trailFromVertices . map getPoint) bdLoops
 
 testLoops1,testLoops2:: Diagram B
 -- | diagram using boundaryLoopFill with a single boundary loop
@@ -1722,18 +1711,23 @@ findMistake (fc:fcs) = inspect fc fcs where
   inspect fc fcs = either (\_ -> inspect (head fcs) (tail fcs))
                           (\g -> (fc,g)) (tryForce $ makeUncheckedTgraph fcs)
 
-{- | Another inspection tool. For a Tgraph g,
+{- | Another inspection tool. For a forced Tgraph g,
 findCore g finds a Tgraph with the shortest tail of the faces of g that still produces g when forced.
 It does this by removing faces from the front of the list of faces one at a time.
 If g is not a forced Tgraph, the result will just be g or an error if g is found to be incorrect.
 -}
-findCore :: Tgraph -> Tgraph
-findCore g = if nullGraph g then g else inspect firstf rest where
-    (firstf:rest) = faces g
-    inspect fc fcs = if head (faces g0) == firstf
-                     then inspect (head fcs) (tail fcs)
-                     else makeUncheckedTgraph (fc:fcs)
-       where g0 = force $ makeUncheckedTgraph fcs
+findCore  :: Tgraph -> Tgraph
+findCore g = if nullGraph g then g else inspect (faces g)
+  where
+    (top:rest) = faces g
+    inspect [] = error "findCore: not possible"
+    inspect (fc:fcs) 
+      = if top == (head $ faces $ force $ makeUncheckedTgraph fcs)
+        then inspect fcs
+        else makeUncheckedTgraph (fc:fcs)
+
+
+
 
 
 {-*

@@ -59,10 +59,11 @@ makeVP::Tgraph -> VPatch
 makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces g
 
 -- |Creates a VPatch from a list of tile faces, using the vertex locations from the given VPatch.
--- The vertices in the tile faces must have points assigned in the given VPatch.
+-- The vertices in the tile faces must have points assigned in the given VPatch vertex locations.
 -- (This is not checked for, but missing locations for vertices will raise an error when drawing.)
 -- subVP vp fcs can be used for both subsets of tile faces of vp,
 -- but also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
+-- The vertex location map is not changed (see also relevantVP and restrictVP).
 subVP:: VPatch -> [TileFace] -> VPatch
 subVP vp fcs = vp {vpFaces  = fcs} 
 
@@ -159,6 +160,16 @@ drawLabelSmall = drawLabelSmallWith drawPiece
 -- | same as drawjLabelled but smaller labels
 drawjLabelSmall :: Drawable_Labelled a => a -> Diagram B
 drawjLabelSmall = drawLabelSmallWith dashjPiece
+
+-- | same as drawLabelled but larger labels
+drawLabelLarge :: Drawable_Labelled a => a -> Diagram B
+drawLabelLarge = drawLabelLargeWith drawPiece
+
+-- | same as drawjLabelled but larger labels
+drawjLabelLarge :: Drawable_Labelled a => a -> Diagram B
+drawjLabelLarge = drawLabelLargeWith dashjPiece
+
+
 
 -- | VPatches can be drawn with labels
 instance Drawable_Labelled VPatch where
