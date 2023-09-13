@@ -47,7 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = testLoops2
+fig = touchingIllustration
 
 main = mainWith fig
 

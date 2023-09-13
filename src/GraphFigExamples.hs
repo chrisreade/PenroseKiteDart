@@ -57,12 +57,13 @@ fool = makeTgraph
 
 -- |a once decomposed fool (= foolDs!!1)
 foolD = decompose fool
--- | a list of all decompositions of fool
-foolDs :: [Tgraph]
-foolDs = decompositions fool
 
 -- |foolDminus: 3 faces removed from foolD - still a valid Tgraph
 foolDminus = removeFaces [RD (6,15,13), LD (6,17,15), RK (5,11,2)] foolD
+
+-- | a list of all decompositions of fool
+foolDs :: [Tgraph]
+foolDs = decompositions fool
 
 -- | diagram of just fool
 foolFig :: Diagram B
@@ -171,7 +172,7 @@ pCompFig1,pCompFig2,pCompFig:: Diagram B
 pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
             where fd3 = force $ dartDs!!3
 -- |diagram showing partial composition of a forced 3 times decomposed kite (with ignored faces in pale green)
-pCompFig2 = lw ultraThin $ hsep 5 $ rotations [] [draw fk3, drawPCompose fk3]
+pCompFig2 = lw ultraThin $ hsep 5 [draw fk3, drawPCompose fk3]
             where fk3 = force $ kiteDs!!3
 -- |diagram showing two partial compositions (with ignored faces in pale green)
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
@@ -373,6 +374,7 @@ badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap draw [badlyBrokenDart, 
     compBBD = compose badlyBrokenDart
     failed  = uncheckedCompose compBBD
 
+{-
 -- |figure showing force badlyBrokenDart (which is the same as force dartD4)
 checkBrokenDartFig  :: Diagram B
 checkBrokenDartFig = padBorder $ lw thin $ draw $ force badlyBrokenDart
@@ -392,16 +394,17 @@ force brokenKites).
 brokenKitesDFig :: Diagram B
 brokenKitesDFig = padBorder $ hsep 1 $ fmap drawjLabelled $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVP
                   [decompose kitePlusKite, brokenKites, compose brokenKites, force brokenKites]
+-}
 
 -- |diagram illustrating touching vertex situation and forced result.
 -- The faces shown in lime are removed from a twice decomposed sun.
 -- These are reconstructed by force (with other additional faces). The touching vertex restriction blocks
 -- the bottom 4 face additions initially. 
-touchingTestFig::  Diagram B
-touchingTestFig =
+touchingIllustration::  Diagram B
+touchingIllustration =
   padBorder $ lw thin $ hsep 1 $
     [ drawjLabelled vpLeft <> (drawj vpGone # lc lime)
-    , drawjLabelled $ alignedVP (8,3) $ force touchGraph
+    , alignBefore drawjLabelled (8,3) $ force touchGraph
     ] where
       touchGraph = graphFromVP vpLeft
       vpLeft = removeFacesVP deleted vp
@@ -533,7 +536,7 @@ vertexTypesFig = padBorder $ hsep 1 lTypeFigs
  vTypeFigs = zipWith drawVertex
                [sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph,  deuceGraph]
                [(1,2),    (1,2),     (1,2),     (1,2),      (1,2),     (3,6),     (2,6)] -- alignments
- drawVertex g alm = lw thin $ showOrigin $ drawj $ alignedVP alm g
+ drawVertex g alm = alignBefore (lw thin . showOrigin . drawj) alm g
 
 -- |add a given label at a given point offset from the centre of the given diagram
 labelAt :: Point V2 Double -> String -> Diagram B -> Diagram B
@@ -642,7 +645,7 @@ forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap draw
           , (  [LD (2,1,3),RD (2,10,1),LD (2,8,9),RD (2,7,8),LD (2,6,7),RD (2,5,6),LD (2,4,5),RD (2,3,4)],   LD (2,11,10) )
           ]
   drawRule (fs,f) = drawWith (fillPiece yellow) vpf <> drawj vp where
-    vp = alignedVP (1,2) $ makeTgraph (f:fs)
+    vp = makeAlignedVP (1,2) $ makeTgraph (f:fs)
     vpf = subVP vp [f]
 
 
@@ -697,7 +700,7 @@ coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
     g3 = force g2
     g4 = compose g3
     g0 = force g1
-    vp = alignedVP (1,2) g3
+    vp = makeAlignedVP (1,2) g3
     d1 = drawSmartSub g1 vp
     d2 = drawSmartSub g2 vp
     d3 = drawSmartSub g3 vp
@@ -736,14 +739,13 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10) $
   drawCases v g = fmap (drawCase v) $ forcedBVContexts v edge $ makeBoundaryState $ force g
   drawCase v bd = vsep 1 [drawv <> drawg, drawcfd] where
      g = recoverGraph bd
-     vp = alignedVP edge g
+     vp = makeAlignedVP edge g
      drawg = draw vp
  --    drawe = drawEdgeWith vp edge # lc red
      drawv = case findLoc v vp of
                Nothing -> error $ "checkCFDFig: vertex not found " ++ show v
                Just loc -> circle 0.2 # fc red # lc red # moveTo loc
-     drawcfd = (draw . alignedVP edge . compose . force . decompose) g
- --    drawe = drawEdgeWith vp edge # lc red
+     drawcfd = (alignBefore draw edge . compose . force . decompose) g
 
 -- | For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF
 -- All internal vertices are dealt with by relatedVTypeFig except for the star case
@@ -1110,7 +1112,7 @@ moreChoicesFig  =  vsep 1 [moreChoicesFig0,moreChoicesFig1]
 -- It does not quite complete the original faces    
 forcedNewFaces:: Diagram B
 forcedNewFaces = padBorder $ lw thin $ drawForce g2 where
-    g1 = addHalfDart (223,255) (force $ dartD4) --(233,201)
+    g1 = addHalfDart (223,255) (force dartD4) --(233,201)
     g2 = removeFaces (faces g1) (force g1)
 
 -- |Trying to find which extensions to the starting dart correspond to the twoChoicesFig
@@ -1237,7 +1239,7 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ hsep 5  [vsep 10 [k
       fbd = runTry $ tryForce $ makeBoundaryState g
       drawCase bd = fbdes <> drawg where
                     g = recoverGraph bd
-                    vp = alignedVP edge g
+                    vp = makeAlignedVP edge g
                     drawg = draw vp
                     fbdes = ((drawEdgeWith vp edge # lc red) <> drawEdgesIn vp (boundary fbd)) # lw thin
 
@@ -1264,17 +1266,17 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ hsep 5  [vsep 10 [k
 -- | boundaryVCoveringFigs g - produces a list of diagrams for the boundaryVCovering of g  (with g shown in red in each case)
 boundaryVCoveringFigs:: Tgraph -> [Diagram B]
 boundaryVCoveringFigs g =
-    fmap (lw ultraThin . (redg <>) . draw . alignedVP alig . recoverGraph) $
+    fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $
     boundaryVCovering $ makeBoundaryState g
-      where redg = lc red $ draw $ alignedVP alig g
+      where redg = lc red $ alignBefore draw alig g
             alig = lowestJoin (faces g)
 
 -- | boundaryECoveringFigs g - produces a list of diagrams for the boundaryECovering of g  (with g shown in red in each case)
 boundaryECoveringFigs:: Tgraph -> [Diagram B]
 boundaryECoveringFigs g =
-    fmap (lw ultraThin . (redg <>) . draw . alignedVP alig . recoverGraph) $
+    fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $
     boundaryECovering $ makeBoundaryState g
-      where redg = lc red $ draw $ alignedVP alig g
+      where redg = lc red $ alignBefore draw alig g
             alig = lowestJoin (faces g)
 
 -- | diagram showing the boundaryECovering of a forced kingGraph
@@ -1318,10 +1320,10 @@ kiteShortContexts = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundarySta
 -- It emphasises the edge e with red and shows the composition of g filled yellow. 
 drawBEContext::Dedge -> Tgraph -> Diagram B
 drawBEContext edge g = drawe <> drawg <> drawComp where
-    vp = alignedVP edge g
+    vp = makeAlignedVP edge g
     drawg = draw vp
     drawe = drawEdgeWith vp edge # lc red # lw thin
-    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp (faces (compose g))
+    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
 
 {- |
 Diagram showing boundary vertex contexts for a forced Tgraph using forcedBVContexts.
@@ -1372,13 +1374,13 @@ kiteOppContexts    = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundary
 -- It raises an error if the vertex or edge is not found.
 drawVContext::Vertex -> Dedge -> Tgraph -> Diagram B
 drawVContext v edge g = drawv <> drawg <> drawComp where
-    vp = alignedVP edge g
+    vp = makeAlignedVP edge g
     drawg = draw vp
 --    drawe = drawEdgeWith vp edge # lc red
     drawv = case findLoc v vp of
               Nothing -> error $ "drawVContext: vertex not found " ++ show v
               Just loc -> circle 0.2 # fc red # lc red # moveTo loc
-    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp (faces (compose g))
+    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
 
 
 -- |Diagram showing all local forced contexts for a sun vertex.
@@ -1495,7 +1497,7 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 wrongRocket:: Diagram B
 wrongRocket = padBorder $ lw thin $ rotate (ttangle 3 )(gDiag # lc red <> wrongDiag) where
   wrongDiag =  drawSmartAligned (59,60) wrong 
-  gDiag = draw $ alignedVP (59,60) g where
+  gDiag = draw $ makeAlignedVP (59,60) g where
   g = force $ decompose $ sunPlus3Dart'
   wrong = stuckGraphFrom $ addHalfKite (59,60) g
 -}

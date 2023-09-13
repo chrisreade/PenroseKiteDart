@@ -166,7 +166,7 @@ drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |draw join edge only (as dashed line)
 dashjOnly:: Piece -> Diagram B
-dashjOnly piece = drawJoin piece # dashingN [0.002,0.002] 0 # lw ultraThin
+dashjOnly piece = drawJoin piece # dashingN [0.004,0.004] 0 # lw ultraThin
 --dashjOnly piece = (drawJoin piece # dashingN [0.001,0.002] 0 # lwN 0.001)
         
 -- |experiment uses a different rule for drawing half tiles.
@@ -189,9 +189,6 @@ experiment pc = --emph pc <> (drawJPiece pc # dashingO [1,2] 0 # lw ultraThin)
 -- |A patch is a list of Located pieces (the point associated with each piece locates its originV)
 type Patch = [Located Piece]
 
--- |turn a patch into a diagram using the first argument for drawing pieces
-drawPatchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
-drawPatchWith pd = position . fmap (viewLoc . mapLoc pd)
 
 -- | A class for things that can be turned to diagrams when given a function to draw pieces
 class Drawable a where
@@ -199,7 +196,10 @@ class Drawable a where
 
 -- | Patches are drawable
 instance Drawable Patch where
-    drawWith = drawPatchWith
+  drawWith = drawPatchWith where
+    -- |turn a patch into a diagram using the first argument for drawing pieces
+    -- drawPatchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
+      drawPatchWith pd = position . fmap (viewLoc . mapLoc pd)
 
 -- | the main default case for drawing using drawPiece
 draw :: Drawable a => a -> Diagram B
@@ -285,6 +285,7 @@ compChoices lp = case viewLoc lp of
                        lvk' = phi*^rotate (ttangle 3) vk
 
 -- |compNChoices n lp - gives a list of all the alternatives after n compChoices starting with lp
+-- Note that the result is not a Patch as the list represents alternatives.
 compNChoices :: Int -> Located Piece -> [Located Piece]
 compNChoices 0 lp = [lp]
 compNChoices n lp = do

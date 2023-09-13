@@ -227,10 +227,16 @@ alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]     
 alignAll (a,b) = fmap (alignXaxis (a,b))
 
--- | alignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligned on the x-axis.
+-- |alignBefore vfun (a,b) g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
+-- before applying the VPatch function vfun
 -- Will raise an error if either a or b is not a vertex in g.
-alignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch        
-alignedVP vs g = alignXaxis vs $ makeVP g
+alignBefore :: (VPatch -> a) -> (Vertex,Vertex) -> Tgraph -> a
+alignBefore vfun vs = vfun . alignXaxis vs . makeVP
+
+-- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligned on the x-axis.
+-- Will raise an error if either a or b is not a vertex in g.
+makeAlignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch        
+makeAlignedVP = alignBefore id
 
 
 {-* Vertex Location Calculation -}
