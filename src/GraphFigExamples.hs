@@ -161,7 +161,7 @@ cdfIllustrate = position (zip [p2 (0,0), p2 (0,7), p2 (10,0), p2 (10, -12)]
       where fKing = force kingGraph
             k = drawLabelled kingGraph # named "k"
             fk = drawLabelled fKing # named "fk"
-            dk = drawSmartLabelled (decompose kingGraph) # scale (phi-1) # named "dk"
+            dk = smart drawLabelled (decompose kingGraph) # scale (phi-1) # named "dk"
             cfk = rotateBefore drawLabelled (ttangle 9) (compose fKing) # scale phi # named "cfk"
 
 {-* Partial Composition figures
@@ -516,13 +516,14 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap drawjLabelled $ scales [phi,1,1,phi] $
 -- the incorrect mistake4 clashes only near the wing tip of the removed half dart.
 mistake4Explore :: Diagram B
 mistake4Explore = padBorder $ lw ultraThin $ vsep 1
-                [ drawSmartLabelled $ mistake4
-                , drawSmartLabelled $ mistake4'
+                [ smart drawLabelSmall $ mistake4
+                , smart drawLabelSmall $ mistake4'
                 , drawCommonFaces (force mistake4',(1,41)) (mistake4,(1,46))
                 ] where
                    mistake' = removeFaces [RD (4,8,6)] mistake
                    mistake4 = decompositions mistake !!4
                    mistake4' = decompositions mistake' !!4
+
 
 
 {-*
@@ -701,13 +702,13 @@ coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
     g4 = compose g3
     g0 = force g1
     vp = makeAlignedVP (1,2) g3
-    d1 = drawSmartSub g1 vp
-    d2 = drawSmartSub g2 vp
-    d3 = drawSmartSub g3 vp
+    d1 = smartSub draw g1 vp
+    d2 = smartSub draw g2 vp
+    d3 = smartSub draw g3 vp
     d4 = if nullGraph g4
          then emptyRep
-         else drawSmartSub g4 vp
-    d0 = scale phi $ drawSmartAligned (1,2) g0
+         else smartSub draw g4 vp
+    d0 = scale phi $ alignBefore (smartSub draw g0) (1,2) g0
 
 -- | diagram used to indicate an empty Tgraph (lime circle with diagonal line through it).
 emptyRep:: Diagram B
@@ -790,8 +791,8 @@ boundaryGap5Fig = lw ultraThin $ drawjLabelled boundaryGapFDart5
 -- using stepForce 2000
 gapProgress5 :: Diagram B
 gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
-    [ drawSmart g
-    , drawSmart $ stepForce g 2000
+    [ smartDraw g
+    , smartDraw $ stepForce g 2000
     ] where g = boundaryGapFDart5
 
 
@@ -807,7 +808,7 @@ dartPic0 = padBorder $ lw ultraThin $ position $ concat
           where
               partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ allForceDecomps $ force dartGraph
               forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce dartDs
-              drts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawSmart dartDs
+              drts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap smartDraw dartDs
               dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
               pointsR1 = map p2 [ (0, 70), (57, 70), (107, 70), (155, 70), (190, 70)]
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (145, 40), (195, 40)]
@@ -824,7 +825,7 @@ kitePic0 = padBorder $ lw ultraThin $ position $ concat
           where
               partComps = phiScales $ fmap drawPCompose $ reverse $ take 5 $ allForceDecomps $ force kiteGraph
               forceDs = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawForce kiteDs
-              kts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap drawSmart kiteDs
+              kts  = fmap center $ phiScaling phi $ reverse $ take 4 $ fmap smartDraw kiteDs
               dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
               pointsR1 = map p2 [ (6, 70), (58, 70), (106, 70), (156, 70), (196, 70)]
               pointsR2 = map p2 [ (0, 44), (42, 44), (95, 44), (140, 44), (186, 44)]
@@ -929,7 +930,7 @@ curioPic0 = padBorder $ lw ultraThin $ position $ concat
     xDGraphs = decompositions sunPlus3Dart'
     xDs  = rotations [9,9,8] $  phiScaling phi $ reverse $
            draw dartGraph : (draw sunPlus3Dart' # lc red # lw thin):
-           take 2  (drop 1 $ fmap drawSmart xDGraphs)
+           take 2  (drop 1 $ fmap smartDraw xDGraphs)
     dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
     pointsRa = map p2 [ (0, 80), (42, 80), (95, 80), (150, 80), (200, 80)]
     pointsRb = map p2 [ (0, 40), (42, 40), (95, 40), (150, 40)]
@@ -1496,7 +1497,7 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 -- after adding a half kite to the nose of the red rocket (see also superForceRocketsFig).
 wrongRocket:: Diagram B
 wrongRocket = padBorder $ lw thin $ rotate (ttangle 3 )(gDiag # lc red <> wrongDiag) where
-  wrongDiag =  drawSmartAligned (59,60) wrong 
+  wrongDiag =  alignBefore smartDraw (59,60) wrong 
   gDiag = draw $ makeAlignedVP (59,60) g where
   g = force $ decompose $ sunPlus3Dart'
   wrong = stuckGraphFrom $ addHalfKite (59,60) g
@@ -1572,7 +1573,7 @@ It establishes that a single legal face addition to a forced Tgraph can be an in
 -}
 oneChoiceFig:: Diagram B
 oneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $
-                     fmap drawSmartLabelled [oneChoiceGraph,incorrectExtension,successful] where
+                     fmap (smart drawLabelled) [oneChoiceGraph,incorrectExtension,successful] where
   successful = force $ addHalfDart (76,77) oneChoiceGraph
   incorrectExtension = addHalfKite (76,77) oneChoiceGraph -- fails on forcing
 

@@ -47,7 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = touchingIllustration
+fig = coverForceRules--mistake4Explore
 
 main = mainWith fig
 

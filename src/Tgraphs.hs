@@ -90,45 +90,26 @@ tryCorrectTouchingVs fcs =
 Smart drawing of Tgraphs
 -}
 
+-- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
+-- It will add boundary joins regardless of the drawing function
+-- e.g. smart drawLabelSmall g
+-- e.g. alignBefore (smart drawLabelled) (a,b) g
+-- e.g. rotateBefore (smart drawLabelled) a g
+smart :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
+smart dr g = smartSub dr g (makeVP g)
+
+-- |smartSub dr g vp converts g to a diagram using VPatch drawing function dr
+-- and adds dashed boundary joins.
+-- It requires vp to contain a suitable vertex location map for drawing g.
+-- This can be used instead of smart when such a map is already available.
+smartSub:: (VPatch -> Diagram B) -> Tgraph -> VPatch -> Diagram B
+smartSub dr g vp = (drawWith dashjOnly $ subVP vp $ boundaryJoinFaces g) 
+                    <> 
+                    dr (subVP vp (faces g))
 
 -- |same as draw except adding dashed lines on boundary join edges. 
-drawSmart :: Tgraph -> Diagram B
-drawSmart g = drawSmartSub g $ makeVP g
-
--- |same as drawLabelled except adding dashed lines on boundary join edges.
-drawSmartLabelled :: Tgraph -> Diagram B
-drawSmartLabelled g = drawSmartLabelledSub g $ makeVP g
-
--- |same as drawLabelled except adding dashed lines on boundary join edges.
-drawSmartLabelledRotated :: Tgraph -> Angle Double -> Diagram B
-drawSmartLabelledRotated g a = drawSmartLabelledSub g $ rotate a $ makeVP g
-
--- |drawSmartAligned (v1,v2) g - same as drawSmart g except except aligning with centre on v1 and v2
--- on positive x axis. This will raise an error if v1 or v2 are not vertices of g.
-drawSmartAligned :: (Vertex,Vertex) -> Tgraph -> Diagram B
-drawSmartAligned vs g = drawSmartSub g $ alignXaxis vs $ makeVP g
-
--- |drawSmartLabelledAligned (v1,v2) g - same as drawSmartLabelled g except except aligning with centre on v1 and v2
--- on positive x axis. This will raise an error if v1 or v2 are not vertices of g.
-drawSmartLabelledAligned :: (Vertex,Vertex) -> Tgraph -> Diagram B
-drawSmartLabelledAligned vs g = drawSmartLabelledSub g $ alignXaxis vs $ makeVP g
-
-
--- |drawSmartSub g vp converts g to a diagram (without vertex labels).
--- It requires vp to contain a suitable vertex location map for drawing g.
--- This can be used instead of drawSmart when such a map is already available.
-drawSmartSub:: Tgraph -> VPatch -> Diagram B
-drawSmartSub g vp = (drawWith dashjOnly $ subVP vp $ boundaryJoinFaces g) 
-                    <> 
-                    draw (subVP vp (faces g))
-
--- |drawSmartLabelledSub g vp converts g to a diagram with vertex labels.
--- It requires vp to contain a suitable vertex location map for drawing g.
--- This can be used instead of drawSmartLabelled when a suitable VPatch is already available.
-drawSmartLabelledSub:: Tgraph -> VPatch -> Diagram B
-drawSmartLabelledSub g vp = (drawWith dashjOnly $ subVP vp $ boundaryJoinFaces g) 
-                            <> 
-                            drawLabelled (subVP vp (faces g))
+smartDraw :: Tgraph -> Diagram B
+smartDraw = smart draw
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
@@ -144,7 +125,7 @@ Overlaid drawing tools for Tgraphs
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (drawSmartSub g' vp)
+drawPCompose g = (smartSub draw g' vp)
                  <> (lw thin $ lc lime $ drawj $ subVP vp remainder)
   where (remainder,g') = partCompose g
         vp = makeVP g
@@ -156,7 +137,7 @@ drawForce g = (dg # lc red # lw thin) <> dfg where
     fg = force g
     vp = makeVP fg
     dfg = draw vp
-    dg = drawSmartSub g vp
+    dg = smartSub draw g vp
 
 -- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
 -- overlaid on superForce g in blue.
@@ -164,8 +145,8 @@ drawForce g = (dg # lc red # lw thin) <> dfg where
 drawSuperForce:: Tgraph -> Diagram B
 drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     vp = makeVP $ superForce g
-    dfg = drawSmartSub (force g) vp
-    dg = drawSmartSub g vp
+    dfg = smartSub draw (force g) vp
+    dg = smartSub draw g vp
     dsfg = draw vp
 {-|
 drawWithMax g - draws g and overlays the maximal composition of force g in red.
