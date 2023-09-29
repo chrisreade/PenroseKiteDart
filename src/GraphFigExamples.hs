@@ -419,11 +419,6 @@ touchingIllustration =
 -- This will raise an error if the result is not a valid Tgraph.
 removeIncompleteTiles:: Tgraph -> Tgraph
 removeIncompleteTiles g = removeFaces (boundaryJoinFaces g) g
-{-
-removeIncompleteTiles g = removeFaces halfTiles g
-       where bdry = makeBoundaryState g
-             halfTiles = fmap snd $ incompleteHalves bdry $ boundary bdry
--}
 
 -- |figure showing the result of applying removeIncompleteTiles to a 3 times decomposed sun.
 removeIncompletesFig::Diagram B
@@ -432,6 +427,7 @@ removeIncompletesFig = padBorder $ drawj $ removeIncompleteTiles  $ sunDs !! 3
 {-*
 Incorrect Tgraphs (and other problem Tgraphs)
 -}
+
 -- |faces removed from foolD to illustrate crossing boundary and non tile-connected faces
 -- (using VPatch to draw). Crossing boundary at 4 in first case (but still tile-connected),
 -- Crossing boundary at 11 in second case and not tile-connected.
@@ -511,7 +507,7 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap drawjLabelled $ scales [phi,1,1,phi] $
 -- |Diagram showing where a (4 times) decomposed version of mistake goes wrong.
 -- It shows (top) mistake4 = 4 times decomposed mistake Tgraph - in incorrect Tgraph which fails on forcing.
 -- (centre) mistake4' = 4 times decomposed [mistake Tgraph with a half dart removed],
--- (bottom) a forced mistake4' with the common faces of mistke4 emphasised.
+-- (bottom) a forced mistake4' with the common faces of mistake4 emphasised.
 -- Thus mistake4' (where the half dart is removed) does not go wrong on forcing and
 -- the incorrect mistake4 clashes only near the wing tip of the removed half dart.
 mistake4Explore :: Diagram B
@@ -658,7 +654,7 @@ forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap draw
 -- We note that in each line the second and fourth are the same iff the first is a perfect composition.
 -- (We only need to show the second is included in the fourth, but a later proof establishes they will indeed be the same)
 -- The left hand columns are perfect composition cases, the right hand columns are non-cases i.e not perfect compositions.
--- The perfect composition cases cover each force rule with minimal (alternative) additions to make a perfect composition setting. 
+-- The perfect composition cases cover each force rule with (alternative) additions to make a perfect composition setting. 
 coverForceRules:: Diagram B
 coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
                      [ vsep 1 $ fmap expandLine lines1
@@ -749,13 +745,15 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10) $
      drawcfd = (alignBefore draw edge . compose . force . decompose) g
 
 -- | For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF
--- All internal vertices are dealt with by relatedVTypeFig except for the star case
+-- All internal vertices are dealt with by relatedVTypeFig except for the (forced) star case
 -- which this figure deals with.
 checkCFDStar = padBorder $ hsep 1 [drawForce starGraph, draw $ compose sfDf, draw sfDf]
    where sfDf = (force . decompose . force) starGraph
+
 {-*
 Other miscelaneous Tgraphs and Diagrams
 -}
+
 -- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
 boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundaryState $ force (dartD4)
@@ -785,7 +783,7 @@ boundaryGapFDart5 = removeVertices [1467] boundaryFDart5
 -- |figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
 boundaryGap4Fig = lw ultraThin $ drawjLabelled boundaryGapFDart4
-boundaryGap5Fig = lw ultraThin $ drawjLabelled boundaryGapFDart5
+boundaryGap5Fig = lw ultraThin $ drawjLabelSmall boundaryGapFDart5
 
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
 -- using stepForce 2000
@@ -797,7 +795,7 @@ gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
 
 
 dartPic0,kitePic0,bigPic :: Diagram B
-{-| dartPic0 is a diagram of force/emplacement relationships for decomposed darts
+{-| dartPic0 is a diagram of force/compose relationships for decomposed darts
     without arrows. 
 -}
 dartPic0 = padBorder $ lw ultraThin $ position $ concat
@@ -831,7 +829,7 @@ kitePic0 = padBorder $ lw ultraThin $ position $ concat
               pointsR2 = map p2 [ (0, 44), (42, 44), (95, 44), (140, 44), (186, 44)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (140, 0),  (186, 0) ]
 
-{-| bigPic is a diagram illustrating force/emplacement relationships for decomposed darts
+{-| bigPic is a diagram illustrating force/compose relationships for decomposed darts
     and decomposed kites. 
 -}
 bigPic = addArrows dartPic0 === (box <> key) === addArrows kitePic0 where

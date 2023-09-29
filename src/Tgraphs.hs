@@ -1,7 +1,7 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
 {-|
 Module      : Tgraphs
-Description : Collects and exports the various Tgraph modules plus some experimental ones
+Description : Collects and exports the various Tgraph modules plus extra operations, including makeTgraph
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
@@ -10,7 +10,7 @@ Stability   : experimental
 This is the main module for Tgraph operations which collects and exports the other Tgraph modules. 
 It exports makeTgraph for constructing checked Tgraphs and excludes data constructor Tgraph.
 The module includes several functions for producing overlaid diagrams for graphs and
-experimental combinations such as emplace, boundary covers, boundary loops.
+experimental combinations such as boundaryECovering, boundaryVCovering, empire1, empire2, superForce, boundaryLoopsG.
 It also includes experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
 -}
 module Tgraphs ( module Tgraphs

@@ -1,6 +1,6 @@
 {-|
 Module      : Tgraph.Force
-Description : The main force function for Tgraphs 
+Description : The force functions for Tgraphs 
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
@@ -43,11 +43,9 @@ Touching vertex checking
 requires Diagrams.Prelude for Point and V2
 --------------------------------------------}
 
--- |check if a vertex location touches (is too close to) any other vertex location in the mapping
+-- |touchCheck p vpMap - check if a vertex location p touches (is too close to) any other vertex location in the mapping vpMap
 touchCheck:: Point V2 Double -> VertexMap (Point V2 Double) -> Bool
 touchCheck p vpMap = any (touching p) (VMap.elems vpMap)
---touchCheck p vpMap = touchCheckOn && any (touching p) (VMap.elems vpMap) where
---    touchCheckOn = True
 
 {-*
 BoundaryState operations

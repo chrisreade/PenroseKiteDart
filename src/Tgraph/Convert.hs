@@ -1,14 +1,15 @@
 {-|
 Module      : Tgraph.Convert
-Description : Conversion of Tgraphs to Patches (and VPatch) for drawing Tgraphs
+Description : Conversion of a Tgraph to a VPatch and drawing operations for both (producing Diagrams).
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-Conversion operations from Tgraphs to VPatches and Diagrams.
-The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint) and
-touching vertex checks (touchingVertices, touchingVerticesGen).
+Introducing type VPatch (Vertex Patch) as intermediary between Tgraph and Diagram.
+Conversion operation from a Tgraph to a VPatch (makeVP) and drawing operations to produce Diagrams.
+The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint),
+touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing functions.
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
@@ -29,7 +30,7 @@ import TileLib
 import Tgraph.Prelude
 import ChosenBackend (B)
 
--- |Abbreviation for mappings from Vertex to Location (i.e Point)
+-- |Abbreviation for finite mappings from Vertex to Location (i.e Point)
 type VertexLocMap = VMap.IntMap (Point V2 Double)
 
 
@@ -37,7 +38,7 @@ type VertexLocMap = VMap.IntMap (Point V2 Double)
 -}
 
 -- |A VPatch has a map from vertices to points along with a list of tile faces.
--- It is an intermediate form between Tgraphs and Patches
+-- It is an intermediate form between Tgraphs and Diagrams
 data VPatch = VPatch {vLocs :: VertexLocMap,  vpFaces::[TileFace]} deriving Show
 
 -- |needed for making VPatch transformable
@@ -62,31 +63,22 @@ makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces
 -- The vertices in the tile faces must have points assigned in the given VPatch vertex locations.
 -- (This is not checked for, but missing locations for vertices will raise an error when drawing.)
 -- subVP vp fcs can be used for both subsets of tile faces of vp,
--- but also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
+-- and also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
 -- The vertex location map is not changed (see also relevantVP and restrictVP).
 subVP:: VPatch -> [TileFace] -> VPatch
 subVP vp fcs = vp {vpFaces  = fcs} 
 
--- | removes locations for vertices not used in the faces of a VPatch
+-- | removes locations for vertices not used in the faces of a VPatch.
+-- (Useful when restricting which labels get drawn)
 relevantVP :: VPatch -> VPatch
 relevantVP vp = vp{vLocs = locVs} where
      vs = facesVSet (vpFaces vp)
      locVs = VMap.filterWithKey (\v -> \_ -> (v `IntSet.member` vs)) $ vLocs vp
 
 -- | Restrict a vp to a list of faces, removing locations for vertices not in the faces.
+-- (Useful when restricting which labels get drawn)
 restrictVP:: VPatch -> [TileFace] -> VPatch
 restrictVP vp fcs = relevantVP (subVP vp fcs)
-
- 
--- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces
--- This should be confined to use within drawing functions such as drawWith and drawLabelledWith
-dropLabels :: VPatch -> Patch
-dropLabels vp = fmap convert (vpFaces vp) where
-  locations = vLocs vp
-  convert fc = case (VMap.lookup (originV fc) locations , VMap.lookup (oppV fc) locations) of
-                (Just p, Just p') -> fmap (\_ -> (p' .-. p)) fc `at` p -- using HalfTile functor fmap
-                _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
-                             ++ show (faceVList fc \\ VMap.keys locations))
 
 -- |Recover a Tgraph from a VPatch by dropping the vertex positions and checking Tgraph properties.
 graphFromVP:: VPatch -> Tgraph
@@ -120,29 +112,47 @@ findLoc v = VMap.lookup v . vLocs
 
 
 
-{-* Drawing VPatch and Tgraphs
+{-* Drawing VPatches and Tgraphs
 -}
 
 -- |Make drawing tools applicable to VPatch
 instance Drawable VPatch where
-    drawWith = drawVPWith where
-   -- |drawVPWith pd vp - converts vp to a diagram without vertex labels using pd to draw pieces
-   -- drawVPWith :: (Piece -> Diagram B) -> VPatch -> Diagram B
-        drawVPWith pd vp = drawWith pd (dropLabels vp)
+    drawWith pd vp = drawWith pd (dropLabels vp) where
+
+-- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces.
+-- Note Patches are used only here (for drawing).
+-- dropLabels :: VPatch -> Patch
+        dropLabels vp = fmap convert (vpFaces vp) where
+          locations = vLocs vp
+          convert fc = case (VMap.lookup (originV fc) locations , VMap.lookup (oppV fc) locations) of
+            (Just p, Just p') -> fmap (\_ -> (p' .-. p)) fc `at` p -- using HalfTile functor fmap
+            _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
+                        ++ show (faceVList fc \\ VMap.keys locations))
 
 -- |Make drawing tools applicable to Tgraphs
 instance Drawable Tgraph where
     drawWith pd = drawWith pd . makeVP
 
--- | A class for things that can be drawn with labels when given a function to draw Pieces and a measure for label size
+-- | A class for things that can be drawn with labels when given a function to draw Pieces and a measure for label size.
 -- Measures are defined in Diagrams (normalized/output/local/global)
 class Drawable_Labelled a where
   drawLabelSizeWith :: Measure Double -> (Piece -> Diagram B) -> a -> Diagram B
 
+-- | VPatches can be drawn with labels
+instance Drawable_Labelled VPatch where
+  drawLabelSizeWith  r pd vp = drawLabels r (vLocs vp) <> drawWith pd vp where
+    -- drawLabels :: Measure Double -> VertexLocMap -> Diagram B
+    drawLabels r vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
+       where label v = baselineText (show v) # fontSize r # fc red
+
+-- | Tgraphs can be drawn with labels
+instance Drawable_Labelled Tgraph where
+  drawLabelSizeWith r pd = drawLabelSizeWith r pd . makeVP
+
 -- | Versions of drawLabelSizeWith for normal, small, large labels (all using normalized)
 drawLabelledWith, drawLabelSmallWith, drawLabelLargeWith :: Drawable_Labelled a => (Piece -> Diagram B) -> a -> Diagram B
-drawLabelledWith = drawLabelSizeWith  (normalized 0.015) -- (output 9)
-drawLabelSmallWith = drawLabelSizeWith (normalized 0.008) --(output 5)
+drawLabelledWith = drawLabelSizeWith  (normalized 0.015)
+drawLabelSmallWith = drawLabelSizeWith (normalized 0.008)
 drawLabelLargeWith = drawLabelSizeWith (normalized 0.030)
 
 -- | main default case for drawing with labels (using drawPiece)
@@ -171,19 +181,6 @@ drawjLabelLarge = drawLabelLargeWith dashjPiece
 
 
 
--- | VPatches can be drawn with labels
-instance Drawable_Labelled VPatch where
-  drawLabelSizeWith = drawVPLabelSizeWith where
- -- drawVPLabelSizeWith :: Measure Double -> (Piece -> Diagram B) -> VPatch -> Diagram B
-    drawVPLabelSizeWith r pd vp = drawLabelSize r (vLocs vp) <> drawWith pd (dropLabels vp)
--- |draws vertex labels at assigned points with given size.
- -- drawLabelSize :: Measure Double -> VertexLocMap -> Diagram B
-    drawLabelSize r vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
-       where label v = baselineText (show v) # fontSize r # fc red
-
--- | Tgraphs can be drawn with labels
-instance Drawable_Labelled Tgraph where
-  drawLabelSizeWith r pd = drawLabelSizeWith r pd . makeVP
 
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun
@@ -275,9 +272,9 @@ lowestJoinFirst:: [TileFace] -> [TileFace]
 lowestJoinFirst fcs | null fcs  = error "lowestJoinFirst: applied to empty list of faces"
                     | otherwise = face:(fcs\\[face]) where
     a = minimum (fmap originV fcs)
-    aFs = filter ((a==) . originV) fcs
-    b = minimum (fmap oppV aFs)
-    (face: _) = filter (((a,b)==) . joinOfTile) aFs
+    aFaces = filter ((a==) . originV) fcs
+    b = minimum (fmap oppV aFaces)
+    (face: _) = filter (((a,b)==) . joinOfTile) aFaces
 
 
 -- |Return the join edge with lowest origin vertex (and lowest oppV vertex if there is more than one).
@@ -285,12 +282,13 @@ lowestJoin:: [TileFace] -> Dedge
 lowestJoin fcs | null fcs  = error "lowestJoin: applied to empty list of faces"
 lowestJoin fcs | otherwise = (a,b) where
     a = minimum (fmap originV fcs)
-    aFs = filter ((a==) . originV) fcs
-    b = minimum (fmap oppV aFs)
+    aFaces = filter ((a==) . originV) fcs
+    b = minimum (fmap oppV aFaces)
 
 -- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tileface vertices
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
--- It will raise an error if there are fewer than 2 tileface vertices with a location in the map.
+-- It will raise an error if there are fewer than 2 tileface vertices with a location in the map
+-- (indicating a non tile-connected face).
 addVPoint:: TileFace -> VertexLocMap -> VertexLocMap
 addVPoint fc vpMap = 
   case thirdVertexLoc fc vpMap of
@@ -317,12 +315,6 @@ axisJoin::TileFace -> VertexLocMap
 axisJoin fc = 
   VMap.insert (originV fc) origin $ VMap.insert (oppV fc) (p2(x,0)) VMap.empty where
     x = if isDart fc then 1 else phi
-{-
-axisJoin (LD(a,b,_)) = VMap.insert a origin $ VMap.insert b (p2(1,0)) VMap.empty -- [(a,origin), (b, p2(1,0))]
-axisJoin (RD(a,_,c)) = VMap.insert a origin $ VMap.insert c (p2(1,0)) VMap.empty --[(a,origin), (c, p2(1,0))]
-axisJoin (LK(a,_,c)) = VMap.insert a origin $ VMap.insert c (p2(phi,0)) VMap.empty --[(a,origin), (c, p2(phi,0))]
-axisJoin (RK(a,b,_)) = VMap.insert a origin $ VMap.insert b (p2(phi,0)) VMap.empty -- [(a,origin), (b, p2(phi,0))]
--}
 
 -- |lookup 3 vertex locations in a vertex to point map.
 find3Locs::(Vertex,Vertex,Vertex) -> VertexLocMap
@@ -374,23 +366,22 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
 -}
 
 -- |produce a diagram of a list of edges (given a VPatch)
+-- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
 drawEdgesIn :: VPatch -> [Dedge] -> Diagram B
 drawEdgesIn vp = drawEdges (vLocs vp) --foldMap (drawEdgeWith vp)
 
 -- |produce a diagram of a single edge (given a VPatch)
+-- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
 drawEdgeWith :: VPatch -> Dedge -> Diagram B
 drawEdgeWith vp = drawEdge (vLocs vp)
-{-
-case (findLoc a vp, findLoc b vp) of
-                         (Just pa, Just pb) -> pa ~~ pb
-                         _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
--}
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
+-- Will raise an error if any vertex of the edges is not a key in the mapping.
 drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
 drawEdges vpMap = foldMap (drawEdge vpMap)
 
--- |produce a diagram of a single edge (given a mapping of vertices to locations)
+-- |produce a diagram of a single edge (given a mapping of vertices to locations).
+-- Will raise an error if either vertex of the edge is not a key in the mapping.
 drawEdge :: VertexLocMap -> Dedge -> Diagram B
 drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
@@ -410,8 +401,7 @@ It returns pairs of vertices that are too close (higher number first in each pai
 An empty list is returned if there are no touching vertices.
 Complexity has order of the square of the number of vertices.
                            
-This is used in makeTgraph and fullUnion (via correctTouchingVertices), but can also be used as a reptrospective check if the touching vertex check 
-is switched off in forcing.                          
+This is used in makeTgraph and fullUnion (via correctTouchingVertices).
 -}
 touchingVertices:: [TileFace] -> [(Vertex,Vertex)]
 touchingVertices fcs = check vpAssoc where
@@ -419,11 +409,11 @@ touchingVertices fcs = check vpAssoc where
   check [] = []
   check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
                         where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
---  check ((v,p):more) = [(v1,v) | (v1,p1) <- more, touching p p1 ] ++ check more
+-- check ((v,p):more) = [(v1,v) | (v1,p1) <- more, touching p p1 ] ++ check more
 -- does not correctly deal with 3 or more vertices touching at the same point
 
 {-|touching checks if two points are considered close.
-Close means the square of the distance between them is less than 0.25 so they cannot be
+Close means the square of the distance between them is less than 0.24 so they cannot be
 vertex locations for 2 different vertices in a VPatch using unit scale for short edges.
 It is used in touchingVertices and touchingVerticesGen)
 -}
