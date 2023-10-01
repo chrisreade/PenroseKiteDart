@@ -19,8 +19,6 @@ import ChosenBackend (B)
 import TileLib
 import HalfTile
 
--- |Used for adding text at a point
-label l p = baselineText l # fontSize (local 0.2) # fc blue # moveTo p
 
 {-*
 Figures for pieces
@@ -31,9 +29,9 @@ thePieces :: [Piece]
 thePieces =  [ldart, rdart, lkite, rkite]  
 -- |drawn edges of 4 pieces in a row         
 piecesFig :: Diagram B
-piecesFig = hsep 0.5 $ fmap (showOrigin . drawJPiece) thePieces 
+piecesFig = hsep 0.5 $ fmap (showOrigin . dashjPiece) thePieces 
 -- |filled 4 pieces in a row         
-piecesFig2 = hsep 1 $ fmap (leftFillDK red blue) thePieces ++ fmap drawPiece thePieces 
+piecesFig2 = hsep 1 $ fmap (leftFillDK red blue) thePieces ++ fmap dashjPiece thePieces 
 
 
 -- |figure showing origins and markings on tiles
@@ -78,6 +76,10 @@ newPiecesFig = pad 1.2 $ centerXY $
                hsep 0.1 (fmap (rotate (90 @@ deg) . showOrigin . dashjPiece) 
                          [rdart,ldart,lkite,rkite]
                         )
+  where
+    -- |Used for adding text at a point
+    label l p = baselineText l # fontSize (local 0.2) # fc blue # moveTo p
+    
 -- |diagram combining markedTiles2 and newPiecesFig
 tileIntro:: Diagram B
 tileIntro = hsep 1 [markedTiles2, newPiecesFig]

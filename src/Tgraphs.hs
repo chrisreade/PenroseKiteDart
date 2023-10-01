@@ -9,9 +9,9 @@ Stability   : experimental
 
 This is the main module for Tgraph operations which collects and exports the other Tgraph modules. 
 It exports makeTgraph for constructing checked Tgraphs and excludes data constructor Tgraph.
-The module includes several functions for producing overlaid diagrams for graphs and
+The module also defines several functions for producing overlaid diagrams for Tgraphs (including smart drawing) and
 experimental combinations such as boundaryECovering, boundaryVCovering, empire1, empire2, superForce, boundaryLoopsG.
-It also includes experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
+It also defines experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
 -}
 module Tgraphs ( module Tgraphs
                , module Tgraph.Prelude -- export excludes data constructor Tgraph

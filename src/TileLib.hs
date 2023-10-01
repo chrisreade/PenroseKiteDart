@@ -5,15 +5,14 @@
 
 {-|
 Module      : TileLib
-Description : Operations on Pieces and Patches including drawing operations
+Description : Introducing Pieces and Patches and operations on these including a class for drawing operations
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This module includes the basic operations for creating and drawing finite patches
-of Penrose's Dart and Kite tilings.
-It includes a decompose operation, draw, fillDK and colourDKG, sun and star example patches.
+This module introduces Pieces and Patches for drawing finite tilings using Penrose's Dart and Kite tiles.
+It includes a decompose operation for Patches, class Drawable, and sun and star example Patches.
 -}
 module TileLib where
 
@@ -21,6 +20,11 @@ import Diagrams.Prelude
 
 import ChosenBackend (B) 
 import HalfTile
+
+
+{-*
+Pieces and drawing Pieces
+-}
 
 {-| Piece type for tile halves: Left Dart, Right Dart, Left Kite, Right Kite
 with a vector from their origin along the join edge where
@@ -41,7 +45,7 @@ type instance V Piece = V2
 Making Pieces and Patches transformable - Requires FlexibleInstances
 -}
 instance Transformable Piece where
-    transform t = fmap (transform t)
+    transform t = fmap (transform t) -- using fmap from HalfTile functor
 
 {- NB  >>>  Alternative making Halftile a transformable when a is transformable
    BUT this makes an Orphan Instance
@@ -57,33 +61,33 @@ instance Transformable a => Transformable (HalfTile a) where
     transform t = fmap (transform t)
 -}
 
--- |ldart,rdart,lkite,rkite are the 4 pieces (oriented along the x axis).
+-- |ldart,rdart,lkite,rkite are the 4 pieces (with join edge oriented along the x axis, unit length for darts, length phi for kites).
 ldart,rdart,lkite,rkite:: Piece
 ldart = LD unitX
 rdart = RD unitX
 lkite = LK (phi*^unitX)
 rkite = RK (phi*^unitX)
 
--- |All edges are powers of the golden section phi.
--- We also have the interesting property of the golden section that phi^2 == phi + 1 and so 1/phi = phi-1
+-- |All edge lengths are powers of the golden ratio (phi).
+-- We also have the interesting property of the golden ratio that phi^2 == phi + 1 and so 1/phi = phi-1
 -- (also phi^3 = 2phi +1 and 1/phi^2 = 2-phi)
 phi::Double
 phi = (1.0 + sqrt 5.0) / 2.0
 
 -- |All angles used are multiples of tt where tt is a tenth of a turn
--- (so tau divided by 10 rad or 36 deg).
+-- (so 36 degrees).
 -- ttangle n is n multiples of tt.
--- Angles are from positive x axis anticlockwise
 ttangle:: Int -> Angle Double
 ttangle n = fromIntegral (n `mod` 10) *^tt
              where tt = 1/10 @@ turn
 
-{-|  produces a list of the two non-join tile edges of a piece.
+{-|  produces a list of the two adjacent non-join tile directed edges of a piece starting from the origin.
+
 Perhaps confusingly we regard left and right of a dart differently from left and right of a kite.
 This is in line with common sense view but darts are reversed from origin point of view.
-Going clockwise round the origin the Right Dart comes before Left Dart, but 
-the Left Kite comes before Right Kite.
-This is manifest in only pieceEdges, wholeTileEdges, compose and decompPiece
+
+So for right dart and left kite the edges are directed and ordered clockwise from the piece origin, and for left dart and right kite these are
+directed and ordered anti-clockwise from the piece origin.
 -}
 pieceEdges:: Piece -> [V2 Double]
 pieceEdges (LD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 9) v
@@ -92,10 +96,10 @@ pieceEdges (RK v) = [v',v ^-^ v'] where v' = rotate (ttangle 9) v
 pieceEdges (LK v) = [v',v ^-^ v'] where v' = rotate (ttangle 1) v
 
 -- |the 4 tile edges of a completed half-tile piece (used for colour fill).
--- These are clockwise from the origin of the tile.
+-- These are directed and ordered clockwise from the origin of the tile.
 wholeTileEdges:: Piece -> [V2 Double]
-wholeTileEdges (LD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (LD v))
-wholeTileEdges (RD v) = wholeTileEdges (LD v)
+wholeTileEdges (LD v) = wholeTileEdges (RD v)
+wholeTileEdges (RD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (LD v))
 wholeTileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (RK v))
 wholeTileEdges (RK v) = wholeTileEdges (LK v)
 
@@ -103,22 +107,26 @@ wholeTileEdges (RK v) = wholeTileEdges (LK v)
 drawPiece:: Piece -> Diagram B
 drawPiece = strokeLine . fromOffsets . pieceEdges
 
--- |leftFillDK dcol kcol pc fills the whole tile when pc is a left half-tile,
--- darts are filled with colour dcol and kites with colour kcol.
--- (Right half-tiles produce nothing, so whole tiles are not drawn twice)
-leftFillDK:: Colour Double -> Colour Double -> Piece -> Diagram B
-leftFillDK dcol kcol pc =
-     case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc dcol
-                (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc kcol
-                _      -> mempty
+-- |same as drawPiece but with join edge added as dashed-line
+dashjPiece:: Piece -> Diagram B
+dashjPiece piece = drawPiece piece <> dashjOnly piece
+
+-- |draw join edge only 
+drawJoin:: Piece -> Diagram B
+drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
+
+-- |draw join edge only (as dashed line)
+dashjOnly:: Piece -> Diagram B
+dashjOnly piece = drawJoin piece # dashingN [0.004,0.004] 0 # lw ultraThin
 
 -- |same as drawPiece but with added join edge (also fillable as a loop)
-drawJPiece:: Piece -> Diagram B
-drawJPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
+drawRoundPiece:: Piece -> Diagram B
+drawRoundPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
+
 
 -- |fillPiece col piece - fills piece with colour col without drawing any lines
 fillPiece:: Colour Double -> Piece -> Diagram B
-fillPiece col piece  = drawJPiece piece # fc col # lw none
+fillPiece col piece  = drawRoundPiece piece # fc col # lw none
 
 -- |fillDK dcol kcol piece - draws and fills the half-tile piece
 -- with colour dcol for darts and kcol for kites.
@@ -142,11 +150,13 @@ fillMaybeDK d k piece = drawPiece piece <> filler where
                            (LK _) -> maybeFill k
                            (RK _) -> maybeFill k
 
--- |fillMaybeDKG d k g piece - draws the half-tile piece and possibly fills as well:
+-- |fillMaybeDKG (d,k,g) piece - draws the half-tile piece and possibly fills as well:
 -- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
 -- Nothing indicates no fill for either darts or kites or both
-fillMaybeDKG:: Maybe (Colour Double) -> Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram B
-fillMaybeDKG d k g piece = drawPiece piece # maybeGrout g <> filler where
+-- The g argument is for grout - i.e the non-join edges round tiles.
+-- Edges are drawn with gcol if g  = Just gcol and not drawn if g = Nothing
+fillMaybeDKG:: (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> Piece -> Diagram B
+fillMaybeDKG (d,k,g) piece = drawPiece piece # maybeGrout g <> filler where
     maybeFill (Just c) = fillPiece c piece
     maybeFill  Nothing = mempty
     maybeGrout (Just c) = lc c
@@ -156,18 +166,14 @@ fillMaybeDKG d k g piece = drawPiece piece # maybeGrout g <> filler where
                            (LK _) -> maybeFill k
                            (RK _) -> maybeFill k
 
--- |same as drawPiece but with join edge added as dashed-line
-dashjPiece:: Piece -> Diagram B
-dashjPiece piece = drawPiece piece <> dashjOnly piece
-
--- |draw join edge only 
-drawJoin:: Piece -> Diagram B
-drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
-
--- |draw join edge only (as dashed line)
-dashjOnly:: Piece -> Diagram B
-dashjOnly piece = drawJoin piece # dashingN [0.004,0.004] 0 # lw ultraThin
---dashjOnly piece = (drawJoin piece # dashingN [0.001,0.002] 0 # lwN 0.001)
+-- |leftFillDK dcol kcol pc fills the whole tile when pc is a left half-tile,
+-- darts are filled with colour dcol and kites with colour kcol.
+-- (Right half-tiles produce nothing, so whole tiles are not drawn twice)
+leftFillDK:: Colour Double -> Colour Double -> Piece -> Diagram B
+leftFillDK dcol kcol pc =
+     case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc dcol
+                (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc kcol
+                _      -> mempty
         
 -- |experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.
@@ -175,8 +181,8 @@ dashjOnly piece = drawJoin piece # dashingN [0.004,0.004] 0 # lw ultraThin
 -- Half darts have the join edge emphasised in red, while
 -- Half kites have the long edge emphasised in black.
 experiment:: Piece -> Diagram B
-experiment pc = --emph pc <> (drawJPiece pc # dashingO [1,2] 0 # lw ultraThin)
-    emph pc <> (drawJPiece pc # dashingN [0.003,0.003] 0 # lw ultraThin)
+experiment pc = --emph pc <> (drawRoundPiece pc # dashingO [1,2] 0 # lw ultraThin)
+    emph pc <> (drawRoundPiece pc # dashingN [0.003,0.003] 0 # lw ultraThin)
   where emph pc = case pc of
           (LD v) -> (strokeLine . fromOffsets) [v] # lc red   -- emphasise join edge of darts in red
           (RD v) -> (strokeLine . fromOffsets) [v] # lc red 
@@ -184,7 +190,9 @@ experiment pc = --emph pc <> (drawJPiece pc # dashingO [1,2] 0 # lw ultraThin)
           (RK v) -> (strokeLine . fromOffsets) [rotate (ttangle 9) v]
 
 
-
+{-*
+Patches and Drawable Class
+-}
 
 -- |A patch is a list of Located pieces (the point associated with each piece locates its originV)
 type Patch = [Located Piece]
@@ -215,16 +223,19 @@ drawj = drawWith dashjPiece
 colourDKG::  Drawable a => (Colour Double,Colour Double,Colour Double) -> a -> Diagram B
 colourDKG (c1,c2,c3) p = drawWith (fillDK c1 c2) p # lc c3
 
-
+{-*
+Patch Decoposition and Compose choices
+-}
 
 {-|
-Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch
-Decomposition is uniquely determined.
+Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch.
+(See also decompose in Tgraph.Decompose.hs for a more abstract version of this operation).
 -}
 decompPatch :: Patch -> Patch
 decompPatch = concatMap decompPiece
 
--- |Decomposing a located piece
+-- |Decomposing a located piece to a list of (2 or 3) located pieces at smaller scale.
+decompPiece :: Located Piece -> [Located Piece]
 decompPiece lp = case viewLoc lp of
   (p, RD vd)-> [ LK vd  `at` p
                , RD vd' `at` (p .+^ v')
@@ -291,6 +302,10 @@ compNChoices 0 lp = [lp]
 compNChoices n lp = do
     lp' <- compChoices lp
     compNChoices (n-1) lp'
+
+{-*
+Example Patches and some rotation/scaling operations
+-}
                                 
 -- |combine 5 copies of a patch (each rotated by ttangle 2 successively)
 -- (ttAngle 2 is 72 degrees) 
@@ -305,16 +320,18 @@ sun =  penta [rkite `at` origin, lkite `at` origin]
 -- |star is a patch with five darts sharing common origin (tip of dart)
 star = penta [rdart `at` origin, ldart `at` origin]
 
--- |rotations takes a list of integers (ttangles) for respective rotations of items in the second list (things to be rotated).
+-- |rotations takes a list of integers (representing ttangles) for respective rotations of items in the second list (things to be rotated).
 -- This includes Diagrams, Patches, VPatches
 -- The integer list can be shorter than the list of items - the remaining items are left unrotated.
+-- (Rotations by an angle are anti-clockwise)
+
 rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
 rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
 rotations [] ds = ds
 rotations _  [] = error "rotations: too many rotation integers"
 
 -- |scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
--- This includes Diagrams, Patches, VPatches
+-- This includes Diagrams, Pieces, Patches, VPatches
 -- The list of doubles can be shorter than the list of items - the remaining items are left unscaled.
 scales :: (Transformable a, V a ~ V2, N a ~ Double) => [Double] -> [a] -> [a]
 scales (s:ss) (d:ds) = scale s d: scales ss ds

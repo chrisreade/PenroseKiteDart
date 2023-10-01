@@ -12,8 +12,8 @@ module HalfTile where
 {-|
 Representing Half Tile Pieces Polymorphicly.
 Common code for both graphs and vector representations of tilings. 
-For vectors - rep is V2 Double
-For Tgraphs rep is (Vertex,Vertex,Vertex)
+For Pieces - rep is V2 Double
+For TileFaces (in Tgraphs) rep is (Vertex,Vertex,Vertex)
 -}
 data HalfTile rep = LD rep -- ^ Left Dart
                   | RD rep -- ^ Right Dart
