@@ -151,9 +151,9 @@ instance Drawable_Labelled Tgraph where
 
 -- | Versions of drawLabelSizeWith for normal, small, large labels (all using normalized)
 drawLabelledWith, drawLabelSmallWith, drawLabelLargeWith :: Drawable_Labelled a => (Piece -> Diagram B) -> a -> Diagram B
-drawLabelledWith = drawLabelSizeWith  (normalized 0.015)
-drawLabelSmallWith = drawLabelSizeWith (normalized 0.008)
-drawLabelLargeWith = drawLabelSizeWith (normalized 0.030)
+drawLabelledWith = drawLabelSizeWith  (normalized 0.012)
+drawLabelSmallWith = drawLabelSizeWith (normalized 0.006)
+drawLabelLargeWith = drawLabelSizeWith (normalized 0.024)
 
 -- | main default case for drawing with labels (using drawPiece)
 drawLabelled :: Drawable_Labelled a => a -> Diagram B

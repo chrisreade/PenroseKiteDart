@@ -376,48 +376,48 @@ empire2 g = makeTrackedTgraph g0 [fcs, faces g] where
               $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryECovering covers1
     (g0:others) = fmap recoverGraph covers2
-    fcs = foldl intersect (faces g0) $ fmap g0Intersect others
+    fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
-
 -- | empire2Plus g - produces a TrackedTgraph representing an extended level 2 empire of g
 -- similar to empire2, but using boundaryVCovering insrtead of boundaryECovering.
--- On a kinGraph this currently takes about 4 hours 20 minutes.
 empire2Plus:: Tgraph -> TrackedTgraph
 empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
     covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryVCovering covers1
     (g0:others) = fmap recoverGraph covers2
-    fcs = foldl intersect (faces g0) $ fmap g0Intersect others
+    fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = lowestJoin (faces g)
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
 -- | drawEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
 -- This is drawn over one of the possible boundary covers and the faces of g are shown in red.
 drawEmpire1:: Tgraph -> Diagram B
-drawEmpire1 g = drawTrackedTgraph  [ lw ultraThin . draw
-                               , lw thin . drawWith (fillDK lightgrey lightgrey)
-                               , lw thin . lc red . draw
-                               ]  (empire1 g)
+drawEmpire1 g = 
+    drawTrackedTgraph  [ lw ultraThin . draw
+                       , lw thin . drawWith (fillDK lightgrey lightgrey)
+                       , lw thin . lc red . draw
+                       ]  (empire1 g)
 
 -- | drawEmpire2 g - produces a diagram emphasising the common faces of a doubly-extended boundary cover of force g.
 -- This is drawn over one of the possible doubly-extended boundary covers and the faces of g are shown in red.
 drawEmpire2:: Tgraph -> Diagram B
-drawEmpire2 g = drawTrackedTgraph  [ lw ultraThin . draw
-                               , lw thin . drawWith (fillDK lightgrey lightgrey)
-                               , lw thin . lc red . draw
-                               ]  (empire2 g)
+drawEmpire2 g =
+     drawTrackedTgraph  [ lw ultraThin . draw
+                        , lw thin . drawWith (fillDK lightgrey lightgrey)
+                        , lw thin . lc red . draw
+                        ]  (empire2 g)
 
 {-*
 Contexts for (forced) Boundary Vertices and Edges
 -}
 
 {- |forcedBEContexts e bd - 
-assumes bd to be a BoundaryState of a forced Tgraph and edge to be a boundary edge of bd.
-It calculates all possible face additions either side of the edge,
-forcing each case and discarding results where the edge is no longer on the boundary.
+assumes bd to be a BoundaryState of a forced Tgraph and e to be a boundary edge of bd.
+It calculates all possible face additions on boundary edges either side of e,
+forcing each case and discarding results where the e is no longer on the boundary.
 It then generates further contexts for those cases by
 by making additions round the rest of the new boundary in each case.
 Repetitions are removed using 'sameGraph' with edge e.
@@ -518,10 +518,9 @@ forcedBVContexts x edge bStart
         where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 -- |for v a boundary vertex of bd, boundary4 v bd 
--- returns the list of 4 directed boundary edges (2 on each side of v) that are
--- one step away from the boundary directed edges either side of v in BoundaryState bd.
--- This is intended for use when bd represents a forced Tgraph, so there should not be repeated edges
--- in such cases.
+-- returns the list of 4 directed boundary edges (2 on each side of v) in BoundaryState bd.
+-- There could be a repeated directed edge in the result if bd represents a Tgraph with a single face, however
+-- this cannot be the case when bd represents a forced Tgraph.
 boundary4:: Vertex -> BoundaryState -> [Dedge]
 boundary4 v bd = affectedBoundary bd es where
   es = boundaryEdgesAt v bd
@@ -533,7 +532,6 @@ boundaryVertexSet bd = IntSet.fromList $ fmap fst (boundary bd)
 -- | returns the set of internal vertices of a BoundaryState
 internalVertexSet :: BoundaryState -> VertexSet
 internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet bd
-
 
 {-*
 Super Force with boundary edge covers
@@ -701,7 +699,8 @@ forceTracked ttg = ttg{ tgraph = force $ tgraph ttg }
 -- and push the new singleton face list onto the tracked list.
 addHalfDartTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
 addHalfDartTracked e ttg =
-    makeTrackedTgraph g' (fcs:tracked ttg) where
+  TrackedTgraph{ tgraph = g' , tracked = fcs:tracked ttg}
+  where
     g = tgraph ttg
     g' = addHalfDart e g
     fcs = faces g' \\ faces g
@@ -710,7 +709,8 @@ addHalfDartTracked e ttg =
 -- and push the new singleton face list onto the tracked list.
 addHalfKiteTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
 addHalfKiteTracked e ttg =
-    makeTrackedTgraph g' (fcs:tracked ttg) where
+  TrackedTgraph{ tgraph = g' , tracked = fcs:tracked ttg}
+  where
     g = tgraph ttg
     g' = addHalfKite e g
     fcs = faces g' \\ faces g
@@ -718,21 +718,24 @@ addHalfKiteTracked e ttg =
 -- |decompose a TrackedTgraph - applies decomposition to all tracked subsets as well as the full Tgraph.
 -- Tracked subsets get the same numbering of new vertices as the main Tgraph. 
 decomposeTracked :: TrackedTgraph -> TrackedTgraph
-decomposeTracked ttg = makeTrackedTgraph g' tlist where
-   g = tgraph ttg
-   g' = Local.Tgraph{ maxV = newMax
-                    , faces = newFaces
-                    }
-   (newMax , newVFor) = maxAndPhiVMap g
-   newFaces = concatMap (decompFace newVFor) (faces g)
-   tlist = fmap (concatMap (decompFace newVFor)) (tracked ttg)
+decomposeTracked ttg = 
+  TrackedTgraph{ tgraph = g' , tracked = tlist}
+  where 
+--    makeTrackedTgraph g' tlist where
+    g = tgraph ttg
+    g' = Local.Tgraph{ maxV = newMax
+                     , faces = newFaces
+                     }
+    (newMax , newVFor) = maxAndPhiVMap g
+    newFaces = concatMap (decompFace newVFor) (faces g)
+    tlist = fmap (concatMap (decompFace newVFor)) (tracked ttg)
 
-{-*  Drawing with TrackedTgraphs
+{-*  Drawing TrackedTgraphs
 -}                                          
 
 {-|
     To draw a TrackedTgraph, we use a list of functions each turning a VPatch into a diagram.
-    The first function is applied to a VPatch for untracked faces
+    The first function is applied to a VPatch for untracked faces.
     Subsequent functions are applied to VPatches for the respective tracked subsets.
     Each diagram is atop earlier ones, so the diagram for the untracked VPatch is at the bottom.
     The VPatches are all restrictions of a single VPatch for the Tgraph, so consistent.
@@ -742,13 +745,6 @@ drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList
     vp = makeVP (tgraph ttg)
     untracked = vpFaces vp \\ concat (tracked ttg)
     vpList = fmap (restrictVP vp) (untracked:tracked ttg)
-
-{-
--- |drawing non tracked faces only
-drawWithoutTracked:: TrackedTgraph -> Diagram B
-drawWithoutTracked ttg = drawTrackedTgraph [draw] ttg
--}
-
 
 {-|
     To draw a TrackedTgraph rotated.

@@ -47,7 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = tileIntro--coverForceRules--mistake4Explore
+fig = kingEmpire2Fig--coverForceRules--mistake4Explore
 
 main = mainWith fig
 

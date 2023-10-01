@@ -95,7 +95,8 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
      then return $ Tgraph { faces = fcs, maxV = facesMaxV fcs } -- no properties check needed!
      else let vertg1 = vertexSet g1
               correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
-          in checkTgraphProps $ nub $ fmap (relabelFace $ newRelabelling $ fmap correct touchVs) fcs
+              newrel = newRelabelling $ fmap correct touchVs
+          in checkTgraphProps $ nub $ fmap (relabelFace newrel) fcs
 
 {-|matchByEdges (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
 consistent with g1 on a single tile-connected overlap.
@@ -103,8 +104,10 @@ The overlapping region must contain the directed edge e1 in g1. The edge e2 in g
 will be identified with e1 by the relabelling of g2.
 This produces an error if a mismatch is found in the overlap.
 
-CAVEAT:  If the overlap contains more than one tile-connected region the result may require further
-relabelling to match g1 in all overlapping regions)    
+CAVEAT: The relabelling may not be complete if the overlap is not just a SINGLE tile-connected region in g1.
+If the overlap is more than a single tile-connected region, then the union of the relabelled faces with faces in g1
+will be tile-connected but may have touching vertices.
+This limitation is addressed by fullUnion. 
 -}
 matchByEdges:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Tgraph
 matchByEdges ge1 ge2 = runTry $ tryMatchByEdges ge1 ge2
@@ -117,6 +120,7 @@ will be identified with e1 by the relabelling of g2.
 CAVEAT: The relabelling may not be complete if the overlap is not just a SINGLE tile-connected region in g1.
 If the overlap is more than a single tile-connected region, then the union of the relabelled faces with faces in g1
 will be tile-connected but may have touching vertices.    
+This limitation is addressed by tryFullUnion. 
 -}
 tryMatchByEdges :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Try Tgraph
 tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $ 
@@ -336,7 +340,7 @@ Other Auxiliary functions
 -}
 
 -- |selects only non-matching pairs from a list
-differing :: [(Vertex,Vertex)] -> [(Vertex,Vertex)]
+differing :: Eq a => [(a,a)] -> [(a,a)]
 differing = filter (\(a,b) -> a/=b)
                      
 {-|
