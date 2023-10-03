@@ -212,7 +212,7 @@ relabelV (Relabelling r) v = VMap.findWithDefault v v r
 -- |renumberFaces allows for a non 1-1 relabelling represented by a list of pairs.
 -- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result 
 renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
-renumberFaces prs fcs = fmap renumberFace fcs where
+renumberFaces prs = fmap renumberFace where
     mapping = VMap.fromList $ differing prs
     renumberFace = fmap (all3 renumber)
     all3 f (a,b,c) = (f a,f b,f c)
@@ -352,7 +352,7 @@ Right Nothing if there is no corresponding face.
 -}
 tryMatchFace:: TileFace -> Tgraph -> Try (Maybe TileFace)  
 tryMatchFace face g = onFail "tryMatchFace:\n" $
-  case find (`hasDedgeIn` (faceDedges face)) (faces g) of
+  case find (`hasDedgeIn` faceDedges face) (faces g) of
     Nothing      -> Right Nothing
     Just corresp -> if twoVMatch corresp face
                     then Right $ Just corresp

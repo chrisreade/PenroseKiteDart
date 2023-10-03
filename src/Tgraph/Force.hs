@@ -164,7 +164,7 @@ class Forcible a where
 instance Forcible ForceState where
     tryForceWith = tryForceStateWith
     tryStepForceWith = tryStepForceStateWith
-    tryInitFSWith ugen fs = return fs
+    tryInitFSWith ugen = return
 
 {-| tryForceStateWith uGen fs implements tryForceWith for ForceStates.
 tryForceStateWith uGen fs - recursively does updates using uGen until there are no more updates.
@@ -213,9 +213,9 @@ instance Forcible BoundaryState where
 -- | Tgraphs are Forcible    
 instance Forcible Tgraph where
     tryForceWith ugen g = 
-        fmap recoverGraph $ tryForceWith ugen $ makeBoundaryState g
+        recoverGraph <$> tryForceWith ugen (makeBoundaryState g)
     tryStepForceWith ugen g n = 
-        fmap recoverGraph  $ tryStepForceWith ugen (makeBoundaryState g) n
+        recoverGraph  <$> tryStepForceWith ugen (makeBoundaryState g) n
     tryInitFSWith ugen g = tryInitFSWith ugen (makeBoundaryState g)
 
 
@@ -628,7 +628,7 @@ makeUpdate f Nothing  = UnsafeUpdate f
 
 -- |checkUpdate lifts makeUpdate to deal with third vertex search returning Left ..
 checkUpdate:: (Vertex -> TileFace) -> Try (Maybe Vertex) -> Try Update
-checkUpdate f  = tryApply (makeUpdate f) 
+checkUpdate f  = fmap (makeUpdate f) 
 
 {-*
 BoundaryState vertex predicates and properties
@@ -636,17 +636,17 @@ BoundaryState vertex predicates and properties
          
 -- |A vertex on the boundary must be a star if it has 7 or more dart origins
 mustbeStar:: BoundaryState -> Vertex -> Bool
-mustbeStar bd v = (length $ filter ((==v) . originV) $ filter isDart $ facesAtBV bd v) >= 7
+mustbeStar bd v = length (filter ((==v) . originV) $ filter isDart $ facesAtBV bd v) >= 7
 
 -- |A vertex on the boundary must be a sun if it has 5 or more kite origins
 mustbeSun:: BoundaryState -> Vertex -> Bool
-mustbeSun bd v = (length $ filter ((==v) . originV) $ filter isKite $ facesAtBV bd v) >= 5
+mustbeSun bd v = length (filter ((==v) . originV) $ filter isKite $ facesAtBV bd v) >= 5
 
 -- |A vertex on the boundary which is an oppV of a kite must be a jack
 -- if it has a shared kite short edge
 mustbeDeuce:: BoundaryState -> Vertex -> Bool
 mustbeDeuce bd v = isKiteOppV bd v &&
-                   (hasAnyMatchingE $ fmap shortE $ filter isKite $ facesAtBV bd v)
+                   hasAnyMatchingE (fmap shortE $ filter isKite $ facesAtBV bd v)
 
 -- |A boundary vertex which is a kite wing and has 4 dart origins must be a king vertex
 mustbeKing:: BoundaryState -> Vertex -> Bool
@@ -981,27 +981,27 @@ defaultAllUGen :: UpdateGenerator
 defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
   decide e = decider bd (e,fc,etype) where (fc,etype) = inspectBDedge bd e
   decider bd (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
-  decider bd (e,fc,Short) | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2
-                          | otherwise = kiteShortDecider bd e fc 
-  decider bd (e,fc,Long)  | isDart fc = dartLongDecider bd e fc
-                          | otherwise = kiteLongDecider bd e fc 
-  dartLongDecider bd e fc = 
-    if mustbeStar bd (originV fc) then mapItem e (completeSunStar bd fc) else -- rule 6 (star)
-    if mustbeKing bd (originV fc) then mapItem e (addDartLongE bd fc) else -- rule 8
-    if mustbeJack bd (wingV fc)   then mapItem e (addKiteLongE bd fc) else -- rule 7
-    Right Map.empty
-  kiteLongDecider bd e fc = 
-    if mustbeSun bd (originV fc)  then mapItem e (completeSunStar bd fc) else-- rule 6 (sun)
-    if mustbeQueen4Kite bd (wingV fc) then mapItem e (addDartLongE bd fc) else -- rule 9
-    Right Map.empty
-  kiteShortDecider bd e fc = 
-    if mustbeDeuce bd (oppV fc) then mapItem e (addDartShortE bd fc) else -- rule 4
-    if mustbeJack bd  (oppV fc) then mapItem e (addDartShortE bd fc) else -- rule 5
-    if mustbeQueen3Kite bd (wingV fc) then mapItem e (addKiteShortE bd fc) else -- rule 10
-    if isDartOrigin bd (wingV fc) then mapItem e (addKiteShortE bd fc) else -- rule 3
-    Right Map.empty
-  mapItem e = tryApply (\u -> Map.insert e u Map.empty)
-  combine = tryApply mconcat . concatFails -- concatenates all failure reports
+  decider bd (e,fc,Short) 
+    | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2
+    | otherwise = kiteShortDecider bd e fc 
+  decider bd (e,fc,Long)  
+    | isDart fc = dartLongDecider bd e fc
+    | otherwise = kiteLongDecider bd e fc 
+  dartLongDecider bd e fc
+    | mustbeStar bd (originV fc) = mapItem e (completeSunStar bd fc)
+    | mustbeKing bd (originV fc) = mapItem e (addDartLongE bd fc)
+    | mustbeJack bd (wingV fc) = mapItem e (addKiteLongE bd fc)
+    | otherwise = Right Map.empty
+  kiteLongDecider bd e fc
+    | mustbeSun bd (originV fc) = mapItem e (completeSunStar bd fc)
+    | mustbeQueen4Kite bd (wingV fc) = mapItem e (addDartLongE bd fc)
+    | otherwise = Right Map.empty
+  kiteShortDecider bd e fc
+    | mustbeDeuce bd (oppV fc) || mustbeJack bd (oppV fc) = mapItem e (addDartShortE bd fc)
+    | mustbeQueen3Kite bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
+    | otherwise = Right Map.empty
+  mapItem e = fmap (\u -> Map.insert e u Map.empty)
+  combine = fmap mconcat . concatFails -- concatenates all failure reports
   
 
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
@@ -1151,7 +1151,7 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                              Nothing -> err
            | bAngle == m = case find ((==b) . fst) (boundary bd) of
                              Just pr -> Right $ Just (snd pr)
-           | otherwise =   Right $ Nothing
+           | otherwise =   Right  Nothing
     err = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " ++ show (a,b)
                      ++ "\nwith graph:\n " ++ show (recoverGraph bd) ++ "\n"
 
@@ -1159,11 +1159,11 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
 -- integer multiple of tt (tenth turn), so 1..9.  It relies on there being no crossing boundaries,
 -- so that there is a single external angle at each boundary vertex. 
 externalAngle:: BoundaryState -> Vertex -> Int
-externalAngle bd v = check $ 10 - (sum $ map (intAngleAt v) $ facesAtBV bd v) where
+externalAngle bd v = check $ 10 - sum (map (intAngleAt v) $ facesAtBV bd v) where
   check n | n>9 || n<1 = error $ "externalAngle: vertex not on boundary "++show v
                                   ++ " with external angle " ++show n++" with faces:\n"
                                   ++ show (bvFacesMap bd VMap.! v)
-  check n | otherwise = n
+  check n = n
   
 -- |intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
 -- in terms of tenth turns, so returning an Int (1,2,or 3).

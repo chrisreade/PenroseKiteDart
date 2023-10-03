@@ -53,8 +53,8 @@ uncheckedPartCompose:: Tgraph -> ([TileFace],Tgraph)
 uncheckedPartCompose g = (remainder,newGraph) where
   newGraph = Tgraph { faces = newfaces, maxV = facesMaxV newfaces }
   compositions = composedFaceGroups $ getDartWingInfo g
-  newfaces = map fst $ compositions
-  groups = map snd $ compositions
+  newfaces = map fst compositions
+  groups = map snd compositions
   remainder = faces g \\ concat groups
 
 -- |This does the same as compose but without checks for connectedness and no crossing boundaries in the result.

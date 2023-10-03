@@ -109,7 +109,7 @@ fiveCompChoices = pad 1.1 $ hsep 1 $ fmap drawj [[ld,lk'], decompositionsP [lk']
 -- |diagram showing first five alternatives of 4-fold compNChoices of a right dart
 fiveAlternatives:: Diagram B
 fiveAlternatives = hsep 1 $ fmap (drawj . (:[lp])) $ take 5 $ compNChoices 4 lp where
-                     lp = (rdart `at` origin)
+                     lp = rdart `at` origin
 
 -- |An infinite list of patches of increasingly decomposed sun
 suns::[Patch]

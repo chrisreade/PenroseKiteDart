@@ -1,4 +1,5 @@
 {-# OPTIONS_HADDOCK ignore-exports #-}
+{-# LANGUAGE TupleSections         #-}
 
 {-|
 Module      : Tgraph.Prelude
@@ -15,12 +16,15 @@ This module re-exports module HalfTile.
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, union, nub, elemIndex,foldl')
+import Data.Either(fromRight, lefts, rights)
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!),fromAscList)
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup)
 import Control.Monad(liftM) -- for Try
 
 import HalfTile
+
+
 
 {---------------------
 *********************
@@ -153,7 +157,7 @@ Returns Right g where g is a Tgraph on passing checks.
 Returns Left lines if a test fails, where lines describes the problem found.
 -}
 checkTgraphProps:: [TileFace] -> Try Tgraph
-checkTgraphProps []       =  Right $ emptyTgraph 
+checkTgraphProps []       =  Right emptyTgraph 
 checkTgraphProps fcs
       | hasEdgeLoops fcs  =  Left $ "Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
@@ -281,7 +285,7 @@ crossingBoundaries g = not $ null $ crossingBVs g
 
 -- |Predicate to check a Tgraph is a connected graph.
 connected:: Tgraph -> Bool
-connected g =   nullGraph g || (null $ snd $ connectedBy (graphEdges g) (IntSet.findMin vs) vs)
+connected g =   nullGraph g || null (snd $ connectedBy (graphEdges g) (IntSet.findMin vs) vs)
                    where vs = vertexSet g
 
 -- |Auxiliary function for calculating connectedness.
@@ -509,7 +513,7 @@ bothDir es = missingRevs es ++ es
 -- If the argument may contain reverse directions, use bothDir to avoid duplicates.
 bothDirOneWay:: [Dedge] -> [Dedge]
 bothDirOneWay [] = []
-bothDirOneWay ((e@(a,b)):es)= e:(b,a):bothDirOneWay es
+bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
 
 -- |graphBoundary g are missing reverse directed edges in graphDedges g (the result contains single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
@@ -558,7 +562,7 @@ edgeNb fc = any (`elem` edges) . faceDedges where
 -- (expensive)
 edgeFaceMap :: Tgraph -> Map.Map Dedge TileFace
 edgeFaceMap g = Map.fromList $ concatMap assign (faces g) where
-  assign f = fmap (\e -> (e,f)) (faceDedges f)
+  assign f = fmap (,f) (faceDedges f)
 
 -- | look up a face for an edge in an edge face map
 faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
@@ -573,7 +577,7 @@ create an IntMap from each vertex in vs to a list of those faces in fcs that are
 -}
 vertexFacesMap:: [Vertex] -> [TileFace] -> VertexMap [TileFace]
 vertexFacesMap vs = foldl' insertf start where
-    start = VMap.fromList $ fmap (\v -> (v,[])) vs
+    start = VMap.fromList $ fmap (,[]) vs
     insertf vfmap f = foldr (VMap.alter addf) vfmap (faceVList f)
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
@@ -602,33 +606,29 @@ nothingFail a s = maybe (Left s) Right a
 runTry:: Try a -> a
 runTry = either error id
 
--- |tryApply f lifts f to work on a Try argument                     
-tryApply :: (a -> r) -> Try a -> Try r
-tryApply = liftM 
-
 -- |ifFail a tr - extracts the (Right) result from tr, producing a if tr is Left s.
 ifFail :: a -> Try a -> a
-ifFail a = either (const a) id 
+ifFail = fromRight 
     
 -- |Combines a list of Trys into a single Try with failure overriding success.
 -- It concatenates all failure reports if there are any and returns a single Left r.
 -- Otherwise it produces Right rs where rs is the list of all (successful) results.
 -- In particular, concatFails [] = Try []
 concatFails:: [Try a] -> Try [a]
-concatFails ls = case [x | Left x <- ls] of
-                 [] -> Right [x | Right x <- ls]
+concatFails ls = case lefts ls of
+                 [] -> Right $ rights ls
                  other -> Left $ mconcat other -- concatenates strings for single report
 
 -- |Combines a list of Trys into a list of the successes, ignoring any failures.
 -- In particular, ignoreFails [] = []
 ignoreFails:: [Try a] -> [a]
-ignoreFails ls = [x | Right x <- ls]
+ignoreFails = rights
 
 -- | atLeastOne rs - returns the list of successful results if there are any, but fails with an error otherwise.
 -- The error report will include the concatenated reports from the failures. 
 atLeastOne:: [Try a] -> [a]
 atLeastOne [] = error "atLeastOne: applied to empty list"
-atLeastOne results = case [x | Right x <- results] of
+atLeastOne results = case rights results of
                  [] -> runTry $ onFail "atLeastOne: no successful results\n" $ concatFails results
                  _ -> ignoreFails results 
 

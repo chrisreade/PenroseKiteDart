@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Piece Instance
-
+{-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
 {-|
 Module      : TileLib
 Description : Introducing Pieces and Patches and operations on these including a class for drawing operations

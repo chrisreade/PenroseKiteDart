@@ -14,6 +14,7 @@ touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TupleSections             #-}
 
 module Tgraph.Convert where
 
@@ -21,7 +22,7 @@ import Data.List ((\\), nub)
 import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, assocs, keys)
 import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
-import Data.Maybe (catMaybes)
+import Data.Maybe (mapMaybe)
 
 import qualified Data.IntSet as IntSet (IntSet,member) -- for vertex set in relevantVPLabelledWith
 
@@ -73,7 +74,7 @@ subVP vp fcs = vp {vpFaces  = fcs}
 relevantVP :: VPatch -> VPatch
 relevantVP vp = vp{vLocs = locVs} where
      vs = facesVSet (vpFaces vp)
-     locVs = VMap.filterWithKey (\v -> \_ -> (v `IntSet.member` vs)) $ vLocs vp
+     locVs = VMap.filterWithKey (\ v _ -> v `IntSet.member` vs) $ vLocs vp
 
 -- | Restrict a vp to a list of faces, removing locations for vertices not in the faces.
 -- (Useful when restricting which labels get drawn)
@@ -125,7 +126,7 @@ instance Drawable VPatch where
         dropLabels vp = fmap convert (vpFaces vp) where
           locations = vLocs vp
           convert fc = case (VMap.lookup (originV fc) locations , VMap.lookup (oppV fc) locations) of
-            (Just p, Just p') -> fmap (\_ -> (p' .-. p)) fc `at` p -- using HalfTile functor fmap
+            (Just p, Just p') -> fmap (const (p' .-. p)) fc `at` p -- using HalfTile functor fmap
             _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
                         ++ show (faceVList fc \\ VMap.keys locations))
 
@@ -135,48 +136,52 @@ instance Drawable Tgraph where
 
 -- | A class for things that can be drawn with labels when given a function to draw Pieces and a measure for label size.
 -- Measures are defined in Diagrams (normalized/output/local/global)
-class Drawable_Labelled a where
+class DrawableLabelled a where
   drawLabelSizeWith :: Measure Double -> (Piece -> Diagram B) -> a -> Diagram B
 
 -- | VPatches can be drawn with labels
-instance Drawable_Labelled VPatch where
+instance DrawableLabelled VPatch where
   drawLabelSizeWith  r pd vp = drawLabels r (vLocs vp) <> drawWith pd vp where
     -- drawLabels :: Measure Double -> VertexLocMap -> Diagram B
-    drawLabels r vpMap = position $ fmap (\(v,p) -> (p, label v)) $ VMap.toList vpMap
+    drawLabels r vpMap = position $ labelAt <$> VMap.toList vpMap
+       where labelAt (v,p) = (p, baselineText (show v) # fontSize r # fc red)
+{-
+    drawLabels r vpMap = position $ (\(v,p) -> (p, label v)) <$> VMap.toList vpMap
        where label v = baselineText (show v) # fontSize r # fc red
+-}
 
 -- | Tgraphs can be drawn with labels
-instance Drawable_Labelled Tgraph where
+instance DrawableLabelled Tgraph where
   drawLabelSizeWith r pd = drawLabelSizeWith r pd . makeVP
 
 -- | Versions of drawLabelSizeWith for normal, small, large labels (all using normalized)
-drawLabelledWith, drawLabelSmallWith, drawLabelLargeWith :: Drawable_Labelled a => (Piece -> Diagram B) -> a -> Diagram B
+drawLabelledWith, drawLabelSmallWith, drawLabelLargeWith :: DrawableLabelled a => (Piece -> Diagram B) -> a -> Diagram B
 drawLabelledWith = drawLabelSizeWith  (normalized 0.012)
 drawLabelSmallWith = drawLabelSizeWith (normalized 0.006)
 drawLabelLargeWith = drawLabelSizeWith (normalized 0.024)
 
 -- | main default case for drawing with labels (using drawPiece)
-drawLabelled :: Drawable_Labelled a => a -> Diagram B
+drawLabelled :: DrawableLabelled a => a -> Diagram B
 drawLabelled = drawLabelledWith drawPiece
 
 -- | alternative default case for drawing with labels and adding dashed join edges (using dashjPiece)
-drawjLabelled :: Drawable_Labelled a => a -> Diagram B
+drawjLabelled :: DrawableLabelled a => a -> Diagram B
 drawjLabelled = drawLabelledWith dashjPiece
 
 -- | same as drawLabelled but smaller labels
-drawLabelSmall :: Drawable_Labelled a => a -> Diagram B
+drawLabelSmall :: DrawableLabelled a => a -> Diagram B
 drawLabelSmall = drawLabelSmallWith drawPiece
 
 -- | same as drawjLabelled but smaller labels
-drawjLabelSmall :: Drawable_Labelled a => a -> Diagram B
+drawjLabelSmall :: DrawableLabelled a => a -> Diagram B
 drawjLabelSmall = drawLabelSmallWith dashjPiece
 
 -- | same as drawLabelled but larger labels
-drawLabelLarge :: Drawable_Labelled a => a -> Diagram B
+drawLabelLarge :: DrawableLabelled a => a -> Diagram B
 drawLabelLarge = drawLabelLargeWith drawPiece
 
 -- | same as drawjLabelled but larger labels
-drawjLabelLarge :: Drawable_Labelled a => a -> Diagram B
+drawjLabelLarge :: DrawableLabelled a => a -> Diagram B
 drawjLabelLarge = drawLabelLargeWith dashjPiece
 
 
@@ -258,9 +263,9 @@ and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
     fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPoints [] fcOther vpMap | otherwise = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints [] fcOther vpMap = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
     fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
-        nbs = filter (\f -> Set.member f fcOther) (edgeNbs efMap fc)
+        nbs = filter (`Set.member` fcOther) (edgeNbs efMap fc)
         fcOther' = foldr Set.delete fcOther nbs
         vpMap' = addVPoint fc vpMap
 
@@ -280,7 +285,7 @@ lowestJoinFirst fcs | null fcs  = error "lowestJoinFirst: applied to empty list 
 -- |Return the join edge with lowest origin vertex (and lowest oppV vertex if there is more than one).
 lowestJoin:: [TileFace] -> Dedge
 lowestJoin fcs | null fcs  = error "lowestJoin: applied to empty list of faces"
-lowestJoin fcs | otherwise = (a,b) where
+lowestJoin fcs = (a,b) where
     a = minimum (fmap originV fcs)
     aFaces = filter ((a==) . originV) fcs
     b = minimum (fmap oppV aFaces)
@@ -298,12 +303,12 @@ addVPoint fc vpMap =
 -- |Build a Map from directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: [TileFace] -> Map.Map Dedge TileFace
 buildEFMap = mconcat . fmap processFace where
-  processFace fc = Map.fromList $ fmap (\e -> (e,fc)) $ faceDedges fc
+  processFace fc = Map.fromList $ (,fc) <$> faceDedges fc
  
 -- |Given a map from each directed edge to the tileface containing it (efMap), a tileface (fc)
 -- return the list of edge neighbours of fc.
 edgeNbs:: Map.Map Dedge TileFace -> TileFace -> [TileFace]
-edgeNbs efMap fc = catMaybes $ fmap getNbr edges where
+edgeNbs efMap fc = mapMaybe getNbr edges where
     getNbr e = Map.lookup e efMap
     edges = fmap reverseD (faceDedges fc) 
 
@@ -407,7 +412,7 @@ touchingVertices:: [TileFace] -> [(Vertex,Vertex)]
 touchingVertices fcs = check vpAssoc where
   vpAssoc = VMap.assocs $ locateVertices fcs  -- assocs puts in key order so that check returns (higher,lower) pairs
   check [] = []
-  check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
+  check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ check (filter ((`notElem` nearv).fst) more)
                         where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
 -- check ((v,p):more) = [(v1,v) | (v1,p1) <- more, touching p p1 ] ++ check more
 -- does not correctly deal with 3 or more vertices touching at the same point
@@ -432,7 +437,7 @@ touchingVerticesGen:: [TileFace] -> [(Vertex,Vertex)]
 touchingVerticesGen fcs = check vpAssoc where
   vpAssoc = VMap.assocs $ locateVerticesGen fcs  -- assocs puts in key order so that check returns (higher,lower) pairs  
   check [] = []
-  check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ (check $ filter ((`notElem` nearv).fst) more)
+  check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ check (filter ((`notElem` nearv).fst) more)
                         where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
 
 {-| locateVerticesGen generalises locateVertices to allow for multiple faces sharing an edge.
@@ -451,19 +456,19 @@ and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
     fastAddVPointsGen [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPointsGen [] fcOther vpMap | otherwise = error ("fastAddVPointsGen: Faces not tile-connected " ++ show fcOther)
+    fastAddVPointsGen [] fcOther vpMap = error ("fastAddVPointsGen: Faces not tile-connected " ++ show fcOther)
     fastAddVPointsGen (fc:fcs) fcOther vpMap = fastAddVPointsGen (fcs++nbs) fcOther' vpMap' where
-        nbs = filter (\f -> Set.member f fcOther) (edgeNbsGen efMapGen fc)
+        nbs = filter (`Set.member` fcOther) (edgeNbsGen efMapGen fc)
         fcOther' = foldr Set.delete fcOther nbs
         vpMap' = addVPoint fc vpMap
 -- Generalises buildEFMap by allowing for multiple faces on a directed edge.
 -- buildEFMapGen:: [TileFace] -> Map.Map Dedge [TileFace]
-    buildEFMapGen = Map.fromListWith (++) . concatMap processFace where
-    processFace fc = fmap (\e -> (e,[fc])) $ faceDedges fc
+    buildEFMapGen = Map.fromListWith (++) . concatMap processFace
+    processFace fc = (,[fc]) <$> faceDedges fc
 
 -- Generalised edgeNbs allowing for multiple faces on a directed edge.
 -- edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
-    edgeNbsGen efMapGen fc = concat $ catMaybes $ fmap getNbrs edges where
+    edgeNbsGen efMapGen fc = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen
       edges = fmap reverseD (faceDedges fc) 
 

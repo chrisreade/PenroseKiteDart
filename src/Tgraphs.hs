@@ -10,7 +10,8 @@ Stability   : experimental
 This is the main module for Tgraph operations which collects and exports the other Tgraph modules. 
 It exports makeTgraph for constructing checked Tgraphs and excludes data constructor Tgraph.
 The module also defines several functions for producing overlaid diagrams for Tgraphs (including smart drawing) and
-experimental combinations such as boundaryECovering, boundaryVCovering, empire1, empire2, superForce, boundaryLoopsG.
+experimental combinations such as boundaryECovering, boundaryVCovering, empire1, empire2, superForce, forcedBVContexts, forcedBEContexts,
+boundaryLoopsG.
 It also defines experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
 -}
 module Tgraphs ( module Tgraphs
@@ -91,10 +92,10 @@ Smart drawing of Tgraphs
 -}
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
--- It will add boundary joins regardless of the drawing function
--- e.g. smart drawLabelSmall g
--- e.g. alignBefore (smart drawLabelled) (a,b) g
--- e.g. rotateBefore (smart drawLabelled) a g
+-- It will add boundary joins regardless of the drawing function.
+-- For example: smart drawLabelSmall g, and
+-- alignBefore (smart drawLabelled) (a,b) g, and
+-- rotateBefore (smart drawLabelled) a g
 smart :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
 smart dr g = smartSub dr g (makeVP g)
 
@@ -103,13 +104,13 @@ smart dr g = smartSub dr g (makeVP g)
 -- It requires vp to contain a suitable vertex location map for drawing g.
 -- This can be used instead of smart when such a map is already available.
 smartSub:: (VPatch -> Diagram B) -> Tgraph -> VPatch -> Diagram B
-smartSub dr g vp = (drawWith dashjOnly $ subVP vp $ boundaryJoinFaces g) 
+smartSub dr g vp = drawWith dashjOnly (subVP vp $ boundaryJoinFaces g) 
                     <> 
                     dr (subVP vp (faces g))
 
 -- |same as draw except adding dashed lines on boundary join edges. 
-smartDraw :: Tgraph -> Diagram B
-smartDraw = smart draw
+smartdraw :: Tgraph -> Diagram B
+smartdraw = smart draw
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
@@ -125,8 +126,8 @@ Overlaid drawing tools for Tgraphs
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = (smartSub draw g' vp)
-                 <> (lw thin $ lc lime $ drawj $ subVP vp remainder)
+drawPCompose g = smartSub draw g' vp
+                 <> drawj (subVP vp remainder) # lw thin # lc lime
   where (remainder,g') = partCompose g
         vp = makeVP g
 
@@ -134,8 +135,7 @@ drawPCompose g = (smartSub draw g' vp)
 -- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
 drawForce g = (dg # lc red # lw thin) <> dfg where
-    fg = force g
-    vp = makeVP fg
+    vp = makeVP $ force g
     dfg = draw vp
     dg = smartSub draw g vp
 
@@ -154,15 +154,15 @@ This relies on g and all compositions of force g having vertices in force g.
 -}
 drawWithMax :: Tgraph -> Diagram B
 drawWithMax g =  (dmax # lc red # lw thin) <> dg where
-    vp = makeVP (force g) -- duplicates force to get the locations of vertices in the forced Tgraph
-    dg = draw $ subVP vp (faces g) 
+    vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
+    dg = draw $ subVP vp $ faces g
     maxg = maxComp g
     dmax = draw $ subVP vp $ faces maxg
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
 drawGBoundary g =  (drawEdgesIn vp edges # lc lime) <> drawLabelled vp where
-    vp  = makeVP g
+    vp = makeVP g
     edges = graphBoundary g
 
 -- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces (g1,e1) (g2,e2) to find the common faces
@@ -211,7 +211,7 @@ compForce = uncheckedCompose . force
 -- This definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
 allCompForce:: Tgraph -> [Tgraph]
-allCompForce g = takeWhile (not . nullGraph) $ g: (iterate uncheckedCompose $ compForce g)
+allCompForce g = takeWhile (not . nullGraph) $ g: iterate uncheckedCompose (compForce g)
 
 -- |maxComp g produces the maximally composed (non-empty) Tgraph from force g, provided g is non-empty
 -- and just the emptyGraph otherwise.
@@ -238,7 +238,7 @@ Emplace Choices
 -- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
 -- This version relies on compForce theorem and related theorems
 emplaceChoices:: Tgraph -> [Tgraph]
-emplaceChoices g = emplaceChoices' $ force $ makeBoundaryState g where
+emplaceChoices g = emplaceChoices' $ force $ makeBoundaryState g
 
 -- |emplaceChoices' bd - assumes bd is forced. It maximally composes. At this top level it
 -- produces a list of forced choices for the unknowns.
@@ -257,9 +257,9 @@ emplaceChoices' bd | nullGraph g' = recoverGraph <$> forcedChoicesBoundary bd
       startunknowns = unknowns $ getDartWingInfo $ recoverGraph bd
       choices [] = []
       choices (bd:bds) 
-        = case  startunknowns `intersect` (unknowns $ getDartWingInfo $ recoverGraph bd) of
+        = case  startunknowns `intersect` unknowns (getDartWingInfo $ recoverGraph bd) of
              [] -> bd:choices bds
-             (u:_) -> choices ((atLeastOne $ tryDartAndKite bd (findDartLongForWing u bd))++bds)
+             (u:_) -> choices (atLeastOne (tryDartAndKite bd (findDartLongForWing u bd))++bds)
       findDartLongForWing v bd 
         = case find isDart (facesAtBV bd v) of
             Just d -> longE d
@@ -278,7 +278,7 @@ The common faces of the covers constitute the empire (level 1) of g.
 This will raise an error if the initial force fails with a stuck graph.
 -}
 forcedBoundaryECovering:: Tgraph -> [Tgraph]
-forcedBoundaryECovering g = fmap recoverGraph $ boundaryECovering gforcedBdry where
+forcedBoundaryECovering g = recoverGraph <$> boundaryECovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryECovering:Initial force failed (incorrect Tgraph)\n" $
                              tryForce $ makeBoundaryState g
 
@@ -286,7 +286,7 @@ forcedBoundaryECovering g = fmap recoverGraph $ boundaryECovering gforcedBdry wh
 forcedBoundaryECovering g but covering all boundary vertices rather than just boundary edges.                        
 -}
 forcedBoundaryVCovering:: Tgraph -> [Tgraph]
-forcedBoundaryVCovering g = fmap recoverGraph $ boundaryVCovering gforcedBdry where
+forcedBoundaryVCovering g = recoverGraph <$> boundaryVCovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryVCovering:Initial force failed (incorrect Tgraph)\n" $
                              tryForce $ makeBoundaryState g
 
@@ -348,8 +348,7 @@ tryDartAndKite b de =
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g
 drawFBCovering:: Tgraph -> Diagram B
-drawFBCovering g = lw ultraThin $ vsep 1 $ 
-     fmap draw $ forcedBoundaryVCovering g
+drawFBCovering g = lw ultraThin $ vsep 1 (draw <$> forcedBoundaryVCovering g)
 
 -- | empire1 g - produces a TrackedTgraph representing the level 1 empire of g.
 -- The tgraph of the result is an arbitrarily chosen boundary vertex cover of force g,
@@ -424,7 +423,7 @@ Repetitions are removed using 'sameGraph' with edge e.
 The resulting contexts are returned as a list of BoundaryStates.      
 -}
 forcedBEContexts:: Dedge -> BoundaryState -> [BoundaryState]
-forcedBEContexts edge bd = contexts [] $ fmap setup $ locals [] [bd] where
+forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
 -- after applying locals this setsup cases for processing by contexts
   setup bd = (bd, Set.delete edge $ boundaryEdgeSet bd)
 --locals:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
@@ -443,7 +442,7 @@ forcedBEContexts edge bd = contexts [] $ fmap setup $ locals [] [bd] where
 -- check null composition before null es
     | nullGraph $ compose $ recoverGraph bs
           = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ [edge])
-            in  contexts (bs:done) $ (newcases++opens)
+            in  contexts (bs:done) (newcases++opens)
     | Set.null es = contexts (bs:done) opens
     | otherwise = contexts (bs:done) (newcases ++ opens)
         where newcases = concatMap (makecases (bs,es)) (Set.toList es)
@@ -455,10 +454,10 @@ forcedBEContexts edge bd = contexts [] $ fmap setup $ locals [] [bd] where
 --  e can be a directed edge from any face of b or a boundary directed edge of b (in which case it is reversed).
 occursIn:: [BoundaryState] -> BoundaryState -> Dedge -> Bool
 occursIn bds b e
-  = any (sameGraph (recoverGraph b,edge)) (fmap (\bd -> (recoverGraph bd,edge)) bds)
-    where edge | e `elem` boundary b = reverseD e
+  = any bmatches bds
+    where bmatches bd = sameGraph (recoverGraph b,edge) (recoverGraph bd,edge)
+          edge | e `elem` boundary b = reverseD e
                | otherwise = e
-
 
 -- |boundaryEdgeNbs bde b - returns the list of 2 directed boundary edges either side
 --  of the directed boundary edge bde in BoundaryState b.
@@ -466,12 +465,11 @@ occursIn bds b e
 boundaryEdgeNbs:: Dedge -> BoundaryState -> [Dedge]
 boundaryEdgeNbs (a,b) bd = boundaryEdgesWith [a,b] bd \\ [(a,b)]
 
--- |boundaryEdgesAt v bd - returns boundary edges with vertex v in BoundaryState bd.
+-- |boundaryEdgesAt v bd - returns the boundary edges in BoundaryState bd that have v as a vertex.
 boundaryEdgesAt:: Vertex -> BoundaryState -> [Dedge]
 boundaryEdgesAt v = boundaryEdgesWith [v] 
---boundaryEdgesAt v = filter (\(x,y) -> x==v || y==v) . boundary 
 
--- |boundaryEdgesWith vs bd - returns all boundary edges with vertices in vs in BoundaryState bd.
+-- |boundaryEdgesWith vs bd - returns all boundary edges in BoundaryState bd that have a vertex in vs.
 boundaryEdgesWith:: [Vertex] -> BoundaryState -> [Dedge]
 boundaryEdgesWith vs = filter (\(x,y) -> x `elem` vs || y `elem` vs) . boundary 
 
@@ -486,11 +484,11 @@ boundaryEdgesWith vs = filter (\(x,y) -> x `elem` vs || y `elem` vs) . boundary
 -- The resulting contexts are returned as a list of BoundaryStates.      
 forcedBVContexts:: Vertex -> Dedge -> BoundaryState -> [BoundaryState]
 forcedBVContexts x edge bStart 
-  | not (x `elem` fmap fst (boundary bStart)) 
+  | x `notElem` fmap fst (boundary bStart) 
       = error $ "forcedBVContexts: vertex " ++ show x ++ " must be on the boundary."
-  | not (edge `elem` graphEdges (recoverGraph bStart)) 
+  | edge `notElem` graphEdges (recoverGraph bStart)
       = error $ "forcedBVContexts: edge " ++ show edge ++ " must be a graph edge (either direction)."
-  | otherwise = contexts [] $ fmap setup $ (locals [] [bStart]) where
+  | otherwise = contexts [] (setup <$> locals [] [bStart]) where
 -- locals:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
 -- locals produces all the cases for 4 local edges (2 edges either side of x)
       locals bds [] = reverse bds
@@ -510,7 +508,7 @@ forcedBVContexts x edge bStart
 -- check null composition before null es
         | nullGraph $ compose $ recoverGraph bs
           = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ boundary4  x bs)
-            in  contexts (bs:done) $ (newcases++opens)
+            in  contexts (bs:done) (newcases++opens)
         | Set.null es = contexts (bs:done) opens
         | otherwise = contexts (bs:done) (newcases ++ opens)
             where newcases = concatMap (makecases (bs,es)) (Set.toList es)
@@ -572,34 +570,34 @@ trySuperForceBdry bd =
     addHT (e,l) fbd = if isDart l then tryAddHalfDartBoundary e fbd else tryAddHalfKiteBoundary e fbd
 
 -- |singleChoiceEdges bd - if bd is a boundary state of a forced Tgraph this finds those boundary edges of bd
--- which have a single correct choice, by inspecting boundary edge covers of bd.
--- The result a list of pairs of (edge,label) where edge is a boundary edge with a single choice
+-- which have a single choice (i.e. the other choice is incorrect), by inspecting boundary edge covers of bd.
+-- The result is a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
 singleChoiceEdges :: BoundaryState -> [(Dedge,HalfTileLabel)]
 singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)  
-
--- |commonToCovering bds edges - when bds are all the boundary edge covers of some forced Tgraph
+  where
+-- |commonToCovering bds edgeList - when bds are all the boundary edge covers of some forced Tgraph
 -- whose boundary edges were edgeList, this looks for edges in edgeList that have the same tile label added in all covers.
--- This indicates there is a single correct choice for such an edge.
+-- This indicates there is a single choice for such an edge (the other choice is incorrect).
 -- The result is a list of pairs: edge and a common tile label.
-commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
-commonToCovering bds edgeList = common edgeList (transpose labellists) where
-    labellists = fmap (\bd -> reportCover bd edgeList) bds
-    common [] lls = []
-    common (e:more) (l:ls) = if matching l 
-                             then (e,head l):common more ls
-                             else common more ls
-    matching [] = error "commonToCovering: empty list of labels" 
-    matching (l:ls) = all (==l) ls
+-- commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
+    commonToCovering bds edgeList = common edgeList (transpose labellists) where
+      labellists = fmap (`reportCover` edgeList) bds
+      common [] lls = []
+      common (e:more) (ls:lls) = if matching ls 
+                                 then (e,head ls):common more lls
+                                 else common more lls
+      matching [] = error "commonToCovering: empty list of labels" 
+      matching (l:ls) = all (==l) ls
 
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
-reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
-reportCover bd edgelist = fmap (\e -> tileLabel (getf e)) edgelist where
-    efmap = edgeFaceMap (recoverGraph bd)
-    getf e = maybe (error $ "reportCover: no face found for edge " ++ show e)
-                   id
-                   (faceForEdge e efmap)
+-- reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
+    reportCover bd = fmap (tileLabel . getf) where
+      efmap = edgeFaceMap (recoverGraph bd)
+      getf e = maybe (error $ "reportCover: no face found for edge " ++ show e)
+                     id
+                     (faceForEdge e efmap)
 
 {-*
 Boundary loops
