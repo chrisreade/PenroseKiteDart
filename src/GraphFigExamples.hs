@@ -68,11 +68,11 @@ foolDs = decompositions fool
 
 -- | diagram of just fool
 foolFig :: Diagram B
-foolFig = padBorder $ drawjLabelled fool
+foolFig = padBorder $ drawjLabelLarge fool
 
 -- |diagram of fool with foolD
 foolAndFoolD :: Diagram B
-foolAndFoolD = padBorder $ hsep 1 [scale phi $ drawjLabelled fool, drawjLabelled foolD]
+foolAndFoolD = padBorder $ hsep 1 [scale phi $ drawjLabelLarge fool, drawjLabelLarge foolD]
 
 {-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
 These will be caught by makeTgraph which raises an error.
@@ -143,7 +143,7 @@ decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
           k = makeTgraph [LK (1,2,3)]
           dd = decompose d
           dk = decompose k
-          draw = drawLabelLargeWith dashjPiece
+          draw = drawjLabelLarge
           addArrow [a,b] = decompArrow "a" "b" $ hsep 2
                            [named "a" $ centerXY a, named "b" $ centerXY b]
 
@@ -169,13 +169,13 @@ cdfIllustrate = position (zip [p2 (0,0), p2 (0,7), p2 (10,0), p2 (10, -12)]
 -}
 
 pCompFig1,pCompFig2,pCompFig:: Diagram B
--- |diagram showing partial composition of a forced 3 times decomposed dart (with ignored faces in pale green)
+-- |diagram showing partial composition of a forced 3 times decomposed dart (with remainder faces in pale green)
 pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
             where fd3 = force $ dartDs!!3
--- |diagram showing partial composition of a forced 3 times decomposed kite (with ignored faces in pale green)
+-- |diagram showing partial composition of a forced 3 times decomposed kite (with remainder faces in pale green)
 pCompFig2 = lw ultraThin $ hsep 5 [draw fk3, drawPCompose fk3]
             where fk3 = force $ kiteDs!!3
--- |diagram showing two partial compositions (with ignored faces in pale green)
+-- |diagram showing two partial compositions (with remainder faces in pale green)
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 
@@ -199,7 +199,7 @@ counterK = padBorder $ lw thin $ hsep 1 $
 
 -- |diagram of foolDminus and the result of forcing              
 forceFoolDminus :: Diagram B
-forceFoolDminus = padBorder $ hsep 1 $ fmap drawjLabelled [foolDminus, force foolDminus]
+forceFoolDminus = padBorder $ hsep 1 $ fmap drawjLabelLarge [foolDminus, force foolDminus]
 
 
 -- |diagrams of forced graphs (3 or 5 times decomposed kite or dart or sun)           
@@ -368,9 +368,9 @@ brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [dartD4, broke
 -- that would result from an unchecked second composition which are not tile-connected.
 -- (Simply applying compose twice to badlyBrokenDart will raise an error).
 badlyBrokenDartFig :: Diagram B
-badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap draw [badlyBrokenDart, compBBD, failed] where
+badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap diag [badlyBrokenDart, compBBD, failed] where
     vp = makeVP badlyBrokenDart
-    draw g = drawjLabelled $ restrictVP vp $ faces g
+    diag g = drawjLabelled $ restrictVP vp $ faces g
 --    draw g = relevantVPLabelledWith dashjPiece $ subVP vp $ faces g
     compBBD = compose badlyBrokenDart
     failed  = uncheckedCompose compBBD
@@ -783,8 +783,8 @@ boundaryGapFDart5 = removeVertices [1467] boundaryFDart5
 
 -- |figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
-boundaryGap4Fig = lw ultraThin $ drawjLabelled boundaryGapFDart4
-boundaryGap5Fig = lw ultraThin $ drawjLabelSmall boundaryGapFDart5
+boundaryGap4Fig = padBorder $ lw ultraThin $ drawjLabelSmall boundaryGapFDart4
+boundaryGap5Fig = padBorder $ lw ultraThin $ drawjLabelSmall boundaryGapFDart5
 
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
 -- using stepForce 2000
@@ -1078,7 +1078,7 @@ trackTwoChoices de g = [ttg1,ttg2] where
 -- |forced 4 times decomposed dart (used for identifying particular boundary
 -- edges in twoChoices and moreChoices)
 forceDartD4Fig:: Diagram B
-forceDartD4Fig = padBorder $ lw ultraThin $ drawjLabelled $ force dartD4
+forceDartD4Fig = padBorder $ lw ultraThin $ drawjLabelSmall $ force dartD4
 -- |Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [TrackedTgraph]
 twoChoices = trackTwoChoices (223,255) (force dartD4) --(233,201) 
@@ -1347,21 +1347,6 @@ forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5
   allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
   allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
 
-{-
-testBV =   padBorder $ lw ultraThin $ vsep 6  
-           [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  edge = (1,2)
-  dartOriginDiags = arrangeRows 7 alldartOriginDiags
-  kiteOriginDiags = arrangeRows 7 allkiteOriginDiags
-  kiteWingDiags = arrangeRows 8 allkiteWingDiags
-  kiteOppDiags = arrangeRows 6 allkiteOppDiags
-
-  alldartOriginDiags = fmap (drawVContext 1 edge) dartOriginContexts
-  allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
-  allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
-  allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
--}
-
 -- | Local forced contexts for vertex types: dart origin, kite origin, kite wing, kite opp
 dartOriginContexts,kiteOriginContexts,kiteWingContexts,kiteOppContexts:: [Tgraph]
 dartOriginContexts = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LD (1,3,2)]
@@ -1401,7 +1386,7 @@ sunVContextsCompBoundary = padBorder $ lw ultraThin $ hsep 1 $
 sunContexts:: [Tgraph]
 sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
   bStart = makeBoundaryState sunGraph
--- occursInRotated deals with 5 rotational symmetries of the sunGraph
+-- occursRotatedIn deals with 5 rotational symmetries of the sunGraph
 -- occursRotatedIn done bs is true if bs matches a case in done in any of 5 rotations
   occursRotatedIn done bs = any (same done bs (1,3)) [(1,3),(1,5),(1,7),(1,9),(1,11)]
   same done bs e e' = any (sameGraph (recoverGraph bs,e) . (,e') . recoverGraph) done
@@ -1575,7 +1560,7 @@ It establishes that a single legal face addition to a forced Tgraph can be an in
 -}
 oneChoiceFig:: Diagram B
 oneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $
-                     fmap (smart drawLabelled) [oneChoiceGraph,incorrectExtension,successful] where
+                     fmap (smart drawLabelSmall) [oneChoiceGraph,incorrectExtension,successful] where
   successful = force $ addHalfDart (76,77) oneChoiceGraph
   incorrectExtension = addHalfKite (76,77) oneChoiceGraph -- fails on forcing
 
@@ -1613,7 +1598,7 @@ testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
 --         bs0 = makeBoundaryState $ force kingGraph
 
 {-*
-Testing Relabelling (fullUnion, commonFaces)
+Illustrating Relabelling (fullUnion, commonFaces)
 -}
 
 {-|A diagram testing matchByEdges with a single tile-connected overlap.
@@ -1627,27 +1612,29 @@ The bottom row is as for the row above but using (1,18) as the edge to match wit
 resulting in a different union.
 -}
 testRelabellingFig:: Diagram B
-testRelabellingFig = padBorder $ lw ultraThin $ vsep 1
-                       [ hsep 1 $ center <$> take 2 eight
-                       , hsep 1 $ center <$> take 3 $ drop 2 eight
-                       , hsep 1 $ center <$> drop 5 eight
-                       ] where
-     eight = fmap drawjLabelled [ g1
-                              , g2
-                              , g2_A
-                              , matchByEdges (g1, (1,15)) (g2,(1,10))
-                              , fullUnion (g1, (1,15)) (g2,(1,10))
-                              , g2_B
-                              , matchByEdges (g1, (1,15)) (g2,(1,18))
-                              , fullUnion (g1, (1,15)) (g2,(1,18))
-                              ]
-     sunD2 = sunDs!!2
-     fsunD2 = force sunD2
-     g1 = removeFaces [RK (1,31,41)] (removeVertices [74,79,29] sunD2)
-     reduced2 = removeVertices [8,7,6] fsunD2
-     g2 = relabelContig reduced2
-     g2_A = prepareFixAvoid [1,10] (vertexSet g1) g2
-     g2_B = prepareFixAvoid [1,18] (vertexSet g1) g2
+testRelabellingFig = 
+  padBorder $ lw ultraThin $ vsep 1
+    [ hsep 1 $ center <$> take 2 eight
+    , hsep 1 $ center <$> take 3 $ drop 2 eight
+    , hsep 1 $ center <$> drop 5 eight
+    ] 
+  where eight = fmap drawjLabelSmall 
+                    [ g1
+                    , g2
+                    , g2_A
+                    , matchByEdges (g1, (1,15)) (g2,(1,10))
+                    , fullUnion (g1, (1,15)) (g2,(1,10))
+                    , g2_B
+                    , matchByEdges (g1, (1,15)) (g2,(1,18))
+                    , fullUnion (g1, (1,15)) (g2,(1,18))
+                    ]
+        sunD2 = sunDs!!2
+        fsunD2 = force sunD2
+        g1 = removeFaces [RK (1,31,41)] (removeVertices [74,79,29] sunD2)
+        reduced2 = removeVertices [8,7,6] fsunD2
+        g2 = relabelContig reduced2
+        g2_A = prepareFixAvoid [1,10] (vertexSet g1) g2
+        g2_B = prepareFixAvoid [1,18] (vertexSet g1) g2
 
 {-| Example showing match relabelling failing as well as a successful fullUnion of graphs.
 The top right graph g2 is matched against the top left graph g1 
@@ -1656,6 +1643,7 @@ The bottom left shows the relabelling to match, but this is not correct because 
 g2 and g1 is not a simple tile connected region.
 (In the bottom left relabelled graph, vertex 41 does not get matched to 22 in g1, for example)
 A call to relabelTouching is essential to produce a valid Tgraph.
+The correct fullUnion is shown bottom right.
 -}
 incorrectAndFullUnionFig:: Diagram B
 incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1

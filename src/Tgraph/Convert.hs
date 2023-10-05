@@ -154,11 +154,13 @@ instance DrawableLabelled VPatch where
 instance DrawableLabelled Tgraph where
   drawLabelSizeWith r pd = drawLabelSizeWith r pd . makeVP
 
--- | Versions of drawLabelSizeWith for normal, small, large labels (all using normalized)
 drawLabelledWith, drawLabelSmallWith, drawLabelLargeWith :: DrawableLabelled a => (Piece -> Diagram B) -> a -> Diagram B
-drawLabelledWith = drawLabelSizeWith  (normalized 0.012)
-drawLabelSmallWith = drawLabelSizeWith (normalized 0.006)
-drawLabelLargeWith = drawLabelSizeWith (normalized 0.024)
+-- | Version of drawLabelSizeWith with normal label size 
+drawLabelledWith = drawLabelSizeWith  (normalized 0.018)
+-- | Version of drawLabelSizeWith with small label size 
+drawLabelSmallWith = drawLabelSizeWith (normalized 0.009)
+-- | Version of drawLabelSizeWith with large label size 
+drawLabelLargeWith = drawLabelSizeWith (normalized 0.027)
 
 -- | main default case for drawing with labels (using drawPiece)
 drawLabelled :: DrawableLabelled a => a -> Diagram B
