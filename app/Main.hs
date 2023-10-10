@@ -47,7 +47,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = incorrectAndFullUnionFig
+fig = counterK
 
 main = mainWith fig
 

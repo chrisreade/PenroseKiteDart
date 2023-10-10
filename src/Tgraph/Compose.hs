@@ -23,15 +23,19 @@ COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
--- |A deterministic function for composing is compose which makes no choices when composing
--- (producing the meet of possible choices).
--- which is essentially partCompose after uncomposed faces are ignored.
--- If the result fails to be connected or has crossing boundaries an error is raised.
+-- |The main compose function which simply drops the remainder faces from partCompose to return just
+-- the composed Tgraph.  It will raise an error if the result is not a valid Tgraph
+-- (i.e. if it fails the connectedness, no crossing boundary check)
 compose:: Tgraph -> Tgraph
 compose = snd . partCompose
 
--- |partCompose produces a Tgraph by composing faces which uniquely compose,
--- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
+-- |This does the same as compose but without checks for connectedness and no crossing boundaries in the result.
+-- It is intended for use on forced Tgraphs where we have a proof that the checks are not needed.
+uncheckedCompose:: Tgraph -> Tgraph
+uncheckedCompose = snd . uncheckedPartCompose
+
+-- |partCompose g produces a pair consisting of remainder faces (faces from g which will not compose) 
+-- and a composed Tgraph.
 -- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
 partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
@@ -39,28 +43,34 @@ partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
 -- |tryPartCompose g tries to produce a Tgraph by composing faces which uniquely compose in g,
 -- It checks the resulting new faces for connectedness and no crossing boundaries.
 -- If the check is OK it produces Right (remainder, g') where g' is the composed Tgraph and remainder is a list
--- of unused faces from g.  If the check fails it produces Left s where s is a failure report.
+-- of faces from g which will not compose.  If the check fails it produces Left s where s is a failure report.
 tryPartCompose:: Tgraph -> Try ([TileFace],Tgraph)
 tryPartCompose g = 
   do let (remainder,newGraph) = uncheckedPartCompose g
      checked <- onFail "tryPartCompose:/n" $ checkConnectedNoCross newGraph
      return (remainder,checked)
 
--- |uncheckedPartCompose produces a Tgraph by composing faces which uniquely compose,
--- returning a pair consisting of unused faces of the original graph along with the composed Tgraph.
--- It does NOT check the composed Tgraph for connectedness and no crossing boundaries.
+-- |uncheckedPartCompose g produces a pair of the remainder faces (faces from g which will not compose)
+-- and a Tgraph made from the composed faces without checking that the Tgraph is valid.
+-- I.e. it does NOT check the composition Tgraph for connectedness and no crossing boundaries.
+-- This is intended for use when we know the check is not needed (e.g. when g is forced).
 uncheckedPartCompose:: Tgraph -> ([TileFace],Tgraph)
-uncheckedPartCompose g = (remainder,newGraph) where
-  newGraph = Tgraph { faces = newfaces, maxV = facesMaxV newfaces }
+uncheckedPartCompose g = (remainder, makeUncheckedTgraph newfaces) where
+  (remainder,newfaces) = partComposeFaces g
+
+-- |partComposeFaces produces a pair of the remainder faces (faces from the original which will not compose)
+-- and the composed faces (which may or may not constitute faces of a valid Tgraph).
+partComposeFaces:: Tgraph -> ([TileFace],[TileFace])
+partComposeFaces g = (remainder,newfaces) where
   compositions = composedFaceGroups $ getDartWingInfo g
   newfaces = map fst compositions
   groups = map snd compositions
   remainder = faces g \\ concat groups
 
--- |This does the same as compose but without checks for connectedness and no crossing boundaries in the result.
--- It is intended for use on forced Tgraphs where we have a proof that the checks are not needed.
-uncheckedCompose:: Tgraph -> Tgraph
-uncheckedCompose = snd . uncheckedPartCompose
+-- |composedFaces g produces the composed faces of g (which may or may not constitute faces of a valid Tgraph).
+composedFaces:: Tgraph -> [TileFace]
+composedFaces = snd . partComposeFaces
+
 
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.

@@ -132,20 +132,17 @@ dartD4 = dartDs!!4
 -- |Diagram showing decomposition of (left hand) half-tiles.
 decompHalfTiles :: Diagram B
 decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
-   [ addArrow  [ scale phi $ draw d -- draw $ scale phi $ makeVP d
-               , draw dd
+   [ addArrow  "d" "decd" [ scale phi $ drawjLabelLarge d
+               , drawjLabelLarge $ decompose d
                ]
-   , addArrow  [ scale phi $ draw k
-               , draw $ rotate (ttangle 1) $ makeVP dk
+   , addArrow  "k" "deck" [ scale phi $ drawjLabelLarge k
+               , drawjLabelLarge $ rotate (ttangle 1) $ makeVP $ decompose k
                ]
    ]
     where d = makeTgraph [LD (1,2,3)]
           k = makeTgraph [LK (1,2,3)]
-          dd = decompose d
-          dk = decompose k
-          draw = drawjLabelLarge
-          addArrow [a,b] = decompArrow "a" "b" $ hsep 2
-                           [named "a" $ centerXY a, named "b" $ centerXY b]
+          addArrow s1 s2 [a,b] = decompArrow s1 s2 $ hsep 2
+                           [named s1 $ centerXY a, named s2 $ centerXY b]
 
 -- | diagram illustrating compose, force, and decompose with kinGraph
 cdfIllustrate:: Diagram B
@@ -190,9 +187,8 @@ Note that both compose and composeK applied to the middle Tgraph produce the mis
 -}
 counterK :: Diagram B
 counterK = padBorder $ lw thin $ hsep 1 $
-           rotations [0,6] (phiScales $ fmap drawj [g,kg]) ++ [drawPCompose g]
+           rotations [0,6] (phiScales $ fmap drawj [g,composeK g]) ++ [drawPCompose g]
         where g = force queenGraph
-              kg = composeK g
 
 {-* Forced Tgraph figures
 -}
@@ -368,34 +364,11 @@ brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [dartD4, broke
 -- that would result from an unchecked second composition which are not tile-connected.
 -- (Simply applying compose twice to badlyBrokenDart will raise an error).
 badlyBrokenDartFig :: Diagram B
-badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap diag [badlyBrokenDart, compBBD, failed] where
+badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [vp, vpComp, vpFailed] where
     vp = makeVP badlyBrokenDart
-    diag g = drawjLabelled $ restrictVP vp $ faces g
---    draw g = relevantVPLabelledWith dashjPiece $ subVP vp $ faces g
-    compBBD = compose badlyBrokenDart
-    failed  = uncheckedCompose compBBD
-
-{-
--- |figure showing force badlyBrokenDart (which is the same as force dartD4)
-checkBrokenDartFig  :: Diagram B
-checkBrokenDartFig = padBorder $ lw thin $ draw $ force badlyBrokenDart
-
-
--- |2 adjacent kites decomposed then the top half kite components removed (3 of them)
-brokenKites::Tgraph
-brokenKites = removeFaces deleted kPlusKD where
-                      kPlusKD = decompose kitePlusKite
-                      deleted = filter (hasVIn [6,14]) (faces kPlusKD)
-{-|
-Figure showing a decomposed pair of adjacent kites, followed by
-brokenKites (3 faces removed from decomposed pair of kites), followed by
-compositon of brokenKites (a kite) which is also the composition of forced brokenKites, followed by
-force brokenKites).
--}
-brokenKitesDFig :: Diagram B
-brokenKitesDFig = padBorder $ hsep 1 $ fmap drawjLabelled $ alignAll (1,3) $ scales [1,1,phi] $ fmap makeVP
-                  [decompose kitePlusKite, brokenKites, compose brokenKites, force brokenKites]
--}
+    comp = compose badlyBrokenDart
+    vpComp = restrictVP vp $ faces $ comp
+    vpFailed  = restrictVP vp $ composedFaces comp
 
 -- |diagram illustrating touching vertex situation and forced result.
 -- The faces shown in lime are removed from a twice decomposed sun.
@@ -416,14 +389,18 @@ touchingIllustration =
                 [LD (29,41,31),RK (31,79,29),LK (10,29,79),RK (10,79,75)]
 
 
+{-
 -- |A function to remove halftile faces that do not have their matching halftile
 -- This will raise an error if the result is not a valid Tgraph.
 removeIncompleteTiles:: Tgraph -> Tgraph
 removeIncompleteTiles g = removeFaces (boundaryJoinFaces g) g
+-}
 
--- |figure showing the result of applying removeIncompleteTiles to a 3 times decomposed sun.
+-- |figure showing the result of removing incomplete tiles (those that do not have their matching halftile)
+-- to a 3 times decomposed sun.
 removeIncompletesFig::Diagram B
-removeIncompletesFig = padBorder $ drawj $ removeIncompleteTiles  $ sunDs !! 3
+removeIncompletesFig = padBorder $ drawj $ removeFaces (boundaryJoinFaces g) g where 
+    g = sunDs !! 3
 
 {-*
 Incorrect Tgraphs (and other problem Tgraphs)
@@ -434,8 +411,8 @@ Incorrect Tgraphs (and other problem Tgraphs)
 -- Crossing boundary at 11 in second case and not tile-connected.
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
-       where d1 = drawjLabelled $ removeFacesGtoVP [RK (3,11,13), LK (3,13,15), RK (3,15,4)] foolD
-             d2 = drawjLabelled $ removeFacesGtoVP [RK (5,11,2), LD (6,13,11), RD (6,15,13), LD (6,17,15)] foolD
+       where d1 = drawjLabelled $ removeFacesVP [RK (3,11,13), LK (3,13,15), RK (3,15,4)] $ makeVP foolD
+             d2 = drawjLabelled $ removeFacesVP [RK (5,11,2), LD (6,13,11), RD (6,15,13), LD (6,17,15)] $ makeVP foolD
 
 -- |mistake is a legal but incorrect Tgraph - a kite with 2 darts on its long edges
 mistake:: Tgraph
@@ -748,6 +725,7 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
 -- | For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF
 -- All internal vertices are dealt with by relatedVTypeFig except for the (forced) star case
 -- which this figure deals with.
+checkCFDStar:: Diagram B
 checkCFDStar = padBorder $ hsep 1 [drawForce starGraph, draw $ compose sfDf, draw sfDf]
    where sfDf = (force . decompose . force) starGraph
 
@@ -851,6 +829,7 @@ bigPic = addArrows dartPic0 === (box <> key) === addArrows kitePic0 where
 
 
 -- | addArrows is used to put arrows in both dartPic0 and kitePic0 (and bigPic)
+addArrows:: Diagram B -> Diagram B
 addArrows d = d  # composeArcRight "a3" "a2"
                  # composeArcRight "a2" "a1"
                  # composeArcRight "a1" "a0"
@@ -873,45 +852,45 @@ addArrows d = d  # composeArcRight "a3" "a2"
                  # forceArrow "b3" "a3"
 
 
--- |add a force arrow (black) from named parts of 2 diagrams
+-- |add a force arrow (black) from 2 named parts of a diagram
 forceArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
 forceArrow = connectOutside' arrowStyleF where
   arrowStyleF = with & headLength .~ verySmall
                      & headGap .~ small & tailGap .~ large
 
--- |add a (force . decompose) arrow (blue) from named parts of 2 diagrams
+-- |add a (force . decompose) arrow (blue) from 2 named parts of a diagram
 forceDecArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
 forceDecArrow = connectOutside' arrowStyleFD where
   arrowStyleFD = with & headLength .~ verySmall & headStyle %~ fc blue
                       & shaftStyle %~ lc blue
                       & headGap .~ small & tailGap .~ small
 
--- |add a decompose arrow (ddashed blue) from named parts of 2 diagrams
+-- |add a decompose arrow (ddashed blue) from 2 named parts of a diagram
 decompArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
 decompArrow = connectOutside' arrowStyleD where
   arrowStyleD  = with & headLength .~ verySmall & headStyle %~ fc blue
                       & shaftStyle %~ dashingN [0.005, 0.005] 0
                       & shaftStyle %~ lc blue & headGap .~ large & tailGap .~ large
 
--- |add a compose arrow (green) from named parts of 2 diagrams
+-- |add a compose arrow (green) from 2 named parts of a diagram
 composeArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
 composeArrow = connectOutside' arrowStyleC where
   arrowStyleC = with & headLength .~ verySmall
                       & headStyle %~ fc green & shaftStyle %~ lc green
                       & headGap .~ large & tailGap .~ large
 
--- |add a compose arrow arc (green) from named parts of 2 diagrams and start/end angles
+-- |add a compose arrow arc (green) from 2 named parts of a diagram and start/end angles
 composeArc :: (IsName n1, IsName n2) => n1 -> n2 -> Angle Double -> Angle Double -> Diagram B -> Diagram B
 composeArc = connectPerim' arrowStyleC where
   arrowStyleC = with & arrowShaft .~ arc xDir (-1/10 @@ turn) & headLength .~ verySmall
                      & headStyle %~ fc green & shaftStyle %~ lc green
                      & headGap .~ large & tailGap .~ large
 
--- |add a compose arrow arc (green) from named parts of 2 diagrams (horizontal left to right)
+-- |add a compose arrow arc (green) from 2 named parts of a diagram (horizontal left to right)
 composeArcRight :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
 composeArcRight a b = composeArc a b (1/10 @@ turn) (4/10 @@ turn)
 
--- |add a compose arrow arc (green) from named parts of 2 diagrams (vertical up)
+-- |add a compose arrow arc (green) from 2 named parts of a diagram (vertical up)
 composeArcUp :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
 composeArcUp a b = composeArc a b (3/10 @@ turn) (6/10 @@ turn)
 
@@ -969,6 +948,7 @@ curioPic =
 
 -- |figure showing ordering of a decomposed kite (bottom), a test graph with an extra LK(3,6,8),
 -- and forced figure at the top and composition of all 3 = kite on the right
+graphOrder1 :: Diagram B
 graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
               [cft,dcft,ft,t] = fmap drawjLabelled $ scales [phi] $ alignAll (1,2) $ fmap makeVP
                                 [cftest, dcftest, ftest, test]
@@ -1033,9 +1013,9 @@ checkCompleteFig =  padBorder $ hsep 1 $ fmap drawj [sunD4, wholeTiles sunD4] wh
 checkGraphFromVP :: Diagram B
 checkGraphFromVP = padBorder $ (draw . graphFromVP . makeVP) dartD4
 
--- |figure testing selectFacesGtoVP by removing all kites
+-- |figure testing selectFacesVP by removing all kites
 dartsOnlyFig :: Diagram B
-dartsOnlyFig = padBorder $ lw thin $ draw $ selectFacesGtoVP darts g where
+dartsOnlyFig = padBorder $ lw thin $ draw $ selectFacesVP darts $ makeVP g where
     g = force $ sunDs !! 5
     darts = filter isDart $ faces g
 
@@ -1065,6 +1045,7 @@ checkChoiceEdge (force $ dartDs !!4)
 to view the vertex numbers
 -}
 -- |for Tgraph g produce diagram of forced version showing vertices (to inspect edges for selection)
+checkChoiceEdge :: Tgraph -> Diagram B
 checkChoiceEdge g = padBorder $ lw ultraThin $ drawLabelled $ force g
 
 -- |given a boundary directed edge of a forced graph (either direction)
@@ -1728,6 +1709,7 @@ Testing Try functions
 -}
 
 -- | testing Try  - try arguments 0..5  only 4 succeeds
+reportFailTest1 :: Int -> (Int,Int,Int,Int,Int)
 reportFailTest1 a = runTry $ onFail "reportFailTest1:\n" $ do
   b <- maybeExample a `nothingFail` ("maybeExample: produced Nothing when applied to "++show a ++"\n")
   c <- onFail "first call:\n"  $ eitherExample (b-1)
@@ -1736,6 +1718,7 @@ reportFailTest1 a = runTry $ onFail "reportFailTest1:\n" $ do
   return (a,b,c,d,e)
 
 -- | testing Try  - try arguments 0..3   only 2 succeeds
+reportFailTest2 :: Int -> (Int,Maybe Int,Int,Int)
 reportFailTest2 a = runTry $ onFail "reportFailTest2:\n" $ do
   b <- eitherMaybeExample a
   c <- b `nothingFail` "eitherMaybeExample produced Nothing\n"

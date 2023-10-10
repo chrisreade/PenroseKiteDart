@@ -18,7 +18,7 @@ touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing
 
 module Tgraph.Convert where
 
-import Data.List ((\\), nub)
+import Data.List ((\\), nub, intersect)
 import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, assocs, keys)
 import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
@@ -87,22 +87,25 @@ graphFromVP = checkedTgraph . vpFaces
 
 -- |remove a list of faces from a VPatch
 removeFacesVP :: [TileFace] -> VPatch -> VPatch
-removeFacesVP fcs vp = vp {vpFaces = vpFaces vp \\ fcs}
---removeFacesVP fcs vp = vp {vpFaces = filter (not . (`elem` fcs)) $ vpFaces vp}
+removeFacesVP fcs vp = restrictVP vp (vpFaces vp \\ fcs)
 
 -- |make a new VPatch with a list of selected faces from a VPatch.
 -- This will ignore any faces that are not in the given VPatch.
 selectFacesVP:: [TileFace] -> VPatch -> VPatch
-selectFacesVP fcs vp = vp {vpFaces = filter (`elem` fcs) $ vpFaces vp}
+selectFacesVP fcs vp = restrictVP vp (fcs `intersect` vpFaces vp)
 
+{-
 -- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
 selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
 selectFacesGtoVP fcs g = selectFacesVP fcs (makeVP g)
+-}
 
+{-
 -- |removeFacesGtoVP fcs g - remove faces (fcs) after converting g to a VPatch
 removeFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
 removeFacesGtoVP fcs g = removeFacesVP fcs (makeVP g)
 
+-}
 
 
 

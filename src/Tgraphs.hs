@@ -188,18 +188,15 @@ Combining force, compose, decompose
 -- | An experimental version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 composeK :: Tgraph -> Tgraph
-composeK = snd . partComposeK where
--- partComposeK:: Tgraph -> ([TileFace],Tgraph)
-  partComposeK g = (remainder,newGraph) where
-    newGraph = makeTgraph newfaces
+composeK g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph newfaces where
     dwInfo = getDartWingInfo g
     changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
                         , unknowns = []
                         }
     compositions = composedFaceGroups changedInfo
     newfaces = map fst compositions
-    groups = map snd compositions
-    remainder = faces g \\ concat groups
+--    groups = map snd compositions
+--    remainder = faces g \\ concat groups
 
 -- |compForce does a force then compose.
 -- It omits the check for connected, and no crossing boundaries because the argument is forced first.
