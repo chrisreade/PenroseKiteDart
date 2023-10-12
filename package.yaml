@@ -41,7 +41,6 @@ library:
     - Tgraph.Relabelling
     - TgraphExamples
     - TestIllustrate
-    - DecompExplain
     - ChosenBackend
     - ArtWork
 executables:

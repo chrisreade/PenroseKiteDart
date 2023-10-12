@@ -4,7 +4,7 @@
     
 import Diagrams.Prelude
 import ChosenBackend (B, mainWith)
-import DecompExplain --(used for the single figure decompExplainFig)
+--import DecompExplain --(used for the single figure decompExplainFig)
 
 import TileFigExamples
 {- includes e.g
@@ -48,7 +48,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = boundaryFDart5Fig
+fig = decompExplainFig
 
 main = mainWith fig
 

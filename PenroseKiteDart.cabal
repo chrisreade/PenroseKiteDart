@@ -37,7 +37,6 @@ library
       Tgraph.Relabelling
       TgraphExamples
       TestIllustrate
-      DecompExplain
       ChosenBackend
       ArtWork
   other-modules:

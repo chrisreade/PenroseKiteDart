@@ -14,12 +14,7 @@ Stability   : experimental
 -}
 module TgraphExamples where
 
--- used for testing
--- import qualified Data.IntMap.Strict as VMap (IntMap, lookup, insert, empty, fromList, union)
-
 import Diagrams.Prelude
-import Data.Tree (Tree(..),levels) -- used for boundaryEdgeCaseTrees    
-import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
 
 import ChosenBackend (B)
 import TileLib
