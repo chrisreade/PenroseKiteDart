@@ -23,7 +23,8 @@ Also swatches and samples:
 e.g. swatchFig0, sampleFig0
 -}
 
-import GraphFigExamples
+import TgraphExamples
+import TestIllustrate
 
 -- imported for testing / debugging only
 import TileLib
@@ -47,7 +48,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = counterK
+fig = boundaryFDart5Fig
 
 main = mainWith fig
 

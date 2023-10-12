@@ -2,8 +2,8 @@ import Test.Hspec
 import Control.Exception (evaluate)
 
 import Tgraphs
-import GraphFigExamples
-
+import TgraphExamples
+import TestIllustrate (touchErrorFaces,testCrossingBoundary)
 main :: IO ()
 main = hspec spec
 

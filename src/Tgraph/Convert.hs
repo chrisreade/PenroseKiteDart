@@ -146,8 +146,8 @@ class DrawableLabelled a where
 instance DrawableLabelled VPatch where
   drawLabelSizeWith  r pd vp = drawLabels r (vLocs vp) <> drawWith pd vp where
     -- drawLabels :: Measure Double -> VertexLocMap -> Diagram B
-    drawLabels r vpMap = position $ labelAt <$> VMap.toList vpMap
-       where labelAt (v,p) = (p, baselineText (show v) # fontSize r # fc red)
+    drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
+       where drawlabel(v,p) = (p, baselineText (show v) # fontSize r # fc red)
 {-
     drawLabels r vpMap = position $ (\(v,p) -> (p, label v)) <$> VMap.toList vpMap
        where label v = baselineText (show v) # fontSize r # fc red
@@ -159,11 +159,11 @@ instance DrawableLabelled Tgraph where
 
 drawLabelledWith, drawLabelSmallWith, drawLabelLargeWith :: DrawableLabelled a => (Piece -> Diagram B) -> a -> Diagram B
 -- | Version of drawLabelSizeWith with normal label size 
-drawLabelledWith = drawLabelSizeWith  (normalized 0.018)
+drawLabelledWith = drawLabelSizeWith  (normalized 0.018)  -- output 10 is similar on examples of average size
 -- | Version of drawLabelSizeWith with small label size 
-drawLabelSmallWith = drawLabelSizeWith (normalized 0.009)
+drawLabelSmallWith = drawLabelSizeWith (normalized 0.007) -- output 8 can be too big for v large cases with 4 fig numbers
 -- | Version of drawLabelSizeWith with large label size 
-drawLabelLargeWith = drawLabelSizeWith (normalized 0.027)
+drawLabelLargeWith = drawLabelSizeWith (normalized 0.027) -- output 12 is similar on small examples
 
 -- | main default case for drawing with labels (using drawPiece)
 drawLabelled :: DrawableLabelled a => a -> Diagram B
