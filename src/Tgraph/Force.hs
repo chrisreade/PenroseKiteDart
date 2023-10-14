@@ -385,7 +385,8 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
        newVPoints = addVPoint newFace oldVPoints
        Just vPosition = VMap.lookup v newVPoints
        fDedges = faceDedges newFace
-       matchedDedges = fDedges `intersect` boundary bd -- singleton
+       matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
+--       matchedDedges = fDedges `intersect` boundary bd -- singleton
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
        nbrFaces = facesAtBV bd x `intersect` facesAtBV bd y where 
                     [x,y] = faceVList newFace \\ [v]
@@ -404,6 +405,8 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     }
    in if touchCheck vPosition oldVPoints -- always False if touchCheckOn = False
       then Right Nothing -- don't proceed - v is a touching vertex
+      else Right (Just bdChange) 
+{-  no conflict check is unnecessary for unsafeUpdate
       else if noConflict newFace nbrFaces  -- check new face does not conflict on edges
            then Right (Just bdChange)  
            else Left $
@@ -414,6 +417,7 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
                  ++ "\nIn graph:\n"
                  ++ show (recoverGraph resultBd)
                  ++ "\n"
+-}
 
 {-| trySafeUpdate bd u adds a new face by completing a safe update u on BoundaryState bd
     (raising an error if u is an unsafe update).
@@ -486,13 +490,17 @@ tryUpdate bd u@(UnsafeUpdate _) =
 Conflict Test
 -}
 
--- |noConflict fc fcs  where fc is a new face and fcs are neighbouring faces.
+-- |noConflictFull fc fcs  where fc is a new face and fcs are neighbouring faces.
 -- There is no conflict if none of the new directed face edges of fc are already directed edges
 -- of neighbouring faces fcs (in the same direction)
 -- and the edge length types (phi/nonPhi) do not conflict.
+noConflictFull :: TileFace -> [TileFace] -> Bool
+noConflictFull fc fcs = null (faceDedges fc `intersect` facesDedges fcs) && noConflict fc fcs
+
+-- |noConflict fc fcs  where fc is a new face and fcs are neighbouring faces.
+-- Just checks the shared edge length types (phi/nonPhi) do not conflict.
 noConflict :: TileFace -> [TileFace] -> Bool
-noConflict fc fcs = null (faceDedges fc `intersect` facesDedges fcs) &&
-                    null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
+noConflict fc fcs = null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
                     null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
 
 
@@ -507,8 +515,9 @@ Forcing will not discover that the result is stuck without the check.
 
 This relies on a proof that a boundary vertex with external angle less than 4 (tenth turns) must either be stuck
 or have a unique addition possible on one of the neighbouring boundary edges. 
-(e.g. by considering forced boundary vertex contexts)
+(e.g. by considering forced boundary vertex contexts without using tryFinalStuckCheck)
 -}
+
 tryFinalStuckCheck:: ForceState -> Try ForceState
 tryFinalStuckCheck fs =
   case find ((<4) . externalAngle bs) bvs of
@@ -517,8 +526,7 @@ tryFinalStuckCheck fs =
                       " in Tgraph:\n" ++ show (recoverGraph bs)
   where bs = boundaryState fs
         bvs = fmap fst (boundary bs)
-
-      
+    
 {-*
 Forcing Rules and Individual Update Generators (for each rule)
 -}

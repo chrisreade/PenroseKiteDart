@@ -1131,11 +1131,11 @@ forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5
 
 -- | Local forced contexts for vertex types: dart origin, kite origin, kite wing, kite opp
 dartOriginContexts,kiteOriginContexts,kiteWingContexts,kiteOppContexts:: [Tgraph]
-dartOriginContexts = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LD (1,3,2)]
-kiteOriginContexts = fmap recoverGraph $ forcedBVContexts 2 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (2,1,3)]
-kiteWingContexts   = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (2,1,3)]
-kiteOppContexts    = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (3,2,1)]
-
+dartOriginContexts = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LD (1,3,2)]
+kiteOriginContexts = fmap recoverGraph $ forcedBVContexts 2 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (2,1,3)]
+kiteWingContexts   = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (2,1,3)]
+kiteOppContexts    = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (3,2,1)]
+     
 -- |drawVContext v e g - draws the Tgraph g with vertex v shown red and edge e aligned on the x-axis and
 -- the composition of g shown in yellow.
 -- It raises an error if the vertex or edge is not found.

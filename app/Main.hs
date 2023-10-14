@@ -48,8 +48,9 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = padBorder $ smart drawLabelLarge $ makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]
+fig = forcedBVContextsFig
 
+main :: IO ()
 main = mainWith fig
 
 
