@@ -1506,7 +1506,7 @@ reportFailTest1 a = runTry $ onFail "reportFailTest1:\n" $ do
   c <- onFail "first call:\n"  $ eitherExample (b-1)
   d <- onFail "second call:\n" $ eitherExample (c-1)
   e <- onFail "third call:\n"  $ eitherExample (d-1)
-  return (a,b,c,d,e)
+  pure (a,b,c,d,e)
 
 -- | testing Try  - try arguments 0..3   only 2 succeeds
 reportFailTest2 :: Int -> (Int,Maybe Int,Int,Int)
@@ -1514,7 +1514,7 @@ reportFailTest2 a = runTry $ onFail "reportFailTest2:\n" $ do
   b <- eitherMaybeExample a
   c <- b `nothingFail` "eitherMaybeExample produced Nothing\n"
   d <- onFail "trying eitherExample:\n" $ eitherExample (c-1)
-  return (a,b,c,d)
+  pure (a,b,c,d)
 
 -- | for testing in reportFailTest1 and reportFailTest2
 eitherExample :: Int -> Try Int

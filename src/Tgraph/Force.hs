@@ -151,7 +151,7 @@ type UpdateGenerator = BoundaryState -> [Dedge] -> Try UpdateMap
 Forcible class and instances for Tgraph, BoundaryState, and ForceState
 -}
 
--- | Forcible class
+-- | Forcible class (instances Tgraph, BoundaryState, ForceState)
 class Forcible a where
 -- | try forcing using a given UpdateGenerator
     tryForceWith :: UpdateGenerator -> a -> Try a
@@ -164,7 +164,7 @@ class Forcible a where
 instance Forcible ForceState where
     tryForceWith = tryForceStateWith
     tryStepForceWith = tryStepForceStateWith
-    tryInitFSWith ugen = return
+    tryInitFSWith ugen = pure
 
 {-| tryForceStateWith uGen fs implements tryForceWith for ForceStates.
 tryForceStateWith uGen fs - recursively does updates using uGen until there are no more updates.
@@ -190,10 +190,10 @@ tryForceStateWith uGen = retry where
 -- try a number of force steps using a given UpdateGenerator
 tryStepForceStateWith :: UpdateGenerator -> ForceState -> Int -> Try ForceState
 tryStepForceStateWith updateGen = count where
-  count fs 0 = return fs
+  count fs 0 = pure fs
   count fs n = do result <- tryOneStepWith updateGen fs
                   case result of
-                   Nothing -> return fs
+                   Nothing -> pure fs
                    Just (fs', _) ->  count fs' (n-1)
 
 -- | BoundaryStates are Forcible    
@@ -201,14 +201,14 @@ instance Forcible BoundaryState where
     tryForceWith ugen bd = do 
         fs <- tryInitFSWith ugen bd
         fs' <- tryForceWith ugen fs 
-        return $ boundaryState fs'
+        pure $ boundaryState fs'
     tryStepForceWith ugen bd n = do 
         fs <- tryInitFSWith ugen bd
         fs' <- tryStepForceWith ugen fs n
-        return $ boundaryState fs'
+        pure $ boundaryState fs'
     tryInitFSWith ugen bd = do
         umap <- ugen bd (boundary bd)
-        return $ ForceState { boundaryState = bd , updateMap = umap }
+        pure $ ForceState { boundaryState = bd , updateMap = umap }
 
 -- | Tgraphs are Forcible    
 instance Forcible Tgraph where
@@ -273,12 +273,12 @@ tryOneStepWith uGen fs =
       case findSafeUpdate (updateMap fs) of
       Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
                    umap <- tryReviseUpdates uGen bdChange (updateMap fs)
-                   return $ Just (ForceState{ boundaryState = newBoundaryState bdChange, updateMap = umap},bdChange)
+                   pure $ Just (ForceState{ boundaryState = newBoundaryState bdChange, updateMap = umap},bdChange)
       _  -> do maybeBdC <- tryUnsafes fs
                case maybeBdC of
                 Just bdC -> do umap <- tryReviseUpdates uGen bdC (updateMap fs)
-                               return $ Just (ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap},bdC)
-                Nothing  -> return Nothing           -- no more updates
+                               pure $ Just (ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap},bdC)
+                Nothing  -> pure Nothing           -- no more updates
 
 -- |tryOneStepF is a special case of tryOneStepWith only used for debugging
 tryOneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
@@ -337,7 +337,7 @@ tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateM
 tryReviseUpdates uGen bdChange umap = 
   do let umap' = foldr Map.delete umap (removedEdges bdChange)
      umap'' <- uGen (newBoundaryState bdChange) (revisedEdges bdChange) 
-     return (Map.union umap'' umap')
+     pure (Map.union umap'' umap')
 
 
 {-*
@@ -363,11 +363,11 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
 tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
 tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
   bd = boundaryState fs
-  tryList [] = return Nothing
+  tryList [] = pure Nothing
   tryList (u: more) = do maybeBdC <- tryUnsafeUpdate bd u 
                          case maybeBdC of
                            Nothing -> tryList more
-                           other -> return other
+                           other -> pure other
 
 {-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
      (raising an error if u is a safe update).
@@ -383,15 +383,13 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
        newFace = makeFace v
        oldVPoints = bvLocMap bd
        newVPoints = addVPoint newFace oldVPoints
---       newVPoints = addVPoints [newFace] [] oldVPoints
        Just vPosition = VMap.lookup v newVPoints
        fDedges = faceDedges newFace
        matchedDedges = fDedges `intersect` boundary bd -- singleton
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
        nbrFaces = facesAtBV bd x `intersect` facesAtBV bd y where 
                     [x,y] = faceVList newFace \\ [v]
-           --nub $ concatMap (facesAtBV bd) (faceVList newFace \\ [v])
-       resultBd = BoundaryState 
+       resultBd = BoundaryState -- only used for error reporting
                     { boundary = newDedges ++ (boundary bd \\ matchedDedges)
                     , bvFacesMap = changeVFMap newFace (bvFacesMap bd)
                     , bvLocMap = newVPoints
@@ -475,13 +473,13 @@ commonVs es = error $ "commonVs: unexpected argument edges (not 2 consecutive di
 
 -- |tryUpdate: tries a single update (safe or unsafe),
 -- producing Left report if the update creates a touching vertex in the unsafe case,
--- or if it discovers a stuck/incorrect graph
+-- or if it discovers a stuck/incorrect Tgraph
 tryUpdate:: BoundaryState -> Update -> Try BoundaryChange
 tryUpdate bd u@(SafeUpdate _) = trySafeUpdate bd u
 tryUpdate bd u@(UnsafeUpdate _) = 
   do maybeBdC <- tryUnsafeUpdate bd u
      case maybeBdC of
-       Just bdC -> return bdC
+       Just bdC -> pure bdC
        Nothing -> Left "tryUpdate: crossing boundary (touching vertices).\n"
 
 {-*
@@ -499,13 +497,17 @@ noConflict fc fcs = null (faceDedges fc `intersect` facesDedges fcs) &&
 
 
 {- |
-tryFinalStuckCheck is designed to check a final force state.
+tryFinalStuckCheck is designed to check a final force state (in tryForceStateWith).
 The final state is rejected as having a stuck Tgraph if any boundary vertex external angle is less than 4 (tenth turns).
 This check is now included in tryForceStateWith to catch examples like
 
   makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)] 
 
-Forcing will not discover that the result is stuck without the check.            
+Forcing will not discover that the result is stuck without the check.
+
+This relies on a proof that a boundary vertex with external angle less than 4 (tenth turns) must either be stuck
+or have a unique addition possible on one of the neighbouring boundary edges. 
+(e.g. by considering forced boundary vertex contexts)
 -}
 tryFinalStuckCheck:: ForceState -> Try ForceState
 tryFinalStuckCheck fs =
@@ -570,11 +572,11 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
 allUGenerator :: UpdateGenerator 
 allUGenerator bd focus =
   do  (_ , umap) <- foldl' addGen (Right (focus,Map.empty)) generators
-      return umap
+      pure umap
   where
     addGen (Right (es,umap)) gen = do umap' <- gen bd es
                                       let es' = es \\ Map.keys umap'
-                                      return (es',Map.union umap' umap) 
+                                      pure (es',Map.union umap' umap) 
     addGen other gen = other  -- fails with first failing generator
     generators = [ wholeTileUpdates          -- (rule 1)
                  , aceKiteUpdates            -- (rule 2)
@@ -720,7 +722,7 @@ makeGenerator checker finder = gen where
   gen bd edges = foldr addU (Right Map.empty) (finder bd edges) where
                  addU (e,fc) (Left x) = Left x 
                  addU (e,fc) (Right ump) = do u <- checker bd fc
-                                              return (Map.insert e u ump)
+                                              pure (Map.insert e u ump)
 
                          
 {-*
@@ -1044,7 +1046,7 @@ addHalfKite e  = runTry . tryAddHalfKite e
 tryAddHalfKite :: Dedge -> Tgraph -> Try Tgraph
 tryAddHalfKite e g = 
   do bdFinal <- tryAddHalfKiteBoundary e $ makeBoundaryState g
-     return $ recoverGraph bdFinal
+     pure $ recoverGraph bdFinal
 
 -- |tryAddHalfKiteBoundary is a version of tryAddHalfKite which is from BoundaryState to BoundaryState
 tryAddHalfKiteBoundary :: Dedge -> BoundaryState -> Try BoundaryState
@@ -1059,7 +1061,7 @@ tryAddHalfKiteBoundary e bd =
               | otherwise = Left "tryAddHalfKiteBoundary: applied to dart join (not possible).\n"
      u <- tryU
      bdC <- tryUpdate bd u
-     return $ newBoundaryState bdC
+     pure $ newBoundaryState bdC
 
 -- |addHalfDart is for adding a single half dart on a chosen Dedge of a Tgraph.
 -- The Dedge must be a boundary edge but the direction is not important as
@@ -1077,7 +1079,7 @@ addHalfDart e = runTry . tryAddHalfDart e
 tryAddHalfDart :: Dedge -> Tgraph -> Try Tgraph
 tryAddHalfDart e g = 
   do bdFinal <- tryAddHalfDartBoundary e $ makeBoundaryState g
-     return $ recoverGraph bdFinal
+     pure $ recoverGraph bdFinal
 
 -- |tryAddHalfDartBoundary is a version of tryAddHalfDart which is from BoundaryState to BoundaryState
 tryAddHalfDartBoundary :: Dedge -> BoundaryState -> Try BoundaryState
@@ -1092,7 +1094,7 @@ tryAddHalfDartBoundary e bd =
               | otherwise = Left "tryAddHalfDartBoundary: applied to short edge of dart or to kite join (not possible).\n"
      u <- tryU
      bdC <- tryUpdate bd u
-     return $ newBoundaryState bdC
+     pure $ newBoundaryState bdC
 
 
 

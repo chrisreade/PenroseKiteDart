@@ -92,7 +92,7 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
      let fcs = faces g1 `union` faces g3
          touchVs = touchingVertices fcs
      if null touchVs
-     then return $ Tgraph { faces = fcs, maxV = facesMaxV fcs } -- no properties check needed!
+     then pure $ Tgraph { faces = fcs, maxV = facesMaxV fcs } -- no properties check needed!
      else let vertg1 = vertexSet g1
               correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
               newrel = newRelabelling $ fmap correct touchVs
@@ -132,7 +132,7 @@ tryMatchByEdges (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryMatchByEdges:\n" $
                    ("No matching face found at edge "++show (x1,y1)++
                     "\nfor relabelled face " ++ show fc2)  
      rlab <- findRelabelling (g1,fc1) (g2prepared,fc2)
-     return $ relabelGraph rlab g2prepared
+     pure $ relabelGraph rlab g2prepared
  
 {- *
 Creating and Using Relabellings
@@ -332,7 +332,7 @@ sameGraph :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Bool
 sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
                              ifFail False tryResult where
  tryResult = do g <- tryMatchByEdges (g1,e1) (g2,e2)
-                return (vertexSet g == vertexSet g1)
+                pure (vertexSet g == vertexSet g1)
 
 
 {- *

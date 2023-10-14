@@ -552,7 +552,7 @@ superForceBdry = runTry . trySuperForceBdry
 -- Otherwise Right g' is returned where g' is the super forced g.
 trySuperForce :: Tgraph -> Try Tgraph
 trySuperForce g = do bd <- trySuperForceBdry (makeBoundaryState g)
-                     return (recoverGraph bd)
+                     pure (recoverGraph bd)
 
 -- |trySuperForceBdry - same as trySuperForce but for boundary states
 trySuperForceBdry :: BoundaryState -> Try BoundaryState
@@ -560,7 +560,7 @@ trySuperForceBdry bd =
     do forcebd <- onFail "trySuperForceBdry: force failed (incorrect Tgraph)\n" $
                   tryForce bd
        case singleChoiceEdges forcebd of
-          [] -> return forcebd
+          [] -> pure forcebd
           (pr:_) -> do extended <-  addHT pr forcebd
                        trySuperForceBdry extended
   where

@@ -40,14 +40,15 @@ library:
     - Tgraph.Convert
     - Tgraph.Relabelling
     - TgraphExamples
-    - TestIllustrate
     - ChosenBackend
+    - TestIllustrate
     - ArtWork
 executables:
   PenroseKiteDart-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
+    - -Wall
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
@@ -56,16 +57,6 @@ executables:
     when:        
     - condition: false        
       other-modules: Paths_PenroseKiteDart
-  PKDbench-exe:          # the actual executable name
-    main:               Bench.hs  # module must be 'Main'
-    source-dirs:        benchmark
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies: 
-    - PenroseKiteDart
-    
 tests:
   PenroseKiteDart-test:
     main:                Spec.hs
