@@ -17,7 +17,7 @@ import Diagrams.Prelude
 
 import ChosenBackend (B)
 import TileLib
-import HalfTile
+-- import HalfTile
 
 
 {-*
@@ -31,6 +31,7 @@ thePieces =  [ldart, rdart, lkite, rkite]
 piecesFig :: Diagram B
 piecesFig = hsep 0.5 $ fmap (showOrigin . dashjPiece) thePieces 
 -- |filled 4 pieces in a row         
+piecesFig2 :: Diagram B
 piecesFig2 = hsep 1 $ fmap (leftFillDK red blue) thePieces ++ fmap dashjPiece thePieces 
 
 

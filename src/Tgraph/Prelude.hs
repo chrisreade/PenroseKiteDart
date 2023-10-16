@@ -15,12 +15,11 @@ This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, union, nub, elemIndex,foldl')
+import Data.List ((\\), intersect, elemIndex,foldl')
 import Data.Either(fromRight, lefts, rights)
-import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!),fromAscList)
+import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!))
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup)
-import Control.Monad(liftM) -- for Try
 
 import HalfTile
 
@@ -505,7 +504,6 @@ facesEdges = bothDir . facesDedges
 -- It assumes no duplicates in argument.
 bothDir:: [Dedge] -> [Dedge]
 bothDir es = missingRevs es ++ es
--- bothDir = nub . bothDirOneWay
 
 -- |bothDirOneWay adds all the reverse directed edges to a list of directed edges
 -- without checking for duplicates.

@@ -206,6 +206,16 @@ mistake = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1), LD (3,5,7)
 mistake1:: Tgraph
 mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 
+-- |Figure showing an incorrect tiling (left) and the result of forcing without the final stuck check (right).
+-- The final stuck check is necessary to catch this as an incorrect tiling.
+finalStuckCheckFig :: Diagram B
+finalStuckCheckFig = padBorder $ hsep 1 $ fmap (smart drawLabelLarge) [g,fg] where
+  g = makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]
+  fg = makeTgraph [LK (4,21,17),RK (4,20,21),LK (4,19,20),RK (4,18,19),LK (4,10,18)
+                  ,RK (4,17,6),LD (9,6,17),LK (1,16,7),RK (1,15,16),LK (1,14,15)
+                  ,RK (1,13,14),LK (1,12,13),RK (1,11,12),LK (1,5,11),RD (9,11,5)
+                  ,RK (4,8,10),LD (9,5,3),RD (9,3,6),LK (1,2,3),RK (4,3,2),RK (1,3,5)
+                  ,LK (4,6,3),RK (1,7,2),LK (4,2,8)]
 {-*
 Figures for 7 vertex types
 -}
@@ -257,6 +267,31 @@ forceVFigures = rotations [0,0,9,5,0,0,1] $
 {-| forceVsFig shows force of the 7 vertex types in a row as single diagram -}
 forceVsFig :: Diagram B
 forceVsFig = padBorder $ hsep 1 forceVFigures
+
+{-*
+Sun with darts and superForce example
+-}
+
+sun1Dart,sun2AdjDart,sun2Dart,sun3AdjDart,sun3Dart :: Tgraph
+-- |A sun with a single complete dart on the boundary
+sun1Dart = addHalfDart (3,4) $ addHalfDart (2,3) sunGraph
+-- |A sun with 2 darts adjacent on the boundary
+sun2AdjDart = addHalfDart (5,6) $ addHalfDart (4,5) sun1Dart
+-- |A sun with 2 darts NOT adjacent on the boundary
+sun2Dart = addHalfDart (7,8) $ addHalfDart (6,7) sun1Dart
+-- |A sun with 3 darts adjacent on the boundary
+sun3AdjDart = addHalfDart (7,8) $ addHalfDart (6,7) sun2AdjDart
+-- |A sun with 3 darts on the boundary NOT all adjacent
+sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) sun2AdjDart
+
+
+-- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
+-- of sun3Dart. The decompositions are in red with normal force in black and superforce additions in blue.
+superForceRocketsFig :: Diagram B
+superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
+   fmap drawSuperForce decomps where
+      decomps = take 4 $ decompositions sun3Dart
+
 
 {-*
 Other miscelaneous Tgraphs and Diagrams

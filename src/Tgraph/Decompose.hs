@@ -11,7 +11,7 @@ some auxiliary functions for debugging and experimenting.
 -}
 module Tgraph.Decompose where
 
-import qualified Data.Map.Strict as Map (Map, lookup, insert, empty, (!))
+import qualified Data.Map.Strict as Map (insert, empty, (!))
 import Data.List(sort,foldl')
 
 import Tgraph.Prelude
@@ -46,6 +46,7 @@ maxAndPhiVMap g = (oldMax+sizeNew, (Map.!) edgeVMap) where
 --BEWARE: Changing foldl' may alter the order of numbering
   (_, edgeVMap) = foldl' insert2 (newVs, Map.empty) phiReps
   insert2 (v:vs,emap) e = (vs, Map.insert e v $ Map.insert (reverseD e) v emap)
+  insert2 ([],emap) e = error $ "maxAndPhiVMap: insufficient vertices to assign"
 
 -- |Decompose a face producing new faces. 
 -- This requires a function to get the unique vertex assigned to each phi edge

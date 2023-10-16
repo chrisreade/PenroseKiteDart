@@ -16,8 +16,8 @@ It uses a touching check for adding new vertices (using Tgraph.Convert.creatVPoi
 module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
-import qualified Data.Map as Map (Map, empty, delete, elems, assocs, insert, union, keys) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, insert, empty, alter, delete, lookup, null, (!))
+import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
+import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
             -- used for BoundaryState locations AND faces at boundary vertices
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Convert(touching, locateVertices, addVPoint)
@@ -164,7 +164,7 @@ class Forcible a where
 instance Forcible ForceState where
     tryForceWith = tryForceStateWith
     tryStepForceWith = tryStepForceStateWith
-    tryInitFSWith ugen = pure
+    tryInitFSWith _  = return
 
 {-| tryForceStateWith uGen fs implements tryForceWith for ForceStates.
 tryForceStateWith uGen fs - recursively does updates using uGen until there are no more updates.
@@ -190,10 +190,10 @@ tryForceStateWith uGen = retry where
 -- try a number of force steps using a given UpdateGenerator
 tryStepForceStateWith :: UpdateGenerator -> ForceState -> Int -> Try ForceState
 tryStepForceStateWith updateGen = count where
-  count fs 0 = pure fs
+  count fs 0 = return fs
   count fs n = do result <- tryOneStepWith updateGen fs
                   case result of
-                   Nothing -> pure fs
+                   Nothing -> return fs
                    Just (fs', _) ->  count fs' (n-1)
 
 -- | BoundaryStates are Forcible    
@@ -201,14 +201,14 @@ instance Forcible BoundaryState where
     tryForceWith ugen bd = do 
         fs <- tryInitFSWith ugen bd
         fs' <- tryForceWith ugen fs 
-        pure $ boundaryState fs'
+        return $ boundaryState fs'
     tryStepForceWith ugen bd n = do 
         fs <- tryInitFSWith ugen bd
         fs' <- tryStepForceWith ugen fs n
-        pure $ boundaryState fs'
+        return $ boundaryState fs'
     tryInitFSWith ugen bd = do
         umap <- ugen bd (boundary bd)
-        pure $ ForceState { boundaryState = bd , updateMap = umap }
+        return $ ForceState { boundaryState = bd , updateMap = umap }
 
 -- | Tgraphs are Forcible    
 instance Forcible Tgraph where
@@ -273,12 +273,12 @@ tryOneStepWith uGen fs =
       case findSafeUpdate (updateMap fs) of
       Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
                    umap <- tryReviseUpdates uGen bdChange (updateMap fs)
-                   pure $ Just (ForceState{ boundaryState = newBoundaryState bdChange, updateMap = umap},bdChange)
+                   return $ Just (ForceState{ boundaryState = newBoundaryState bdChange, updateMap = umap},bdChange)
       _  -> do maybeBdC <- tryUnsafes fs
                case maybeBdC of
                 Just bdC -> do umap <- tryReviseUpdates uGen bdC (updateMap fs)
-                               pure $ Just (ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap},bdC)
-                Nothing  -> pure Nothing           -- no more updates
+                               return $ Just (ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap},bdC)
+                Nothing  -> return Nothing           -- no more updates
 
 -- |tryOneStepF is a special case of tryOneStepWith only used for debugging
 tryOneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
@@ -303,15 +303,10 @@ data BoundaryChange = BoundaryChange
                        , newFace :: TileFace -- ^ face added in the change
                        } deriving (Show)
 
-{-| Given a BoundaryState with a list of one boundary edge or
-     two adjacent boundary edges (or exceptionally no boundary edges)
-     that have been newly added,
-     it creates a list of adjacent boundary edges (3 or 4 or none)
-     that are affected. Namely, the boundary edges sharing a vertex with a new edge.
-     For an unsafe update this will be
-     4 edges including the 2 new ones. (Used to make revisedEdges in a BoundaryChange)
-     For a safe update this will be
-     the single new edge + edges either side on the boundary, or exceptionally no edges.
+{-| Given a BoundaryState with a list of one new boundary edge or
+     two adjacent new boundary edges (or exceptionally no new boundary edges) to be added,
+     it extends the list with adjacent boundary edges (to produce 3 or 4 or none).
+     (Used to make revisedEdges in a BoundaryChange)
      (When a face is fitted in to a hole with 3 sides there is no new boundary.)
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
@@ -327,7 +322,7 @@ affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
            bdry = boundary bd
            (x,_) = mustFind ((==c).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show c ++ "\n")
            (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b ++ "\n")
-affectedBoundary bd [] = []
+affectedBoundary _ [] = []
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected new boundary edges " ++ show edges ++ "\n"
 
 
@@ -337,7 +332,7 @@ tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateM
 tryReviseUpdates uGen bdChange umap = 
   do let umap' = foldr Map.delete umap (removedEdges bdChange)
      umap'' <- uGen (newBoundaryState bdChange) (revisedEdges bdChange) 
-     pure (Map.union umap'' umap')
+     return (Map.union umap'' umap')
 
 
 {-*
@@ -363,11 +358,11 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
 tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
 tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
   bd = boundaryState fs
-  tryList [] = pure Nothing
+  tryList [] = return Nothing
   tryList (u: more) = do maybeBdC <- tryUnsafeUpdate bd u 
                          case maybeBdC of
                            Nothing -> tryList more
-                           other -> pure other
+                           other -> return other
 
 {-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
      (raising an error if u is a safe update).
@@ -377,41 +372,44 @@ tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
      Otherwise it returns Right (Just bdc) with bdc a boundary change.
 -}
 tryUnsafeUpdate:: BoundaryState -> Update -> Try (Maybe BoundaryChange)
-tryUnsafeUpdate bd (SafeUpdate _) = error  "tryUnsafeUpdate: applied to safe update.\n"
+tryUnsafeUpdate _  (SafeUpdate _) = error  "tryUnsafeUpdate: applied to safe update.\n"
 tryUnsafeUpdate bd (UnsafeUpdate makeFace) = 
    let v = nextVertex bd       
-       newFace = makeFace v
+       newface = makeFace v
        oldVPoints = bvLocMap bd
-       newVPoints = addVPoint newFace oldVPoints
+       newVPoints = addVPoint newface oldVPoints
        Just vPosition = VMap.lookup v newVPoints
-       fDedges = faceDedges newFace
+       fDedges = faceDedges newface
        matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
 --       matchedDedges = fDedges `intersect` boundary bd -- singleton
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
+{-
        nbrFaces = facesAtBV bd x `intersect` facesAtBV bd y where 
-                    [x,y] = faceVList newFace \\ [v]
-       resultBd = BoundaryState -- only used for error reporting
+                    [x,y] = faceVList newface \\ [v]
+-}
+       resultBd = BoundaryState
                     { boundary = newDedges ++ (boundary bd \\ matchedDedges)
-                    , bvFacesMap = changeVFMap newFace (bvFacesMap bd)
+                    , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
-                    , allFaces = newFace:allFaces bd
+                    , allFaces = newface:allFaces bd
                     , nextVertex = v+1
                     }
        bdChange = BoundaryChange 
                     { newBoundaryState = resultBd
                     , removedEdges = matchedDedges
                     , revisedEdges = affectedBoundary resultBd newDedges
-                    , newFace = newFace
+                    , newFace = newface
                     }
-   in if touchCheck vPosition oldVPoints -- always False if touchCheckOn = False
-      then Right Nothing -- don't proceed - v is a touching vertex
+   in if touchCheck vPosition oldVPoints -- true if new vertex is blocked because it touches the boundary elsewhere
+      then Right Nothing -- don't proceed when v is a touching vertex
       else Right (Just bdChange) 
 {-  no conflict check is unnecessary for unsafeUpdate
-      else if noConflict newFace nbrFaces  -- check new face does not conflict on edges
+  
+      else if noConflict newface nbrFaces  -- check new face does not conflict on edges
            then Right (Just bdChange)  
            else Left $
                  "tryUnsafeUpdate:(incorrect tiling)\nConflicting new face  "
-                 ++ show newFace
+                 ++ show newface
                  ++ "\nwith neighbouring faces\n"
                  ++ show nbrFaces
                  ++ "\nIn graph:\n"
@@ -429,17 +427,17 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
     in a triangle (and removes 3 boundary vertices), closing a hole.
 -}
 trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
-trySafeUpdate bd (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
-trySafeUpdate bd (SafeUpdate newFace) = 
-   let fDedges = faceDedges newFace
+trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
+trySafeUpdate bd (SafeUpdate newface) = 
+   let fDedges = faceDedges newface
        matchedDedges = fDedges `intersect` boundary bd -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState 
                    { boundary = newDedges ++ (boundary bd \\ matchedDedges)
-                   , bvFacesMap = changeVFMap newFace (bvFacesMap bd)
-                   , allFaces = newFace:allFaces bd
+                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
+                   , allFaces = newface:allFaces bd
                    , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
                                --remove vertex/vertices no longer on boundary
                    , nextVertex = nextVertex bd
@@ -448,12 +446,12 @@ trySafeUpdate bd (SafeUpdate newFace) =
                    { newBoundaryState = resultBd
                    , removedEdges = matchedDedges
                    , revisedEdges = affectedBoundary resultBd newDedges
-                   , newFace = newFace
+                   , newFace = newface
                    }
-   in if noConflict newFace nbrFaces 
+   in if noConflict newface nbrFaces 
       then Right bdChange 
       else Left $ "trySafeUpdate:(incorrect tiling)\nConflicting new face  "
-                   ++ show newFace
+                   ++ show newface
                    ++ "\nwith neighbouring faces\n"
                    ++ show nbrFaces
                    ++ "\nIn graph:\n"
@@ -483,7 +481,7 @@ tryUpdate bd u@(SafeUpdate _) = trySafeUpdate bd u
 tryUpdate bd u@(UnsafeUpdate _) = 
   do maybeBdC <- tryUnsafeUpdate bd u
      case maybeBdC of
-       Just bdC -> pure bdC
+       Just bdC -> return bdC
        Nothing -> Left "tryUpdate: crossing boundary (touching vertices).\n"
 
 {-*
@@ -526,6 +524,7 @@ tryFinalStuckCheck fs =
                       " in Tgraph:\n" ++ show (recoverGraph bs)
   where bs = boundaryState fs
         bvs = fmap fst (boundary bs)
+
     
 {-*
 Forcing Rules and Individual Update Generators (for each rule)
@@ -580,12 +579,12 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
 allUGenerator :: UpdateGenerator 
 allUGenerator bd focus =
   do  (_ , umap) <- foldl' addGen (Right (focus,Map.empty)) generators
-      pure umap
+      return umap
   where
     addGen (Right (es,umap)) gen = do umap' <- gen bd es
                                       let es' = es \\ Map.keys umap'
-                                      pure (es',Map.union umap' umap) 
-    addGen other gen = other  -- fails with first failing generator
+                                      return (es',Map.union umap' umap) 
+    addGen other _  = other  -- fails with first failing generator
     generators = [ wholeTileUpdates          -- (rule 1)
                  , aceKiteUpdates            -- (rule 2)
                  , queenOrKingUpdates        -- (rule 3)
@@ -728,9 +727,9 @@ Individual Forcing cases (for each rule)
 makeGenerator :: UChecker -> UFinder -> UpdateGenerator
 makeGenerator checker finder = gen where
   gen bd edges = foldr addU (Right Map.empty) (finder bd edges) where
-                 addU (e,fc) (Left x) = Left x 
+                 addU _      (Left x) = Left x 
                  addU (e,fc) (Right ump) = do u <- checker bd fc
-                                              pure (Map.insert e u ump)
+                                              return (Map.insert e u ump)
 
                          
 {-*
@@ -744,7 +743,7 @@ wholeTileUpdates = makeGenerator completeHalf incompleteHalves
 -- |Find faces with missing opposite face (mirror face)  
 incompleteHalves :: UFinder 
 incompleteHalves = boundaryFilter boundaryJoin where
-    boundaryJoin bd (a,b) fc = joinE fc == (b,a)
+    boundaryJoin _ (a,b) fc = joinE fc == (b,a)
 
 
 -- |Update generator for rule (2)
@@ -754,7 +753,7 @@ aceKiteUpdates = makeGenerator addKiteShortE nonKDarts
 -- |Find half darts with boundary short edge
 nonKDarts :: UFinder            
 nonKDarts = boundaryFilter bShortDarts where
-    bShortDarts bd (a,b) fc = isDart fc && shortE fc == (b,a)
+    bShortDarts _ (a,b) fc = isDart fc && shortE fc == (b,a)
 
 
 -- |Update generator for rule (3)
@@ -924,7 +923,7 @@ addDartShortE bd (RK(_,b,c)) = checkUpdate makeFace x where
 addDartShortE bd (LK(_,b,c)) = checkUpdate makeFace x where
         makeFace v = RD(v,c,b)
         x = tryFindThirdV bd (c,b) (1,3) --anglesForShortRD
-addDartShortE bd _ = error "addDartShortE applied to non-kite face\n"
+addDartShortE _  _ = error "addDartShortE applied to non-kite face\n"
 
 -- |add a kite half to a kite long edge or dart half to a dart long edge
 completeSunStar :: UChecker
@@ -989,6 +988,32 @@ anglesForShortRK = (2,2)
 -- all boundary edges passed as argument producing  a single Left..(fail report) if there are any.
 defaultAllUGen :: UpdateGenerator
 defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
+  decide e = decider (e,fc,etype) where (fc,etype) = inspectBDedge bd e
+  decider (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
+  decider (e,fc,Short) 
+    | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2
+    | otherwise = kiteShortDecider e fc 
+  decider (e,fc,Long)  
+    | isDart fc = dartLongDecider e fc
+    | otherwise = kiteLongDecider e fc 
+  dartLongDecider e fc
+    | mustbeStar bd (originV fc) = mapItem e (completeSunStar bd fc)
+    | mustbeKing bd (originV fc) = mapItem e (addDartLongE bd fc)
+    | mustbeJack bd (wingV fc) = mapItem e (addKiteLongE bd fc)
+    | otherwise = Right Map.empty
+  kiteLongDecider e fc
+    | mustbeSun bd (originV fc) = mapItem e (completeSunStar bd fc)
+    | mustbeQueen4Kite bd (wingV fc) = mapItem e (addDartLongE bd fc)
+    | otherwise = Right Map.empty
+  kiteShortDecider e fc
+    | mustbeDeuce bd (oppV fc) || mustbeJack bd (oppV fc) = mapItem e (addDartShortE bd fc)
+    | mustbeQueen3Kite bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
+    | otherwise = Right Map.empty
+  mapItem e = fmap (\u -> Map.insert e u Map.empty)
+  combine = fmap mconcat . concatFails -- concatenates all failure reports
+{-
+defaultAllUGen :: UpdateGenerator
+defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
   decide e = decider bd (e,fc,etype) where (fc,etype) = inspectBDedge bd e
   decider bd (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
   decider bd (e,fc,Short) 
@@ -1012,6 +1037,7 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
     | otherwise = Right Map.empty
   mapItem e = fmap (\u -> Map.insert e u Map.empty)
   combine = fmap mconcat . concatFails -- concatenates all failure reports
+-}
   
 
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
@@ -1054,7 +1080,7 @@ addHalfKite e  = runTry . tryAddHalfKite e
 tryAddHalfKite :: Dedge -> Tgraph -> Try Tgraph
 tryAddHalfKite e g = 
   do bdFinal <- tryAddHalfKiteBoundary e $ makeBoundaryState g
-     pure $ recoverGraph bdFinal
+     return $ recoverGraph bdFinal
 
 -- |tryAddHalfKiteBoundary is a version of tryAddHalfKite which is from BoundaryState to BoundaryState
 tryAddHalfKiteBoundary :: Dedge -> BoundaryState -> Try BoundaryState
@@ -1069,7 +1095,7 @@ tryAddHalfKiteBoundary e bd =
               | otherwise = Left "tryAddHalfKiteBoundary: applied to dart join (not possible).\n"
      u <- tryU
      bdC <- tryUpdate bd u
-     pure $ newBoundaryState bdC
+     return $ newBoundaryState bdC
 
 -- |addHalfDart is for adding a single half dart on a chosen Dedge of a Tgraph.
 -- The Dedge must be a boundary edge but the direction is not important as
@@ -1087,7 +1113,7 @@ addHalfDart e = runTry . tryAddHalfDart e
 tryAddHalfDart :: Dedge -> Tgraph -> Try Tgraph
 tryAddHalfDart e g = 
   do bdFinal <- tryAddHalfDartBoundary e $ makeBoundaryState g
-     pure $ recoverGraph bdFinal
+     return $ recoverGraph bdFinal
 
 -- |tryAddHalfDartBoundary is a version of tryAddHalfDart which is from BoundaryState to BoundaryState
 tryAddHalfDartBoundary :: Dedge -> BoundaryState -> Try BoundaryState
@@ -1102,7 +1128,7 @@ tryAddHalfDartBoundary e bd =
               | otherwise = Left "tryAddHalfDartBoundary: applied to short edge of dart or to kite join (not possible).\n"
      u <- tryU
      bdC <- tryUpdate bd u
-     pure $ newBoundaryState bdC
+     return $ newBoundaryState bdC
 
 
 

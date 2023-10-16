@@ -289,8 +289,7 @@ compChoices lp = case viewLoc lp of
   (p, LK vk)-> [ RD vk  `at` p
                , RK rvk' `at` (p .+^ rv')
                , LK lvk' `at` (p .+^ lv')
-               ] where v0 = rotate (ttangle 1) vk
-                       lv'  = phi*^rotate (ttangle 9) vk
+               ] where lv'  = phi*^rotate (ttangle 9) vk
                        rv'  = phi*^rotate (ttangle 1) vk
                        rvk' = phi*^rotate (ttangle 7) vk
                        lvk' = phi*^rotate (ttangle 3) vk
@@ -344,7 +343,7 @@ phiScales = phiScaling 1
 
 -- |increasing scales by phi along a list starting with given first argument
 phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
-phiScaling s [] = []
+phiScaling _ [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
 
 

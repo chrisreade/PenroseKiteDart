@@ -37,8 +37,8 @@ import ChosenBackend (B)
 import TileLib
 
 import Data.List (intersect, union, (\\), find, foldl',nub, transpose)      
-import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,map,delete,insert,toList,(\\))-- used for boundary covers
-import qualified Data.IntSet as IntSet (IntSet,fromList,isSubsetOf,intersection,null,member,notMember,(\\)) -- for boundary vertex set
+import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,delete,toList,(\\))-- used for boundary covers
+import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
@@ -242,26 +242,20 @@ emplaceChoices g = emplaceChoices' $ force $ makeBoundaryState g
 -- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
 -- This version relies on compForce theorem and related theorems
 emplaceChoices':: BoundaryState -> [Tgraph]
-emplaceChoices' bd | nullGraph g' = recoverGraph <$> forcedChoicesBoundary bd
+emplaceChoices' startbd | nullGraph g' = recoverGraph <$> choices [startbd]
                    | otherwise = forceDecomp <$> emplaceChoices' (makeBoundaryState g')
   where   
-    g' = compose $ recoverGraph bd
--- forcedChoicesBoundary makes choices for unknown dart wings on the boundary of bd.
--- It chooses Kite/Dart for the first unknown then forces in each case, so the vertex will become a large dart base or large kite centre
--- With the results, it looks to see if any more of the original unknowns are still unknown to make further choices.
--- forcedChoicesBoundary :: BoundaryState -> [BoundaryState]
-    forcedChoicesBoundary bd =  choices [bd] where
-      startunknowns = unknowns $ getDartWingInfo $ recoverGraph bd
-      choices [] = []
-      choices (bd:bds) 
+   g' = compose $ recoverGraph startbd
+   startunknowns = unknowns $ getDartWingInfo $ recoverGraph startbd
+   choices [] = []
+   choices (bd:bds) 
         = case  startunknowns `intersect` unknowns (getDartWingInfo $ recoverGraph bd) of
              [] -> bd:choices bds
              (u:_) -> choices (atLeastOne (tryDartAndKite bd (findDartLongForWing u bd))++bds)
-      findDartLongForWing v bd 
+   findDartLongForWing v bd 
         = case find isDart (facesAtBV bd v) of
             Just d -> longE d
-            Nothing -> error $ "forcedChoicesBoundary: dart not found for dart wing vertex " ++ show v
-                                 
+            Nothing -> error $ "emplaceChoices': dart not found for dart wing vertex " ++ show v
 
 {-*
 Boundary Covering and Empires
@@ -331,7 +325,7 @@ boundaryVCovering bd = covers [(bd, startbds)] where
         Nothing -> open:covers opens
         Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKite open de) ++opens
     | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++opens  
-    where (de,des) = Set.deleteFindMin es
+                   where (de,des) = Set.deleteFindMin es
                   
 -- | tryDartAndKite b de - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de on boundary state b and forcing. Each result is a Try.
@@ -442,7 +436,7 @@ forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
             in  contexts (bs:done) (newcases++opens)
     | Set.null es = contexts (bs:done) opens
     | otherwise = contexts (bs:done) (newcases ++ opens)
-        where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
   makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
@@ -508,7 +502,7 @@ forcedBVContexts x edge bStart
             in  contexts (bs:done) (newcases++opens)
         | Set.null es = contexts (bs:done) opens
         | otherwise = contexts (bs:done) (newcases ++ opens)
-            where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+                      where newcases = concatMap (makecases (bs,es)) (Set.toList es)
       makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
         where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
@@ -552,7 +546,7 @@ superForceBdry = runTry . trySuperForceBdry
 -- Otherwise Right g' is returned where g' is the super forced g.
 trySuperForce :: Tgraph -> Try Tgraph
 trySuperForce g = do bd <- trySuperForceBdry (makeBoundaryState g)
-                     pure (recoverGraph bd)
+                     return (recoverGraph bd)
 
 -- |trySuperForceBdry - same as trySuperForce but for boundary states
 trySuperForceBdry :: BoundaryState -> Try BoundaryState
@@ -560,7 +554,7 @@ trySuperForceBdry bd =
     do forcebd <- onFail "trySuperForceBdry: force failed (incorrect Tgraph)\n" $
                   tryForce bd
        case singleChoiceEdges forcebd of
-          [] -> pure forcebd
+          [] -> return forcebd
           (pr:_) -> do extended <-  addHT pr forcebd
                        trySuperForceBdry extended
   where
@@ -580,7 +574,7 @@ singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)
 -- commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
     commonToCovering bds edgeList = common edgeList (transpose labellists) where
       labellists = fmap (`reportCover` edgeList) bds
-      common [] lls = []
+      common [] _ = []
       common (e:more) (ls:lls) = if matching ls 
                                  then (e,head ls):common more lls
                                  else common more lls

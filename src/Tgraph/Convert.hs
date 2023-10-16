@@ -18,13 +18,13 @@ touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing
 
 module Tgraph.Convert where
 
-import Data.List ((\\), nub, intersect)
+import Data.List ((\\), intersect)
 import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, assocs, keys)
 import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 import Data.Maybe (mapMaybe)
 
-import qualified Data.IntSet as IntSet (IntSet,member) -- for vertex set in relevantVPLabelledWith
+import qualified Data.IntSet as IntSet (member) -- for vertex set in relevantVPLabelledWith
 
 import Diagrams.Prelude
 import TileLib
@@ -224,7 +224,7 @@ alignXaxis (a,b) vp =  rotate angle newvp
 -- The vertex pair list can be shorter than the list of VPatch - the remaining VPatch are left as they are.
 alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]     
 alignments [] vps = vps
-alignments prs [] = error "alignments: Too many alignment pairs"  -- prs non-null
+alignments _  [] = error "alignments: Too many alignment pairs"  -- prs non-null
 alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 
 -- |alignAll (a,b) vpList
@@ -257,9 +257,10 @@ makeAlignedVP = alignBefore id
 -}
 locateVertices:: [TileFace] -> VertexLocMap
 locateVertices [] = VMap.empty
-locateVertices faces = fastAddVPoints [face] (Set.fromList more) (axisJoin face) where
-    (face:more) = lowestJoinFirst faces
-    efMap = buildEFMap faces  -- map from Dedge to TileFace
+locateVertices fcs = fastAddVPoints [fc] (Set.fromList more) (axisJoin fc) where
+    (fc:more) = lowestJoinFirst fcs
+    efMap = buildEFMap fcs  -- map from Dedge to TileFace
+
 {- fastAddVPoints readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
 each will have at least two known vertex locations in vpMap.
@@ -268,7 +269,7 @@ and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
     fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPoints [] fcOther vpMap = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints [] fcOther _ = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
     fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
         nbs = filter (`Set.member` fcOther) (edgeNbs efMap fc)
         fcOther' = foldr Set.delete fcOther nbs
@@ -450,9 +451,10 @@ This can arise when applied to the union of faces from 2 Tgraphs (e.g. in common
 -}
 locateVerticesGen:: [TileFace] -> VertexLocMap
 locateVerticesGen [] = VMap.empty
-locateVerticesGen faces = fastAddVPointsGen [face] (Set.fromList more) (axisJoin face) where
-    (face:more) = lowestJoinFirst faces
-    efMapGen = buildEFMapGen faces  -- map from Dedge to [TileFace]
+locateVerticesGen fcs = fastAddVPointsGen [fc] (Set.fromList more) (axisJoin fc) where
+    (fc:more) = lowestJoinFirst fcs
+    efMapGen = buildEFMapGen fcs  -- map from Dedge to [TileFace]
+
 {- fastAddVPointsGen readyfaces fcOther vpMap.
 The first argument list of faces (readyfaces) contains the ones being processed next in order where
 each will have at least two known vertex locations in vpMap.
@@ -461,9 +463,10 @@ and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
     fastAddVPointsGen [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPointsGen [] fcOther vpMap = error ("fastAddVPointsGen: Faces not tile-connected " ++ show fcOther)
+    fastAddVPointsGen [] fcOther _ = error ("fastAddVPointsGen: Faces not tile-connected " ++ show fcOther)
     fastAddVPointsGen (fc:fcs) fcOther vpMap = fastAddVPointsGen (fcs++nbs) fcOther' vpMap' where
-        nbs = filter (`Set.member` fcOther) (edgeNbsGen efMapGen fc)
+        nbs = filter (`Set.member` fcOther) (edgeNbsGen fc)
+--        nbs = filter (`Set.member` fcOther) (edgeNbsGen efMapGen fc)
         fcOther' = foldr Set.delete fcOther nbs
         vpMap' = addVPoint fc vpMap
 -- Generalises buildEFMap by allowing for multiple faces on a directed edge.
@@ -473,9 +476,14 @@ The third argument is the mapping of vertices to points.
 
 -- Generalised edgeNbs allowing for multiple faces on a directed edge.
 -- edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
+    edgeNbsGen fc = concat $ mapMaybe getNbrs edges where
+      getNbrs e = Map.lookup e efMapGen
+      edges = fmap reverseD (faceDedges fc) 
+{-
     edgeNbsGen efMapGen fc = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen
       edges = fmap reverseD (faceDedges fc) 
+-}
 
 
  

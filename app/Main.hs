@@ -48,7 +48,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = forcedBVContextsFig
+fig = finalStuckCheckFig
 
 main :: IO ()
 main = mainWith fig

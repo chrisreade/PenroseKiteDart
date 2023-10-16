@@ -567,7 +567,7 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
  --    drawe = drawEdgeWith vp edge # lc red
      drawv = case findLoc v vp of
                Nothing -> error $ "checkCFDFig: vertex not found " ++ show v
-               Just loc -> circle 0.2 # fc red # lc red # moveTo loc
+               Just p -> circle 0.2 # fc red # lc red # moveTo p
      drawcfd = (alignBefore draw edge . compose . force . decompose) g
 
 -- | For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF
@@ -727,9 +727,9 @@ curioPic0 = padBorder $ lw ultraThin $ position $ concat
   ] where
     forceDs  = rotations [1,1]  $ phiScaling phi $ reverse $ take 4 $ fmap (draw . force) dartDs
     forceXDs = rotations [9,9,8]  $ phiScaling phi $ reverse $ take 3 $ fmap drawForce xDGraphs
-    xDGraphs = decompositions sunPlus3Dart'
+    xDGraphs = decompositions sun3Dart
     xDs  = rotations [9,9,8] $  phiScaling phi $ reverse $
-           draw dartGraph : (draw sunPlus3Dart' # lc red # lw thin):
+           draw dartGraph : (draw sun3Dart # lc red # lw thin):
            take 2  (drop 1 $ fmap smartdraw xDGraphs)
     dots = center $ hsep 1 $ replicate 4 (circle 0.5 # fc gray # lw none)
     pointsRa = map p2 [ (0, 80), (42, 80), (95, 80), (150, 80), (200, 80)]
@@ -737,7 +737,7 @@ curioPic0 = padBorder $ lw ultraThin $ position $ concat
     pointsRc = map p2 [ (0, 0),  (42, 0),  (95, 0),  (150, 0), (200, 0)]
 
 {-| curioPic is a diagram illustrating where compose loses information not recovered by force
-  with sunPlus3Dart' third item in bottom row, (curioPic0 is diagram without arrows)
+  with sun3Dart third item in bottom row, (curioPic0 is diagram without arrows)
 -}
 curioPic :: Diagram B
 curioPic =
@@ -919,7 +919,7 @@ forcedNewFaces = padBorder $ lw thin $ drawForce g2 where
     g2 = removeFaces (faces g1) (force g1)
 
 -- |Trying to find which extensions to the starting dart correspond to the twoChoicesFig
-dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite :: Tgraph
+dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite,kitePlusKite :: Tgraph
 -- |a dart with another half dart on a long edge
 dartHalfDart = addHalfDart (1,2) dartGraph
 -- |a dart with a half kite on a long edge
@@ -931,18 +931,6 @@ dartPlusKite = addHalfKite (2,5) dartHalfKite
 -- |two kites sharing a long edge
 kitePlusKite = addHalfKite (1,5) $ addHalfKite (1,3) kiteGraph
 
-sunPlusDart,sunPlus2Dart,sunPlus2Dart',sunPlus3Dart,sunPlus3Dart' :: Tgraph
--- |A sun with a single complete dart on the boundary
-sunPlusDart = addHalfDart (3,4) $ addHalfDart (2,3) sunGraph
--- |A sun with 2 darts adjacent on the boundary
-sunPlus2Dart = addHalfDart (5,6) $ addHalfDart (4,5) sunPlusDart
--- |A sun with 2 darts NOT adjacent on the boundary
-sunPlus2Dart' = addHalfDart (7,8) $ addHalfDart (6,7) sunPlusDart
--- |A sun with 3 darts adjacent on the boundary
-sunPlus3Dart = addHalfDart (7,8) $ addHalfDart (6,7) sunPlus2Dart
--- |A sun with 3 darts on the boundary NOT all adjacent
--- This example has an emplacement that does not include the original but is still a correct Tgraph
-sunPlus3Dart' = addHalfDart (9,10) $ addHalfDart (8,9) sunPlus2Dart
 
 -- |halfWholeFig shows that a whole dart/kite needs to be added to get the same result as twoChoicesFig
 -- Adding a half tile has no effect on the forced decomposition
@@ -971,27 +959,27 @@ maxShapesFig = relatedVTypeFig ||| kkEmpsFig
 -- |An example showing emplace is inferior to force.
 -- (Emplace is no longer used, but was designed to force then maximally compose then forceDecomp repeatedly
 -- to the starting level.)
--- On the left is sunPlus3Dart' - a sun with 3 darts on the boundary NOT all adjacent
--- Next to that is force sunPlus3Dart' which extends sunPlus3Dart'.
--- On the right is what emplace sunPlus3Dart' would produce.
--- The emplacement does not include all the original sunPlus3Dart'
+-- On the left is sun3Dart - a sun with 3 darts on the boundary NOT all adjacent
+-- Next to that is force sun3Dart which extends sun3Dart.
+-- On the right is what emplace sun3Dart would produce.
+-- The emplacement does not include all the original sun3Dart
 emplaceProblemFig:: Diagram B
 emplaceProblemFig = padBorder $ hsep 1 $ rotations [8,8] $ fmap draw
                         [ g
                         , force g
                         , (force . decompose . compose . force) g
                         ]
-                where g = sunPlus3Dart'
+                where g = sun3Dart
 
--- | force after adding half dart (rocket cone) to sunPlus3Dart'.
+-- | force after adding half dart (rocket cone) to sun3Dart.
 -- Adding a kite half gives an incorrect graph discovered by forcing.
 rocketCone1:: Tgraph
-rocketCone1 =  force $ addHalfDart (59,60) $ forceDecomp sunPlus3Dart'
+rocketCone1 =  force $ addHalfDart (59,60) $ forceDecomp sun3Dart
 
--- | figure for rocketCone
+-- | figure for rocketCone1
 rocketCone1Fig:: Diagram B
 rocketCone1Fig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [r1,rc1] where
-  r1 = forceDecomp sunPlus3Dart'
+  r1 = forceDecomp sun3Dart
   rc1 = force $ addHalfDart (59,60) r1
 
 -- | figure for rocket5 showing its maximal forced composition
@@ -999,13 +987,13 @@ rocket5Fig:: Diagram B
 rocket5Fig = padBorder $ lw ultraThin  drawWithMax rocket5
 
 -- | rocket5 is the result of a chain of 5 forceDecomps, each after
--- adding a dart (cone) to the tip of the previous rocket starting with sunPlus3Dart'.
+-- adding a dart (cone) to the tip of the previous rocket starting with sun3Dart.
 -- As a quick check rocket5 was extends with both choices on a randomly chosen boundary edge (8414,8415)
 -- draw $ force $ addHalfKite rocket5 (8414,8415)
 -- draw $ force $ addHalfDart rocket5 (8414,8415)
 rocket5:: Tgraph
 rocket5 = forceDecomp rc4 where
-  rc0 = sunPlus3Dart'
+  rc0 = sun3Dart
   rc1 = force $ addHalfDart (59,60) (forceDecomp rc0)
   rc2 = force $ addHalfDart (326,327) (forceDecomp rc1)
   rc3 = force $ addHalfDart (1036,1037) (forceDecomp rc2)
@@ -1041,8 +1029,8 @@ boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ hsep 5  [vsep 10 [k
     treeFor g = drawCase <$> growBothEnds fbd where
       fbd = runTry $ tryForce $ makeBoundaryState g
       drawCase bd = fbdes <> drawg where
-                    g = recoverGraph bd
-                    vp = makeAlignedVP edge g
+                    g' = recoverGraph bd
+                    vp = makeAlignedVP edge g'
                     drawg = draw vp
                     fbdes = ((drawEdgeWith vp edge # lc red) <> drawEdgesIn vp (boundary fbd)) # lw thin
 
@@ -1146,7 +1134,7 @@ drawVContext v edge g = drawv <> drawg <> drawComp where
 --    drawe = drawEdgeWith vp edge # lc red
     drawv = case findLoc v vp of
               Nothing -> error $ "drawVContext: vertex not found " ++ show v
-              Just loc -> circle 0.2 # fc red # lc red # moveTo loc
+              Just p -> circle 0.2 # fc red # lc red # moveTo p
     drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
 
 
@@ -1215,7 +1203,7 @@ foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] w
             in  contexts (bs:done) (newcases++opens)
     | Set.null es = contexts (bs:done) opens
     | otherwise = contexts (bs:done) (newcases ++ opens)
-        where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
 
   makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
@@ -1241,7 +1229,7 @@ remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
              <> drawj fVP
     drawv v vp = case findLoc v vp of
               Nothing -> error $ "remainderGroupsFig: vertex not found " ++ show v
-              Just loc -> circle 0.05 # fc yellow # lc yellow # moveTo loc
+              Just p -> circle 0.05 # fc yellow # lc yellow # moveTo p
 
 -- | oneChoiceGraph is a forced Tgraph where one boundary edge (259,260) has one of its 2 legal extensions
 -- an incorrect Tgraph
@@ -1254,13 +1242,6 @@ superForceFig = padBorder $ lw ultraThin $ vsep 1 $
   fmap (rotateBefore drawLabelSmall (ttangle 1)) [g, force g, superForce g] where
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
 
--- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
--- of sunPlus3Dart'. The decompositions are in red with normal force in black and superforce additions in blue.
-superForceRocketsFig :: Diagram B
-superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
-   fmap drawSuperForce decomps where
-      decomps = take 4 $ decompositions sunPlus3Dart'
-
 {-
 -- |Diagram showing an incorrect (stuck) tiling (at the point where force discovers the clash with RK(219,140,222))
 -- after adding a half kite to the nose of the red rocket (see also superForceRocketsFig).
@@ -1268,7 +1249,7 @@ wrongRocket:: Diagram B
 wrongRocket = padBorder $ lw thin $ rotate (ttangle 3 )(gDiag # lc red <> wrongDiag) where
   wrongDiag =  alignBefore smartdraw (59,60) wrong 
   gDiag = draw $ makeAlignedVP (59,60) g where
-  g = force $ decompose $ sunPlus3Dart'
+  g = force $ decompose $ sun3Dart
   wrong = stuckGraphFrom $ addHalfKite (59,60) g
 -}
 {-
@@ -1484,7 +1465,7 @@ If g is not a forced Tgraph, the result will just be g or an error if g is found
 findCore  :: Tgraph -> Tgraph
 findCore g = if nullGraph g then g else inspect (faces g)
   where
-    (top:rest) = faces g
+    (top: _) = faces g
     inspect [] = error "findCore: not possible"
     inspect (fc:fcs) 
       = if top == head (faces $ force $ makeUncheckedTgraph fcs)
@@ -1506,7 +1487,7 @@ reportFailTest1 a = runTry $ onFail "reportFailTest1:\n" $ do
   c <- onFail "first call:\n"  $ eitherExample (b-1)
   d <- onFail "second call:\n" $ eitherExample (c-1)
   e <- onFail "third call:\n"  $ eitherExample (d-1)
-  pure (a,b,c,d,e)
+  return (a,b,c,d,e)
 
 -- | testing Try  - try arguments 0..3   only 2 succeeds
 reportFailTest2 :: Int -> (Int,Maybe Int,Int,Int)
@@ -1514,7 +1495,7 @@ reportFailTest2 a = runTry $ onFail "reportFailTest2:\n" $ do
   b <- eitherMaybeExample a
   c <- b `nothingFail` "eitherMaybeExample produced Nothing\n"
   d <- onFail "trying eitherExample:\n" $ eitherExample (c-1)
-  pure (a,b,c,d)
+  return (a,b,c,d)
 
 -- | for testing in reportFailTest1 and reportFailTest2
 eitherExample :: Int -> Try Int

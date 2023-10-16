@@ -48,7 +48,7 @@ tryPartCompose:: Tgraph -> Try ([TileFace],Tgraph)
 tryPartCompose g = 
   do let (remainder,newGraph) = uncheckedPartCompose g
      checked <- onFail "tryPartCompose:/n" $ checkConnectedNoCross newGraph
-     pure (remainder,checked)
+     return (remainder,checked)
 
 -- |uncheckedPartCompose g produces a pair of the remainder faces (faces from g which will not compose)
 -- and a Tgraph made from the composed faces without checking that the Tgraph is valid.
@@ -173,7 +173,7 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
     groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
-                    pure [rd,lk]
+                    return [rd,lk]
 
     faceGroupLDs = fmap (\gp -> (makeLD gp,gp)) groupLDs 
     groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
@@ -181,7 +181,7 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
     groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
-                    pure [ld,rk]
+                    return [ld,rk]
 
     faceGroupRKs = fmap (\gp -> (makeRK gp,gp)) groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
@@ -190,7 +190,7 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
                     rk <- find (matchingJoinE lk) fcs
-                    pure [rd,lk,rk]
+                    return [rd,lk,rk]
 
     faceGroupLKs = fmap (\gp -> (makeLK gp,gp)) groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
@@ -199,7 +199,7 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
                     lk <- find (matchingJoinE rk) fcs
-                    pure [ld,rk,lk]
+                    return [ld,rk,lk]
 
 
 
