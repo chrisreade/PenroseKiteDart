@@ -19,7 +19,6 @@ module TestIllustrate where
 
 import Diagrams.TwoD.Vector (e) -- for decompExplainFig
 import Diagrams.Prelude
-import Data.Tree (Tree(..),levels) -- used for boundaryEdgeCaseTrees    
 import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
 
 import ChosenBackend (B)
@@ -190,119 +189,6 @@ counterK = padBorder $ lw thin $ hsep 1 $
         where g = force queenGraph
 
 
-{-*
-EmplaceChoices
--}
-
-{- Now removed: foolChoices, emplace, makeChoices, forceLDB, tryForceLDB, forceLKC, tryForceLKC
-
--- |four choices for composing fool.
-foolChoices :: Diagram B
-foolChoices = padBorder $ vsep 1 
-              [hsep 1 $ fmap ((redFool <>) . drawj) choices
-              ,hsep 1 $ rotations [1,1,9,4] $ scale phi $ fmap (drawj . compose) choices
-              ] where choices = makeChoices fool
-                      redFool = drawj fool # lc red
-
-{-| makeChoices no longer used
-It is better to use forcedChoices.
-makeChoices should only be used on a forced Tgraph.
-It is a temporary tool which does not attempt to analyse choices for correctness.
-It can thus create some choices which will be incorrect.
-The unknowns returned from classifyDartWings can become largeKiteCentres or largeDartBases.
-This produces 2^n choices where n is the number of unknowns.
--}
-makeChoices :: Tgraph -> [Tgraph]
-makeChoices g = choices unks [g] where
-    unks = unknowns (getDartWingInfo g) -- g not forced may allow solitary wing tips which will fail
-    choices [] gs = gs
-    choices (v:more) gs = choices more (fmap (forceLKC v) gs ++ fmap (forceLDB v) gs)
-
-
--- |emplace does maximal composing with force and compose, 
--- then applies decompose and force repeatedly back to the starting level.
--- It produces the emplacement of influence of the argument graph.   
-emplace:: Tgraph -> Tgraph
-emplace g | nullGraph g' = fg
-          | otherwise = (forceDecomp . emplace) g'
-  where fg = force g
-        g' = compose fg 
-
---  OLD VERSION of emplaceChoices
-emplaceChoices:: Tgraph -> [Tgraph]
-emplaceChoices g | nullGraph g' = emplace <$> makeChoices fg
-                 | otherwise = forceDecomp <$> emplaceChoices g'
-  where fg = force g
-        g' = compose fg 
-
-
--- |For an unclassifiable dart wing v in a Tgraph, force it to become a large dart base (largeDartBase) by
--- adding a second half dart face (sharing the kite below the existing half dart face at v).
--- It raises an error if the result is a stuck/incorrect graph.
--- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
--- raising an error otherwise.
-forceLDB :: Vertex -> Tgraph -> Tgraph
-forceLDB v = runTry . tryForceLDB v
-
--- |A version of forceLDB which returns a Try Tgraph, with a Left report
--- if the result is a stuck/incorrect graph. 
--- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
--- returning a Left report  otherwise.  
-tryForceLDB :: Vertex -> Tgraph -> Try Tgraph
-tryForceLDB v g =
-  let bd = makeBoundaryState g
-      vFaces = facesAtBV bd v
-      ks = filter ((==v) . oppV) $ filter isKite vFaces     
-  in do d <- case find ((v==) . wingV) (filter isDart vFaces) of
-               Just d -> Right d
-               Nothing -> Left $ "forceLDB: no dart wing at " ++ show v ++ "/n"
-        k <- case find ((/= oppV d) . wingV) ks of
-               Just k -> Right k
-               Nothing -> Left $ "forceLDB: incomplete kite below dart " ++ show d ++ "/n"
-        u <- addDartShortE bd k
-        bdC <- tryUpdate bd u
-        return $ recoverGraph $ newBoundaryState bdC
-
--- |For an unclassifiable dart wing v in a Tgraph, force it to become a large kite centre (largeKiteCentres) by adding
--- 3 faces - a second half dart face sharing the long edge of the existing half dart face at v,
--- and then completing the kite on the new half dart short edge.
--- This assumes exactly one dart wing tip is at v.
--- (Note: farK for a half-dart d is that half of a full kite attached to the short edge of d
--- which does not share an edge with d). 
--- It is safe to add the 3 parts because v being unknown ensures the
--- existing dart has a boundary long edge and 
--- the new farK does not already exist (attached to existing dart farK),
--- provided the existing dart half has no kite or a full kite below.
--- If it has only a half kite below, but the new farK exists, then v will already be a crossing boundary.
-forceLKC :: Vertex -> Tgraph -> Tgraph
-forceLKC v = runTry . tryForceLKC v
-
--- |A version of forceLKC which returns a Try Tgraph, with a Left report
--- if the result is a stuck/incorrect graph. 
--- It assumes exactly one dart wing tip is at v, and that half dart has a full kite below it,
--- returning a Left report  otherwise.        
-tryForceLKC :: Vertex -> Tgraph -> Try Tgraph
-tryForceLKC v g = 
-  do let bd0 = makeBoundaryState g
-         vFaces0 = facesAtBV bd0 v
-     d <- case find ((v==) . wingV) (filter isDart vFaces0) of
-            Just d -> Right d
-            Nothing -> Left $ "forceLKC: no dart wing at " ++ show v ++ "/n"
-     u1 <- addDartLongE bd0 d
-     bdC1 <- tryUpdate bd0 u1
-     let bd1 = newBoundaryState bdC1
-         vFaces1 = facesAtBV bd1 v
-         newd = head (vFaces1 \\ vFaces0)
-     u2 <- addKiteShortE bd1 newd
-     bdC2 <- tryUpdate bd1 u2
-     let bd2 = newBoundaryState bdC2
-         vFaces2 = facesAtBV bd2 v
-         newk = head (vFaces2 \\ vFaces1)
-     u3 <- completeHalf bd2 newk
-     bdC3 <- tryUpdate bd2 u3
-     return $ recoverGraph $ newBoundaryState bdC3
-
--}
 
 
 -- |diagram illustrating touching vertex situation and forced result.
@@ -476,7 +362,7 @@ forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap draw
 -- |coverForceRules shows cases for a proof that 
 -- g' is a perfect composition => 𝚏𝚘𝚛𝚌𝚎 g' is included in (compose.force.decompose) g'
 -- Each line has the form  g', force g', force (decompose g'), compose(force (decompose g'))
--- (An empty Tgraph is represented as a lime circle with diagonal line through it)
+-- (An empty Tgraph is represented as an orange circle with diagonal line through it)
 -- We note that in each line the second and fourth are the same iff the first is a perfect composition.
 -- (We only need to show the second is included in the fourth, but a later proof establishes they will indeed be the same)
 -- The left hand columns are perfect composition cases, the right hand columns are non-cases i.e not perfect compositions.
@@ -768,19 +654,6 @@ curioPic =
              # composeArcRight "c2" "c1"
              # composeArcRight "c1" "c0"
 
--- |figure showing ordering of a decomposed kite (bottom), a test graph with an extra LK(3,6,8),
--- and forced figure at the top and composition of all 3 = kite on the right
-graphOrder1 :: Diagram B
-graphOrder1 = padBorder $ hsep 2 [center $ vsep 1 [ft,t,dcft], cft] where
-              [cft,dcft,ft,t] = fmap drawjLabelled $ scales [phi] $ alignAll (1,2) $ fmap makeVP
-                                [cftest, dcftest, ftest, test]
-              dcftest = decompose cftest
-              cftest = compose ftest
-              ftest = force test
-              test = makeTgraph [RK (4,7,2),LK (4,5,7),RD (1,7,5),LK (3,2,7)
-                                ,RK (3,7,6),LD (1,6,7), LK (3,6,8)
-                                ]
-
 
 {-*
 Testing (functions and figures and experiments)
@@ -831,9 +704,6 @@ testCrossingBoundary = [LK (1,8,3),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13)
 checkCompleteFig:: Diagram B
 checkCompleteFig =  padBorder $ hsep 1 $ fmap drawj [sunD4, wholeTiles sunD4] where sunD4 = sunDs !! 4
 
--- |test graphFromVP
-checkGraphFromVP :: Diagram B
-checkGraphFromVP = padBorder $ (draw . graphFromVP . makeVP) dartD4
 
 -- |figure testing selectFacesVP by removing all kites
 dartsOnlyFig :: Diagram B
@@ -841,34 +711,36 @@ dartsOnlyFig = padBorder $ lw thin $ draw $ selectFacesVP darts $ makeVP g where
     g = force $ sunDs !! 5
     darts = filter isDart $ faces g
 
-{-*
-Using TrackedTgraphs
--}
--- |hollowgraph illustrates an essential use of TrackedTgraphs.
--- Starting with fd2 = force (dartDs!!2) we want to make 3 further decompositions,
--- but also make 3 forced decompositions and then subtract the former faces from the latter.
--- The result happens to be a valid Tgraph but this is not generally the case.
--- TrackedTgraphs are essential to ensure numbering of new vertices in decompositions
--- match up in the 2 cases which they would not do if treated separately.
+-- |hollowgraph is the difference between a particular Tgraph and its forced version.
+-- This may not be a valid Tgraph in general.
+-- The particular Tgraph is a 3 times decomposed fd2 where fd2 is a forced, twice decomposed dart.
 hollowGraph::Tgraph
-hollowGraph = removeFaces (head (tracked exampleTracked)) (tgraph exampleTracked) where
-  exampleTracked = iterate (forceTracked . decomposeTracked) (trackFaces (newTrackedTgraph fd2)) !!3
+hollowGraph = removeFaces (faces x) fx where
+  fx = force x
+  x = decompositions fd2 !!3
   fd2 = force (dartDs!!2)
 
--- |figure showing hollowGraph and result of forcing
+-- |figure showing hollowGraph and the result of forcing which fills the hole
 forceHollowFig:: Diagram B
 forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap draw [hollowGraph, force hollowGraph]
 
+-- |What happens if you take the first result of twoChoices, then 
+-- select only the faces that were added by force, then force just these faces?
+-- It does not quite complete the original faces    
+forcedNewFaces:: Diagram B
+forcedNewFaces = padBorder $ lw thin $ drawForce g2 where
+    g1 = addHalfDart (223,255) (force dartD4)
+    g2 = removeFaces (faces g1) (force g1)
+
+{-*
+Illustrations using TrackedTgraphs
+-}
+   
 {-
 N.B.  Changes to forcing (or decomposing) can affect the vertex numbers chosen in twoChoices...
 They should be the long edge of the left dart on the left of a group of 3 darts
-Middle of top edge of dartDs!!4.  Use e.g
-checkChoiceEdge (force $ dartDs !!4)
-to view the vertex numbers
+Middle of top edge of dartDs!!4.
 -}
--- |for Tgraph g produce diagram of forced version showing vertices (to inspect edges for selection)
-checkChoiceEdge :: Tgraph -> Diagram B
-checkChoiceEdge g = padBorder $ lw ultraThin $ drawLabelled $ force g
 
 -- |given a boundary directed edge of a forced graph (either direction)
 -- construct two TrackedTgraphs with half dart/kite addition on the edge respectively
@@ -909,16 +781,12 @@ moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawChoice moreChoi
 moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawChoice moreChoices1
 moreChoicesFig  =  vsep 1 [moreChoicesFig0,moreChoicesFig1]
 
+{-*
+Choices by additions at the maximal compose level
+-}
 
--- |What happens if you take the first result of twoChoices, then 
--- select only the faces that were added by force, then force just these faces?
--- It does not quite complete the original faces    
-forcedNewFaces:: Diagram B
-forcedNewFaces = padBorder $ lw thin $ drawForce g2 where
-    g1 = addHalfDart (223,255) (force dartD4) --(233,201)
-    g2 = removeFaces (faces g1) (force g1)
-
--- |Trying to find which extensions to the starting dart correspond to the twoChoicesFig
+-- |Trying to find which extensions to the starting dart correspond to the twoChoicesFig.
+-- These basic examples are used in halfWholeFig to compare with twoChoicesFig.
 dartHalfDart,dartHalfKite,dartPlusDart,dartPlusKite,kitePlusKite :: Tgraph
 -- |a dart with another half dart on a long edge
 dartHalfDart = addHalfDart (1,2) dartGraph
@@ -944,60 +812,29 @@ halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 figs, 
     decomp4 g = decompositions g !! 4
     redEmbed g1 g2 = lc red (lw medium $ drawj g1) <> lw ultraThin (draw g2)
 
--- | two kites (force decomp twice) figure
+-- |Two kites and forceDecomp twice.
+-- Composition will reverse the forceDecomps (as in relatedVTypesFig)
 kkEmpsFig:: Diagram B
-kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [0,9,9] $
+kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [9,0,0] $
             fmap draw  [kk, kkD, kkD2] where
               kk = kitePlusKite
-              kkD = force $ decompose kk
-              kkD2 = force $ decompose kkD
+              kkD  = forceDecomp kk
+              kkD2 = forceDecomp kkD
 
--- | two kites added to related vertex types figure
-maxShapesFig:: Diagram B
-maxShapesFig = relatedVTypeFig ||| kkEmpsFig
-
--- |An example showing emplace is inferior to force.
--- (Emplace is no longer used, but was designed to force then maximally compose then forceDecomp repeatedly
--- to the starting level.)
--- On the left is sun3Dart - a sun with 3 darts on the boundary NOT all adjacent
--- Next to that is force sun3Dart which extends sun3Dart.
--- On the right is what emplace sun3Dart would produce.
--- The emplacement does not include all the original sun3Dart
-emplaceProblemFig:: Diagram B
-emplaceProblemFig = padBorder $ hsep 1 $ rotations [8,8] $ fmap draw
-                        [ g
-                        , force g
-                        , (force . decompose . compose . force) g
-                        ]
-                where g = sun3Dart
-
--- | force after adding half dart (rocket cone) to sun3Dart.
--- Adding a kite half gives an incorrect graph discovered by forcing.
-rocketCone1:: Tgraph
-rocketCone1 =  force $ addHalfDart (59,60) $ forceDecomp sun3Dart
-
--- | figure for rocketCone1
-rocketCone1Fig:: Diagram B
-rocketCone1Fig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [r1,rc1] where
-  r1 = forceDecomp sun3Dart
-  rc1 = force $ addHalfDart (59,60) r1
-
--- | figure for rocket5 showing its maximal forced composition
-rocket5Fig:: Diagram B
-rocket5Fig = padBorder $ lw ultraThin  drawWithMax rocket5
-
--- | rocket5 is the result of a chain of 5 forceDecomps, each after
--- adding a dart (cone) to the tip of the previous rocket starting with sun3Dart.
--- As a quick check rocket5 was extends with both choices on a randomly chosen boundary edge (8414,8415)
--- draw $ force $ addHalfKite rocket5 (8414,8415)
--- draw $ force $ addHalfDart rocket5 (8414,8415)
-rocket5:: Tgraph
-rocket5 = forceDecomp rc4 where
+-- |Figure for 6 rockets.
+-- Starting with sun3Dart, the next rocket is the result of adding a dart (cone) to the tip
+-- of a forceDecomp of the previous rocket. No cone added to the last rocket.
+-- In each case, adding a kite half at the tip instead of a dart would be an incorrect Tgraph.
+-- (See superForce examples).
+rocketsFig:: Diagram B
+rocketsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [8,9,9,8,8,9] $
+             fmap draw [rc0,rc1,rc2,rc3,rc4,rc5] where
   rc0 = sun3Dart
   rc1 = force $ addHalfDart (59,60) (forceDecomp rc0)
   rc2 = force $ addHalfDart (326,327) (forceDecomp rc1)
   rc3 = force $ addHalfDart (1036,1037) (forceDecomp rc2)
   rc4 = force $ addHalfDart (3019,3020) (forceDecomp rc3)
+  rc5 = forceDecomp rc4
 
 -- |6 times forced and decomposed kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
 -- There are 2906 faces for kingD6 before forcing.
@@ -1005,54 +842,6 @@ kingFD6:: Diagram B
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makeVP $
           allForceDecomps kingGraph !!6
 
-
-
--- | Figure displaying all cases for boundary edges of forced Tgraphs.
--- These are produced as trees (but only the levels of the trees are displayed).
--- We start with an edge (shown red) of a face on the boundary after forcing the face.
--- There are only 3 (left-hand) starting face edges we need to consider, so there are 3 trees
--- (Right versions will be symmetric, and joins and dart short edges are immediately covered by forcing so not shown).
--- Each tree is grown by adding a kite/dart face at either end of the boundary edge
--- and forcing, terminating as a leaf node when the red edge is no longer on the boundary.
--- In each case, whenever there is a Tgraph where the red edge is still on the boundary,
--- that Tgraph appears extended with both a kite and a dart on the red edge amongst the diagrams below it in the tree.
--- This provides a completeness argument for forcing.
--- [The edge must be on the boundary if both additions are possible.]
-boundaryEdgeCaseTrees:: Diagram B
-boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ hsep 5  [vsep 10 [kiteShort,dartLong],kiteLong] where
---boundaryEdgeCaseTrees = pad 1.02 $ centerXY $ lw ultraThin $ vsep 13 $ fmap caseRows examples where
-    [dartLong,kiteLong,kiteShort] = fmap caseRows examples
-    examples = fmap  (makeTgraph . (:[])) [LD (1,3,2),LK (2,1,3),LK (3,2,1)]
-    edge = (1,2)
-    caseRows g = vsep 1 $ fmap (centerX . hsep 1) $ levels $ treeFor g
---    caseRows g = vsep 1 $ fmap (centerX . hsep 1 # composeAligned alignT) $ levels $ treeFor g
-    treeFor g = drawCase <$> growBothEnds fbd where
-      fbd = runTry $ tryForce $ makeBoundaryState g
-      drawCase bd = fbdes <> drawg where
-                    g' = recoverGraph bd
-                    vp = makeAlignedVP edge g'
-                    drawg = draw vp
-                    fbdes = ((drawEdgeWith vp edge # lc red) <> drawEdgesIn vp (boundary fbd)) # lw thin
-
-    addOnRight bd = -- add dart/kite on boundary edge starting at v then force each case
-      case filter ((== snd edge). fst) (boundary bd) of
-          [] -> []
-          [de] -> atLeastOne $ tryDartAndKite bd de
-    addOnLeft bd = -- add dart/kite on boundary edge ending at v then force each case
-      case filter ((== fst edge). snd) (boundary bd) of
-          [] -> []
-          [de] -> atLeastOne $ tryDartAndKite bd de
--- growBothEnds:: BoundaryState -> Tree BoundaryState
-    growBothEnds bd = goB bd where
-      continue bd = edge `elem` boundary bd
--- to avoid repetitions, goB produces right and left cases but then recurses to the right only,
--- using goL to deal with left cases recursively.
-      goB bd = if continue bd
-               then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd) ++ fmap goB (addOnRight bd)}
-               else Node{ rootLabel=bd, subForest = []}
-      goL bd = if continue bd
-               then Node{ rootLabel=bd, subForest = fmap goL (addOnLeft bd)}
-               else Node{ rootLabel=bd, subForest = []}
 
 
 {-*
@@ -1231,89 +1020,14 @@ remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
               Nothing -> error $ "remainderGroupsFig: vertex not found " ++ show v
               Just p -> circle 0.05 # fc yellow # lc yellow # moveTo p
 
--- | oneChoiceGraph is a forced Tgraph where one boundary edge (259,260) has one of its 2 legal extensions
--- an incorrect Tgraph
+
+
+
+
+-- | oneChoiceGraph is a forced Tgraph where boundary edges (76,77) and (77,78) each have one of their 2 legal extensions
+-- incorrect.
 oneChoiceGraph:: Tgraph
 oneChoiceGraph = force $ addHalfDart (37,59) $ force kingGraph
-
--- |Diagram showing superForce with initial Tgraph g (top), force g (middle), and superForce g (bottom)
-superForceFig :: Diagram B
-superForceFig = padBorder $ lw ultraThin $ vsep 1 $
-  fmap (rotateBefore drawLabelSmall (ttangle 1)) [g, force g, superForce g] where
-    g = addHalfDart (220,221) $ force $ decompositions fool !!3
-
-{-
--- |Diagram showing an incorrect (stuck) tiling (at the point where force discovers the clash with RK(219,140,222))
--- after adding a half kite to the nose of the red rocket (see also superForceRocketsFig).
-wrongRocket:: Diagram B
-wrongRocket = padBorder $ lw thin $ rotate (ttangle 3 )(gDiag # lc red <> wrongDiag) where
-  wrongDiag =  alignBefore smartdraw (59,60) wrong 
-  gDiag = draw $ makeAlignedVP (59,60) g where
-  g = force $ decompose $ sun3Dart
-  wrong = stuckGraphFrom $ addHalfKite (59,60) g
--}
-{-
-  wrong = makeUncheckedTgraph 
-          [RK (219,140,222),LK (140,178,222),RD (221,222,178),LD (221,178,177),LD (181,220,176),RK (177,176,220)
-          ,LK (219,218,140),LK (219,174,173),RK (219,173,218),RD (91,140,218),LD (91,218,173),LK (170,217,213)
-          ,RK (170,216,217),LK (170,215,216),RK (170,214,215),RD (168,214,212),LK (170,212,214),RK (170,213,172)
-          ,LD (171,172,213),LD (168,212,169),RK (170,169,212),RK (167,210,211),LK (167,208,210),RD (163,210,208)
-          ,LD (163,209,210),RD (163,207,209),LD (163,208,166),RK (167,166,208),LD (163,162,207),RK (161,207,162)
-          ,LK (161,206,207),RK (161,205,206),LK (161,204,205),RK (161,200,204),LK (161,203,200),RD (156,200,203)
-          ,RK (161,160,203),LD (156,203,160),RD (202,199,158),LD (202,158,157),RD (202,157,201),LK (198,201,157)
-          ,LK (200,156,199),LK (110,158,199),RK (110,199,156),RK (198,157,155),LD (155,159,198),RK (154,198,159)
-          ,LK (154,197,198),RD (197,154,196),LK (195,196,154),RK (195,154,153),LK (195,153,152),RK (195,152,151)
-          ,LK (149,194,190),RK (149,193,194),LK (149,192,193),RK (149,191,192),RD (174,191,189),LK (149,189,191)
-          ,RK (149,190,150),LD (151,150,190),LD (174,189,90),RK (149,90,189),LD (148,188,183),RD (148,187,188)
-          ,RK (164,187,165),LD (148,165,187),LK (146,186,179),RK (146,185,186),LK (146,184,185),RK (146,183,184)
-          ,RD (148,183,182),LK (146,182,183),LD (148,182,145),RK (146,145,182),RD (181,176,144),LD (181,144,143)
-          ,RD (181,143,180),LK (179,180,143),RK (146,179,147),RK (179,143,142),LD (142,147,179),RK (140,177,178)
-          ,LK (140,175,177),RD (141,177,175),LK (177,141,176),LK (95,144,176),RK (95,176,141),LD (141,175,139)
-          ,RK (140,139,175),RK (90,173,174),LK (90,138,173),RD (91,173,138),RD (171,129,172),LK (170,172,129)
-          ,RD (171,132,131),LD (171,131,128),LD (171,130,129),RD (171,128,130),RK (170,129,127),LK (170,127,169)
-          ,RK (77,169,127),LK (77,126,169),RD (168,169,126),LD (168,137,136),LD (168,126,125),RD (168,125,137)
-          ,LK (167,123,166),RK (88,166,123),LK (88,122,166),RD (163,166,122),RD (148,120,165),LK (164,165,120)
-          ,RK (164,120,119),LD (163,122,118),RD (163,118,117),LD (163,117,116),RD (163,116,162),LK (161,162,116)
-          ,RK (161,116,115),LK (161,115,160),RK (51,160,115),LK (51,114,160),RD (156,160,114),RD (155,112,159)
-          ,LK (154,159,112),RK (110,157,158),LK (110,155,157),LD (156,111,110),LD (156,114,108),RD (156,108,111)
-          ,LD (155,113,112),RD (155,110,109),LD (155,109,107),RD (155,107,113),RK (154,112,106),LD (106,153,154)
-          ,RD (106,152,153),LD (106,105,152),RK (103,152,105),LK (103,151,152),RD (151,103,150),LK (149,150,103)
-          ,LK (149,104,90),RK (149,103,104),LD (148,121,120),RD (148,145,101),LD (148,101,100),RD (148,100,121)
-          ,RD (142,98,147),LK (146,147,98),RK (146,98,97),LK (146,97,145),LK (49,101,145),RK (49,145,97)
-          ,RK (95,143,144),LK (95,142,143),LD (142,99,98),RD (142,95,94),LD (142,94,93),RD (142,93,99)
-          ,LD (141,96,95),RD (141,139,102),LD (141,102,92),RD (141,92,96),LK (140,91,139),LK (57,102,139)
-          ,RK (57,139,91),LD (91,138,59),RK (90,59,138),LK (86,137,125),RK (86,136,137),LK (86,135,136)
-          ,RK (86,124,135),LD (119,85,134),RK (80,134,85),LK (80,133,134),RK (80,132,133),LK (80,131,132)
-          ,RK (80,128,131),LK (79,130,128),RK (79,129,130),LK (79,127,129),LK (80,73,128),RK (79,128,73)
-          ,RD (127,79,78),LD (127,78,77),RK (77,125,126),LK (77,84,125),RK (86,125,84),LK (86,89,124)
-          ,RD (123,124,89),LD (123,89,88),RK (88,118,122),LK (82,121,100),RK (82,120,121),LK (82,119,120)
-          ,RD (119,82,85),LK (53,117,118),LK (88,69,118),RK (53,118,69),RK (53,116,117),LK (53,115,116)
-          ,RD (115,53,52),LD (115,52,51),RK (51,108,114),LK (43,113,107),RK (43,112,113),LK (43,106,112)
-          ,LK (7,111,108),RK (7,110,111),LK (7,109,110),RK (7,107,109),LK (51,6,108),RK (7,108,6),LK (7,8,107)
-          ,RK (43,107,8),RD (106,43,62),LD (106,62,61),RD (106,61,105),LK (103,105,61),LD (60,104,103)
-          ,RD (60,90,104),RK (103,61,60),RK (57,92,102),RK (49,100,101),RK (82,100,67),LK (49,67,100)
-          ,LK (41,99,93),RK (41,98,99),LK (41,97,98),LD (97,50,49),RD (97,41,50),LK (11,96,92),RK (11,95,96)
-          ,LK (11,94,95),RK (11,93,94),RK (41,93,2),LK (11,2,93),RK (11,92,10),LK (57,10,92),LD (91,58,57)
-          ,RD (91,59,58),LK (90,60,59),RK (86,88,89),LK (86,87,88),RD (69,88,87),LD (69,87,83),RK (86,83,87)
-          ,LK (86,84,83),LK (80,85,82),RD (84,77,76),LD (84,76,68),RK (68,83,84),LK (68,75,83),RD (69,83,75)
-          ,RK (80,82,81),LD (67,81,82),RD (67,74,81),LK (80,81,74),RK (80,74,73),LD (73,72,79),RK (71,79,72)
-          ,LK (71,78,79),RK (71,77,78),LK (71,76,77),RK (71,68,76),LD (69,75,55),RK (68,55,75),LD (67,66,74)
-          ,RK (64,74,66),LK (64,73,74),RD (73,64,72),LK (71,72,64),LK (71,70,68),RK (71,64,65),LK (71,65,63)
-          ,RK (71,63,70),LD (56,70,63),RD (56,68,70),LD (69,54,53),RD (69,55,54),LK (68,56,55),RD (67,49,48)
-          ,LD (67,48,47),RD (67,47,66),LK (64,66,47),LD (46,65,64),RD (46,63,65),RK (64,47,46),RK (63,42,56)
-          ,LK (63,45,42),LK (63,46,44),RK (63,44,45),LK (14,62,43),RK (14,61,62),LK (14,60,61),RK (14,59,60)
-          ,LK (14,58,59),RK (14,57,58),LK (14,40,57),RD (10,57,40),LK (13,56,42),RK (13,55,56),LK (13,54,55)
-          ,RK (13,53,54),LK (13,52,53),RK (13,51,52),LK (13,38,51),RD (6,51,38),LK (12,50,41),RK (12,49,50)
-          ,LK (12,48,49),RK (12,47,48),LK (12,46,47),RK (12,44,46),LD (4,45,44),RD (4,42,45),LK (12,36,44)
-          ,RD (4,44,36),RK (14,43,39),LD (8,39,43),RK (13,42,37),LD (4,37,42),RK (12,41,35),LD (2,35,41)
-          ,RK (14,9,40),LD (10,40,9),LK (14,39,9),RD (8,9,39),RK (13,5,38),LD (6,38,5),LK (13,37,5),RD (4,5,37)
-          ,RK (12,3,36),LD (4,36,3),LK (12,35,3),RD (2,3,35),RK (11,16,2),LK (11,34,16),RD (1,16,34),LK (3,2,16)
-          ,RK (3,16,18),LD (1,18,16),RK (3,20,4),LK (3,18,20),RD (1,20,18),LK (5,4,20),RK (5,20,22),LD (1,22,20)
-          ,RK (5,24,6),LK (5,22,24),RD (1,24,22),LK (7,6,24),RK (7,24,26),LD (1,26,24),RK (7,28,8),LK (7,26,28)
-          ,RD (1,28,26),LK (9,8,28),RK (9,28,30),LD (1,30,28),RK (9,32,10),LK (9,30,32),RD (1,32,30)
-          ,LK (11,10,32),RK (11,32,34),LD (1,34,32)]
-              
--}
 
 {- |
 This figure shows a successfully forced Tgraph (oneChoiceGraph) and below is an extension (added half kite)
@@ -1334,7 +1048,6 @@ coveringOneChoiceFig = pad 1.02 $ lw ultraThin $ arrangeRows 3 $
     beCover = boundaryECovering (makeBoundaryState oneChoiceGraph)
     drawCase bd = overlay <> draw (recoverGraph bd)
     overlay = draw oneChoiceGraph # lc red
-
 
 -- |boundaryLoopFill tests the calculation of boundary loops of a Tgraph and conversion to a (Diagrams) Path, using
 -- boundaryLoopsG and pathFromBoundaryLoops. The conversion of the Path to a Diagram allows
@@ -1358,7 +1071,6 @@ testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
          bs2 = head $ boundaryVCovering bs1
          bs1 = head $ boundaryVCovering bs0
          bs0 = force $ makeBoundaryState kingGraph
---         bs0 = makeBoundaryState $ force kingGraph
 
 {-*
 Illustrating Relabelling (fullUnion, commonFaces)
@@ -1399,10 +1111,10 @@ testRelabellingFig =
         g2_A = prepareFixAvoid [1,10] (vertexSet g1) g2
         g2_B = prepareFixAvoid [1,18] (vertexSet g1) g2
 
-{-| Example showing match relabelling failing as well as a successful fullUnion of graphs.
+{-| Example showing a simple match relabelling failing as well as a successful fullUnion of Tgraphs.
 The top right graph g2 is matched against the top left graph g1 
 with g2 edge (1,10) matching g1 edge (1,15).
-The bottom left shows the relabelling to match, but this is not correct because the overlap of
+The bottom left shows the relabelling of g2 to match, but this is not correct because the overlap of
 g2 and g1 is not a simple tile connected region.
 (In the bottom left relabelled graph, vertex 41 does not get matched to 22 in g1, for example)
 A call to relabelTouching is essential to produce a valid Tgraph.
@@ -1471,44 +1183,4 @@ findCore g = if nullGraph g then g else inspect (faces g)
       = if top == head (faces $ force $ makeUncheckedTgraph fcs)
         then inspect fcs
         else makeUncheckedTgraph (fc:fcs)
-
-
-
-
-
-{-*
-Testing Try functions
--}
-
--- | testing Try  - try arguments 0..5  only 4 succeeds
-reportFailTest1 :: Int -> (Int,Int,Int,Int,Int)
-reportFailTest1 a = runTry $ onFail "reportFailTest1:\n" $ do
-  b <- maybeExample a `nothingFail` ("maybeExample: produced Nothing when applied to "++show a ++"\n")
-  c <- onFail "first call:\n"  $ eitherExample (b-1)
-  d <- onFail "second call:\n" $ eitherExample (c-1)
-  e <- onFail "third call:\n"  $ eitherExample (d-1)
-  return (a,b,c,d,e)
-
--- | testing Try  - try arguments 0..3   only 2 succeeds
-reportFailTest2 :: Int -> (Int,Maybe Int,Int,Int)
-reportFailTest2 a = runTry $ onFail "reportFailTest2:\n" $ do
-  b <- eitherMaybeExample a
-  c <- b `nothingFail` "eitherMaybeExample produced Nothing\n"
-  d <- onFail "trying eitherExample:\n" $ eitherExample (c-1)
-  return (a,b,c,d)
-
--- | for testing in reportFailTest1 and reportFailTest2
-eitherExample :: Int -> Try Int
-eitherExample a = if a==0 then Left "eitherExample: arg is zero\n" else Right a
-
--- | for testing in reportFailTest1
-maybeExample :: Int -> Maybe Int
-maybeExample a = if a<5 then Just a else Nothing
-
--- | for testing in reportFailTest1 and reportFailTest2
-eitherMaybeExample :: Int -> Try (Maybe Int)
-eitherMaybeExample a | a<1 = Right Nothing
-                     | a<3 = Right (Just a)
-                     | otherwise = Left "eitherMaybeExample: arg >=3\n"
-
 

@@ -285,6 +285,12 @@ sun3AdjDart = addHalfDart (7,8) $ addHalfDart (6,7) sun2AdjDart
 sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) sun2AdjDart
 
 
+-- |Diagram showing superForce with initial Tgraph g (red), force g (red and black),
+-- and superForce g (red and black and blue).
+superForceFig :: Diagram B
+superForceFig = padBorder $ rotate (ttangle 1) $ drawSuperForce g where
+    g = addHalfDart (220,221) $ force $ decompositions fool !!3
+
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
 -- of sun3Dart. The decompositions are in red with normal force in black and superforce additions in blue.
 superForceRocketsFig :: Diagram B
