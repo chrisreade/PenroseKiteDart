@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies              #-} -- needed for Transformable Instance
+{-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Instance
 {-|
 Module      : HalfTile
 Description : Introducing a generic type for half tiles of darts and kites
@@ -8,6 +10,8 @@ Stability   : experimental
 
 -}
 module HalfTile where
+    
+import Diagrams.Prelude (V,N, Transformable(..)) -- needed to make HalfTile a Transformable when a is Transformable
 
 {-|
 Representing Half Tile Pieces Polymorphicly.
@@ -26,11 +30,25 @@ data HalfTile rep = LD rep -- ^ Left Dart
 instance Ord a => Ord (HalfTile a) where
     compare t1 t2 = compare (tileRep t1) (tileRep t2)
 
+-- |Make Halftile a Functor
 instance Functor HalfTile where
     fmap f (LD rep) = LD (f rep)
     fmap f (RD rep) = RD (f rep)
     fmap f (LK rep) = LK (f rep)
     fmap f (RK rep) = RK (f rep)
+
+-- |Needed for Transformable instance of HalfTile - requires TypeFamilies
+type instance N (HalfTile a) = N a
+-- |Needed for Transformable instance of HalfTile - requires TypeFamilies
+type instance V (HalfTile a) = V a
+-- |HalfTile inherits Transformable  - Requires FlexibleInstances
+instance Transformable a => Transformable (HalfTile a) where
+    transform t = fmap (transform t)
+
+
+
+
+
 
 {-# INLINE tileRep #-}
 -- |return the representation of a half-tile

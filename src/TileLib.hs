@@ -1,8 +1,9 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Piece Instance
+{-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
 {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
+
 {-|
 Module      : TileLib
 Description : Introducing Pieces and Patches and operations on these including a class for drawing operations
@@ -30,6 +31,8 @@ Pieces and drawing Pieces
 with a vector from their origin along the join edge where
 origin for a dart is the tip, origin for a kite is the vertex with smallest internal angle.
 Using Imported polymorphic HalfTile.
+
+Pieces are Transformable
 -}
 type Piece = HalfTile (V2 Double)
 
@@ -37,29 +40,18 @@ type Piece = HalfTile (V2 Double)
 joinVector:: Piece -> V2 Double
 joinVector = tileRep
 
+
+{- ALTERNATIVE (orphaned) instance of Transformable for Pieces (instead of in Module HalfTile)
+
 -- |Needed for Transformable Piece
 type instance N Piece = Double
 -- |Needed for Transformable Piece
 type instance V Piece = V2
-{-| 
-Making Pieces and Patches transformable - Requires FlexibleInstances
--}
+-- |Making Pieces and Patches transformable - Requires FlexibleInstances
 instance Transformable Piece where
     transform t = fmap (transform t) -- using fmap from HalfTile functor
-
-{- NB  >>>  Alternative making Halftile a transformable when a is transformable
-   BUT this makes an Orphan Instance
-
--- |Needed for Transformable instance of HalfTile
-type instance N (HalfTile a) = N a
--- |Needed for Transformable instance of HalfTile
-type instance V (HalfTile a) = V a
-{-| 
-Making HalfTiles (and therefore Pieces and Patches) transformable
 -}
-instance Transformable a => Transformable (HalfTile a) where
-    transform t = fmap (transform t)
--}
+
 
 -- |ldart,rdart,lkite,rkite are the 4 pieces (with join edge oriented along the x axis, unit length for darts, length phi for kites).
 ldart,rdart,lkite,rkite:: Piece
@@ -156,15 +148,9 @@ fillMaybeDK d k piece = drawPiece piece <> filler where
 -- The g argument is for grout - i.e the non-join edges round tiles.
 -- Edges are drawn with gcol if g  = Just gcol and not drawn if g = Nothing
 fillMaybeDKG:: (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> Piece -> Diagram B
-fillMaybeDKG (d,k,g) piece = drawPiece piece # maybeGrout g <> filler where
-    maybeFill (Just c) = fillPiece c piece
-    maybeFill  Nothing = mempty
+fillMaybeDKG (d,k,g) piece = fillMaybeDK d k piece # maybeGrout g where
     maybeGrout (Just c) = lc c
     maybeGrout Nothing = lw none
-    filler = case piece of (LD _) -> maybeFill d
-                           (RD _) -> maybeFill d
-                           (LK _) -> maybeFill k
-                           (RK _) -> maybeFill k
 
 -- |leftFillDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.
@@ -195,8 +181,8 @@ Patches and Drawable Class
 -}
 
 -- |A patch is a list of Located pieces (the point associated with each piece locates its originV)
+-- Patches are Transformable
 type Patch = [Located Piece]
-
 
 -- | A class for things that can be turned to diagrams when given a function to draw pieces
 class Drawable a where
@@ -224,7 +210,7 @@ colourDKG::  Drawable a => (Colour Double,Colour Double,Colour Double) -> a -> D
 colourDKG (c1,c2,c3) p = drawWith (fillDK c1 c2) p # lc c3
 
 {-*
-Patch Decoposition and Compose choices
+Patch Decomposition and Compose choices
 -}
 
 {-|
@@ -303,7 +289,7 @@ compNChoices n lp = do
     compNChoices (n-1) lp'
 
 {-*
-Example Patches and some rotation/scaling operations
+Example Patches and rotation/scaling operations
 -}
                                 
 -- |combine 5 copies of a patch (each rotated by ttangle 2 successively)

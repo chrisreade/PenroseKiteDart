@@ -94,22 +94,6 @@ removeFacesVP fcs vp = restrictVP vp (vpFaces vp \\ fcs)
 selectFacesVP:: [TileFace] -> VPatch -> VPatch
 selectFacesVP fcs vp = restrictVP vp (fcs `intersect` vpFaces vp)
 
-{-
--- |selectFacesGtoVP fcs g -  only selected faces (fcs) are kept after converting g to a VPatch
-selectFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
-selectFacesGtoVP fcs g = selectFacesVP fcs (makeVP g)
--}
-
-{-
--- |removeFacesGtoVP fcs g - remove faces (fcs) after converting g to a VPatch
-removeFacesGtoVP :: [TileFace] -> Tgraph -> VPatch
-removeFacesGtoVP fcs g = removeFacesVP fcs (makeVP g)
-
--}
-
-
-
-
 -- |find the location of a single vertex in a VPatch
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
 findLoc v = VMap.lookup v . vLocs
@@ -133,8 +117,9 @@ instance Drawable VPatch where
             _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
                         ++ show (faceVList fc \\ VMap.keys locations))
 
--- |Make drawing tools applicable to Tgraphs
+-- |Make drawing tools applicable to Tgraphs.
 instance Drawable Tgraph where
+-- (Orphaned instance: Placing it in Tgraphs.Prelude would make cyclic dependency of modules)
     drawWith pd = drawWith pd . makeVP
 
 -- | A class for things that can be drawn with labels when given a function to draw Pieces and a measure for label size.
@@ -148,10 +133,6 @@ instance DrawableLabelled VPatch where
     -- drawLabels :: Measure Double -> VertexLocMap -> Diagram B
     drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
        where drawlabel(v,p) = (p, baselineText (show v) # fontSize r # fc red)
-{-
-    drawLabels r vpMap = position $ (\(v,p) -> (p, label v)) <$> VMap.toList vpMap
-       where label v = baselineText (show v) # fontSize r # fc red
--}
 
 -- | Tgraphs can be drawn with labels
 instance DrawableLabelled Tgraph where

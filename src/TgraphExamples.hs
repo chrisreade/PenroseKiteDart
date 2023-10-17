@@ -209,7 +209,7 @@ mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 -- |Figure showing an incorrect tiling (left) and the result of forcing without the final stuck check (right).
 -- The final stuck check is necessary to catch this as an incorrect tiling.
 finalStuckCheckFig :: Diagram B
-finalStuckCheckFig = padBorder $ hsep 1 $ fmap (smart drawLabelLarge) [g,fg] where
+finalStuckCheckFig = padBorder $ hsep 1 $ [smart drawLabelLarge g, drawLabelLarge fg] where
   g = makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]
   fg = makeTgraph [LK (4,21,17),RK (4,20,21),LK (4,19,20),RK (4,18,19),LK (4,10,18)
                   ,RK (4,17,6),LD (9,6,17),LK (1,16,7),RK (1,15,16),LK (1,14,15)
