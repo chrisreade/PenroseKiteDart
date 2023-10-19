@@ -1,5 +1,5 @@
 name:                PenroseKiteDart
-version:             0.2.0.0
+version:             0.3.0.0
 github:              "chrisreade/PenroseKiteDart"
 license:             BSD3
 author:              "Chris Reade"
@@ -31,7 +31,6 @@ library:
   exposed-modules:  
     - HalfTile
     - TileLib
-    - TileFigExamples
     - Tgraphs
     - Tgraph.Prelude
     - Tgraph.Decompose

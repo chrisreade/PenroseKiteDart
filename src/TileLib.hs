@@ -305,6 +305,37 @@ sun =  penta [rkite `at` origin, lkite `at` origin]
 -- |star is a patch with five darts sharing common origin (tip of dart)
 star = penta [rdart `at` origin, ldart `at` origin]
 
+{-*
+Figures for pieces
+-}
+
+-- |An infinite list of patches of increasingly decomposed sun
+suns::[Patch]
+suns = decompositionsP sun
+sun5,sun6:: Patch
+-- |a patch of a 6 times decomposed sun
+sun6 = suns!!6
+-- |a patch of a 5 times decomposed sun
+sun5 = suns!!5 
+
+-- |diagram for sun6
+sun6Fig::Diagram B
+sun6Fig = draw sun6 # lw thin
+
+
+{-*
+Colour-filled examples
+-}
+
+-- |using leftFillDK
+filledSun6::Diagram B
+filledSun6 = drawWith (leftFillDK red blue) sun6 # lw thin
+-- |using fillDK
+newFillSun6::Diagram B
+newFillSun6 = drawWith (fillDK darkmagenta indigo) sun6 # lw thin # lc gold
+
+
+
 -- |rotations takes a list of integers (representing ttangles) for respective rotations of items in the second list (things to be rotated).
 -- This includes Diagrams, Patches, VPatches
 -- The integer list can be shorter than the list of items - the remaining items are left unrotated.

@@ -4,24 +4,6 @@
     
 import Diagrams.Prelude
 import ChosenBackend (B, mainWith)
---import DecompExplain --(used for the single figure decompExplainFig)
-
-import TileFigExamples
-{- includes e.g
-markedTiles, markedtiles2, piecesFig, piecesFig2, newPiecesFig, tileIntro
-fourDecomps, fiveInflate, fiveAlternatives, 
-sun6Fig, sun5Over6Fig, filledSun6, filledSun6' , experimentFig. twoLevelsFig
-
-dartWingFig, 
-
-Also with Colours:
-
-e.g. filledSun6, newFillSun6
-exampleTriple1, exampleTriple2
-
-Also swatches and samples:
-e.g. swatchFig0, sampleFig0
--}
 
 import TgraphExamples
 import TestIllustrate
@@ -48,7 +30,7 @@ main = mainWith figs
 
 -- normal executable generating single figure
 fig::Diagram B
-fig = checkhollow
+fig = newFillSun6
 
 main :: IO ()
 main = mainWith fig

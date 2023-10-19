@@ -3,7 +3,7 @@ import Control.Exception (evaluate)
 
 import Tgraphs
 import TgraphExamples
-import TestIllustrate (touchErrorFaces,testCrossingBoundary)
+-- import TestIllustrate (touchErrorFaces,testCrossingBoundary)
 main :: IO ()
 main = hspec spec
 
@@ -47,6 +47,33 @@ g2 = makeUncheckedTgraph x2
 
 -- dD6 is a 6 times decomposed dartGraph
 dD6 = dartDs !!6
+
+{-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.
+These will be caught by makeTgraph which raises an error.
+The error is not picked up by checkedTgraph. It can be fixed using tryCorrectTouchingVs.
+
+*** Exception: makeTgraph: touching vertices [(19,7)]
+
+> checkedTgraph touchErrorFaces
+Tgraph {maxV = 19, faces = ...}
+
+> tryCorrectTouchingVs touchErrorFaces
+Right (Tgraph {maxV = 18, faces = [..., LK (7,17,18)]})
+
+test with:
+padBorder $ drawjLabelled $ runTry $ tryCorrectTouchingVs touchErrorFaces
+-}
+touchErrorFaces::[TileFace]
+touchErrorFaces = faces foolD ++ [RD (6,18,17),LK (19,17,18)]
+
+-- |Example for testing crossing boundary detection e.g. using 
+-- checkedTgraph testCrossingBoundary, or by using
+-- force (makeUncheckedTgraph testCrossingBoundary)
+-- produces an error for a non-valid Tgraph.
+testCrossingBoundary :: [TileFace]
+testCrossingBoundary = [LK (1,8,3),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13),RD (6,13,10)
+                       ,LK (3,2,13),RK (3,13,11),RK (3,14,4),LK (3,11,14),LK (7,4,14),RK (7,14,12)
+                       ]
 
 
 graphPropSpec :: Spec

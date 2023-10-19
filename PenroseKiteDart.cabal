@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           PenroseKiteDart
-version:        0.2.0.0
+version:        0.3.0.0
 description:    Please see the README on GitHub at <https://github.com/chrisreade/PenroseKiteDart#readme>
 homepage:       https://github.com/chrisreade/PenroseKiteDart#readme
 bug-reports:    https://github.com/chrisreade/PenroseKiteDart/issues
@@ -27,7 +27,6 @@ library
   exposed-modules:
       HalfTile
       TileLib
-      TileFigExamples
       Tgraphs
       Tgraph.Prelude
       Tgraph.Decompose
@@ -40,6 +39,7 @@ library
       TestIllustrate
       ArtWork
   other-modules:
+      TileFigExamples
       Paths_PenroseKiteDart
   hs-source-dirs:
       src
