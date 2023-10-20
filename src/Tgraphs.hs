@@ -93,9 +93,9 @@ Smart drawing of Tgraphs
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
--- For example: smart drawLabelSmall g, and
--- alignBefore (smart drawLabelled) (a,b) g, and
--- rotateBefore (smart drawLabelled) a g
+-- For example: smart (labelSmall draw) g, and
+-- alignBefore (smart (labelled draw)) (a,b) g, and
+-- rotateBefore (smart (labelled draw)) a g
 smart :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
 smart dr g = smartSub dr g (makeVP g)
 
@@ -161,7 +161,7 @@ drawWithMax g =  (dmax # lc red # lw thin) <> dg where
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (drawEdgesIn vp edges # lc lime) <> drawLabelled vp where
+drawGBoundary g =  (drawEdgesIn vp edges # lc lime) <> labelled draw vp where
     vp = makeVP g
     edges = graphBoundary g
 

@@ -66,11 +66,11 @@ foolDs = decompositions fool
 
 -- | diagram of just fool
 foolFig :: Diagram B
-foolFig = padBorder $ drawjLabelLarge fool
+foolFig = padBorder $ labelLarge drawj fool
 
 -- |diagram of fool with foolD
 foolAndFoolD :: Diagram B
-foolAndFoolD = padBorder $ hsep 1 [scale phi $ drawjLabelLarge fool, drawjLabelLarge foolD]
+foolAndFoolD = padBorder $ hsep 1 [scale phi $ labelLarge drawj fool, labelLarge drawj foolD]
 
 -- |Tgraph for a sun
 sunGraph :: Tgraph
@@ -87,7 +87,7 @@ sunDs =  decompositions sunGraph
 
 -- |Figure for a 3 times decomposed sun with a 2 times decomposed sun
 figSunD3D2:: Diagram B
-figSunD3D2 = padBorder $ hsep 1 [drawjLabelled $ sunDs !! 3, scale phi $ drawjLabelled $ sunDs !! 2]
+figSunD3D2 = padBorder $ hsep 1 [labelled drawj $ sunDs !! 3, scale phi $ labelled drawj $ sunDs !! 2]
 
 -- |Tgraph for kite
 kiteGraph :: Tgraph
@@ -127,7 +127,7 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 -- |diagram of foolDminus and the result of forcing              
 forceFoolDminus :: Diagram B
-forceFoolDminus = padBorder $ hsep 1 $ fmap drawjLabelLarge [foolDminus, force foolDminus]
+forceFoolDminus = padBorder $ hsep 1 $ fmap (labelLarge drawj) [foolDminus, force foolDminus]
 
 
 -- |diagrams of forced graphs (3 or 5 times decomposed kite or dart or sun)           
@@ -176,13 +176,13 @@ badlyBrokenDart = removeFaces deleted bbd where
 
 -- |brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
 brokenDartFig :: Diagram B
-brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [dartD4, brokenDart, badlyBrokenDart]
+brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [dartD4, brokenDart, badlyBrokenDart]
 
 -- |badlyBrokenDartFig shows badlyBrokenDart, followed by its composition, followed by the faces 
 -- that would result from an unchecked second composition which are not tile-connected.
 -- (Simply applying compose twice to badlyBrokenDart will raise an error).
 badlyBrokenDartFig :: Diagram B
-badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap drawjLabelled [vp, vpComp, vpFailed] where
+badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, vpComp, vpFailed] where
     vp = makeVP badlyBrokenDart
     comp = compose badlyBrokenDart
     vpComp = restrictVP vp $ faces $ comp
@@ -209,7 +209,7 @@ mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 -- |Figure showing an incorrect tiling (left) and the result of forcing without the final stuck check (right).
 -- The final stuck check is necessary to catch this as an incorrect tiling.
 finalStuckCheckFig :: Diagram B
-finalStuckCheckFig = padBorder $ hsep 1 $ [smart drawLabelLarge g, drawLabelLarge fg] where
+finalStuckCheckFig = padBorder $ hsep 1 $ [smart (labelLarge draw) g, labelLarge draw fg] where
   g = makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]
   fg = makeTgraph [LK (4,21,17),RK (4,20,21),LK (4,19,20),RK (4,18,19),LK (4,10,18)
                   ,RK (4,17,6),LD (9,6,17),LK (1,16,7),RK (1,15,16),LK (1,14,15)
@@ -310,8 +310,8 @@ boundaryFDart5 = checkedTgraph $ boundaryFaces $ makeBoundaryState $ force (dart
 
 -- |figures of the boundary faces only of a forced graph
 boundaryFDart4Fig,boundaryFDart5Fig:: Diagram B
-boundaryFDart4Fig = padBorder $ lw ultraThin $ drawjLabelSmall boundaryFDart4
-boundaryFDart5Fig = padBorder $ lw ultraThin $ drawjLabelSmall boundaryFDart5
+boundaryFDart4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryFDart4
+boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryFDart5
 
 -- |graphs of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
@@ -322,8 +322,8 @@ boundaryGapFDart5 = removeVertices [1467] boundaryFDart5
 
 -- |figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
 boundaryGap4Fig, boundaryGap5Fig :: Diagram B
-boundaryGap4Fig = padBorder $ lw ultraThin $ drawjLabelSmall boundaryGapFDart4
-boundaryGap5Fig = padBorder $ lw ultraThin $ drawjLabelSmall boundaryGapFDart5
+boundaryGap4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart4
+boundaryGap5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart5
 
 
 -- | boundaryVCoveringFigs g - produces a list of diagrams for the boundaryVCovering of g  (with g shown in red in each case)

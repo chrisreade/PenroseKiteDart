@@ -122,6 +122,34 @@ instance Drawable Tgraph where
 -- (Orphaned instance: Placing it in Tgraphs.Prelude would make cyclic dependency of modules)
     drawWith pd = drawWith pd . makeVP
 
+-- | A class for things that can be drawn with labels when given  a measure for label size and a 
+-- a draw function for VPatches.
+-- Measures are defined in Diagrams (normalized/output/local/global)
+-- (labelSize m modifies a given drawing function to add labels of size m.)
+class DrawableLabelled a where
+  labelSize :: Measure Double -> (VPatch -> Diagram B) -> a -> Diagram B
+
+-- | VPatches can be drawn with labels
+instance DrawableLabelled VPatch where
+  labelSize r d vp = drawLabels r (vLocs vp) <> d vp where
+    -- drawLabels :: Measure Double -> VertexLocMap -> Diagram B
+    drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
+       where drawlabel(v,p) = (p, baselineText (show v) # fontSize r # fc red)
+
+-- | Tgraphs can be drawn with labels
+instance DrawableLabelled Tgraph where
+  labelSize r d g = labelSize r d (makeVP g)
+
+labelled,labelSmall,labelLarge :: DrawableLabelled a => (VPatch -> Diagram B) -> a -> Diagram B
+-- | Version of labelSize with normal label size 
+labelled = labelSize (normalized 0.018)
+-- | Version of labelSize with small label size 
+labelSmall = labelSize (normalized 0.007)
+-- | Version of labelSize with large label size 
+labelLarge = labelSize  (normalized 0.027) 
+
+{-
+
 -- | A class for things that can be drawn with labels when given a function to draw Pieces and a measure for label size.
 -- Measures are defined in Diagrams (normalized/output/local/global)
 class DrawableLabelled a where
@@ -170,13 +198,12 @@ drawLabelLarge = drawLabelLargeWith drawPiece
 drawjLabelLarge :: DrawableLabelled a => a -> Diagram B
 drawjLabelLarge = drawLabelLargeWith dashjPiece
 
-
-
+-}
 
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun
 rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
-rotateBefore dr angle = dr . rotate angle . makeVP
+rotateBefore vfun angle = vfun . rotate angle . makeVP
 
 
 {-* VPatch Alignment with Vertices

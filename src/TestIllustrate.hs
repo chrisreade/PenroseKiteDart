@@ -251,11 +251,11 @@ decompExplainFig = pad 1.2 $ centerXY fig0 where
 -- |Diagram showing decomposition of (left hand) half-tiles.
 decompHalfTiles :: Diagram B
 decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
-   [ addArrow  "d" "decd" [ scale phi $ drawjLabelLarge d
-               , drawjLabelLarge $ decompose d
+   [ addArrow  "d" "decd" [ scale phi $ labelLarge drawj d
+               , labelLarge drawj $ decompose d
                ]
-   , addArrow  "k" "deck" [ scale phi $ drawjLabelLarge k
-               , drawjLabelLarge $ rotate (ttangle 1) $ makeVP $ decompose k
+   , addArrow  "k" "deck" [ scale phi $ labelLarge drawj k
+               , labelLarge drawj $ rotate (ttangle 1) $ makeVP $ decompose k
                ]
    ]
     where d = makeTgraph [LD (1,2,3)]
@@ -276,10 +276,10 @@ cdfIllustrate = position (zip [p2 (0,0), p2 (0,7), p2 (10,0), p2 (10, -12)]
                   # lw thin
                   # padBorder
       where fKing = force kingGraph
-            k = drawLabelled kingGraph # named "k"
-            fk = drawLabelled fKing # named "fk"
-            dk = smart drawLabelled (decompose kingGraph) # scale (phi-1) # named "dk"
-            cfk = rotateBefore drawLabelled (ttangle 9) (compose fKing) # scale phi # named "cfk"
+            k = labelled draw kingGraph # named "k"
+            fk = labelled draw fKing # named "fk"
+            dk = smart (labelled draw) (decompose kingGraph) # scale (phi-1) # named "dk"
+            cfk = rotateBefore (labelled draw) (ttangle 9) (compose fKing) # scale phi # named "cfk"
 
 
 {-*
@@ -311,8 +311,8 @@ counterK = padBorder $ lw thin $ hsep 1 $
 touchingIllustration::  Diagram B
 touchingIllustration =
   padBorder $ lw thin $ hsep 1
-    [ drawjLabelled vpLeft <> (drawj vpGone # lc lime)
-    , alignBefore drawjLabelled (8,3) $ force touchGraph
+    [ labelled drawj vpLeft <> (drawj vpGone # lc lime)
+    , alignBefore (labelled drawj) (8,3) $ force touchGraph
     ] where
       touchGraph = graphFromVP vpLeft
       vpLeft = removeFacesVP deleted vp
@@ -327,12 +327,12 @@ touchingIllustration =
 -- Crossing boundary at 11 in second case and not tile-connected.
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
-       where d1 = drawjLabelled $ removeFacesVP [RK (3,11,13), LK (3,13,15), RK (3,15,4)] $ makeVP foolD
-             d2 = drawjLabelled $ removeFacesVP [RK (5,11,2), LD (6,13,11), RD (6,15,13), LD (6,17,15)] $ makeVP foolD
+       where d1 = labelled drawj $ removeFacesVP [RK (3,11,13), LK (3,13,15), RK (3,15,4)] $ makeVP foolD
+             d2 = labelled drawj $ removeFacesVP [RK (5,11,2), LD (6,13,11), RD (6,15,13), LD (6,17,15)] $ makeVP foolD
 
 -- |figure showing mistake Tgraph and the point at which forcing fails                
 pfMistakeFig :: Diagram B
-pfMistakeFig  = padBorder $ hsep 1 [drawjLabelled mistake, drawjLabelled partForcedMistake] where
+pfMistakeFig  = padBorder $ hsep 1 [labelled drawj mistake, labelled drawj partForcedMistake] where
    partForcedMistake = makeTgraph
                        [RK (9,1,11),LK (9,10,7),RK (9,7,5),LK (9,5,1),RK (1,2,4)
                        ,LK (1,3,2),RD (3,1,5),LD (4,6,1),LD (3,5,7),RD (4,8,6)
@@ -340,7 +340,7 @@ pfMistakeFig  = padBorder $ hsep 1 [drawjLabelled mistake, drawjLabelled partFor
 
 -- |decompose mistake and the point at which forcing fails  with  RK (6,26,1)              
 forcingDmistakeFig :: Diagram B
-forcingDmistakeFig = padBorder $ hsep 1 [drawjLabelled (decompose mistake), drawjLabelled part] where
+forcingDmistakeFig = padBorder $ hsep 1 [labelled drawj (decompose mistake), labelled drawj part] where
     part = makeTgraph
              [RK (26,24,1),RK (5,24,25),LK (5,1,24),RK (3,23,2),LK (3,22,23)
              ,RK (3,21,22),LK (3,15,21),LK (4,2,20),RK (4,20,19),LK (4,19,18),RK (4,18,17)
@@ -356,7 +356,7 @@ forcingDmistakeFig = padBorder $ hsep 1 [drawjLabelled (decompose mistake), draw
     The figure shows the graph when the error is discovered.
 -}
 forcingD2mistakeFig :: Diagram B
-forcingD2mistakeFig = padBorder $ drawjLabelled partF where
+forcingD2mistakeFig = padBorder $ labelled drawj partF where
   partF = makeTgraph
             [LK (78,46,35),LK (78,47,45),RK (78,45,46),LK (7,77,73),RK (7,76,77),LK (7,75,76),RK (7,74,75)
             ,LK (7,47,74),RK (7,73,43),LD (44,43,73),RK (8,72,67),LK (8,71,72),RK (8,70,71),LK (8,69,70)
@@ -381,12 +381,12 @@ forcingD2mistakeFig = padBorder $ drawjLabelled partF where
 
 -- |partially forced mistake1 (at the point of discovery of incorrect graph
 partFMistake1Fig:: Diagram B
-partFMistake1Fig = padBorder $ drawjLabelled partF where
+partFMistake1Fig = padBorder $ labelled drawj partF where
   partF = makeTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD (3,1,5),LD (4,6,1)]
 
 -- |decomposed mistake1 is no longer incorrect and can be forced and recomposed
 cdMistake1Fig :: Diagram B
-cdMistake1Fig = padBorder $ hsep 1 $ fmap drawjLabelled $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVP
+cdMistake1Fig = padBorder $ hsep 1 $ fmap (labelled drawj) $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVP
                [ mistake1 , mistake1D, force mistake1D, compose mistake1D]
                where mistake1D = decompose mistake1
 
@@ -398,8 +398,8 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap drawjLabelled $ scales [phi,1,1,phi] $
 -- the incorrect mistake4 clashes only near the wing tip of the removed half dart.
 mistake4Explore :: Diagram B
 mistake4Explore = padBorder $ lw ultraThin $ vsep 1
-                [ smart drawLabelSmall mistake4
-                , smart drawLabelSmall mistake4'
+                [ smart (labelSmall draw) mistake4
+                , smart (labelSmall draw) mistake4'
                 , drawCommonFaces (force mistake4',(1,41)) (mistake4,(1,46))
                 ] where
                    mistake' = removeFaces [RD (4,8,6)] mistake
@@ -773,8 +773,8 @@ Testing (functions and figures and experiments)
 -}
 -- |diagrams of forced graphs for boundaryGapFDart4 and boundaryGapFDart5
 testForce4, testForce5 :: Diagram B
-testForce4 = padBorder $ lw ultraThin $ drawjLabelSmall $ force boundaryGapFDart4
-testForce5 = padBorder $ lw ultraThin $ drawjLabelSmall $ force boundaryGapFDart5
+testForce4 = padBorder $ lw ultraThin $ labelSmall drawj $ force boundaryGapFDart4
+testForce5 = padBorder $ lw ultraThin $ labelSmall drawj $ force boundaryGapFDart5
 
 
 {-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) BoundaryState
@@ -783,7 +783,7 @@ testForce5 = padBorder $ lw ultraThin $ drawjLabelSmall $ force boundaryGapFDart
 -- This is overlaid on the full graph drawn with vertex labels.
 -}
 testViewBoundary :: BoundaryState -> Diagram B
-testViewBoundary bd =  lc lime (drawEdges vpMap bdE) <> drawjLabelled g where
+testViewBoundary bd =  lc lime (drawEdges vpMap bdE) <> labelled drawj g where
     g = recoverGraph bd
     vpMap = bvLocMap bd
     bdE = boundary bd
@@ -857,7 +857,7 @@ trackTwoChoices de g = [ttg1,ttg2] where
 -- |forced 4 times decomposed dart (used for identifying particular boundary
 -- edges in twoChoices and moreChoices)
 forceDartD4Fig:: Diagram B
-forceDartD4Fig = padBorder $ lw ultraThin $ drawjLabelSmall $ force dartD4
+forceDartD4Fig = padBorder $ lw ultraThin $ labelSmall drawj $ force dartD4
 -- |Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [TrackedTgraph]
 twoChoices = trackTwoChoices (223,255) (force dartD4) --(233,201) 
@@ -1141,7 +1141,7 @@ It establishes that a single legal face addition to a forced Tgraph can be an in
 -}
 oneChoiceFig:: Diagram B
 oneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $
-                     fmap (smart drawLabelSmall) [oneChoiceGraph,incorrectExtension,successful] where
+                     fmap (smart (labelSmall draw)) [oneChoiceGraph,incorrectExtension,successful] where
   successful = force $ addHalfDart (76,77) oneChoiceGraph
   incorrectExtension = addHalfKite (76,77) oneChoiceGraph -- fails on forcing
 
@@ -1197,7 +1197,7 @@ testRelabellingFig =
     , hsep 1 $ center <$> take 3 $ drop 2 eight
     , hsep 1 $ center <$> drop 5 eight
     ] 
-  where eight = fmap drawjLabelSmall 
+  where eight = fmap (labelSmall drawj) 
                     [ g1
                     , g2
                     , g2_A
@@ -1229,7 +1229,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
                             [ hsep 1 $ center <$> take 2 thelist
                             , hsep 1 $ center <$> drop 2 thelist
                             ] where
-     thelist = fmap drawjLabelled $ rotations [0,7] $ fmap makeVP
+     thelist = fmap (labelled drawj) $ rotations [0,7] $ fmap makeVP
                  [ g1
                  , g2
                  , matchByEdges (g1, (1,15)) (g2,(1,10))

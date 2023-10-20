@@ -39,7 +39,6 @@ library
       TestIllustrate
       ArtWork
   other-modules:
-      TileFigExamples
       Paths_PenroseKiteDart
   hs-source-dirs:
       src

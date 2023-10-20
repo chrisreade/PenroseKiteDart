@@ -1,28 +1,31 @@
 # Revision history for PenroseKiteDart
 
 
-## 0.3.0.0 -- 2022-03-31
+## 0.3.0.0 -- 2023-10-19
 
-Restructured modules: 
+Modules: 
     src/
-      HalfTile.hs              -- used by TileLib and Tgraph.Prelude
+      HalfTile.hs              -- (Half)Tile constructors - used by TileLib and Tgraph.Prelude
       ChosenBackend.hs         -- switch between e.g. SVG or PostScript
-      TileLib.hs               -- Drawing of Patches
+      TileLib.hs               -- Drawing of Pieces (and Patches)
       Tgraphs.hs               -- Main Graph Ops (imports and reexports all modules in Tgraph except Tgraph.Convert
       Tgraph/
          Tgraph.Prelude.hs     -- (imports and reexports HalfTile)
          Tgraph.Decompose.hs
          Tgraph.Compose.hs
          Tgraph.Force.hs
-         Tgraph.Convert.hs     -- Converting Tgraphs to Patches and VPatches
+         Tgraph.Convert.hs     -- Converting Tgraphs to VPatches (and drawing both)
       TgraphExamples.hs
+
+## 0.2.0.0 -- 2022-03-31
+
+Restructured modules
 
 Graphs and Graph ops are collected in Tgraphs.hs
 Converting functions (and VPatch definition) are in Tgraph.Convert.hs
 Graph example figures are in TgraphExamples.hs
 
 Original underlying Tile ops and tile drawing are in TileLib.hs
-
 
 ## 0.2.0.0 -- 2021-06-18
 
