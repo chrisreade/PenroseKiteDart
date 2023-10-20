@@ -122,10 +122,10 @@ instance Drawable Tgraph where
 -- (Orphaned instance: Placing it in Tgraphs.Prelude would make cyclic dependency of modules)
     drawWith pd = drawWith pd . makeVP
 
--- | A class for things that can be drawn with labels when given  a measure for label size and a 
--- a draw function for VPatches.
--- Measures are defined in Diagrams (normalized/output/local/global)
--- (labelSize m modifies a given drawing function to add labels of size m.)
+-- | A class for things that can be drawn with labels when given a measure for the label size and a 
+-- a draw function (for VPatches).
+-- Thus labelSize m is a modifier of drawing functions to add labels (of size measure m).
+-- (Measures are defined in Diagrams - normalized/output/local/global)
 class DrawableLabelled a where
   labelSize :: Measure Double -> (VPatch -> Diagram B) -> a -> Diagram B
 
@@ -138,15 +138,15 @@ instance DrawableLabelled VPatch where
 
 -- | Tgraphs can be drawn with labels
 instance DrawableLabelled Tgraph where
-  labelSize r d g = labelSize r d (makeVP g)
+  labelSize r d = labelSize r d . makeVP
 
 labelled,labelSmall,labelLarge :: DrawableLabelled a => (VPatch -> Diagram B) -> a -> Diagram B
--- | Version of labelSize with normal label size 
+-- | Version of labelSize with a default normal label size. Example usage: labelled draw a , labelled drawj a
 labelled = labelSize (normalized 0.018)
--- | Version of labelSize with small label size 
+-- | Version of labelSize with a default small label size. Example usage: labelSmall draw a , labelSmall drawj a 
 labelSmall = labelSize (normalized 0.007)
--- | Version of labelSize with large label size 
-labelLarge = labelSize  (normalized 0.027) 
+-- | Version of labelSize with a default large label size. Example usage: labelLarge draw a , labelLarge drawj a 
+labelLarge = labelSize (normalized 0.027) 
 
 {-
 

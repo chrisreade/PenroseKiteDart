@@ -523,13 +523,13 @@ coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
     g4 = compose g3
     g0 = force g1
     vp = makeAlignedVP (1,2) g3
-    d1 = smartSub draw g1 vp
-    d2 = smartSub draw g2 vp
-    d3 = smartSub draw g3 vp
+    d1 = restrictSmart g1 draw vp
+    d2 = restrictSmart g2 draw vp
+    d3 = restrictSmart g3 draw vp
     d4 = if nullGraph g4
          then emptyRep
-         else smartSub draw g4 vp
-    d0 = scale phi $ alignBefore (smartSub draw g0) (1,2) g0
+         else restrictSmart g4 draw vp
+    d0 = scale phi $ alignBefore (restrictSmart g0 draw) (1,2) g0
 
 -- | diagram used to indicate an empty Tgraph (lime circle with diagonal line through it).
 emptyRep:: Diagram B

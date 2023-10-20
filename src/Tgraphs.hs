@@ -93,12 +93,12 @@ Smart drawing of Tgraphs
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
--- For example: smart (labelSmall draw) g, and
--- alignBefore (smart (labelled draw)) (a,b) g, and
--- rotateBefore (smart (labelled draw)) a g
+-- For example: smart (labelSmall draw) g. 
+-- Note smart must come after labelling as e.g. labelled (smart draw) will not typecheck
 smart :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
-smart dr g = smartSub dr g (makeVP g)
+smart dr g = restrictSmart g dr (makeVP g)
 
+{-
 -- |smartSub dr g vp converts g to a diagram using VPatch drawing function dr
 -- and adds dashed boundary joins.
 -- It requires vp to contain a suitable vertex location map for drawing g.
@@ -107,10 +107,32 @@ smartSub:: (VPatch -> Diagram B) -> Tgraph -> VPatch -> Diagram B
 smartSub dr g vp = drawWith dashjOnly (subVP vp $ boundaryJoinFaces g) 
                     <> 
                     dr (subVP vp (faces g))
+-}
+
+-- |restrictSmart g dr vp converts g to a diagram using VPatch drawing function dr
+-- and adds dashed boundary joins.
+-- It requires vp to contain a suitable vertex location map for drawing g.
+-- This can be used instead of smart when such a map is already available.
+restrictSmart:: Tgraph -> (VPatch -> Diagram B) -> VPatch -> Diagram B
+restrictSmart g dr vp = drawWith dashjOnly (subVP vp $ boundaryJoinFaces g) 
+                   <> 
+                   dr (restrictVP vp $ faces g)
 
 -- |same as draw except adding dashed lines on boundary join edges. 
 smartdraw :: Tgraph -> Diagram B
 smartdraw = smart draw
+
+-- |smartRotateBefore vfun a g - a tricky combination of smart with rotateBefore.
+-- Uses vfun to produce a Diagram after converting g to a rotated VPatch but also adds the dashed boundary join edges of g.
+smartRotateBefore::  (VPatch -> Diagram B) -> Angle Double -> Tgraph -> Diagram B
+smartRotateBefore vfun angle g = rotateBefore (restrictSmart g vfun) angle g
+
+-- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with alignBefore.
+-- Uses vfun to produce a Diagram after converting g to n aligned VPatch but also adds the dashed boundary join edges of g.
+smartAlignBefore::  (VPatch -> Diagram B) -> (Vertex,Vertex) -> Tgraph -> Diagram B
+smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
+
+
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
@@ -126,7 +148,7 @@ Overlaid drawing tools for Tgraphs
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = smartSub draw g' vp
+drawPCompose g = restrictSmart g' draw vp
                  <> drawj (subVP vp remainder) # lw thin # lc lime
   where (remainder,g') = partCompose g
         vp = makeVP g
@@ -137,7 +159,7 @@ drawForce:: Tgraph -> Diagram B
 drawForce g = (dg # lc red # lw thin) <> dfg where
     vp = makeVP $ force g
     dfg = draw vp
-    dg = smartSub draw g vp
+    dg = restrictSmart g draw vp
 
 -- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
 -- overlaid on superForce g in blue.
@@ -145,8 +167,8 @@ drawForce g = (dg # lc red # lw thin) <> dfg where
 drawSuperForce:: Tgraph -> Diagram B
 drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     vp = makeVP $ superForce g
-    dfg = smartSub draw (force g) vp
-    dg = smartSub draw g vp
+    dfg = draw $ selectFacesVP (faces $ force g) vp -- restrictSmart (force g) draw vp
+    dg = restrictSmart g draw vp
     dsfg = draw vp
 {-|
 drawWithMax g - draws g and overlays the maximal composition of force g in red.
