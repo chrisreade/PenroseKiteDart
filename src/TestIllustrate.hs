@@ -322,9 +322,9 @@ touchingIllustration =
       deleted = filter ((==1).originV) (faces sunD2) ++
                 [LD (29,41,31),RK (31,79,29),LK (10,29,79),RK (10,79,75)]
 
--- |faces removed from foolD to illustrate crossing boundary and non tile-connected faces
--- (using VPatch to draw). Crossing boundary at 4 in first case (but still tile-connected),
--- Crossing boundary at 11 in second case and not tile-connected.
+-- |faces removed from foolD to illustrate crossing boundary and non tile-connected faces.
+-- There is a crossing boundary at 4 in the first case (but the faces are still tile-connected),
+-- There is a crossing boundary at 11 in the second case and the faces are not tile-connected.
 crossingBdryFig :: Diagram B
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
        where d1 = labelled drawj $ removeFacesVP [RK (3,11,13), LK (3,13,15), RK (3,15,4)] $ makeVP foolD
@@ -582,13 +582,13 @@ forceHoleTest = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce bounda
 
 -- | figure to check that force can complete a hole and extend from boundary faces
 forceFillTest :: Diagram B
-forceFillTest = padBorder $  lw ultraThin $ rotate (ttangle 1) $ drawForce g
+forceFillTest = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce g
     where g = checkedTgraph $ boundaryFaces $ makeBoundaryState $ dartDs!!6
 
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
 -- using stepForce 2000
 gapProgress5 :: Diagram B
-gapProgress5 = lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
+gapProgress5 = padBorder $ lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
     [ smartdraw g
     , smartdraw $ stepForce g 2000
     ] where g = boundaryGapFDart5
@@ -612,7 +612,7 @@ dartPic0 = padBorder $ lw ultraThin $ position $ concat
               pointsR2 = map p2 [ (0, 40), (42, 40), (95, 40), (145, 40), (195, 40)]
               pointsR3 = map p2 [ (0, 0),  (42, 0),  (95, 0),  (145, 0),  (195, 0) ]
 
-{-| kitePic0 is a diagram of force/emplacement relationships for decomposed kites
+{-| kitePic0 is a diagram of force/compose relationships for decomposed kites
     without arrows. 
 -}
 kitePic0 = padBorder $ lw ultraThin $ position $ concat
@@ -771,10 +771,12 @@ curioPic =
 {-*
 Testing (functions and figures and experiments)
 -}
--- |diagrams of forced graphs for boundaryGapFDart4 and boundaryGapFDart5
+
 testForce4, testForce5 :: Diagram B
-testForce4 = padBorder $ lw ultraThin $ labelSmall drawj $ force boundaryGapFDart4
-testForce5 = padBorder $ lw ultraThin $ labelSmall drawj $ force boundaryGapFDart5
+-- |diagram of forced Tgraph for boundaryGapFDart4
+testForce4 = padBorder $ lw ultraThin $ drawForce boundaryGapFDart4
+-- |diagram of forced Tgraph for boundaryGapFDart5
+testForce5 = padBorder $ lw ultraThin $ drawForce boundaryGapFDart5
 
 
 {-| testViewBoundary is a testing tool to inspect the boundary vertex locations of some (intermediate) BoundaryState
@@ -783,7 +785,7 @@ testForce5 = padBorder $ lw ultraThin $ labelSmall drawj $ force boundaryGapFDar
 -- This is overlaid on the full graph drawn with vertex labels.
 -}
 testViewBoundary :: BoundaryState -> Diagram B
-testViewBoundary bd =  lc lime (drawEdges vpMap bdE) <> labelled drawj g where
+testViewBoundary bd =  (drawEdges vpMap bdE # lc lime) <> labelled drawj g where
     g = recoverGraph bd
     vpMap = bvLocMap bd
     bdE = boundary bd
@@ -1288,3 +1290,6 @@ findCore g = if nullGraph g then g else inspect (faces g)
         then inspect fcs
         else makeUncheckedTgraph (fc:fcs)
 
+
+checkSmartFig = padBorder $ hsep 1 [labelled (restrictSmart g draw) g, smart (labelled draw) g] where
+    g = foolDminus

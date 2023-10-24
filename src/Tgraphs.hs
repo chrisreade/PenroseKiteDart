@@ -94,7 +94,7 @@ Smart drawing of Tgraphs
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
 -- For example: smart (labelSmall draw) g. 
--- Note smart must come after labelling as e.g. labelled (smart draw) will not typecheck
+-- Note smart must come after labelling as e.g. labelled (smart draw) will not typecheck.
 smart :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
 smart dr g = restrictSmart g dr (makeVP g)
 
@@ -109,19 +109,22 @@ smartSub dr g vp = drawWith dashjOnly (subVP vp $ boundaryJoinFaces g)
                     dr (subVP vp (faces g))
 -}
 
--- |restrictSmart g dr vp converts g to a diagram using VPatch drawing function dr
--- and adds dashed boundary joins.
--- It requires vp to contain a suitable vertex location map for drawing g.
--- This can be used instead of smart when such a map is already available.
+-- |restrictSmart g dr vp - assumes vp has locations for vertices in g.
+-- It uses the VPatch drawing function dr to draw g and adds dashed boundary joins.
+-- This can be used instead of smart when an appropriate vp is already available.
+-- Example: labelled (restrictSmart g draw) g  - same as smart (labelled draw) g
+-- Example: rotateBefore (restrictSmart g (labelled draw)) angle g
+-- Example: alignBefore (restrictSmart g (labelled draw)) (a,b) g
 restrictSmart:: Tgraph -> (VPatch -> Diagram B) -> VPatch -> Diagram B
 restrictSmart g dr vp = drawWith dashjOnly (subVP vp $ boundaryJoinFaces g) 
-                   <> 
-                   dr (restrictVP vp $ faces g)
+                        <> 
+                        dr (restrictVP vp $ faces g)
 
 -- |same as draw except adding dashed lines on boundary join edges. 
 smartdraw :: Tgraph -> Diagram B
 smartdraw = smart draw
 
+{-
 -- |smartRotateBefore vfun a g - a tricky combination of smart with rotateBefore.
 -- Uses vfun to produce a Diagram after converting g to a rotated VPatch but also adds the dashed boundary join edges of g.
 smartRotateBefore::  (VPatch -> Diagram B) -> Angle Double -> Tgraph -> Diagram B
@@ -133,6 +136,7 @@ smartAlignBefore::  (VPatch -> Diagram B) -> (Vertex,Vertex) -> Tgraph -> Diagra
 smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
 
 
+-}
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
@@ -156,7 +160,7 @@ drawPCompose g = restrictSmart g' draw vp
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
 -- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
-drawForce g = (dg # lc red # lw thin) <> dfg where
+drawForce g = (dg # lc red) <> dfg where
     vp = makeVP $ force g
     dfg = draw vp
     dg = restrictSmart g draw vp
@@ -606,11 +610,19 @@ singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
 -- reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
+    reportCover bd des = fmap (tileLabel . getf) des where
+      efmap = dedgesFacesMap des (allFaces bd)
+      getf e = maybe (error $ "reportCover: no face found for edge " ++ show e)
+                     id
+                     (faceForEdge e efmap)
+      
+{-
     reportCover bd = fmap (tileLabel . getf) where
       efmap = edgeFaceMap (recoverGraph bd)
       getf e = maybe (error $ "reportCover: no face found for edge " ++ show e)
                      id
                      (faceForEdge e efmap)
+-}
 
 {-*
 Boundary loops

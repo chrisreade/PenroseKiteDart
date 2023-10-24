@@ -109,7 +109,7 @@ drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |draw join edge only (as dashed line)
 dashjOnly:: Piece -> Diagram B
-dashjOnly piece = drawJoin piece # dashingN [0.004,0.004] 0 # lw ultraThin
+dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lc grey -- # lw ultraThin
 
 -- |same as drawPiece but with added join edge (also fillable as a loop)
 drawRoundPiece:: Piece -> Diagram B
@@ -235,13 +235,13 @@ decompPiece lp = case viewLoc lp of
                , LK vk' `at` (p .+^ v')
                , RK vk' `at` (p .+^ v')
                ] where v'  = rotate (ttangle 9) vk
-                       vd' = (2-phi) *^ v' -- v'/phi^2
+                       vd' = (2-phi) *^ v'  -- (2-phi) = 1/phi^2
                        vk' = ((phi-1) *^ vk) ^-^ v' -- (phi-1) = 1/phi
   (p, LK vk)-> [ LD vd' `at` p
                , RK vk' `at` (p .+^ v')
                , LK vk' `at` (p .+^ v')
                ] where v'  = rotate (ttangle 1) vk
-                       vd' = (2-phi) *^ v' -- v'/phi^2
+                       vd' = (2-phi) *^ v'  -- (2-phi) = 1/phi^2
                        vk' = ((phi-1) *^ vk) ^-^ v' -- (phi-1) = 1/phi
 
 -- |Create an infinite list of increasing decompositions of a patch

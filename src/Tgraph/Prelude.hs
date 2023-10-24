@@ -15,7 +15,7 @@ This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, elemIndex,foldl')
+import Data.List ((\\), intersect, union, elemIndex,foldl')
 import Data.Either(fromRight, lefts, rights)
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!))
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax)
@@ -142,13 +142,13 @@ selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 Required Tgraph properties
 -}
 
-{- | Checks a list of faces for 
+{- | Checks a list of faces to exclude: 
     edge loops,
     edge conflicts (same directed edge on two or more faces),
     illegal tilings (breaking legal rules for tiling),
-    vertices not >0 ,
-    no crossing boundaries, and 
-    connectedness.
+    vertices not all >0 ,
+    crossing boundaries, and 
+    non-connectedness.
 
 (No crossing boundaries and connectedness implies tile-connected)
 
@@ -556,22 +556,13 @@ edgeNb::TileFace -> TileFace -> Bool
 edgeNb fc = any (`elem` edges) . faceDedges where
       edges = fmap reverseD (faceDedges fc)
 
--- | Produces a mapping from the directed edges of a Tgraph to the unique tileface with that directed edge
--- (expensive)
-edgeFaceMap :: Tgraph -> Map.Map Dedge TileFace
-edgeFaceMap g = Map.fromList $ concatMap assign (faces g) where
-  assign f = fmap (,f) (faceDedges f)
-
--- | look up a face for an edge in an edge face map
-faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
-faceForEdge = Map.lookup
 
 -- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
 type VertexMap a = VMap.IntMap a
 
 {-|vertexFacesMap vs fcs -
 For list of vertices vs and list of faces fcs,
-create an IntMap from each vertex in vs to a list of those faces in fcs that are at that vertex
+create an IntMap from each vertex in vs to a list of those faces in fcs that are at that vertex.
 -}
 vertexFacesMap:: [Vertex] -> [TileFace] -> VertexMap [TileFace]
 vertexFacesMap vs = foldl' insertf start where
@@ -580,6 +571,38 @@ vertexFacesMap vs = foldl' insertf start where
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
+-- | dedgesFacesMap des fcs - Produces a map associating a directed edge in des with 
+-- a TileFace in fcs that has that directed edge.
+-- It will report an error if any directed edge in des has more than one TileFace in fcs with that directed edge. 
+-- Any directed edge in des that has no Tileface in fcs with directed edge will be excluded from the resulting map.
+-- If the directed edges and faces are all those from a Tgraph, graphEFMap will be more efficient.
+-- dedgesFacesMap is intended for a relatively small subset of directed edges in a Tgraph.
+dedgesFacesMap:: [Dedge] -> [TileFace] -> Map.Map Dedge TileFace
+dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
+   vs = fmap fst des `union` fmap snd des
+   vfMap = vertexFacesMap vs fcs
+   assocFaces [] = []
+   assocFaces (d@(a,b):more) = case (VMap.lookup a vfMap, VMap.lookup b vfMap) of
+      (Just fcs1, Just fcs2) -> case filter (`hasDedge` d) $ fcs1 `intersect` fcs2 of 
+                                   [fc] -> (d,fc):assocFaces more
+                                   []   -> assocFaces more
+                                   _   -> error $ "dedgesFacesMap: more than one Tileface has the same directed edge: "
+                                                  ++ show d ++ "\n"
+      _ -> assocFaces more
+
+--- | Produces a mapping from the directed edges of a Tgraph to the unique tileface with that directed edge.
+-- This is more efficient than using dedgesFacesMap.
+graphEFMap :: Tgraph -> Map.Map Dedge TileFace
+graphEFMap g = Map.fromList $ concatMap assign (faces g) where
+  assign f = fmap (,f) (faceDedges f)
+
+-- | look up a face for an edge in an edge face map
+faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
+faceForEdge = Map.lookup
+
+-- | look up a face for an edge in an edge face map
+faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
+faceForEdge = Map.lookup
 
 {-* Try - result types with failure reporting (for partial operations) -}
 

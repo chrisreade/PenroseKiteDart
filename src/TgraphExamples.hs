@@ -130,13 +130,11 @@ forceFoolDminus :: Diagram B
 forceFoolDminus = padBorder $ hsep 1 $ fmap (labelLarge drawj) [foolDminus, force foolDminus]
 
 
--- |diagrams of forced graphs (3 or 5 times decomposed kite or dart or sun)           
-forceDartD3Fig,forceDartD5Fig,forceKiteD3Fig,forceKiteD5Fig,forceSunD5Fig,forceFig:: Diagram B
-forceDartD3Fig = padBorder $ lw thin $ rotate (ttangle 1) $ drawForce $ dartDs!!3
+-- |diagrams of forced graphs (5 times decomposed kite or dart or sun)           
+forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig:: Diagram B
 forceDartD5Fig = padBorder $ lw ultraThin $ drawForce $ dartDs !! 5
-forceKiteD3Fig = padBorder $ lw thin $ drawForce $ kiteDs !! 3
 forceKiteD5Fig = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
-forceSunD5Fig =  padBorder $ lw ultraThin $ drawForce $ sunDs  !! 5
+forceSunD5Fig =  padBorder $ lw ultraThin $ drawForce $ sunDs !! 5
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 -- |an example showing a 4 times forceDecomp pair of darts,
@@ -262,11 +260,6 @@ starGraph = makeTgraph
 forceVFigures :: [Diagram B]
 forceVFigures = rotations [0,0,9,5,0,0,1] $
                 fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
-
-
-{-| forceVsFig shows force of the 7 vertex types in a row as single diagram -}
-forceVsFig :: Diagram B
-forceVsFig = padBorder $ hsep 1 forceVFigures
 
 {-*
 Sun with darts and superForce example
