@@ -611,19 +611,12 @@ singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
 -- reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
     reportCover bd des = fmap (tileLabel . getf) des where
-      efmap = dedgesFacesMap des (allFaces bd)
-      getf e = maybe (error $ "reportCover: no face found for edge " ++ show e)
+      efmap = dedgesFacesMap des (allFaces bd) -- more efficient than using graphEFMap?
+--      efmap = graphEFMap (recoverGraph bd)
+      getf e = maybe (error $ "reportCover: no face found with directed edge " ++ show e)
                      id
                      (faceForEdge e efmap)
       
-{-
-    reportCover bd = fmap (tileLabel . getf) where
-      efmap = edgeFaceMap (recoverGraph bd)
-      getf e = maybe (error $ "reportCover: no face found for edge " ++ show e)
-                     id
-                     (faceForEdge e efmap)
--}
-
 {-*
 Boundary loops
 -}

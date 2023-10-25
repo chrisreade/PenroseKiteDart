@@ -10,7 +10,7 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 Introduces Tgraphs and includes operations on vertices, edges and faces as well as Tgraphs.
-Includes type Try for use as result of partial operations.
+Includes type constructor Try for use as result of partial operations.
 This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
@@ -571,10 +571,9 @@ vertexFacesMap vs = foldl' insertf start where
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
--- | dedgesFacesMap des fcs - Produces a map associating a directed edge in des with 
--- a TileFace in fcs that has that directed edge.
--- It will report an error if any directed edge in des has more than one TileFace in fcs with that directed edge. 
--- Any directed edge in des that has no Tileface in fcs with directed edge will be excluded from the resulting map.
+-- | dedgesFacesMap des fcs - Produces a mapping. Each directed edge in des is associated with
+-- a unique TileFace in fcs that has that directed edge (if there is one).
+-- It will report an error if more than one TileFace in fcs has the same directed edge in des. 
 -- If the directed edges and faces are all those from a Tgraph, graphEFMap will be more efficient.
 -- dedgesFacesMap is intended for a relatively small subset of directed edges in a Tgraph.
 dedgesFacesMap:: [Dedge] -> [TileFace] -> Map.Map Dedge TileFace
@@ -590,15 +589,11 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
                                                   ++ show d ++ "\n"
       _ -> assocFaces more
 
---- | Produces a mapping from the directed edges of a Tgraph to the unique tileface with that directed edge.
--- This is more efficient than using dedgesFacesMap.
+--- | graphEFMap g - is a mapping associating with each directed edge of g, the unique TileFace with that directed edge.
+-- This is more efficient than using dedgesFacesMap for the complete mapping.
 graphEFMap :: Tgraph -> Map.Map Dedge TileFace
 graphEFMap g = Map.fromList $ concatMap assign (faces g) where
   assign f = fmap (,f) (faceDedges f)
-
--- | look up a face for an edge in an edge face map
-faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
-faceForEdge = Map.lookup
 
 -- | look up a face for an edge in an edge face map
 faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
