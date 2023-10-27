@@ -68,7 +68,7 @@ data BoundaryState
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex
      , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex
      , allFaces:: [TileFace] -- ^ all the tile faces
-     , nextVertex::  !Vertex -- ^ next vertex number
+     , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
 
 -- |Calculates BoundaryState information from a Tgraph
@@ -90,10 +90,7 @@ makeBoundaryState g =
       
 -- |Converts a BoundaryState back to a Tgraph
 recoverGraph:: BoundaryState -> Tgraph
-recoverGraph bd = 
-  Tgraph{ faces = allFaces bd
-        , maxV = nextVertex bd -1
-        }
+recoverGraph bd = makeUncheckedTgraph (allFaces bd)
 
 -- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]

@@ -27,22 +27,17 @@ DECOMPOSING - decompose
 
 -- |Decompose a Tgraph.
 decompose :: Tgraph -> Tgraph
-decompose g = Tgraph{ maxV = newMax
-                    , faces = newFaces
-                    } where
-    (newMax , newVFor) = maxAndPhiVMap g
-    newFaces = concatMap (decompFace newVFor) (faces g)
+decompose g = makeUncheckedTgraph newFaces where
+    newFaces = concatMap (decompFace (phiVMap g)) (faces g)
 
--- |maxAndPhiVMap g produces a new maxV and
--- a function mapping each phi edge to an assigned new vertex.
+-- |phiVMap g produces a function mapping each phi edge to an assigned new vertex.
 -- Both (a,b) and (b,a) get the same v.
--- (Also sorted phiEdges to reduce arbitrariness of numbering).  
-maxAndPhiVMap :: Tgraph -> (Vertex, Map.Map Dedge Vertex)
-maxAndPhiVMap g = (oldMax+sizeNew, edgeVMap) where
+-- (Also uses sort to fix order of assigned numbers).  
+phiVMap :: Tgraph -> Map.Map Dedge Vertex
+phiVMap g = edgeVMap where
   phiReps = sort [(a,b) | (a,b) <- phiEdges g, a<b]
-  oldMax = maxV g
   sizeNew = length phiReps
-  newVs = sizeNew `newVsAfter` oldMax
+  newVs = (length phiReps) `newVsAfter` (maxV g)
   edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (fmap reverseD phiReps) newVs 
 
 -- |Decompose a face producing new faces. 

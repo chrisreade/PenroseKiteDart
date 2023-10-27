@@ -21,7 +21,7 @@ Tile Graphs (Tgraphs):
 Tgraphs use a simple planar graph representation for patches of tiles.
 Module Tgraphs includes and exports contents of several other Tgraph modules, namely 
 Tgraph.Compose, Tgraph.Convert, Tgraph.Decompose, Tgraph.Force, Tgraph.Prelude.
-Tgraph.Convert has tools for turning Tgraphs into VPatches and for drawing.
+Tgraph.Convert has tools for turning Tgraphs into VPatches (vertex patches) and for drawing.
 
 For more information see
 https://readerunner.wordpress.com/2022/01/06/graphs-kites-and-darts/

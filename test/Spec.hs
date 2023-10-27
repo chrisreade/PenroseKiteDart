@@ -37,14 +37,6 @@ x4 = [LD(1,2,3),RD(1,4,2),RD(4,1,5),LD(4,5,6)]
 -- x5 has enon-positive vertex number 
 x5 = [LD(0,1,2)]
 
--- Test example Tgraphs
-
--- g1 has crossing boundaries
-g1 = makeUncheckedTgraph x1
-
--- g2 is not connected
-g2 = makeUncheckedTgraph x2
-
 -- dD6 is a 6 times decomposed dartGraph
 dD6 = dartDs !!6
 
@@ -86,16 +78,16 @@ graphPropSpec = describe "Test Properties of Tgraphs" $ do
         hasEdgeLoops x1 `shouldBe` False
     context "When fcs has crossing boundaries" $
       it "crossingBoundaries fcs should return True" $
-        crossingBoundaries g1 `shouldBe` True
+        crossingBoundaries x1 `shouldBe` True
     context "When fcs has no crossing boundaries" $
       it "crossingBoundaries fcs should return False" $
-        crossingBoundaries foolD `shouldBe` False
-    context "When a Tgraph g is connected" $
-      it "connected g should return True" $
-        connected g1 `shouldBe` True
-    context "When a Tgraph g is not connected" $
-      it "connected g should return False" $
-        connected g2 `shouldBe` False
+        crossingBoundaries (faces foolD) `shouldBe` False
+    context "When fcs are connected" $
+      it "connected fcs should return True" $
+        connected x1 `shouldBe` True
+    context "When fcs are not connected" $
+      it "connected fcs should return False" $
+        connected x2 `shouldBe` False
     context "When fcs has illegal edge conflicts" $
       it "illegalTiling fcs should return True" $
         illegalTiling x3 `shouldBe` True

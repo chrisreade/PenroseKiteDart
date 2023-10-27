@@ -46,13 +46,11 @@ type VertexSet = IntSet.IntSet
 -- a specialisation of HalfTile
 type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
--- |A Tgraph is a list of faces along with the maximum value used for a vertex in the faces (0 for an empty list).
+-- |A Tgraph is a list of faces.
 -- (All vertex labels should be positive, so 0 is not used as a vertex label throughout)
 -- Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
-data Tgraph = Tgraph { maxV :: !Vertex  -- 0 for empty graph
-                     , faces    :: [TileFace]
-                     } deriving (Show)
-
+newtype Tgraph = Tgraph [TileFace]
+                 deriving (Show)
 
 
 {-------------------------------------------
@@ -68,12 +66,9 @@ Tgraphs and Property Checking
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. Use makeTgraph or checkedTgraph to perform checks.
--- This is intended for use only when checks are known to be redundant.
+-- This is intended for use only when checks are known to be redundant (and data constructor Tgraph is hidden).
 makeUncheckedTgraph:: [TileFace] -> Tgraph
-makeUncheckedTgraph fcs =
-    Tgraph { maxV = facesMaxV fcs
-           , faces = fcs
-           }
+makeUncheckedTgraph fcs = Tgraph fcs
 
 {-| Creates a Tgraph from a list of faces AND checks for edge conflicts and
 crossing boundaries and connectedness with checkTgraphProps.
@@ -114,21 +109,21 @@ checkTgraphProps fcs
       | otherwise         = let vs = facesVSet fcs
                             in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
                                then Left $ "Vertex numbers not all >0: " ++ show (IntSet.toList vs)
-                               else checkConnectedNoCross $ Tgraph{faces = fcs, maxV = IntSet.findMax vs} 
+                               else checkConnectedNoCross fcs 
 
--- |Checks a potential Tgraph for crossing boundaries and connectedness.
+-- |Checks a list of faces for crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected)
 -- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
 -- This is used by checkTgraphProps after other checks have been made,
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
-checkConnectedNoCross:: Tgraph -> Try Tgraph
-checkConnectedNoCross g
-  | not (connected g) =    Left $ "Non-valid Tgraph (Not connected)\n" ++ show (faces g) ++ "\n"
-  | crossingBoundaries g = Left $ "Non-valid Tgraph\n" ++
-                                  "Crossing boundaries found at " ++ show (crossingBVs g) 
-                                  ++ "\nwith faces\n" ++ show (faces g)
-  | otherwise            = Right g 
+checkConnectedNoCross:: [TileFace] -> Try Tgraph
+checkConnectedNoCross fcs
+  | not (connected fcs) =    Left $ "Non-valid Tgraph (Not connected)\n" ++ show fcs ++ "\n"
+  | crossingBoundaries fcs = Left $ "Non-valid Tgraph\n" ++
+                                  "Crossing boundaries found at " ++ show (crossingBVs fcs) 
+                                  ++ "\nwith faces\n" ++ show fcs
+  | otherwise            = Right (Tgraph fcs)
 
 -- |Returns any repeated vertices in a single tileface for a list of tilefaces.
 findEdgeLoops:: [TileFace] -> [Vertex]
@@ -208,10 +203,10 @@ illegals = filter (not . legal) .  sharedEdges
 illegalTiling:: [TileFace] -> Bool
 illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fcs))
 
--- |crossingBVs g returns a list of vertices with crossing boundaries
+-- |crossingBVs fcs returns a list of vertices with crossing boundaries
 -- (which should be null).               
-crossingBVs :: Tgraph -> [Vertex]
-crossingBVs = crossingVertices . graphBoundary 
+crossingBVs :: [TileFace] -> [Vertex]
+crossingBVs = crossingVertices . facesBoundary 
 
 -- |Given a list of directed boundary edges, crossingVertices returns a list of vertices occurring
 -- more than once at the start of the directed edges in the list.
@@ -222,13 +217,14 @@ crossingVertices des = duplicates (fmap fst des) -- OR duplicates (fmap snd des)
 -- |There are crossing boundaries if vertices occur more than once
 -- at the start of all boundary directed edges
 -- (or more than once at the end of all boundary directed edges).
-crossingBoundaries :: Tgraph -> Bool
-crossingBoundaries g = not $ null $ crossingBVs g
+crossingBoundaries :: [TileFace] -> Bool
+crossingBoundaries = not . null . crossingBVs
 
 -- |Predicate to check a Tgraph is a connected graph.
-connected:: Tgraph -> Bool
-connected g =   nullGraph g || null (snd $ connectedBy (graphEdges g) (IntSet.findMin vs) vs)
-                   where vs = vertexSet g
+connected:: [TileFace] -> Bool
+connected [] =  True
+connected fcs = null (snd $ connectedBy (facesEdges fcs) (IntSet.findMin vs) vs)
+                   where vs = facesVSet fcs
 
 -- |Auxiliary function for calculating connectedness.
 -- connectedBy edges v verts returns a pair of lists of vertices (conn,unconn)
@@ -253,14 +249,22 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
 {-*
 Basic Tgraph operations
 -}
+-- |Retrieve the faces of a Tgraph
+faces :: Tgraph -> [TileFace]
+faces (Tgraph fcs) = fcs
 
 -- |The empty Tgraph
 emptyTgraph :: Tgraph
-emptyTgraph = Tgraph { maxV = 0, faces = []} 
+emptyTgraph = Tgraph []
 
 -- |is the Tgraph empty?
 nullGraph:: Tgraph -> Bool
 nullGraph = null . faces
+
+-- |find the maximum vertex number in a Tgraph
+maxV :: Tgraph -> Int
+maxV = facesMaxV . faces
+
 
 -- | selecting left darts, right darts, left kite, right kites from a Tgraph
 ldarts,rdarts,lkites,rkites :: Tgraph -> [TileFace]
@@ -272,20 +276,12 @@ rkites g = filter isRK (faces g)
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
 selectFaces :: [TileFace] -> Tgraph -> Tgraph
-selectFaces fcs g = runTry $ checkConnectedNoCross $ 
-                    Tgraph {faces = newfaces, maxV = facesMaxV newfaces}
-                    where newfaces = faces g `intersect` fcs
---selectFaces fcs g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g `intersect` fcs
---selectFaces fcs g = checkedTgraph (faces g `intersect` fcs)
+selectFaces fcs g = runTry $ checkConnectedNoCross $ faces g `intersect` fcs
 
 -- |removes faces from a Tgraph,
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
 removeFaces :: [TileFace] -> Tgraph -> Tgraph
-removeFaces fcs g = runTry $ checkConnectedNoCross $ 
-                    Tgraph {faces = newfaces, maxV = facesMaxV newfaces}
-                    where newfaces = faces g \\ fcs
---removeFaces fcs g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g \\ fcs
---removeFaces fcs g = checkedTgraph (faces g \\ fcs)
+removeFaces fcs g = runTry $ checkConnectedNoCross $ faces g \\ fcs
 
 -- |removeVertices vs g - removes any vertex in the list vs from g
 -- by removing all faces at those vertices. Resulting Tgraph is checked
