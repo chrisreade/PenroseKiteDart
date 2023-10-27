@@ -1,6 +1,10 @@
 # Revision history for PenroseKiteDart
 
 
+## 0.4.0.0 -- 2023-10-27
+
+Tgraphs now defined as newType
+
 ## 0.3.0.0 -- 2023-10-19
 
 Modules: 

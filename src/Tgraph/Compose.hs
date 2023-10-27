@@ -46,8 +46,8 @@ partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
 -- of faces from g which will not compose.  If the check fails it produces Left s where s is a failure report.
 tryPartCompose:: Tgraph -> Try ([TileFace],Tgraph)
 tryPartCompose g = 
-  do let (remainder,newGraph) = uncheckedPartCompose g
-     checked <- onFail "tryPartCompose:/n" $ checkConnectedNoCross newGraph
+  do let (remainder,newFaces) = partComposeFaces g
+     checked <- onFail "tryPartCompose:/n" $ checkConnectedNoCross newFaces
      return (remainder,checked)
 
 -- |uncheckedPartCompose g produces a pair of the remainder faces (faces from g which will not compose)
