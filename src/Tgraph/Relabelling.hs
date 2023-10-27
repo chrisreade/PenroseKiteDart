@@ -92,7 +92,7 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
      let fcs = faces g1 `union` faces g3
          touchVs = touchingVertices fcs
      if null touchVs
-     then return $ Tgraph { faces = fcs, maxV = facesMaxV fcs } -- no properties check needed!
+     then return $ makeUncheckedTgraph fcs -- no properties check needed!
      else let vertg1 = vertexSet g1
               correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
               newrel = newRelabelling $ fmap correct touchVs
@@ -185,7 +185,7 @@ relabelUnion (Relabelling r1) (Relabelling r2) = Relabelling $ VMap.union r1 r2
 -- so that the resulting Tgraph does not need an expensive check for Tgraph properties.
 -- (See also checkRelabelGraph)
 relabelGraph:: Relabelling -> Tgraph -> Tgraph
-relabelGraph rlab g = Tgraph {faces = newFaces, maxV = facesMaxV newFaces } where
+relabelGraph rlab g = makeUncheckedTgraph newFaces where
    newFaces = fmap (relabelFace rlab) (faces g) 
 
 -- |checkRelabelGraph uses a relabelling map to change vertices in a Tgraph,

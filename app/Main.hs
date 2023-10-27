@@ -16,7 +16,7 @@ import ArtWork
                
 -- normal executable generating single figure
 fig::Diagram B
-fig = superForceRocketsFig
+fig = boundaryGap5Fig
 
 main :: IO ()
 main = mainWith fig

@@ -33,7 +33,7 @@ Tgraphs
 
 
 {-*
-Tgraphs
+Types for Tgraphs, Vertices, Directed Edges, Faces
 -}
 -- |Tgraph vertices
 type Vertex = Int
@@ -53,13 +53,7 @@ data Tgraph = Tgraph { maxV :: !Vertex  -- 0 for empty graph
                      , faces    :: [TileFace]
                      } deriving (Show)
 
--- |The empty Tgraph
-emptyTgraph :: Tgraph
-emptyTgraph = Tgraph { maxV = 0, faces = []} -- 0 never used as a vertex number
 
--- |the set of vertices of a graph
-vertexSet:: Tgraph -> VertexSet
-vertexSet = facesVSet . faces
 
 {-------------------------------------------
 ********************************************
@@ -67,11 +61,14 @@ Basic Tgraph, vertex, edge, face operations
 ********************************************
 --------------------------------------------}
 
+{-*
+Tgraphs and Property Checking
+-}
 
 
--- |Creates a (possibly invalid) Tgraph from a list of faces by calculating maxV.
+-- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. Use makeTgraph or checkedTgraph to perform checks.
--- This is intended for use only in testing
+-- This is intended for use only when checks are known to be redundant.
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph fcs =
     Tgraph { maxV = facesMaxV fcs
@@ -90,57 +87,6 @@ checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph fcs = runTry $ onFail report (checkTgraphProps fcs)
  where report = "checkedTgraph:\nFailed for faces: \n" ++ show fcs ++ "\n"
 
-
--- |is the Tgraph empty?
-nullGraph:: Tgraph -> Bool
-nullGraph g = null (faces g)
-
-{-*
-Basic Tgraph face operations
--}
-
--- | selecting left darts, right darts, left kite, right kites from a Tgraph
-ldarts,rdarts,lkites,rkites :: Tgraph -> [TileFace]
-ldarts g = filter isLD (faces g)
-rdarts g = filter isRD (faces g)
-lkites g = filter isLK (faces g)
-rkites g = filter isRK (faces g) 
-
--- |selects faces from a Tgraph (removing any not in the list),
--- but checks resulting Tgraph for connectedness and no crossing boundaries.
-selectFaces :: [TileFace] -> Tgraph -> Tgraph
-selectFaces fcs g = runTry $ checkConnectedNoCross $ 
-                    Tgraph {faces = newfaces, maxV = facesMaxV newfaces}
-                    where newfaces = faces g `intersect` fcs
---selectFaces fcs g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g `intersect` fcs
---selectFaces fcs g = checkedTgraph (faces g `intersect` fcs)
-
--- |removes faces from a Tgraph,
--- but checks resulting Tgraph for connectedness and no crossing boundaries.
-removeFaces :: [TileFace] -> Tgraph -> Tgraph
-removeFaces fcs g = runTry $ checkConnectedNoCross $ 
-                    Tgraph {faces = newfaces, maxV = facesMaxV newfaces}
-                    where newfaces = faces g \\ fcs
---removeFaces fcs g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g \\ fcs
---removeFaces fcs g = checkedTgraph (faces g \\ fcs)
-
--- |removeVertices vs g - removes any vertex in the list vs from g
--- by removing all faces at those vertices. Resulting Tgraph is checked
--- for required properties  e.g. connectedness and no crossing boundaries.
-removeVertices :: [Vertex] -> Tgraph -> Tgraph
-removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
-
--- |selectVertices vs g - removes any face that does not have a vertex in the list vs from g.
--- Resulting Tgraph is checked
--- for required properties  e.g. connectedness and no crossing boundaries.
-selectVertices :: [Vertex] -> Tgraph -> Tgraph
-selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
-
-
-
-{-*
-Required Tgraph properties
--}
 
 {- | Checks a list of faces to exclude: 
     edge loops,
@@ -206,9 +152,6 @@ duplicates = fst . foldl' check ([],[]) where
 conflictingDedges :: [TileFace] -> [Dedge]
 conflictingDedges = duplicates . facesDedges
 
--- |Returns the list of all directed edges (clockwise round each) of a list of tile faces
-facesDedges :: [TileFace] -> [Dedge]
-facesDedges = concatMap faceDedges
 
 -- | type used to classify edges of faces 
 data EdgeType = Short | Long | Join deriving (Show,Eq)
@@ -227,37 +170,37 @@ edgeType d f | d == longE f  = Long
 -- where f1 and f2 share a common edge and etype1 is the type of the shared edge in f1 and
 -- etype2 is the type of the shared edge in f2.
 -- This list can then be checked for inconsistencies / illegal pairings (using legal).
-sharedEdges:: [TileFace] -> [(TileFace,TileFace,EdgeType,EdgeType)]
-sharedEdges fcs = [(f1,f2,edgeType d1 f1,edgeType d2 f2) 
+sharedEdges:: [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
+sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2) 
                    | f1 <- fcs
                    , d1 <- faceDedges f1
                    , let d2 = reverseD d1
                    , f2 <- filter (`hasDedge` d2) fcs
                   ]
 
--- | legal (f1,f2,etype1,etype2) is True if and only if it is legal for f1 and f2 to share an edge
--- with edge type etype1 and etype2 is equal to etype1.                   
-legal:: (TileFace,TileFace,EdgeType,EdgeType) -> Bool                
-legal (LK _, RK _, e1 , e2    ) = e1 == e2 
-legal (RK _, LK _, e1 , e2    ) = e1 == e2 
-legal (LK _, RD _, Short,Short) = True
-legal (RD _, LK _, Short,Short) = True
-legal (LK _, RD _, Long, Long ) = True
-legal (RD _, LK _, Long, Long ) = True
-legal (LD _, RD _, Join, Join ) = True
-legal (RD _, LD _, Join, Join ) = True
-legal (LD _, RD _, Long, Long ) = True
-legal (RD _, LD _, Long, Long ) = True
-legal (LD _, RK _, Short,Short) = True
-legal (RK _, LD _, Short,Short) = True
-legal (LD _, RK _, Long, Long ) = True
-legal (RK _, LD _, Long, Long ) = True
+-- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
+-- with edge type etype1 (and etype2 is equal to etype1).                   
+legal:: (TileFace,EdgeType,TileFace,EdgeType) -> Bool                
+legal (LK _, e1,    RK _ , e2    ) = e1 == e2 
+legal (RK _, e1,    LK _ , e2    ) = e1 == e2 
+legal (LK _, Short, RD _ , Short) = True
+legal (RD _, Short, LK _ , Short) = True
+legal (LK _, Long,  RD _ , Long ) = True
+legal (RD _, Long,  LK _ , Long ) = True
+legal (LD _, Join,  RD _ , Join ) = True
+legal (RD _, Join,  LD _ , Join ) = True
+legal (LD _, Long,  RD _ , Long ) = True
+legal (RD _, Long,  LD _ , Long ) = True
+legal (LD _, Short, RK _ , Short) = True
+legal (RK _, Short, LD _ , Short) = True
+legal (LD _, Long,  RK _ , Long ) = True
+legal (RK _, Long,  LD _ , Long ) = True
 legal _ = False               
 
--- | Returns a list of illegal face parings of the form (f1,f2,e1,e2) where f1 and f2 share an edge
+-- | Returns a list of illegal face parings of the form (f1,e1,f2,e2) where f1 and f2 share an edge
 -- and e1 is the type of this edge in f1, and e2 is the type of this edge in f2.
 -- The list should be null for a legal Tgraph.
-illegals:: [TileFace] -> [(TileFace,TileFace,EdgeType,EdgeType)]
+illegals:: [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
 illegals = filter (not . legal) .  sharedEdges
 
 -- | Returns True if there are conflicting directed edges or if there are illegal shared edges
@@ -306,10 +249,68 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
               visited' = IntSet.deleteMin visited
               newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x 
 
+
+{-*
+Basic Tgraph operations
+-}
+
+-- |The empty Tgraph
+emptyTgraph :: Tgraph
+emptyTgraph = Tgraph { maxV = 0, faces = []} 
+
+-- |is the Tgraph empty?
+nullGraph:: Tgraph -> Bool
+nullGraph = null . faces
+
+-- | selecting left darts, right darts, left kite, right kites from a Tgraph
+ldarts,rdarts,lkites,rkites :: Tgraph -> [TileFace]
+ldarts g = filter isLD (faces g)
+rdarts g = filter isRD (faces g)
+lkites g = filter isLK (faces g)
+rkites g = filter isRK (faces g) 
+
+-- |selects faces from a Tgraph (removing any not in the list),
+-- but checks resulting Tgraph for connectedness and no crossing boundaries.
+selectFaces :: [TileFace] -> Tgraph -> Tgraph
+selectFaces fcs g = runTry $ checkConnectedNoCross $ 
+                    Tgraph {faces = newfaces, maxV = facesMaxV newfaces}
+                    where newfaces = faces g `intersect` fcs
+--selectFaces fcs g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g `intersect` fcs
+--selectFaces fcs g = checkedTgraph (faces g `intersect` fcs)
+
+-- |removes faces from a Tgraph,
+-- but checks resulting Tgraph for connectedness and no crossing boundaries.
+removeFaces :: [TileFace] -> Tgraph -> Tgraph
+removeFaces fcs g = runTry $ checkConnectedNoCross $ 
+                    Tgraph {faces = newfaces, maxV = facesMaxV newfaces}
+                    where newfaces = faces g \\ fcs
+--removeFaces fcs g = runTry $ checkConnectedNoCross $ makeUncheckedTgraph $ faces g \\ fcs
+--removeFaces fcs g = checkedTgraph (faces g \\ fcs)
+
+-- |removeVertices vs g - removes any vertex in the list vs from g
+-- by removing all faces at those vertices. Resulting Tgraph is checked
+-- for required properties  e.g. connectedness and no crossing boundaries.
+removeVertices :: [Vertex] -> Tgraph -> Tgraph
+removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
+
+-- |selectVertices vs g - removes any face that does not have a vertex in the list vs from g.
+-- Resulting Tgraph is checked
+-- for required properties  e.g. connectedness and no crossing boundaries.
+selectVertices :: [Vertex] -> Tgraph -> Tgraph
+selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
+
+
+-- |the set of vertices of a Tgraph
+vertexSet:: Tgraph -> VertexSet
+vertexSet = facesVSet . faces
        
 {-*
 Other Face and Vertex Operations
 -}
+
+-- |Returns the list of all directed edges (clockwise round each) of a list of tile faces
+facesDedges :: [TileFace] -> [Dedge]
+facesDedges = concatMap faceDedges
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
@@ -394,6 +395,7 @@ newVsAfter :: Int -> Vertex -> [Vertex]
 n `newVsAfter` v = [v+1..v+n]
 
 {-* Other Edge Operations -}
+
 {-
 (a,b) is regarded as a directed edge from a to b.
 A list of such pairs will usually be regarded as a list of directed edges.
@@ -483,20 +485,20 @@ hasDedgeIn fc es = not $ null $ es `intersect` faceDedges fc
 
 -- |phiEdges returns a list of the phi-edges of a Tgraph (including kite joins).
 -- This includes both directions of each edge.
-phiEdges :: Tgraph -> [(Vertex, Vertex)]
-phiEdges g = bothDir $ concatMap facePhiEdges $ faces g
+phiEdges :: Tgraph -> [Dedge]
+phiEdges = bothDir . concatMap facePhiEdges . faces
 
 -- |nonPhiEdges returns a list of the shorter edges of a Tgraph (including dart joins).
 -- This includes both directions of each edge.
-nonPhiEdges :: Tgraph -> [(Vertex, Vertex)]
-nonPhiEdges g = bothDir $ concatMap faceNonPhiEdges $ faces g
+nonPhiEdges :: Tgraph -> [Dedge]
+nonPhiEdges = bothDir . concatMap faceNonPhiEdges . faces 
 
 -- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
-graphEdges :: Tgraph -> [(Vertex, Vertex)]
+graphEdges :: Tgraph -> [Dedge]
 graphEdges = facesEdges . faces
 
 -- |facesEdges returns a list of all the edges of a list of TileFaces (both directions of each edge).
-facesEdges :: [TileFace] -> [(Vertex, Vertex)]
+facesEdges :: [TileFace] -> [Dedge]
 facesEdges = bothDir . facesDedges
 
 -- |bothDir adds missing reverse directed edges to a list of directed edges
@@ -515,16 +517,16 @@ bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
 
 -- |graphBoundary g are missing reverse directed edges in graphDedges g (the result contains single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
-graphBoundary :: Tgraph -> [(Vertex, Vertex)]
+graphBoundary :: Tgraph -> [Dedge]
 graphBoundary = facesBoundary . faces
 
 -- |facesBoundary fcs are missing reverse directed edges in facesDedges fcs (the result contains single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
-facesBoundary :: [TileFace] -> [(Vertex, Vertex)]
+facesBoundary :: [TileFace] -> [Dedge]
 facesBoundary fcs = missingRevs $ facesDedges fcs
 
 -- |A list of all the directed edges of a Tgraph (going clockwise round faces)
-graphDedges :: Tgraph -> [(Vertex, Vertex)]
+graphDedges :: Tgraph -> [Dedge]
 graphDedges = facesDedges . faces
 
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
@@ -540,16 +542,12 @@ missingRevs es = revUnmatched es where
     revUnmatched (e@(a,b):es) | seekR e = revUnmatched es
                               | otherwise = (b,a):revUnmatched es
 
-{-
--- |boundary edges are face edges not shared by 2 faces (but both directions).
-boundaryEdges :: Tgraph -> [(Vertex, Vertex)]
-boundaryEdges  = bothDirOneWay . graphBoundary
--}
-
 -- |internal edges are shared by two faces = all edges except boundary edges
-internalEdges :: Tgraph -> [(Vertex, Vertex)]
+internalEdges :: Tgraph -> [Dedge]
 internalEdges g =  des \\ fmap reverseD (missingRevs des) where
     des = graphDedges g
+
+{-* Other Face Operations -}
 
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
@@ -571,7 +569,7 @@ vertexFacesMap vs = foldl' insertf start where
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
--- | dedgesFacesMap des fcs - Produces a mapping. Each directed edge in des is associated with
+-- | dedgesFacesMap des fcs - Produces an edge-face map. Each directed edge in des is associated with
 -- a unique TileFace in fcs that has that directed edge (if there is one).
 -- It will report an error if more than one TileFace in fcs has the same directed edge in des. 
 -- If the directed edges and faces are all those from a Tgraph, graphEFMap will be more efficient.
@@ -595,7 +593,7 @@ graphEFMap :: Tgraph -> Map.Map Dedge TileFace
 graphEFMap g = Map.fromList $ concatMap assign (faces g) where
   assign f = fmap (,f) (faceDedges f)
 
--- | look up a face for an edge in an edge face map
+-- | look up a face for an edge in an edge-face map
 faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
 faceForEdge = Map.lookup
 
@@ -622,14 +620,14 @@ nothingFail a s = maybe (Left s) Right a
 runTry:: Try a -> a
 runTry = either error id
 
--- |ifFail a tr - extracts the (Right) result from tr, producing a if tr is Left s.
+-- |ifFail a tr - extracts the (Right) result from tr but returning a if tr is Left s.
 ifFail :: a -> Try a -> a
 ifFail = fromRight 
     
 -- |Combines a list of Trys into a single Try with failure overriding success.
 -- It concatenates all failure reports if there are any and returns a single Left r.
 -- Otherwise it produces Right rs where rs is the list of all (successful) results.
--- In particular, concatFails [] = Try []
+-- In particular, concatFails [] = Right []
 concatFails:: [Try a] -> Try [a]
 concatFails ls = case lefts ls of
                  [] -> Right $ rights ls
@@ -643,10 +641,10 @@ ignoreFails = rights
 -- | atLeastOne rs - returns the list of successful results if there are any, but fails with an error otherwise.
 -- The error report will include the concatenated reports from the failures. 
 atLeastOne:: [Try a] -> [a]
-atLeastOne [] = error "atLeastOne: applied to empty list"
-atLeastOne results = case rights results of
-                 [] -> runTry $ onFail "atLeastOne: no successful results\n" $ concatFails results
-                 _ -> ignoreFails results 
+atLeastOne [] = error "atLeastOne: applied to empty list.\n"
+atLeastOne results = case ignoreFails results of
+                 [] -> runTry $ onFail "atLeastOne: no successful results.\n" $ concatFails results
+                 other -> other 
 
 -- | noFails rs - returns the list of successes when all cases succeed, but fails with
 -- an error and a concatenated failure report of all failures if there is at least one failure

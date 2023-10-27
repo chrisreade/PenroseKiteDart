@@ -6,9 +6,10 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This module includes force plus related operations for testing and experimenting.
-For example tryForce is a version of Force returning a Try.
-It also exposes the calculation of relative angle of edges at vertices used to find existing edges.
+This module includes force and tryForce plus related operations for testing and experimenting.
+It introduces BoundaryState and ForceState types and includes a Forcible class with instance
+Tgraph, BoundaryState, and ForceState.
+It exposes the calculation of relative angle of edges at vertices used to find existing edges.
 It uses a touching check for adding new vertices (using Tgraph.Convert.creatVPoints for vertex locations)
 -}
 -- {-# LANGUAGE BangPatterns #-}
@@ -515,7 +516,6 @@ This relies on a proof that a boundary vertex with external angle less than 4 (t
 or have a unique addition possible on one of the neighbouring boundary edges. 
 (e.g. by considering forced boundary vertex contexts without using tryFinalStuckCheck)
 -}
-
 tryFinalStuckCheck:: ForceState -> Try ForceState
 tryFinalStuckCheck fs =
   case find ((<4) . externalAngle bs) bvs of
@@ -1011,33 +1011,6 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
     | otherwise = Right Map.empty
   mapItem e = fmap (\u -> Map.insert e u Map.empty)
   combine = fmap mconcat . concatFails -- concatenates all failure reports
-{-
-defaultAllUGen :: UpdateGenerator
-defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
-  decide e = decider bd (e,fc,etype) where (fc,etype) = inspectBDedge bd e
-  decider bd (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
-  decider bd (e,fc,Short) 
-    | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2
-    | otherwise = kiteShortDecider bd e fc 
-  decider bd (e,fc,Long)  
-    | isDart fc = dartLongDecider bd e fc
-    | otherwise = kiteLongDecider bd e fc 
-  dartLongDecider bd e fc
-    | mustbeStar bd (originV fc) = mapItem e (completeSunStar bd fc)
-    | mustbeKing bd (originV fc) = mapItem e (addDartLongE bd fc)
-    | mustbeJack bd (wingV fc) = mapItem e (addKiteLongE bd fc)
-    | otherwise = Right Map.empty
-  kiteLongDecider bd e fc
-    | mustbeSun bd (originV fc) = mapItem e (completeSunStar bd fc)
-    | mustbeQueen4Kite bd (wingV fc) = mapItem e (addDartLongE bd fc)
-    | otherwise = Right Map.empty
-  kiteShortDecider bd e fc
-    | mustbeDeuce bd (oppV fc) || mustbeJack bd (oppV fc) = mapItem e (addDartShortE bd fc)
-    | mustbeQueen3Kite bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
-    | otherwise = Right Map.empty
-  mapItem e = fmap (\u -> Map.insert e u Map.empty)
-  combine = fmap mconcat . concatFails -- concatenates all failure reports
--}
   
 
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
