@@ -25,7 +25,6 @@ module Tgraphs ( module Tgraphs
 
 import Tgraph.Prelude hiding (Tgraph(Tgraph)) -- hides Tgraph as type and data constructor
 import Tgraph.Prelude (Tgraph) -- re-includes Tgraph as type constructor only
-import qualified Tgraph.Prelude as Local (Tgraph(Tgraph)) -- Allows Tgraph data constructor to be used in this module
 import Tgraph.Decompose
 import Tgraph.Compose
 import Tgraph.Force

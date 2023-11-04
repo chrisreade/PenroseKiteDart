@@ -16,7 +16,7 @@ import ArtWork
                
 -- normal executable generating single figure
 fig::Diagram B
-fig = boundaryGap5Fig
+fig = boundaryGap4Fig
 
 main :: IO ()
 main = mainWith fig

@@ -285,7 +285,7 @@ superForceFig = padBorder $ rotate (ttangle 1) $ drawSuperForce g where
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
 
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
--- of sun3Dart. The decompositions are in red with normal force in black and superforce additions in blue.
+-- of sun3Dart. The decompositions are in red with normal force additions in black and superforce additions in blue.
 superForceRocketsFig :: Diagram B
 superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
    fmap drawSuperForce decomps where
@@ -298,8 +298,8 @@ Other miscelaneous Tgraphs and Diagrams
 
 -- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
-boundaryFDart4 = checkedTgraph $ boundaryFaces $ makeBoundaryState $ force dartD4
-boundaryFDart5 = checkedTgraph $ boundaryFaces $ makeBoundaryState $ force (dartDs!!5)
+boundaryFDart4 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
+boundaryFDart5 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
 
 -- |figures of the boundary faces only of a forced graph
 boundaryFDart4Fig,boundaryFDart5Fig:: Diagram B

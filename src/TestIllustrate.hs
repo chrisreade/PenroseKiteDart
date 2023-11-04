@@ -1290,6 +1290,3 @@ findCore g = if nullGraph g then g else inspect (faces g)
         then inspect fcs
         else makeUncheckedTgraph (fc:fcs)
 
-
-checkSmartFig = padBorder $ hsep 1 [labelled (restrictSmart g draw) g, smart (labelled draw) g] where
-    g = foolDminus

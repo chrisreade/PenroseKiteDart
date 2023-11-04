@@ -65,8 +65,8 @@ Similarly for bvLocMap.
 data BoundaryState 
    = BoundaryState
      { boundary:: [Dedge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
-     , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex
-     , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex
+     , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex (plus possibly other vertices)
+     , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex (plus possibly other vertices)
      , allFaces:: [TileFace] -- ^ all the tile faces
      , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
@@ -108,7 +108,9 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
 
 -- |return the (set of) faces which have a boundary vertex from boundary information
 boundaryFaces :: BoundaryState -> [TileFace]
-boundaryFaces = nub . concat . VMap.elems . bvFacesMap
+boundaryFaces bd = nub $ concatMap (bvFacesMap bd VMap.!) bvs where
+    bvs = fmap fst $ boundary bd
+--boundaryFaces = nub . concat . VMap.elems . bvFacesMap (wrong because the map contains more than just bv info)
 
 
 
