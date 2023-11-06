@@ -319,27 +319,30 @@ boundaryGap4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart4
 boundaryGap5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart5
 
 
--- | boundaryVCoveringFigs g - produces a list of diagrams for the boundaryVCovering of g  (with g shown in red in each case)
-boundaryVCoveringFigs:: Tgraph -> [Diagram B]
-boundaryVCoveringFigs g =
-    fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $
-    boundaryVCovering $ makeBoundaryState g
-      where redg = lc red $ alignBefore draw alig g
-            alig = lowestJoin (faces g)
+-- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
+-- (with the Tgraph represented by bd shown in red in each case)
+boundaryVCoveringFigs:: BoundaryState -> [Diagram B]
+boundaryVCoveringFigs bd =
+    fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryVCovering bd
+      where redg = lc red $ draw g --alignBefore draw alig g
+            alig = defaultAlignment g
+            g = recoverGraph bd
 
--- | boundaryECoveringFigs g - produces a list of diagrams for the boundaryECovering of g  (with g shown in red in each case)
-boundaryECoveringFigs:: Tgraph -> [Diagram B]
-boundaryECoveringFigs g =
-    fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $
-    boundaryECovering $ makeBoundaryState g
-      where redg = lc red $ alignBefore draw alig g
-            alig = lowestJoin (faces g)
+-- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
+-- (with the Tgraph represented by bd shown in red in each case)
+
+boundaryECoveringFigs:: BoundaryState -> [Diagram B]
+boundaryECoveringFigs bd =
+    fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryECovering bd
+      where redg = lc red $ draw g
+            alig = defaultAlignment g
+            g = recoverGraph bd
 
 -- | diagram showing the boundaryECovering of a forced kingGraph
 kingECoveringFig,kingVCoveringFig :: Diagram B
-kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoveringFigs $ force kingGraph
+kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoveringFigs $ force $ makeBoundaryState kingGraph
 -- | diagram showing the boundaryVCovering of a forced kingGraph
-kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoveringFigs $ force kingGraph
+kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoveringFigs $ force  $ makeBoundaryState kingGraph
 
 -- | figures showing King's empires (1 and 2)
 kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig::Diagram B

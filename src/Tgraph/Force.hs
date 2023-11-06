@@ -58,15 +58,12 @@ a mapping of boundary vertices to their incident faces, plus
 a mapping of boundary vertices to positions (using Tgraph.Prelude.locateVertices).
 It also keeps track of all the faces
 and the next vertex label to be used when adding a new vertex.
-Note that bvFacesMap is initially only defined for boundary vertices,
-but the information is not removed when a vertex is no longer on the boundary (after an update).
-Similarly for bvLocMap.
 -}
 data BoundaryState 
    = BoundaryState
      { boundary:: [Dedge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
-     , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex (plus possibly other vertices)
-     , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex (plus possibly other vertices)
+     , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex.
+     , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex.
      , allFaces:: [TileFace] -- ^ all the tile faces
      , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
@@ -99,18 +96,18 @@ changeVFMap f vfm = foldl' insertf vfm (faceVList f) where
    consf Nothing = Just [f]
    consf (Just fs) = Just (f:fs)
    
-   
 -- |facesAtBV bd v - returns the faces found at v (which must be a boundary vertex)
 facesAtBV:: BoundaryState -> Vertex -> [TileFace]
 facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
   Just fcs -> fcs
   Nothing -> error $ "facesAtBV: Not a boundary vertex? No faces found at " ++ show v ++ "\n"
 
--- |return the (set of) faces which have a boundary vertex from boundary information
+-- |return a list of faces which have a boundary vertex from a BoundaryState
 boundaryFaces :: BoundaryState -> [TileFace]
-boundaryFaces bd = nub $ concatMap (bvFacesMap bd VMap.!) bvs where
+boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
     bvs = fmap fst $ boundary bd
---boundaryFaces = nub . concat . VMap.elems . bvFacesMap (wrong because the map contains more than just bv info)
+-- boundaryFaces = nub . concat . VMap.elems . bvFacesMap 
+-- relies on the map containing no extra info for non boundary vertices
 
 
 
@@ -436,7 +433,8 @@ trySafeUpdate bd (SafeUpdate newface) =
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState 
                    { boundary = newDedges ++ (boundary bd \\ matchedDedges)
-                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
+                   , bvFacesMap = foldr VMap.delete (changeVFMap newface $ bvFacesMap bd) removedBVs
+--                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                    , allFaces = newface:allFaces bd
                    , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
                                --remove vertex/vertices no longer on boundary

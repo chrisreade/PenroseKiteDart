@@ -80,7 +80,7 @@ To perform this additional check use makeTgraph (which also calls checkTgraphPro
 -}
 checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph fcs = runTry $ onFail report (checkTgraphProps fcs)
- where report = "checkedTgraph:\nFailed for faces: \n" ++ show fcs ++ "\n"
+ where report = "checkedTgraph: Failed\n"  -- ++ " for faces: " ++ show fcs ++ "\n"
 
 
 {- | Checks a list of faces to exclude: 
@@ -99,16 +99,16 @@ Returns Left lines if a test fails, where lines describes the problem found.
 checkTgraphProps:: [TileFace] -> Try Tgraph
 checkTgraphProps []       =  Right emptyTgraph 
 checkTgraphProps fcs
-      | hasEdgeLoops fcs  =  Left $ "Non-valid tile-face(s)\n" ++
+      | hasEdgeLoops fcs  =  Left $ "checkTgraphProps: Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | illegalTiling fcs =  Left $ "Non-legal tiling\n" ++
+      | illegalTiling fcs =  Left $ "checkTgraphProps: Non-legal tiling\n" ++
                                       "Conflicting face edges (non-planar tiling): "
                                       ++ show (conflictingDedges fcs) ++
                                       "\nIllegal tile juxtapositions: "
                                       ++ show (illegals fcs) ++ "\n"
       | otherwise         = let vs = facesVSet fcs
                             in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
-                               then Left $ "Vertex numbers not all >0: " ++ show (IntSet.toList vs)
+                               then Left $ "checkTgraphProps: Vertex numbers not all >0: " ++ show (IntSet.toList vs) ++ "\n"
                                else checkConnectedNoCross fcs 
 
 -- |Checks a list of faces for crossing boundaries and connectedness.
@@ -119,8 +119,8 @@ checkTgraphProps fcs
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
 checkConnectedNoCross:: [TileFace] -> Try Tgraph
 checkConnectedNoCross fcs
-  | not (connected fcs) =    Left $ "Non-valid Tgraph (Not connected)\n" ++ show fcs ++ "\n"
-  | crossingBoundaries fcs = Left $ "Non-valid Tgraph\n" ++
+  | not (connected fcs) =    Left $ "checkConnectedNoCross: Non-valid Tgraph (Not connected)\n" ++ show fcs ++ "\n"
+  | crossingBoundaries fcs = Left $ "checkConnectedNoCross: Non-valid Tgraph\n" ++
                                   "Crossing boundaries found at " ++ show (crossingBVs fcs) 
                                   ++ "\nwith faces\n" ++ show fcs
   | otherwise            = Right (Tgraph fcs)
@@ -159,7 +159,7 @@ edgeType d f | d == longE f  = Long
              | d == shortE f = Short
              | d == joinE f  = Join 
              | otherwise = error $ "edgeType: directed edge " ++ show d ++ 
-                                   " not found in face " ++ show f
+                                   " not found in face " ++ show f ++ "\n"
 
 -- |For a list of tile faces fcs this produces a list of tuples of the form (f1,f2,etpe1,etype2)
 -- where f1 and f2 share a common edge and etype1 is the type of the shared edge in f1 and

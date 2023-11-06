@@ -18,7 +18,7 @@ touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing
 
 module Tgraph.Convert where
 
-import Data.List ((\\), intersect)
+import Data.List ((\\), intersect, foldl')
 import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, assocs, keys)
 import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
@@ -153,7 +153,7 @@ rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
 rotateBefore vfun angle = vfun . rotate angle . makeVP
 
 
-{-* VPatch Alignment with Vertices
+{-* Alignment with Vertices
 -}
 
 -- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
@@ -200,6 +200,13 @@ alignBefore vfun vs = vfun . alignXaxis vs . makeVP
 makeAlignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch        
 makeAlignedVP = alignBefore id
 
+-- |the default alignment of a non-empty Tgraph is (v1,v2) where v1 is the lowest numbered face origin,
+-- and v2 is the lowest numbered opp vertex of faces with origin at v1. This is the lowest join of g.
+-- An error will be raised if the Tgraph is empty.
+defaultAlignment :: Tgraph -> (Vertex,Vertex)
+defaultAlignment g | nullGraph g = error "defaultAlignment: applied to empty Tgraph\n"
+                   | otherwise = lowestJoin $ faces g
+
 
 {-* Vertex Location Calculation -}
 
@@ -227,7 +234,8 @@ The third argument is the mapping of vertices to points.
     fastAddVPoints [] fcOther _ = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
     fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
         nbs = filter (`Set.member` fcOther) (edgeNbs efMap fc)
-        fcOther' = foldr Set.delete fcOther nbs
+        fcOther' = foldl' (flip Set.delete) fcOther nbs
+--        fcOther' = foldr Set.delete fcOther nbs
         vpMap' = addVPoint fc vpMap
 
 -- |For a non-empty list of tile faces
@@ -235,13 +243,13 @@ The third argument is the mapping of vertices to points.
 -- Move this face to the front of the returned list of faces.
 -- Used by locateVertices to determine the starting point for location calculation
 lowestJoinFirst:: [TileFace] -> [TileFace]
-lowestJoinFirst fcs | null fcs  = error "lowestJoinFirst: applied to empty list of faces"
-                    | otherwise = face:(fcs\\[face]) where
-    a = minimum (fmap originV fcs)
-    aFaces = filter ((a==) . originV) fcs
-    b = minimum (fmap oppV aFaces)
-    (face: _) = filter (((a,b)==) . joinOfTile) aFaces
-
+lowestJoinFirst fcs
+  | null fcs  = error "lowestJoinFirst: applied to empty list of faces"
+  | otherwise = face:(fcs\\[face])
+    where a = minimum (fmap originV fcs)
+          aFaces = filter ((a==) . originV) fcs
+          b = minimum (fmap oppV aFaces)
+          (face: _) = filter (((a,b)==) . joinOfTile) aFaces
 
 -- |Return the join edge with lowest origin vertex (and lowest oppV vertex if there is more than one).
 lowestJoin:: [TileFace] -> Dedge

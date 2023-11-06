@@ -180,9 +180,9 @@ This relies on g and all compositions of force g having vertices in force g.
 drawWithMax :: Tgraph -> Diagram B
 drawWithMax g =  (dmax # lc red # lw thin) <> dg where
     vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
-    dg = draw $ subVP vp $ faces g
-    maxg = maxComp g
-    dmax = draw $ subVP vp $ faces maxg
+    dg = restrictSmart g draw vp
+    maxg = maxCompForce g
+    dmax = restrictSmart maxg draw vp
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
 drawGBoundary :: Tgraph -> Diagram B
@@ -224,21 +224,23 @@ composeK g = runTry $ checkConnectedNoCross newfaces where
 -- |compForce does a force then compose.
 -- It omits the check for connected, and no crossing boundaries because the argument is forced first.
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
+-- It may raise an error if the initial force fails with an incorrect Tgraph.
 compForce:: Tgraph -> Tgraph
 compForce = uncheckedCompose . force 
         
 -- |allCompForce g produces a list of all forced compositions starting from g up to but excluding the empty Tgraph.
 -- This definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
+-- It may raise an error if the initial force fails with an incorrect Tgraph.
 allCompForce:: Tgraph -> [Tgraph]
 allCompForce g = takeWhile (not . nullGraph) $ g: iterate uncheckedCompose (compForce g)
 
--- |maxComp g produces the maximally composed (non-empty) Tgraph from force g, provided g is non-empty
+-- |maxCompForce g produces the maximally composed (non-empty) Tgraph from force g, provided g is non-empty
 -- and just the emptyGraph otherwise.
 -- It may raise an error if the initial force fails with an incorrect Tgraph.
-maxComp:: Tgraph -> Tgraph
-maxComp g | nullGraph g = g
-          | otherwise = last $ allCompForce g
+maxCompForce:: Tgraph -> Tgraph
+maxCompForce g | nullGraph g = g
+               | otherwise = last $ allCompForce g
 
 
 -- |force after a decomposition
@@ -372,7 +374,7 @@ empire1:: Tgraph -> TrackedTgraph
 empire1 g = makeTrackedTgraph g0 [fcs,faces g] where
     (g0:others) = forcedBoundaryVCovering g
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
-    de = lowestJoin (faces g)
+    de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
 -- | empire2 g - produces a TrackedTgraph representing the level 2 empire of g.
@@ -390,7 +392,7 @@ empire2 g = makeTrackedTgraph g0 [fcs, faces g] where
     covers2 = concatMap boundaryECovering covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
-    de = lowestJoin (faces g)
+    de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
 -- | empire2Plus g - produces a TrackedTgraph representing an extended level 2 empire of g
@@ -402,7 +404,7 @@ empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
     covers2 = concatMap boundaryVCovering covers1
     (g0:others) = fmap recoverGraph covers2
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
-    de = lowestJoin (faces g)
+    de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
 -- | drawEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
