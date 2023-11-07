@@ -109,7 +109,7 @@ drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |draw join edge only (as dashed line)
 dashjOnly:: Piece -> Diagram B
-dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lc grey -- # lw ultraThin
+dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lw ultraThin -- # lc grey 
 
 -- |same as drawPiece but with added join edge (also fillable as a loop)
 drawRoundPiece:: Piece -> Diagram B

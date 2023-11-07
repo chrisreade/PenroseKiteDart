@@ -137,12 +137,11 @@ forceKiteD5Fig = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce $ kit
 forceSunD5Fig =  padBorder $ lw ultraThin $ drawForce $ sunDs !! 5
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
--- |an example showing a 4 times forceDecomp pair of darts,
+-- |an example showing a 4 times forceDecomp pair of darts (sharing a long edge),
 -- with the maximal compForce Tgraph (a kite) overlaid in red
 maxExampleFig :: Diagram B
 maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlusDart !! 4 where
                  dartPlusDart = addHalfDart (1,5) $ addHalfDart (1,2) dartGraph
-                 
 
 -- |showing 4 emplaceChoices for foolD 
 -- Uses revised emplaceChoices.
@@ -262,7 +261,7 @@ forceVFigures = rotations [0,0,9,5,0,0,1] $
                 fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
 
 {-*
-Sun with darts and superForce example
+Sun with darts and superForce examples
 -}
 
 sun1Dart,sun2AdjDart,sun2Dart,sun3AdjDart,sun3Dart :: Tgraph

@@ -119,7 +119,7 @@ instance Drawable VPatch where
 
 -- |Make drawing tools applicable to Tgraphs.
 instance Drawable Tgraph where
--- (Orphaned instance: Placing it in Tgraphs.Prelude would make cyclic dependency of modules)
+-- (Orphaned instance: Placing it in Tgraphs.Prelude or TileLib would make cyclic dependency of modules)
     drawWith pd = drawWith pd . makeVP
 
 -- | A class for things that can be drawn with labels when given a measure for the label size and a 
@@ -200,12 +200,6 @@ alignBefore vfun vs = vfun . alignXaxis vs . makeVP
 makeAlignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch        
 makeAlignedVP = alignBefore id
 
--- |the default alignment of a non-empty Tgraph is (v1,v2) where v1 is the lowest numbered face origin,
--- and v2 is the lowest numbered opp vertex of faces with origin at v1. This is the lowest join of g.
--- An error will be raised if the Tgraph is empty.
-defaultAlignment :: Tgraph -> (Vertex,Vertex)
-defaultAlignment g | nullGraph g = error "defaultAlignment: applied to empty Tgraph\n"
-                   | otherwise = lowestJoin $ faces g
 
 
 {-* Vertex Location Calculation -}
@@ -231,33 +225,12 @@ and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
     fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPoints [] fcOther _ = error ("fastAddVPoints: Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints [] fcOther _ = error ("locateVertices (fastAddVPoints): Faces not tile-connected " ++ show fcOther)
     fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
-        nbs = filter (`Set.member` fcOther) (edgeNbs efMap fc)
+        nbs = filter (`Set.member` fcOther) (edgeNbs fc efMap)
         fcOther' = foldl' (flip Set.delete) fcOther nbs
 --        fcOther' = foldr Set.delete fcOther nbs
         vpMap' = addVPoint fc vpMap
-
--- |For a non-empty list of tile faces
--- find the face with lowest originV (and then lowest oppV).
--- Move this face to the front of the returned list of faces.
--- Used by locateVertices to determine the starting point for location calculation
-lowestJoinFirst:: [TileFace] -> [TileFace]
-lowestJoinFirst fcs
-  | null fcs  = error "lowestJoinFirst: applied to empty list of faces"
-  | otherwise = face:(fcs\\[face])
-    where a = minimum (fmap originV fcs)
-          aFaces = filter ((a==) . originV) fcs
-          b = minimum (fmap oppV aFaces)
-          (face: _) = filter (((a,b)==) . joinOfTile) aFaces
-
--- |Return the join edge with lowest origin vertex (and lowest oppV vertex if there is more than one).
-lowestJoin:: [TileFace] -> Dedge
-lowestJoin fcs | null fcs  = error "lowestJoin: applied to empty list of faces"
-lowestJoin fcs = (a,b) where
-    a = minimum (fmap originV fcs)
-    aFaces = filter ((a==) . originV) fcs
-    b = minimum (fmap oppV aFaces)
 
 -- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tileface vertices
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
@@ -268,18 +241,15 @@ addVPoint fc vpMap =
   case thirdVertexLoc fc vpMap of
     Just (v,p) -> VMap.insert v p vpMap
     Nothing -> vpMap
-
--- |Build a Map from directed edges to faces (the unique face containing the directed edge)
-buildEFMap:: [TileFace] -> Map.Map Dedge TileFace
-buildEFMap = mconcat . fmap processFace where
-  processFace fc = Map.fromList $ (,fc) <$> faceDedges fc
  
+{-
 -- |Given a map from each directed edge to the tileface containing it (efMap), a tileface (fc)
 -- return the list of edge neighbours of fc.
 edgeNbs:: Map.Map Dedge TileFace -> TileFace -> [TileFace]
 edgeNbs efMap fc = mapMaybe getNbr edges where
     getNbr e = Map.lookup e efMap
     edges = fmap reverseD (faceDedges fc) 
+-}
 
 -- |axisJoin fc 
 -- initialises a vertex to point mapping with locations for the join edge vertices of fc

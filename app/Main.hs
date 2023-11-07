@@ -16,7 +16,7 @@ import ArtWork
                
 -- normal executable generating single figure
 fig::Diagram B
-fig = maxExampleFig
+fig = brokenDartFig
 
 main :: IO ()
 main = mainWith fig

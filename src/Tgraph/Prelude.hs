@@ -15,11 +15,12 @@ This module re-exports module HalfTile.
 -}
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
-import Data.List ((\\), intersect, union, elemIndex,foldl')
+import Data.List ((\\), intersect, union, elemIndex,foldl',find)
 import Data.Either(fromRight, lefts, rights)
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!))
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup)
+import Data.Maybe (mapMaybe) -- edgeNbrs
 
 import HalfTile
 
@@ -265,7 +266,6 @@ nullGraph = null . faces
 maxV :: Tgraph -> Int
 maxV = facesMaxV . faces
 
-
 -- | selecting left darts, right darts, left kite, right kites from a Tgraph
 ldarts,rdarts,lkites,rkites :: Tgraph -> [TileFace]
 ldarts g = filter isLD (faces g)
@@ -295,18 +295,55 @@ removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
 selectVertices :: [Vertex] -> Tgraph -> Tgraph
 selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 
-
 -- |the set of vertices of a Tgraph
 vertexSet:: Tgraph -> VertexSet
 vertexSet = facesVSet . faces
-       
+
+-- |A list of all the directed edges of a Tgraph (going clockwise round faces)
+graphDedges :: Tgraph -> [Dedge]
+graphDedges = facesDedges . faces
+
+-- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
+graphEdges :: Tgraph -> [Dedge]
+graphEdges = facesEdges . faces
+
+-- |internal edges are shared by two faces = all edges except boundary edges
+internalEdges :: Tgraph -> [Dedge]
+internalEdges g =  des \\ fmap reverseD (missingRevs des) where
+    des = graphDedges g
+
+-- |graphBoundary g are missing reverse directed edges in graphDedges g (the result contains single directions only)
+-- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
+graphBoundary :: Tgraph -> [Dedge]
+graphBoundary = facesBoundary . faces
+
+-- |phiEdges returns a list of the phi-edges of a Tgraph (including kite joins).
+-- This includes both directions of each edge.
+phiEdges :: Tgraph -> [Dedge]
+phiEdges = bothDir . concatMap facePhiEdges . faces
+
+-- |nonPhiEdges returns a list of the shorter edges of a Tgraph (including dart joins).
+-- This includes both directions of each edge.
+nonPhiEdges :: Tgraph -> [Dedge]
+nonPhiEdges = bothDir . concatMap faceNonPhiEdges . faces 
+
+-- | graphEFMap g - is a mapping associating with each directed edge of g, the unique TileFace with that directed edge.
+-- This is more efficient than using dedgesFacesMap for the complete mapping.
+graphEFMap :: Tgraph -> Map.Map Dedge TileFace
+graphEFMap = buildEFMap . faces
+
+-- |the default alignment of a non-empty Tgraph is (v1,v2) where v1 is the lowest numbered face origin,
+-- and v2 is the lowest numbered opp vertex of faces with origin at v1. This is the lowest join of g.
+-- An error will be raised if the Tgraph is empty.
+defaultAlignment :: Tgraph -> (Vertex,Vertex)
+defaultAlignment g | nullGraph g = error "defaultAlignment: applied to empty Tgraph\n"
+                   | otherwise = lowestJoin $ faces g
+
+      
 {-*
 Other Face and Vertex Operations
 -}
 
--- |Returns the list of all directed edges (clockwise round each) of a list of tile faces
-facesDedges :: [TileFace] -> [Dedge]
-facesDedges = concatMap faceDedges
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
@@ -399,12 +436,17 @@ In the special case that the list is symmetrically closed [(b,a) is in the list 
 we will refer to this as an edge list rather than a directed edge list.                  
 -}
 
+
 -- |directed edges (clockwise) round a face
 faceDedges::TileFace -> [Dedge]
 faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (LK(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
+
+-- |Returns the list of all directed edges (clockwise round each) of a list of tile faces
+facesDedges :: [TileFace] -> [Dedge]
+facesDedges = concatMap faceDedges
 
 -- |opposite directed edge
 reverseD:: Dedge -> Dedge
@@ -478,21 +520,6 @@ hasDedge f e = e `elem` faceDedges f
 hasDedgeIn :: TileFace -> [Dedge] -> Bool
 hasDedgeIn fc es = not $ null $ es `intersect` faceDedges fc
 
-
--- |phiEdges returns a list of the phi-edges of a Tgraph (including kite joins).
--- This includes both directions of each edge.
-phiEdges :: Tgraph -> [Dedge]
-phiEdges = bothDir . concatMap facePhiEdges . faces
-
--- |nonPhiEdges returns a list of the shorter edges of a Tgraph (including dart joins).
--- This includes both directions of each edge.
-nonPhiEdges :: Tgraph -> [Dedge]
-nonPhiEdges = bothDir . concatMap faceNonPhiEdges . faces 
-
--- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
-graphEdges :: Tgraph -> [Dedge]
-graphEdges = facesEdges . faces
-
 -- |facesEdges returns a list of all the edges of a list of TileFaces (both directions of each edge).
 facesEdges :: [TileFace] -> [Dedge]
 facesEdges = bothDir . facesDedges
@@ -511,19 +538,11 @@ bothDirOneWay:: [Dedge] -> [Dedge]
 bothDirOneWay [] = []
 bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
 
--- |graphBoundary g are missing reverse directed edges in graphDedges g (the result contains single directions only)
--- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
-graphBoundary :: Tgraph -> [Dedge]
-graphBoundary = facesBoundary . faces
-
 -- |facesBoundary fcs are missing reverse directed edges in facesDedges fcs (the result contains single directions only)
 -- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
 facesBoundary :: [TileFace] -> [Dedge]
 facesBoundary fcs = missingRevs $ facesDedges fcs
 
--- |A list of all the directed edges of a Tgraph (going clockwise round faces)
-graphDedges :: Tgraph -> [Dedge]
-graphDedges = facesDedges . faces
 
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
 missingRevs:: [Dedge] -> [Dedge]
@@ -538,10 +557,8 @@ missingRevs es = revUnmatched es where
     revUnmatched (e@(a,b):es) | seekR e = revUnmatched es
                               | otherwise = (b,a):revUnmatched es
 
--- |internal edges are shared by two faces = all edges except boundary edges
-internalEdges :: Tgraph -> [Dedge]
-internalEdges g =  des \\ fmap reverseD (missingRevs des) where
-    des = graphDedges g
+
+
 
 {-* Other Face Operations -}
 
@@ -583,15 +600,54 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
                                                   ++ show d ++ "\n"
       _ -> assocFaces more
 
---- | graphEFMap g - is a mapping associating with each directed edge of g, the unique TileFace with that directed edge.
--- This is more efficient than using dedgesFacesMap for the complete mapping.
-graphEFMap :: Tgraph -> Map.Map Dedge TileFace
-graphEFMap g = Map.fromList $ concatMap assign (faces g) where
+
+-- |Build a Map from directed edges to faces (the unique face containing the directed edge)
+buildEFMap:: [TileFace] -> Map.Map Dedge TileFace
+buildEFMap = Map.fromList . concatMap assign where
   assign f = fmap (,f) (faceDedges f)
+{-
+buildEFMap = mconcat . fmap processFace where
+  processFace fc = Map.fromList $ (,fc) <$> faceDedges fc
+-}
 
 -- | look up a face for an edge in an edge-face map
 faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
 faceForEdge = Map.lookup
+
+-- |Given a tileface (fc) and a map from each directed edge to the tileface containing it (efMap)
+-- return the list of edge neighbours of fc.
+edgeNbs:: TileFace -> Map.Map Dedge TileFace -> [TileFace]
+edgeNbs fc efMap = mapMaybe getNbr edges where
+    getNbr e = Map.lookup e efMap
+    edges = fmap reverseD $ faceDedges fc
+
+-- |For a non-empty list of tile faces
+-- find the face with lowest originV (and then lowest oppV).
+-- Move this face to the front of the returned list of faces.
+-- Used by locateVertices to determine the starting point for location calculation
+lowestJoinFirst:: [TileFace] -> [TileFace]
+lowestJoinFirst fcs
+  | null fcs  = error "lowestJoinFirst: applied to empty list of faces"
+  | otherwise = face:(fcs\\[face])
+    where a = minimum (fmap originV fcs)
+          aFaces = filter ((a==) . originV) fcs
+          b = minimum (fmap oppV aFaces)
+          face = case find (((a,b)==) . joinOfTile) aFaces of
+                  Just fc -> fc
+                  Nothing -> error $ "lowestJoinFirst: no face fond at "
+                                     ++ show a ++ " with opp vertex at " ++ show b ++ "\n"
+--          (face: _) = filter (((a,b)==) . joinOfTile) aFaces
+
+-- |Return the join edge with lowest origin vertex (and lowest oppV vertex if there is more than one).
+-- The resulting edge is always directed from the origin to the opp vertex, i.e (orig,opp).
+lowestJoin:: [TileFace] -> Dedge
+lowestJoin fcs | null fcs  = error "lowestJoin: applied to empty list of faces"
+lowestJoin fcs = (a,b) where
+    a = minimum (fmap originV fcs)
+    aFaces = filter ((a==) . originV) fcs
+    b = minimum (fmap oppV aFaces)
+
+
 
 {-* Try - result types with failure reporting (for partial operations) -}
 
