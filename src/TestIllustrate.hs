@@ -590,7 +590,7 @@ forceFillTest = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce g
 gapProgress5 :: Diagram B
 gapProgress5 = padBorder $ lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
     [ smartdraw g
-    , smartdraw $ stepForce g 2000
+    , smartdraw $ stepForce 2000 g
     ] where g = boundaryGapFDart5
 
 
@@ -795,10 +795,10 @@ testViewBoundary bd =  (drawEdges vpMap bdE # lc lime) <> labelled drawj g where
 -- e.g. n = 1900 for inspectForce5 or 200 for inspectForce3
 inspectForce5,inspectForce3 :: Int -> Diagram B
 inspectForce5 n = padBorder $ lw ultraThin $
-                  testViewBoundary $ stepForce (makeBoundaryState boundaryGapFDart5) n
+                  testViewBoundary $ stepForce n (makeBoundaryState boundaryGapFDart5)
 
 inspectForce3 n = padBorder $ lw ultraThin $
-                  testViewBoundary $ stepForce (makeBoundaryState $ dartDs!!3) n
+                  testViewBoundary $ stepForce n (makeBoundaryState $ dartDs!!3)
 
 
 -- |figures showing boundary edges of the boundary gap graphs boundaryGapFDart4 and boundaryGapFDart5 
@@ -1273,7 +1273,8 @@ findMistake :: [TileFace] -> (TileFace,Tgraph)
 findMistake [] = error "findMistake: ??"
 findMistake (fc:fcs) = inspect fc fcs where
   inspect fc fcs = either (\_ -> inspect (head fcs) (tail fcs))
-                          (\g -> (fc,g)) (tryForce $ makeUncheckedTgraph fcs)
+                          (\g -> (fc,g)) 
+                          (tryForce $ makeUncheckedTgraph fcs)
 
 {- | Another inspection tool. For a forced Tgraph g,
 findCore g finds a Tgraph with the shortest tail of the faces of g that still produces g when forced.

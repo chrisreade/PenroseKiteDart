@@ -132,9 +132,9 @@ forceFoolDminus = padBorder $ hsep 1 $ fmap (labelLarge drawj) [foolDminus, forc
 
 -- |diagrams of forced graphs (5 times decomposed kite or dart or sun)           
 forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig:: Diagram B
-forceDartD5Fig = padBorder $ lw ultraThin $ drawForce $ dartDs !! 5
-forceKiteD5Fig = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
-forceSunD5Fig =  padBorder $ lw ultraThin $ drawForce $ sunDs !! 5
+forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
+forceKiteD5Fig = padBorder $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
+forceSunD5Fig =  padBorder $ drawForce $ sunDs !! 5
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 -- |an example showing a 4 times forceDecomp pair of darts (sharing a long edge),
@@ -292,7 +292,7 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 
 
 {-*
-Other miscelaneous Tgraphs and Diagrams
+Other miscellaneous Tgraphs and Diagrams
 -}
 
 -- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
@@ -318,6 +318,11 @@ boundaryGap4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart4
 boundaryGap5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart5
 
 
+{-*
+Boundary coverings and empires
+-}
+
+
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
 -- (with the Tgraph represented by bd shown in red in each case)
 boundaryVCoveringFigs:: BoundaryState -> [Diagram B]
@@ -329,7 +334,6 @@ boundaryVCoveringFigs bd =
 
 -- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
 -- (with the Tgraph represented by bd shown in red in each case)
-
 boundaryECoveringFigs:: BoundaryState -> [Diagram B]
 boundaryECoveringFigs bd =
     fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryECovering bd

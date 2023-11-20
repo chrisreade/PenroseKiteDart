@@ -151,7 +151,7 @@ Overlaid drawing tools for Tgraphs
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = restrictSmart g' draw vp
+drawPCompose g = restrictSmart g' draw vp # lw ultraThin
                  <> drawj (subVP vp remainder) # lw thin # lc lime
   where (remainder,g') = partCompose g
         vp = makeVP g
@@ -159,7 +159,7 @@ drawPCompose g = restrictSmart g' draw vp
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
 -- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
-drawForce g = (dg # lc red) <> dfg where
+drawForce g = (dg # lc red # lw thin) <> dfg  # lw ultraThin where
     vp = makeVP $ force g
     dfg = draw vp
     dg = restrictSmart g draw vp
@@ -168,17 +168,19 @@ drawForce g = (dg # lc red) <> dfg where
 -- overlaid on superForce g in blue.
 -- It adds dashed join edges on the boundary of g
 drawSuperForce:: Tgraph -> Diagram B
-drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
+drawSuperForce g = (dg # lc red # lw veryThin) <> dfg  # lw veryThin <> (dsfg # lc blue # lw thin) where
+    sfg = superForce g
+    fg = force g
     vp = makeVP $ superForce g
-    dfg = draw $ selectFacesVP (faces $ force g) vp -- restrictSmart (force g) draw vp
+    dfg = draw $ selectFacesVP (faces fg \\ faces g) vp -- restrictSmart (force g) draw vp
     dg = restrictSmart g draw vp
-    dsfg = draw vp
+    dsfg = draw $ selectFacesVP (faces sfg \\ faces fg) vp
 {-|
 drawWithMax g - draws g and overlays the maximal composition of force g in red.
 This relies on g and all compositions of force g having vertices in force g.
 -}
 drawWithMax :: Tgraph -> Diagram B
-drawWithMax g =  (dmax # lc red # lw thin) <> dg where
+drawWithMax g =  (dmax # lc red # lw thin) <> dg # lw ultraThin where
     vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
     dg = restrictSmart g draw vp
     maxg = maxCompForce g

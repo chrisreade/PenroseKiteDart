@@ -153,7 +153,7 @@ class Forcible a where
 -- | try forcing using a given UpdateGenerator
     tryForceWith :: UpdateGenerator -> a -> Try a
 -- | try a number of force steps using a given UpdateGenerator
-    tryStepForceWith :: UpdateGenerator -> a -> Int -> Try a
+    tryStepForceWith :: UpdateGenerator -> Int -> a -> Try a
 -- | try to create an initial ForceState (ready for forcing)
     tryInitFSWith :: UpdateGenerator -> a -> Try ForceState
 
@@ -183,15 +183,25 @@ tryForceStateWith uGen = retry where
                                        retry $ ForceState{ boundaryState = newBoundaryState bdC
                                                          , updateMap = uMap
                                                          }
+
 -- |tryStepForceStateWith implements tryStepForceWith for ForceStates.
 -- try a number of force steps using a given UpdateGenerator
-tryStepForceStateWith :: UpdateGenerator -> ForceState -> Int -> Try ForceState
-tryStepForceStateWith updateGen = count where
+tryStepForceStateWith :: UpdateGenerator -> Int -> ForceState -> Try ForceState
+tryStepForceStateWith updateGen n = count n where
+  count 0 fs = return fs
+  count n fs = do result <- tryOneStepWith updateGen fs
+                  case result of
+                   Nothing -> return fs
+                   Just (fs', _) ->  count (n-1) fs' 
+{-
+tryStepForceStateWith :: UpdateGenerator ->ForceState -> Int -> Try ForceState
+tryStepForceStateWith updateGen n = count n where
   count fs 0 = return fs
   count fs n = do result <- tryOneStepWith updateGen fs
                   case result of
                    Nothing -> return fs
                    Just (fs', _) ->  count fs' (n-1)
+-}
 
 -- | BoundaryStates are Forcible    
 instance Forcible BoundaryState where
@@ -199,9 +209,9 @@ instance Forcible BoundaryState where
         fs <- tryInitFSWith ugen bd
         fs' <- tryForceWith ugen fs 
         return $ boundaryState fs'
-    tryStepForceWith ugen bd n = do 
+    tryStepForceWith ugen n bd = do 
         fs <- tryInitFSWith ugen bd
-        fs' <- tryStepForceWith ugen fs n
+        fs' <- tryStepForceWith ugen n fs
         return $ boundaryState fs'
     tryInitFSWith ugen bd = do
         umap <- ugen bd (boundary bd)
@@ -211,8 +221,8 @@ instance Forcible BoundaryState where
 instance Forcible Tgraph where
     tryForceWith ugen g = 
         recoverGraph <$> tryForceWith ugen (makeBoundaryState g)
-    tryStepForceWith ugen g n = 
-        recoverGraph  <$> tryStepForceWith ugen (makeBoundaryState g) n
+    tryStepForceWith ugen n g = 
+        recoverGraph  <$> tryStepForceWith ugen n (makeBoundaryState g)
     tryInitFSWith ugen g = tryInitFSWith ugen (makeBoundaryState g)
 
 
@@ -250,13 +260,13 @@ initFS = runTry . tryInitFS
 
 -- |tryStepForce produces a (Right) intermediate state after a given number of steps (face additions)
 -- or a Left report if it encounters a stuck/incorrect Tgraph/forcible
-tryStepForce :: Forcible a => a -> Int -> Try a 
+tryStepForce :: Forcible a => Int -> a -> Try a 
 tryStepForce = tryStepForceWith defaultAllUGen-- Was called tryStepForceFrom
 
 -- |stepForce  produces an intermediate state after a given number of steps (face additions).
 -- It raises an error if it encounters a stuck/incorrect Tgraph/forcible
-stepForce :: Forcible a => a -> Int -> a
-stepForce a = runTry . tryStepForce a
+stepForce :: Forcible a => Int -> a ->  a
+stepForce n = runTry . tryStepForce n
 
 {-*
 Specialised forcing operations (used for inspecting steps)

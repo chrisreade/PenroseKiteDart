@@ -16,7 +16,7 @@ import ArtWork
                
 -- normal executable generating single figure
 fig::Diagram B
-fig = brokenDartFig
+fig = a4Tiny (wendy!!1) -- christmasleaves
 
 main :: IO ()
 main = mainWith fig
