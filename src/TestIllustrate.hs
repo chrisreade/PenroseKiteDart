@@ -853,8 +853,8 @@ Middle of top edge of dartDs!!4.
 -- track the resulting faces and also the singleton new face, then force both TrackedTgraphs
 trackTwoChoices:: Dedge -> Tgraph -> [TrackedTgraph]
 trackTwoChoices de g = [ttg1,ttg2] where
-          ttg1 = forceTracked $ trackFaces $ addHalfDartTracked de $ newTrackedTgraph g
-          ttg2 = forceTracked $ trackFaces $ addHalfKiteTracked de $ newTrackedTgraph g
+          ttg1 = force $ trackFaces $ addHalfDartTracked de $ newTrackedTgraph g
+          ttg2 = force $ trackFaces $ addHalfKiteTracked de $ newTrackedTgraph g
 
 -- |forced 4 times decomposed dart (used for identifying particular boundary
 -- edges in twoChoices and moreChoices)

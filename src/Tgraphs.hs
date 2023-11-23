@@ -355,13 +355,13 @@ boundaryVCovering bd = covers [(bd, startbds)] where
                    where (de,des) = Set.deleteFindMin es
                   
 -- | tryDartAndKite b de - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de on boundary state b and forcing. Each result is a Try.
-tryDartAndKite:: BoundaryState -> Dedge -> [Try BoundaryState]
+-- to edge de a forcible b and then tries forcing. Each of the result is a Try.
+tryDartAndKite:: Forcible a => a -> Dedge -> [Try a]
 tryDartAndKite b de = 
     [ onFail ("tryDartAndKite: Dart on edge: " ++ show de ++ "\n") $ 
-        tryAddHalfDartBoundary de b >>= tryForce
+        tryAddHalfDart de b >>= tryForce
     , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $ 
-        tryAddHalfKiteBoundary de b >>= tryForce
+        tryAddHalfKite de b >>= tryForce
     ]
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g
@@ -585,7 +585,7 @@ trySuperForceBdry bd =
           (pr:_) -> do extended <-  addHT pr forcebd
                        trySuperForceBdry extended
   where
-    addHT (e,l) fbd = if isDart l then tryAddHalfDartBoundary e fbd else tryAddHalfKiteBoundary e fbd
+    addHT (e,l) fbd = if isDart l then tryAddHalfDart e fbd else tryAddHalfKite e fbd
 
 -- |singleChoiceEdges bd - if bd is a boundary state of a forced Tgraph this finds those boundary edges of bd
 -- which have a single choice (i.e. the other choice is incorrect), by inspecting boundary edge covers of bd.
@@ -704,14 +704,24 @@ unionTwoTracked ttg = ttg{ tracked = newTracked } where
     newTracked = case tracked ttg of
                    (a:b:more) -> a `union` b:more
                    _ -> error $ "unionTwoTracked: Two tracked lists of faces not found: " ++ show ttg ++"\n"
-                   
+
 {-*
 Forcing and Decomposing TrackedTgraphs
 -}
--- |force applied to a TrackedTgraph - has no effect on tracked subsets but applies force to the tgraph.
-forceTracked :: TrackedTgraph -> TrackedTgraph
-forceTracked ttg = ttg{ tgraph = force $ tgraph ttg }
 
+-- | TrackedTgraphs are Forcible    
+instance Forcible TrackedTgraph where
+    tryForceWith ugen ttg = do 
+        g' <- tryForceWith ugen $ tgraph ttg
+        return ttg{ tgraph = g' }
+    tryStepForceWith ugen n ttg = do
+        g' <- tryStepForceWith ugen n $ tgraph ttg
+        return ttg{ tgraph = g' }
+    tryInitFSWith ugen ttg = tryInitFSWith ugen (tgraph ttg)
+    tryChangeBoundaryWith ugen f ttg = do
+        g' <- tryChangeBoundaryWith ugen f $ tgraph ttg
+        return ttg{ tgraph = g' }
+                   
 -- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfDartTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
