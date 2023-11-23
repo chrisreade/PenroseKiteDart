@@ -148,27 +148,29 @@ type UpdateGenerator = BoundaryState -> [Dedge] -> Try UpdateMap
 Forcible class and instances for Tgraph, BoundaryState, and ForceState
 -}
 
--- | Forcible class (instances Tgraph, BoundaryState, ForceState)
+-- | Forcible class (instances Tgraph, BoundaryState, ForceState and also TrackedTgraphs in Tgraphs module)
 class Forcible a where
--- | try forcing using a given UpdateGenerator
-    tryForceWith :: UpdateGenerator -> a -> Try a
--- | try a number of force steps using a given UpdateGenerator
-    tryStepForceWith :: UpdateGenerator -> Int -> a -> Try a
+-- | given an update generator try to apply a ForceState operation to a Forcible
+-- The update generator is only used to initialise a ForceState when there is not one
+-- already available (i.e not used when the Forcible is a ForceState)
+    tryFSOpWith :: UpdateGenerator -> (ForceState -> Try ForceState) -> a -> Try a
 -- | try to create an initial ForceState (ready for forcing)
     tryInitFSWith :: UpdateGenerator -> a -> Try ForceState
 -- | try to apply a BoundaryState changing operation
 -- The update generator is only used on ForceStates to revise the update map,
 -- so not used for Tgraph and BoundaryState instances
     tryChangeBoundaryWith :: UpdateGenerator -> (BoundaryState -> Try BoundaryChange) -> a -> Try a
+-- | construct or recover the BoundaryState from a Forcible
+    getBoundaryState :: a -> BoundaryState
 
 -- ForceStates are Forcible
 instance Forcible ForceState where
-    tryForceWith = tryForceStateWith
-    tryStepForceWith = tryStepForceStateWith
+    tryFSOpWith ugen = id
     tryInitFSWith _  = return
     tryChangeBoundaryWith ugen f fs = do
         bdC <- f (boundaryState fs)
         tryReviseFSWith ugen bdC fs
+    getBoundaryState = boundaryState
     
 {-| tryForceStateWith uGen fs implements tryForceWith for ForceStates.
 tryForceStateWith uGen fs - recursively does updates using uGen until there are no more updates.
@@ -199,13 +201,9 @@ tryStepForceStateWith updateGen n = count n where
 
 -- | BoundaryStates are Forcible    
 instance Forcible BoundaryState where
-    tryForceWith ugen bd = do 
+    tryFSOpWith ugen f bd = do
         fs <- tryInitFSWith ugen bd
-        fs' <- tryForceWith ugen fs 
-        return $ boundaryState fs'
-    tryStepForceWith ugen n bd = do 
-        fs <- tryInitFSWith ugen bd
-        fs' <- tryStepForceWith ugen n fs
+        fs' <- f fs
         return $ boundaryState fs'
     tryInitFSWith ugen bd = do
         umap <- ugen bd (boundary bd)
@@ -213,21 +211,31 @@ instance Forcible BoundaryState where
     tryChangeBoundaryWith ugen f bd = do 
         bdC <- f bd
         return $ newBoundaryState bdC
+    getBoundaryState = id
 
 -- | Tgraphs are Forcible    
 instance Forcible Tgraph where
-    tryForceWith ugen g = 
-        recoverGraph <$> tryForceWith ugen (makeBoundaryState g)
-    tryStepForceWith ugen n g = 
-        recoverGraph  <$> tryStepForceWith ugen n (makeBoundaryState g)
+    tryFSOpWith ugen f g = recoverGraph <$> tryFSOpWith ugen f (makeBoundaryState g)
     tryInitFSWith ugen g = tryInitFSWith ugen (makeBoundaryState g)
     tryChangeBoundaryWith ugen f g = 
         recoverGraph <$> tryChangeBoundaryWith ugen f (makeBoundaryState g)
+    getBoundaryState = makeBoundaryState
     
 
 {-*
 Generalised forcing operations
 -}
+
+-- | try forcing using a given UpdateGenerator
+tryForceWith :: Forcible a => UpdateGenerator -> a -> Try a
+tryForceWith ugen = tryFSOpWith ugen (tryForceStateWith ugen)
+-- | try a number of force steps using a given UpdateGenerator
+tryStepForceWith :: Forcible a => UpdateGenerator -> Int -> a -> Try a
+tryStepForceWith ugen n = tryFSOpWith ugen $ tryStepForceStateWith ugen n
+
+-- |A version of tryFSOpWith using defaultAllUGen representing all 10 rules for updates.
+tryFSOp :: Forcible a => (ForceState -> Try ForceState) -> a -> Try a
+tryFSOp = tryFSOpWith defaultAllUGen
 
 -- |A version of the main force function using defaultAllUGen representing all 10 rules for updates.
 -- This returns Left report on discovering a stuck Tgraph and Right a (with a the resulting forcible) otherwise.
@@ -282,8 +290,8 @@ tryOneStepWith :: UpdateGenerator -> ForceState -> Try (Maybe (ForceState,Bounda
 tryOneStepWith uGen fs = 
       case findSafeUpdate (updateMap fs) of
       Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
-                   umap <- tryReviseUpdates uGen bdChange (updateMap fs)
-                   return $ Just (ForceState{ boundaryState = newBoundaryState bdChange, updateMap = umap},bdChange)
+                   fs' <- tryReviseFSWith uGen bdChange fs
+                   return $ Just (fs',bdChange)
       _  -> do maybeBdC <- tryUnsafes fs
                case maybeBdC of
                 Just bdC -> do fs' <- tryReviseFSWith uGen bdC fs

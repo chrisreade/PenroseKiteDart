@@ -560,21 +560,41 @@ Super Force with boundary edge covers
 -- This will raise an error if force encounters a stuck (incorrect) Tgraph or if
 -- both forced extensions fail for some boundary edge.
 -- Otherwise, the resulting Tgraph has exactly two correct possible extensions for each boundary edge.
-superForce :: Tgraph -> Tgraph
+superForce:: Forcible a => a -> a
+--superForce :: Tgraph -> Tgraph
 superForce g = runTry $ trySuperForce g
 
+{-
 -- |superForceBdry - same as superForce but for boundary states
 superForceBdry :: BoundaryState -> BoundaryState
 superForceBdry = runTry . trySuperForceBdry
+-}
 
 -- |trySuperForce g - this looks for single choice edges after trying to force g.
 -- If there is at least one, it makes that choice and recurses.
 -- It returns a Left s if force fails or if both choices fail for some edge (where s is a failure report).
 -- Otherwise Right g' is returned where g' is the super forced g.
+trySuperForce:: Forcible a => a -> Try a
+trySuperForce = tryFSOp trySuperForceFS
+{-
 trySuperForce :: Tgraph -> Try Tgraph
 trySuperForce g = do bd <- trySuperForceBdry (makeBoundaryState g)
                      return (recoverGraph bd)
+-}
 
+-- |trySuperForceFS - implementation of trySuperForce for force states only
+trySuperForceFS :: ForceState -> Try ForceState
+trySuperForceFS fs = 
+    do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
+                   tryForce fs
+       case singleChoiceEdges $ getBoundaryState forcedFS of
+          [] -> return forcedFS
+          (pr:_) -> do extended <- addHalf pr forcedFS
+                       trySuperForceFS extended
+  where
+    addHalf (e,l) fs = if isDart l then tryAddHalfDart e fs else tryAddHalfKite e fs
+
+{-
 -- |trySuperForceBdry - same as trySuperForce but for boundary states
 trySuperForceBdry :: BoundaryState -> Try BoundaryState
 trySuperForceBdry bd = 
@@ -586,6 +606,7 @@ trySuperForceBdry bd =
                        trySuperForceBdry extended
   where
     addHT (e,l) fbd = if isDart l then tryAddHalfDart e fbd else tryAddHalfKite e fbd
+-}
 
 -- |singleChoiceEdges bd - if bd is a boundary state of a forced Tgraph this finds those boundary edges of bd
 -- which have a single choice (i.e. the other choice is incorrect), by inspecting boundary edge covers of bd.
@@ -711,17 +732,15 @@ Forcing and Decomposing TrackedTgraphs
 
 -- | TrackedTgraphs are Forcible    
 instance Forcible TrackedTgraph where
-    tryForceWith ugen ttg = do 
-        g' <- tryForceWith ugen $ tgraph ttg
-        return ttg{ tgraph = g' }
-    tryStepForceWith ugen n ttg = do
-        g' <- tryStepForceWith ugen n $ tgraph ttg
+    tryFSOpWith ugen f ttg = do
+        g' <- tryFSOpWith ugen f $ tgraph ttg
         return ttg{ tgraph = g' }
     tryInitFSWith ugen ttg = tryInitFSWith ugen (tgraph ttg)
     tryChangeBoundaryWith ugen f ttg = do
         g' <- tryChangeBoundaryWith ugen f $ tgraph ttg
         return ttg{ tgraph = g' }
-                   
+    getBoundaryState = getBoundaryState . tgraph
+              
 -- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfDartTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
