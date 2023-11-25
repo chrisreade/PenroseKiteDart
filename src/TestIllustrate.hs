@@ -936,11 +936,21 @@ rocketsFig:: Diagram B
 rocketsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [8,9,9,8,8,9] $
              fmap draw [rc0,rc1,rc2,rc3,rc4,rc5] where
   rc0 = sun3Dart
+  combo d = runTry . tryFSOp (\fs -> return fs >>= tryForce >>= tryAddHalfDart d >>= tryForce) . decompose
+--  combo d = force . addHalfDart d . force . decompose
+  rc1 = combo (59,60)     rc0
+  rc2 = combo (326,327)   rc1
+  rc3 = combo (1036,1037) rc2
+  rc4 = combo (3019,3020) rc3
+  rc5 = forceDecomp rc4
+{-
   rc1 = force $ addHalfDart (59,60) (forceDecomp rc0)
   rc2 = force $ addHalfDart (326,327) (forceDecomp rc1)
   rc3 = force $ addHalfDart (1036,1037) (forceDecomp rc2)
   rc4 = force $ addHalfDart (3019,3020) (forceDecomp rc3)
-  rc5 = forceDecomp rc4
+-}
+
+
 
 -- |6 times forced and decomposed kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
 -- There are 2906 faces for kingD6 before forcing.

@@ -553,22 +553,15 @@ internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet b
 Super Force with boundary edge covers
 -}
 
--- |superForce g -after forcing g this looks for single choice boundary edges.
+-- |superForce g - after forcing g this looks for single choice boundary edges.
 -- That is a boundary edge for which only a dart or only a kite addition occurs in all boundary edge covers.
 -- If there is at least one such edge, it makes the choice for the first such edge and recurses,
--- otherwise it returns the forced Tgraph (force g).
--- This will raise an error if force encounters a stuck (incorrect) Tgraph or if
+-- otherwise it returns the forced result.
+-- This will raise an error if force encounters a stuck (incorrect) tiling or if
 -- both forced extensions fail for some boundary edge.
--- Otherwise, the resulting Tgraph has exactly two correct possible extensions for each boundary edge.
+-- Otherwise, the result has exactly two correct possible extensions for each boundary edge.
 superForce:: Forcible a => a -> a
---superForce :: Tgraph -> Tgraph
 superForce g = runTry $ trySuperForce g
-
-{-
--- |superForceBdry - same as superForce but for boundary states
-superForceBdry :: BoundaryState -> BoundaryState
-superForceBdry = runTry . trySuperForceBdry
--}
 
 -- |trySuperForce g - this looks for single choice edges after trying to force g.
 -- If there is at least one, it makes that choice and recurses.
@@ -576,37 +569,18 @@ superForceBdry = runTry . trySuperForceBdry
 -- Otherwise Right g' is returned where g' is the super forced g.
 trySuperForce:: Forcible a => a -> Try a
 trySuperForce = tryFSOp trySuperForceFS
-{-
-trySuperForce :: Tgraph -> Try Tgraph
-trySuperForce g = do bd <- trySuperForceBdry (makeBoundaryState g)
-                     return (recoverGraph bd)
--}
 
 -- |trySuperForceFS - implementation of trySuperForce for force states only
 trySuperForceFS :: ForceState -> Try ForceState
 trySuperForceFS fs = 
     do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
                    tryForce fs
-       case singleChoiceEdges $ getBoundaryState forcedFS of
+       case singleChoiceEdges $ boundaryState forcedFS of
           [] -> return forcedFS
-          (pr:_) -> do extended <- addHalf pr forcedFS
+          (pr:_) -> do extended <- addSingle pr forcedFS
                        trySuperForceFS extended
   where
-    addHalf (e,l) fs = if isDart l then tryAddHalfDart e fs else tryAddHalfKite e fs
-
-{-
--- |trySuperForceBdry - same as trySuperForce but for boundary states
-trySuperForceBdry :: BoundaryState -> Try BoundaryState
-trySuperForceBdry bd = 
-    do forcebd <- onFail "trySuperForceBdry: force failed (incorrect Tgraph)\n" $
-                  tryForce bd
-       case singleChoiceEdges forcebd of
-          [] -> return forcebd
-          (pr:_) -> do extended <-  addHT pr forcebd
-                       trySuperForceBdry extended
-  where
-    addHT (e,l) fbd = if isDart l then tryAddHalfDart e fbd else tryAddHalfKite e fbd
--}
+    addSingle (e,l) fs = if isDart l then tryAddHalfDart e fs else tryAddHalfKite e fs
 
 -- |singleChoiceEdges bd - if bd is a boundary state of a forced Tgraph this finds those boundary edges of bd
 -- which have a single choice (i.e. the other choice is incorrect), by inspecting boundary edge covers of bd.

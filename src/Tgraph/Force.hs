@@ -370,34 +370,35 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
   isSafeUpdate (SafeUpdate _ ) = True
   isSafeUpdate (UnsafeUpdate _ ) = False
 
-
-
 {-| tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap.
-   Any unsafe update producing a touching vertex returns Nothing (blocked).
    tryUnsafes works through the unsafe updates in (directed edge) key order and
-   completes the first unsafe update that is not blocked, returning Right (Just bdc)
-   where bdC is the resulting boundary change (if there was one) and Right Nothing if all unsafes are blocked.
-   It produces Left report for a stuck/incorrect graph
+   completes the first unsafe update that is not blocked (by a touching vertex), returning Right (Just bdC)
+   where bdC is the resulting boundary change (if there is one).
+   It returns Right Nothing if there are no unsafe updates but
+   Left ... if there are unsafes but all unsafes are blocked, where ... is a report of the problem.
 -}
 tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
-tryUnsafes fs = tryList $ Map.elems $ updateMap fs where
+tryUnsafes fs = checkBlocked False $ Map.elems $ updateMap fs where
   bd = boundaryState fs
-  tryList [] = return Nothing
-  tryList (u: more) = do maybeBdC <- tryUnsafeUpdate bd u 
-                         case maybeBdC of
-                           Nothing -> tryList more
-                           other -> return other
+  -- the boolean records whether a blocked case has been found so far
+  checkBlocked True  [] = Left $ "tryUnsafes: There are unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n" ++
+                                 "This should not happen!\n"
+  checkBlocked False [] = return Nothing
+  checkBlocked _ (u: more) = case checkUnsafeUpdate bd u of
+                               Nothing -> checkBlocked True more
+                               other -> return other
 
-{-| tryUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
+{-| checkUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
      (raising an error if u is a safe update).
-     It checks that the new face is not in conflict with existing faces (returning Left report if there is a conflict).
      It performs a touching vertex check with the new vertex
-     returning Right Nothing if there is a touching vertex (blocked case).
-     Otherwise it returns Right (Just bdc) with bdc a boundary change.
+     returning Nothing if there is a touching vertex (blocked case).
+     Otherwise it returns Just bdc with bdc a boundary change.
+    [Note: Try is not used as a conflict cannot be found in the safe case, and blocking is only a problem
+    when all unsafe updates are blocked (and there is at least one) - see tryUnsafes]
 -}
-tryUnsafeUpdate:: BoundaryState -> Update -> Try (Maybe BoundaryChange)
-tryUnsafeUpdate _  (SafeUpdate _) = error  "tryUnsafeUpdate: applied to safe update.\n"
-tryUnsafeUpdate bd (UnsafeUpdate makeFace) = 
+checkUnsafeUpdate:: BoundaryState -> Update -> Maybe BoundaryChange
+checkUnsafeUpdate _  (SafeUpdate _) = error  "checkUnsafeUpdate: applied to safe update.\n"
+checkUnsafeUpdate bd (UnsafeUpdate makeFace) = 
    let v = nextVertex bd       
        newface = makeFace v
        oldVPoints = bvLocMap bd
@@ -425,21 +426,8 @@ tryUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     , newFace = newface
                     }
    in if touchCheck vPosition oldVPoints -- true if new vertex is blocked because it touches the boundary elsewhere
-      then Right Nothing -- don't proceed when v is a touching vertex
-      else Right (Just bdChange) 
-{-  no conflict check is unnecessary for unsafeUpdate
-  
-      else if noConflict newface nbrFaces  -- check new face does not conflict on edges
-           then Right (Just bdChange)  
-           else Left $
-                 "tryUnsafeUpdate:(incorrect tiling)\nConflicting new face  "
-                 ++ show newface
-                 ++ "\nwith neighbouring faces\n"
-                 ++ show nbrFaces
-                 ++ "\nIn graph:\n"
-                 ++ show (recoverGraph resultBd)
-                 ++ "\n"
--}
+      then Nothing -- don't proceed when v is a touching vertex
+      else Just bdChange 
 
 {-| trySafeUpdate bd u adds a new face by completing a safe update u on BoundaryState bd
     (raising an error if u is an unsafe update).
@@ -492,7 +480,7 @@ trySafeUpdate bd (SafeUpdate newface) =
 commonVs :: [Dedge] -> [Vertex]
 commonVs [(a,b),(c,d)] | b==c = [b] 
                        | d==a = [a]
-                       | otherwise = error $ "commonV: 2 directed edges not consecutive: " ++ show [(a,b),(c,d)] ++ "\n"
+                       | otherwise = error $ "commonVs: 2 directed edges not consecutive: " ++ show [(a,b),(c,d)] ++ "\n"
 commonVs [(a,b),(c,d),(e,f)] | length (nub [a,b,c,d,e,f]) == 3 = [a,c,e] 
 commonVs es = error $ "commonVs: unexpected argument edges (not 2 consecutive directed edges or 3 round triangle): " ++ show es  ++ "\n"
 
@@ -500,14 +488,14 @@ commonVs es = error $ "commonVs: unexpected argument edges (not 2 consecutive di
 
 -- |tryUpdate: tries a single update (safe or unsafe),
 -- producing Left report if the update creates a touching vertex in the unsafe case,
--- or if it discovers a stuck/incorrect Tgraph
+-- or if it discovers a stuck/incorrect Tgraph in the safe case.
 tryUpdate:: BoundaryState -> Update -> Try BoundaryChange
 tryUpdate bd u@(SafeUpdate _) = trySafeUpdate bd u
 tryUpdate bd u@(UnsafeUpdate _) = 
-  do maybeBdC <- tryUnsafeUpdate bd u
-     case maybeBdC of
+  case checkUnsafeUpdate bd u of
        Just bdC -> return bdC
-       Nothing -> Left "tryUpdate: crossing boundary (touching vertices).\n"
+       Nothing ->  Left "tryUpdate: crossing boundary (touching vertices).\n"
+
 
 {-*
 Conflict Test
