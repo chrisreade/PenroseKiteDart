@@ -92,38 +92,35 @@ Smart drawing of Tgraphs
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
--- For example: smart (labelSmall draw) g. 
+-- Example: smart (labelSmall draw) g
+-- Example: smart (rotateBefore (labelled draw) angle) g
 -- Note smart must come after labelling as e.g. labelled (smart draw) will not typecheck.
 smart :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
-smart dr g = restrictSmart g dr (makeVP g)
+smart dr g = drawJoinsFor (boundaryJoinFaces g) vp <> dr vp
+  where vp = makeVP g
 
-{-
--- |smartSub dr g vp converts g to a diagram using VPatch drawing function dr
--- and adds dashed boundary joins.
--- It requires vp to contain a suitable vertex location map for drawing g.
--- This can be used instead of smart when such a map is already available.
-smartSub:: (VPatch -> Diagram B) -> Tgraph -> VPatch -> Diagram B
-smartSub dr g vp = drawWith dashjOnly (subVP vp $ boundaryJoinFaces g) 
-                    <> 
-                    dr (subVP vp (faces g))
--}
+-- |select the halftile faces of a Tgraph with a join edge on the boundary.
+-- Useful for drawing join edges only on the boundary.
+boundaryJoinFaces :: Tgraph -> [TileFace]
+boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
+    bdry = makeBoundaryState g
 
--- |restrictSmart g dr vp - assumes vp has locations for vertices in g.
--- It uses the VPatch drawing function dr to draw g and adds dashed boundary joins.
--- This can be used instead of smart when an appropriate vp is already available.
--- Example: labelled (restrictSmart g draw) g  - same as smart (labelled draw) g
--- Example: rotateBefore (restrictSmart g (labelled draw)) angle g
--- Example: alignBefore (restrictSmart g (labelled draw)) (a,b) g
-restrictSmart:: Tgraph -> (VPatch -> Diagram B) -> VPatch -> Diagram B
-restrictSmart g dr vp = drawWith dashjOnly (subVP vp $ boundaryJoinFaces g) 
-                        <> 
-                        dr (restrictVP vp $ faces g)
+-- |given a list of faces and a VPatch with suitable locations, draw just the dashed joins for those faces
+drawJoinsFor:: [TileFace] -> VPatch -> Diagram B
+drawJoinsFor fcs vp = drawWith dashjOnly (subVP vp fcs)
 
 -- |same as draw except adding dashed lines on boundary join edges. 
 smartdraw :: Tgraph -> Diagram B
 smartdraw = smart draw
 
-{-
+-- |restrictSmart g dr vp - assumes vp has locations for vertices in g.
+-- It uses the VPatch drawing function dr to draw g and adds dashed boundary joins.
+-- This can be used instead of smart when an appropriate vp is already available.
+restrictSmart:: Tgraph -> (VPatch -> Diagram B) -> VPatch -> Diagram B
+restrictSmart g dr vp = drawJoinsFor (boundaryJoinFaces g) vp 
+                        <> 
+                        dr (restrictVP vp $ faces g)
+
 -- |smartRotateBefore vfun a g - a tricky combination of smart with rotateBefore.
 -- Uses vfun to produce a Diagram after converting g to a rotated VPatch but also adds the dashed boundary join edges of g.
 smartRotateBefore::  (VPatch -> Diagram B) -> Angle Double -> Tgraph -> Diagram B
@@ -133,16 +130,6 @@ smartRotateBefore vfun angle g = rotateBefore (restrictSmart g vfun) angle g
 -- Uses vfun to produce a Diagram after converting g to n aligned VPatch but also adds the dashed boundary join edges of g.
 smartAlignBefore::  (VPatch -> Diagram B) -> (Vertex,Vertex) -> Tgraph -> Diagram B
 smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
-
-
--}
-
--- |select the halftile faces of a Tgraph with a join edge on the boundary.
--- Useful for drawing join edges only on the boundary.
-boundaryJoinFaces :: Tgraph -> [TileFace]
-boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
-    bdry = makeBoundaryState g
-
 
 {-*
 Overlaid drawing tools for Tgraphs
@@ -568,18 +555,16 @@ superForce g = runTry $ trySuperForce g
 -- It returns a Left s if force fails or if both choices fail for some edge (where s is a failure report).
 -- Otherwise Right g' is returned where g' is the super forced g.
 trySuperForce:: Forcible a => a -> Try a
-trySuperForce = tryFSOp trySuperForceFS
-
--- |trySuperForceFS - implementation of trySuperForce for force states only
-trySuperForceFS :: ForceState -> Try ForceState
-trySuperForceFS fs = 
-    do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
-                   tryForce fs
-       case singleChoiceEdges $ boundaryState forcedFS of
-          [] -> return forcedFS
-          (pr:_) -> do extended <- addSingle pr forcedFS
-                       trySuperForceFS extended
-  where
+trySuperForce = tryFSOp trySuperForceFS where
+    -- |trySuperForceFS - implementation of trySuperForce for force states only
+    trySuperForceFS :: ForceState -> Try ForceState
+    trySuperForceFS fs = 
+        do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
+                       tryForce fs
+           case singleChoiceEdges $ boundaryState forcedFS of
+              [] -> return forcedFS
+              (pr:_) -> do extended <- addSingle pr forcedFS
+                           trySuperForceFS extended
     addSingle (e,l) fs = if isDart l then tryAddHalfDart e fs else tryAddHalfKite e fs
 
 -- |singleChoiceEdges bd - if bd is a boundary state of a forced Tgraph this finds those boundary edges of bd

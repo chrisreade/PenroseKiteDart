@@ -20,6 +20,7 @@ module TestIllustrate where
 import Diagrams.TwoD.Vector (e) -- for decompExplainFig
 import Diagrams.Prelude
 import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
+import Control.Monad ((<=<))  -- for rocketsFig
 
 import ChosenBackend (B)
 import TileLib
@@ -936,7 +937,7 @@ rocketsFig:: Diagram B
 rocketsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [8,9,9,8,8,9] $
              fmap draw [rc0,rc1,rc2,rc3,rc4,rc5] where
   rc0 = sun3Dart
-  combo d = runTry . tryFSOp (\fs -> return fs >>= tryForce >>= tryAddHalfDart d >>= tryForce) . decompose
+  combo d = runTry . tryFSOp (tryForce <=< tryAddHalfDart d <=< tryForce) . decompose
 --  combo d = force . addHalfDart d . force . decompose
   rc1 = combo (59,60)     rc0
   rc2 = combo (326,327)   rc1

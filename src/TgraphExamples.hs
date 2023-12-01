@@ -60,7 +60,7 @@ foolD = decompose fool
 -- |foolDminus: 3 faces removed from foolD - still a valid Tgraph
 foolDminus = removeFaces [RD (6,15,13), LD (6,17,15), RK (5,11,2)] foolD
 
--- | a list of all decompositions of fool
+-- | an infinite list of decompositions of fool
 foolDs :: [Tgraph]
 foolDs = decompositions fool
 
@@ -81,7 +81,7 @@ sunGraph = makeTgraph
              , RK (1,8,7) , LK (1,9,8)
              , RK (1,10,9), LK (1,11,10)
              ]
--- |All decompositions of sunGraph
+-- | an infinite list of decompositions of sunGraph
 sunDs :: [Tgraph]
 sunDs =  decompositions sunGraph
 
@@ -93,7 +93,7 @@ figSunD3D2 = padBorder $ hsep 1 [labelled drawj $ sunDs !! 3, scale phi $ labell
 kiteGraph :: Tgraph
 kiteGraph = makeTgraph [ RK (1,2,4), LK (1,3,2)]
 
--- |All decompositions of a kite
+-- | an infinite list of decompositions of a kite
 kiteDs :: [Tgraph]
 kiteDs = decompositions kiteGraph
 
@@ -101,7 +101,7 @@ kiteDs = decompositions kiteGraph
 dartGraph :: Tgraph
 dartGraph =  makeTgraph [ RD (1,2,3), LD (1,3,4)]
 
--- |All decompositions of a dart
+-- | an infinite list of decompositions of a dart
 dartDs :: [Tgraph]
 dartDs =  decompositions dartGraph
 

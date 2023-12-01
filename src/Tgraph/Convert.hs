@@ -105,17 +105,17 @@ findLoc v = VMap.lookup v . vLocs
 
 -- |Make drawing tools applicable to VPatch
 instance Drawable VPatch where
-    drawWith pd vp = drawWith pd (dropLabels vp) where
+    drawWith pd vp = drawWith pd (dropLabels vp)
 
 -- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces.
--- Note Patches are used only here (for drawing).
--- dropLabels :: VPatch -> Patch
-        dropLabels vp = fmap convert (vpFaces vp) where
-          locations = vLocs vp
-          convert fc = case (VMap.lookup (originV fc) locations , VMap.lookup (oppV fc) locations) of
-            (Just p, Just p') -> fmap (const (p' .-. p)) fc `at` p -- using HalfTile functor fmap
-            _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
-                        ++ show (faceVList fc \\ VMap.keys locations))
+-- Use can be confined to Drawable VPatch instance and DrawableLabelled VPatch instance.
+dropLabels :: VPatch -> Patch
+dropLabels vp = fmap convert (vpFaces vp) where
+  locations = vLocs vp
+  convert fc = case (VMap.lookup (originV fc) locations , VMap.lookup (oppV fc) locations) of
+    (Just p, Just p') -> fmap (const (p' .-. p)) fc `at` p -- using HalfTile functor fmap
+    _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
+                ++ show (faceVList fc \\ VMap.keys locations))
 
 -- |Make drawing tools applicable to Tgraphs.
 instance Drawable Tgraph where
@@ -123,15 +123,18 @@ instance Drawable Tgraph where
     drawWith pd = drawWith pd . makeVP
 
 -- | A class for things that can be drawn with labels when given a measure for the label size and a 
--- a draw function (for VPatches).
+-- a draw function (for Patches).
 -- Thus labelSize m is a modifier of drawing functions to add labels (of size measure m).
 -- (Measures are defined in Diagrams - normalized/output/local/global)
+-- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
+-- labelSize m draw :: DrawableLabelled a => a -> Diagram B
+-- However labelSize m1 (labelSize m2 draw) does not typecheck
 class DrawableLabelled a where
-  labelSize :: Measure Double -> (VPatch -> Diagram B) -> a -> Diagram B
+  labelSize :: Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
 
 -- | VPatches can be drawn with labels
 instance DrawableLabelled VPatch where
-  labelSize r d vp = drawLabels r (vLocs vp) <> d vp where
+  labelSize r d vp = drawLabels r (vLocs vp) <> d (dropLabels vp) where
     -- drawLabels :: Measure Double -> VertexLocMap -> Diagram B
     drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
        where drawlabel(v,p) = (p, baselineText (show v) # fontSize r # fc red)
@@ -140,7 +143,7 @@ instance DrawableLabelled VPatch where
 instance DrawableLabelled Tgraph where
   labelSize r d = labelSize r d . makeVP
 
-labelled,labelSmall,labelLarge :: DrawableLabelled a => (VPatch -> Diagram B) -> a -> Diagram B
+labelled,labelSmall,labelLarge :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
 -- | Version of labelSize with a default normal label size. Example usage: labelled draw a , labelled drawj a
 labelled = labelSize (normalized 0.018)
 -- | Version of labelSize with a default small label size. Example usage: labelSmall draw a , labelSmall drawj a 
