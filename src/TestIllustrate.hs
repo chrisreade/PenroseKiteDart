@@ -1118,21 +1118,18 @@ foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] w
 -- | Diagram illustrating 3 cases for groups of remainder half-tiles (when composing a forced Tgraph)
 remainderGroupsFig:: Diagram B
 remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
-    halfFool = makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3)]
-    hfVP = makeVP halfFool
-    hfDiag = lc yellow (drawEdgesIn hfVP [(1,2),(2,4)])
-             <> lc red (drawEdgesIn hfVP [(3,1),(5,3)])
-             <> drawj hfVP
-    kite = makeTgraph [RK (1,2,3),LK (1,4,2)]
-    kVP = makeVP kite
-    kDiag = drawv 1 kVP
-             <> lc red (drawEdgesIn kVP [(2,3),(4,2)])
-             <> drawj kVP
-    fool = makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3),RD (1,6,2),LK (4,2,6),RK (4,6,7)]
-    fVP = makeVP fool
-    fDiag = drawv 4 fVP
-             <> lc red (drawEdgesIn fVP [(3,1),(5,3),(1,6),(6,7)])
-             <> drawj fVP
+    halfFoolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3)]
+    hfDiag = lc yellow (drawEdgesIn halfFoolVP [(1,2),(2,4)])
+             <> lc red (drawEdgesIn halfFoolVP [(3,1),(5,3)])
+             <> drawj halfFoolVP
+    kiteVP = makeVP $ makeTgraph [RK (1,2,3),LK (1,4,2)]
+    kDiag = drawv 1 kiteVP
+             <> lc red (drawEdgesIn kiteVP [(2,3),(4,2)])
+             <> drawj kiteVP
+    foolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3),RD (1,6,2),LK (4,2,6),RK (4,6,7)]
+    fDiag = drawv 4 foolVP
+             <> lc red (drawEdgesIn foolVP [(3,1),(5,3),(1,6),(6,7)])
+             <> drawj foolVP
     drawv v vp = case findLoc v vp of
               Nothing -> error $ "remainderGroupsFig: vertex not found " ++ show v
               Just p -> circle 0.05 # fc yellow # lc yellow # moveTo p

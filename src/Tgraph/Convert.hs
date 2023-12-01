@@ -20,7 +20,7 @@ module Tgraph.Convert where
 
 import Data.List ((\\), intersect, foldl')
 import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup, insert, empty, toList, assocs, keys)
-import qualified Data.Map.Strict as Map (Map, lookup, fromList, fromListWith) -- used for locateVertices
+import qualified Data.Map.Strict as Map (lookup, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 import Data.Maybe (mapMaybe)
 
@@ -114,8 +114,8 @@ dropLabels vp = fmap convert (vpFaces vp) where
   locations = vLocs vp
   convert fc = case (VMap.lookup (originV fc) locations , VMap.lookup (oppV fc) locations) of
     (Just p, Just p') -> fmap (const (p' .-. p)) fc `at` p -- using HalfTile functor fmap
-    _ -> error ("dropLabels: Vertex location not found for some vertices:\n" 
-                ++ show (faceVList fc \\ VMap.keys locations))
+    _ -> error $ "dropLabels: Vertex location not found for some vertices:\n    " 
+                ++ show (faceVList fc \\ VMap.keys locations)  ++ "\n"
 
 -- |Make drawing tools applicable to Tgraphs.
 instance Drawable Tgraph where
@@ -124,7 +124,7 @@ instance Drawable Tgraph where
 
 -- | A class for things that can be drawn with labels when given a measure for the label size and a 
 -- a draw function (for Patches).
--- Thus labelSize m is a modifier of drawing functions to add labels (of size measure m).
+-- Thus labelSize m is a modifier of the Patch drawing function to add labels (of size measure m).
 -- (Measures are defined in Diagrams - normalized/output/local/global)
 -- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
 -- labelSize m draw :: DrawableLabelled a => a -> Diagram B
@@ -151,7 +151,9 @@ labelSmall = labelSize (normalized 0.007)
 -- | Version of labelSize with a default large label size. Example usage: labelLarge draw a , labelLarge drawj a 
 labelLarge = labelSize (normalized 0.027) 
 
--- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun
+-- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
+-- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
+-- E.g. rotateBefore (labelled draw) a g
 rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
 rotateBefore vfun angle = vfun . rotate angle . makeVP
 
@@ -164,7 +166,7 @@ centerOn :: Vertex -> VPatch -> VPatch
 centerOn a vp = 
     case findLoc a vp of
         Just loca -> translate (origin .-. loca) vp
-        _ -> error ("centerOn: vertex not found: "++ show a)
+        _ -> error $ "centerOn: vertex not found (Vertex " ++ show a ++ ")\n"
 
 -- |alignXaxis takes a vertex pair (a,b) and a VPatch vp
 -- for centering vp on a and rotating the result so that b is on the positive X axis.
@@ -175,14 +177,14 @@ alignXaxis (a,b) vp =  rotate angle newvp
         angle = signedAngleBetweenDirs (direction unitX) (direction (locb .-. origin)) 
         locb = case findLoc b newvp of
                 Just l -> l
-                Nothing -> error ("alignXaxis: second alignment vertex not found (Vertex " ++ show b ++ ")")
+                Nothing -> error $ "alignXaxis: second alignment vertex not found (Vertex " ++ show b ++ ")\n"
 
 -- |alignments takes a list of vertex pairs for respective rotations of VPatch in the second list.
 -- For a pair (a,b) the corresponding VPatch is centered on a then b is aligned along the positive x axis. 
 -- The vertex pair list can be shorter than the list of VPatch - the remaining VPatch are left as they are.
 alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]     
 alignments [] vps = vps
-alignments _  [] = error "alignments: Too many alignment pairs"  -- prs non-null
+alignments _  [] = error "alignments: Too many alignment pairs.\n"  -- prs non-null
 alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 
 -- |alignAll (a,b) vpList
@@ -195,6 +197,8 @@ alignAll (a,b) = fmap (alignXaxis (a,b))
 -- |alignBefore vfun (a,b) g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
 -- before applying the VPatch function vfun
 -- Will raise an error if either a or b is not a vertex in g.
+-- Tgraphs need to be aligned after a VPatch is calculated but before any labelled drawing.
+-- E.g. alignBefore (labelled draw) (a,b) g
 alignBefore :: (VPatch -> a) -> (Vertex,Vertex) -> Tgraph -> a
 alignBefore vfun vs = vfun . alignXaxis vs . makeVP
 
@@ -216,8 +220,8 @@ makeAlignedVP = alignBefore id
 -}
 locateVertices:: [TileFace] -> VertexLocMap
 locateVertices [] = VMap.empty
-locateVertices fcs = fastAddVPoints [fc] (Set.fromList more) (axisJoin fc) where
-    (fc:more) = lowestJoinFirst fcs
+locateVertices fcs = fastAddVPoints [joinFace] (Set.fromList more) (axisJoin joinFace) where
+    (joinFace:more) = lowestJoinFirst fcs
     efMap = buildEFMap fcs  -- map from Dedge to TileFace
 
 {- fastAddVPoints readyfaces fcOther vpMap.
@@ -228,7 +232,8 @@ and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
     fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPoints [] fcOther _ = error ("locateVertices (fastAddVPoints): Faces not tile-connected " ++ show fcOther)
+    fastAddVPoints [] fcOther _ = error $ "locateVertices (fastAddVPoints): Faces not tile-connected: "
+                                          ++ show fcOther ++ "/n"
     fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
         nbs = filter (`Set.member` fcOther) (edgeNbs fc efMap)
         fcOther' = foldl' (flip Set.delete) fcOther nbs
@@ -286,28 +291,28 @@ thirdVertexLoc fc@(LD _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
   (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show fc ++ "\n"
 
 thirdVertexLoc fc@(RD _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = signorm (rotate (ttangle 3) (loc2 .-. loc3))
   (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show fc ++ "\n"
  
 thirdVertexLoc fc@(LK _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
   (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show fc ++ "\n"
  
 thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
   (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error ("thirdVertexLoc: face not tile-connected?: " ++ show fc)
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show fc ++ "\n"
 
 {-*  Drawing (located) Edges
 -}
@@ -332,7 +337,7 @@ drawEdges vpMap = foldMap (drawEdge vpMap)
 drawEdge :: VertexLocMap -> Dedge -> Diagram B
 drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
-                         _ -> error ("drawEdge: location not found for one or both vertices "++ show(a,b))
+                         _ -> error $ "drawEdge: location not found for one or both vertices "++ show(a,b) ++ "\n"
 
 
 
@@ -403,7 +408,7 @@ and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
     fastAddVPointsGen [] fcOther vpMap | Set.null fcOther = vpMap 
-    fastAddVPointsGen [] fcOther _ = error ("fastAddVPointsGen: Faces not tile-connected " ++ show fcOther)
+    fastAddVPointsGen [] fcOther _ = error $ "fastAddVPointsGen: Faces not tile-connected " ++ show fcOther ++ "\n"
     fastAddVPointsGen (fc:fcs) fcOther vpMap = fastAddVPointsGen (fcs++nbs) fcOther' vpMap' where
         nbs = filter (`Set.member` fcOther) (edgeNbsGen fc)
 --        nbs = filter (`Set.member` fcOther) (edgeNbsGen efMapGen fc)

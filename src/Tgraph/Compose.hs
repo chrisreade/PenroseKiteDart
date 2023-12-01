@@ -12,7 +12,7 @@ getDartWingInfo (and type DartWingInfo) for debugging and experimenting.
 module Tgraph.Compose where
 
 import Data.List ((\\), find, foldl',nub)
-import qualified Data.IntMap.Strict as VMap (IntMap,lookup) -- used in partCompose
+import qualified Data.IntMap.Strict as VMap (IntMap,lookup,(!))
 import Data.Maybe (mapMaybe)
 
 import Tgraph.Prelude
@@ -95,7 +95,8 @@ getDartWingInfo g =  DartWingInfo {largeKiteCentres = kcs, largeDartBases = dbs,
   processD (kcs, dbs, unks) rd@(RD (orig, w, _)) = -- classify wing tip w
     if w `elem` kcs || w `elem` dbs then (kcs, dbs, unks) else-- already classified
     let
-        Just fcs = VMap.lookup w dwFMap -- faces at w
+        fcs = dwFMap VMap.! w -- faces at w
+--        Just fcs = VMap.lookup w dwFMap -- faces at w
     in
         if length fcs ==1 then (kcs, dbs, w:unks) else -- lone dart wing => unknown
         if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks) else 

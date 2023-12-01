@@ -189,7 +189,7 @@ instance Forcible BoundaryState where
     tryInitFSWith ugen bd = do
         umap <- ugen bd (boundary bd)
         return $ ForceState { boundaryState = bd , updateMap = umap }
-    tryChangeBoundaryWith ugen f bd = do 
+    tryChangeBoundaryWith _ f bd = do -- update generator not used
         bdC <- f bd
         return $ newBoundaryState bdC
     getBoundaryState = id
@@ -198,7 +198,7 @@ instance Forcible BoundaryState where
 instance Forcible Tgraph where
     tryFSOpWith ugen f g = recoverGraph <$> tryFSOpWith ugen f (makeBoundaryState g)
     tryInitFSWith ugen g = tryInitFSWith ugen (makeBoundaryState g)
-    tryChangeBoundaryWith ugen f g = 
+    tryChangeBoundaryWith ugen f g = -- update generator not used
         recoverGraph <$> tryChangeBoundaryWith ugen f (makeBoundaryState g)
     getBoundaryState = makeBoundaryState
 
@@ -1138,12 +1138,15 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
            | bAngle < m = err
            | aAngle == n = case find ((==a) . snd) (boundary bd) of
                              Just pr -> Right $ Just (fst pr)
-                             Nothing -> err
+                             Nothing -> errB
            | bAngle == m = case find ((==b) . fst) (boundary bd) of
                              Just pr -> Right $ Just (snd pr)
+                             Nothing -> errB
            | otherwise =   Right  Nothing
-    err = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " ++ show (a,b)
-                     ++ "\nwith graph:\n " ++ show (recoverGraph bd) ++ "\n"
+    err = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " 
+                 ++ show (a,b) ++ "\n"
+    errB = Left $ "tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge " 
+                 ++ show (a,b) ++ "\n"
 
 -- |externalAngle bd v - calculates the external angle at boundary vertex v in BoundaryState bd as an
 -- integer multiple of tt (tenth turn), so 1..9.  It relies on there being no crossing boundaries,

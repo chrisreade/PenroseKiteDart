@@ -11,7 +11,7 @@ some auxiliary functions for debugging and experimenting.
 -}
 module Tgraph.Decompose where
 
-import qualified Data.Map.Strict as Map (Map, insert, empty, (!), fromList)
+import qualified Data.Map.Strict as Map (Map, (!), fromList)
 import Data.List(sort)
 
 import Tgraph.Prelude
@@ -36,7 +36,6 @@ decompose g = makeUncheckedTgraph newFaces where
 phiVMap :: Tgraph -> Map.Map Dedge Vertex
 phiVMap g = edgeVMap where
   phiReps = sort [(a,b) | (a,b) <- phiEdges g, a<b]
-  sizeNew = length phiReps
   newVs = (length phiReps) `newVsAfter` (maxV g)
   edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (fmap reverseD phiReps) newVs 
 

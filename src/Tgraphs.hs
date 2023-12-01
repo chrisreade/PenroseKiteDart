@@ -581,11 +581,13 @@ singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)
 -- commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
     commonToCovering bds edgeList = common edgeList (transpose labellists) where
       labellists = fmap (`reportCover` edgeList) bds
-      common [] _ = []
+      common [] [] = []
+      common [] (_:_) = error "singleChoiceEdges:commonToCovering: label list is longer than edge list"
+      common (_:_) [] = error "singleChoiceEdges:commonToCovering: label list is shorter than edge list"
       common (e:more) (ls:lls) = if matching ls 
                                  then (e,head ls):common more lls
                                  else common more lls
-      matching [] = error "commonToCovering: empty list of labels" 
+      matching [] = error "singleChoiceEdges:commonToCovering: empty list of labels" 
       matching (l:ls) = all (==l) ls
 
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
@@ -594,7 +596,7 @@ singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)
     reportCover bd des = fmap (tileLabel . getf) des where
       efmap = dedgesFacesMap des (allFaces bd) -- more efficient than using graphEFMap?
 --      efmap = graphEFMap (recoverGraph bd)
-      getf e = maybe (error $ "reportCover: no face found with directed edge " ++ show e)
+      getf e = maybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
                      id
                      (faceForEdge e efmap)
       
