@@ -199,7 +199,7 @@ Combining force, compose, decompose
 -}
 
 
--- | An experimental version of composition which defaults to kites when there are choices (unknowns).
+-- | An unsound version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 composeK :: Tgraph -> Tgraph
 composeK g = runTry $ checkConnectedNoCross newfaces where
@@ -218,6 +218,7 @@ compForce:: Tgraph -> Tgraph
 compForce = uncheckedCompose . force 
         
 -- |allCompForce g produces a list of all forced compositions starting from g up to but excluding the empty Tgraph.
+-- (The list will be empty if g is the emptyGraph).
 -- This definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
 -- It may raise an error if the initial force fails with an incorrect Tgraph.

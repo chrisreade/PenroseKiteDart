@@ -114,7 +114,7 @@ graphOpSpec = describe "Main Tgraph Operations Test" $ do
          length(faces dD6)  `shouldBe` 466
     context "Composing Tgraphs" $
       it "Number of faces of maxComp (dartDs !!6) should be 6" $
-         length(faces(maxComp dD6)) `shouldBe` 6
+         length(faces(maxCompForce dD6)) `shouldBe` 6
     context "Forcing Tgraphs" $
       it "Number of faces of force (dartDs !!6) should be 7546" $
          length(faces(force dD6)) `shouldBe` 7546

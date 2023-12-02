@@ -219,7 +219,8 @@ tryForceWith ugen = tryFSOpWith ugen (tryForceStateWith ugen) where
                               retry fs'
                  _  -> do maybeBdC <- tryUnsafes fs
                           case maybeBdC of
-                            Nothing  -> tryFinalStuckCheck fs  -- no more updates
+                            Nothing  -> Right fs -- no more updates
+                         -- Nothing -> tryFinalStuckCheck fs  -- No Longer used
                             Just bdC -> do fs' <- tryReviseFSWith uGen bdC fs
                                            retry fs'
     
@@ -579,24 +580,23 @@ noConflict fc fcs = null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges 
 
 
 {- |
-tryFinalStuckCheck is designed to check a final force state (in tryForceStateWith).
+tryFinalStuckCheck was designed to check a final force state (in tryForceStateWith).
 The final state is rejected as having a stuck Tgraph if any boundary vertex external angle is less than 4 (tenth turns).
-This check is now included in tryForceStateWith to catch examples like
+This check was included in tryForceStateWith to catch examples like
 
   makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)] 
 
-Forcing will not discover that the result is stuck without the check.
-
-This relies on a proof that a boundary vertex with external angle less than 4 (tenth turns) must either be stuck
-or have a unique addition possible on one of the neighbouring boundary edges. 
-(e.g. by considering forced boundary vertex contexts without using tryFinalStuckCheck)
+Previously forcing would not discover that the result was stuck without the check.
+However a check for a false queen has been added to both allUGenerator and defaultAllUGenerator
+to avoid the need for this check. 
 -}
 tryFinalStuckCheck:: ForceState -> Try ForceState
 tryFinalStuckCheck fs =
   case find ((<4) . externalAngle bs) bvs of
      Nothing -> Right fs
      Just v -> Left $ "tryFinalStuckCheck: stuck/incorrect tiling: external angle problem found at vertex " ++ show v ++
-                      " in Tgraph:\n" ++ show (recoverGraph bs)
+                      "\nwith local faces:" ++ show (facesAtBV bs v) ++
+                      "\nand boundary edges:" ++ show (boundary bs `intersect` (fmap reverseD $ facesDedges $ facesAtBV bs v)) ++ "\n"
   where bs = boundaryState fs
         bvs = fmap fst (boundary bs)
 
@@ -636,6 +636,8 @@ Forcing rules
    add any missing half dart on a boundary kite long edge
 10.(queenKiteUpdates) If there are 3 kite wings at a vertex (necessarily a queen)
    add any missing fourth half kite on a boundary kite short edge
+11.(stuckFalseQueen) If there are 4 kite wings at a vertex but with a kite short edge on the boundary
+   fail with a (Left) stuck Tgraph report.
 -}
            
 {-------------------  FORCING RULES and Generators --------------------------
@@ -645,7 +647,7 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
                 
 
 
-{-| allUGenerator combines all the 10 rule update generators.
+{-| allUGenerator combines all the 11 rule update generators.
     They are combined in sequence (keeping the rule order) after applying each to the
     supplied BoundaryState and a focus edge list. (See also defaultAllUGen).
     This version returns a Left..(fail report) for the first generator that produces a Left..(fail report)
@@ -670,6 +672,7 @@ allUGenerator bd focus =
                  , kingDartUpdates           -- (rule 8)
                  , queenDartUpdates          -- (rule 9)
                  , queenKiteUpdates          -- (rule 10)
+                 , stuckFalseQueen           -- (new: rule 11)
                  ]
 
 -- |UFinder (Update case finder functions). Given a BoundaryState and a list of (focus) boundary directed edges,
@@ -936,6 +939,21 @@ queenMissingDarts = boundaryFilter pred where
                               kiteWings = filter ((==fcWing) . wingV) $ 
                                           filter isKite $ facesAtBV bd fcWing
 
+-- |find a false queen vertex (with 4 kite wings) and a boundary kite short edge.
+-- This is an incorrect Tgraph.
+stuckFalseQueen  :: UpdateGenerator
+stuckFalseQueen = makeGenerator abortFalseQueen falseQueen where
+    abortFalseQueen bd fc = Left $ "stuckFalseQueen: stuck/incorrect Tgraph found at vertex " ++ show (wingV fc) ++ 
+                                   "\nwith faces: " ++ show (facesAtBV bd (wingV fc)) ++ "\n"
+
+-- |A vertex with 4 kite wings and a boundary kite short edge is a stck/incorrect Tgraph
+falseQueen :: UFinder                      
+falseQueen = boundaryFilter pred where
+    pred bd (a,b) fc = shortE fc == (b,a) && isKite fc && length kiteWings ==4
+                        where fcWing = wingV fc
+                              kiteWings = filter ((==fcWing) . wingV) $ 
+                                          filter isKite $ facesAtBV bd fcWing
+
 -- |Update generator for rule (10)
 -- queen vertices with 3 kite wings -- add missing fourth half kite on a boundary kite short edge
 queenKiteUpdates :: UpdateGenerator
@@ -1077,6 +1095,9 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
   kiteShortDecider e fc
     | mustbeDeuce bd (oppV fc) || mustbeJack bd (oppV fc) = mapItem e (addDartShortE bd fc)
     | mustbeQueen3Kite bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
+    -- addewd new false queen check (4 kite wings at a vertex with a kite SHORT edge on the boundary)
+    | mustbeQueen4Kite bd (wingV fc) = Left $ "defaultAllUGen: stuck/incorrect Tgraph (false Queen) found at vertex " ++ show (wingV fc) ++ 
+                                              "\nwith faces: " ++ show (facesAtBV bd (wingV fc)) ++ "\n"
     | otherwise = Right Map.empty
   mapItem e = fmap (\u -> Map.insert e u Map.empty)
   combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
