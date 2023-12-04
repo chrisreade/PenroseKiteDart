@@ -38,7 +38,6 @@ import TileLib
 import Data.List (intersect, union, (\\), find, foldl',nub, transpose)      
 import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,delete,toList,(\\))-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
-
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
 -- * Making valid Tgraphs (with a check for no touching vertices).
@@ -266,7 +265,7 @@ emplaceChoices' startbd | nullGraph g' = recoverGraph <$> choices [startbd]
    choices (bd:bds) 
         = case  startunknowns `intersect` unknowns (getDartWingInfo $ recoverGraph bd) of
              [] -> bd:choices bds
-             (u:_) -> choices (atLeastOne (tryDartAndKite bd (findDartLongForWing u bd))++bds)
+             (u:_) -> choices (atLeastOne (tryDartAndKiteForced bd (findDartLongForWing u bd))++bds)
    findDartLongForWing v bd 
         = case find isDart (facesAtBV bd v) of
             Just d -> longE d
@@ -314,7 +313,7 @@ boundaryECovering bs = covers [(bs, boundaryEdgeSet bs)] where
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
              newcases = fmap (\b -> (b, commonBdry des b))
-                             (atLeastOne $ tryDartAndKite bs de)
+                             (atLeastOne $ tryDartAndKiteForced bs de)
 
 -- |Make a set of the directed boundary edges of a BoundaryState
 boundaryEdgeSet:: BoundaryState -> Set.Set Dedge
@@ -338,19 +337,30 @@ boundaryVCovering bd = covers [(bd, startbds)] where
   covers ((open,es):opens) 
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKite open de) ++opens
-    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKite open de) ++opens  
+        Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKiteForced open de) ++opens
+    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced open de) ++opens  
                    where (de,des) = Set.deleteFindMin es
                   
--- | tryDartAndKite b de - returns the list of (2) results after adding a dart (respectively kite)
+-- | tryDartAndKiteForced b de - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de a forcible b and then tries forcing. Each of the result is a Try.
+tryDartAndKiteForced:: Forcible a => a -> Dedge -> [Try a]
+tryDartAndKiteForced b de = 
+    [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $ 
+        tryAddHalfDart de b >>= tryForce
+    , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $ 
+        tryAddHalfKite de b >>= tryForce
+    ]
+
+-- | tryDartAndKite b de - returns the list of (2) results after adding a dart (respectively kite)
+-- to edge de of a Forcible b. Each of the result is a Try.
 tryDartAndKite:: Forcible a => a -> Dedge -> [Try a]
 tryDartAndKite b de = 
     [ onFail ("tryDartAndKite: Dart on edge: " ++ show de ++ "\n") $ 
-        tryAddHalfDart de b >>= tryForce
+        tryAddHalfDart de b
     , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $ 
-        tryAddHalfKite de b >>= tryForce
+        tryAddHalfKite de b
     ]
+
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g
 drawFBCovering:: Tgraph -> Diagram B
@@ -438,7 +448,7 @@ forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
   locals bds (open:opens) | not (Set.member edge (boundaryEdgeSet open)) = locals bds opens
   locals bds (open:opens) | occursIn bds open edge = locals bds opens
   locals bds (open:opens) | otherwise = 
-     locals (open:bds) (concatMap (atLeastOne . tryDartAndKite open)
+     locals (open:bds) (concatMap (atLeastOne . tryDartAndKiteForced open)
                                   (boundaryEdgeNbs edge open)
                         ++ opens)
   contexts done [] = reverse done
@@ -452,7 +462,7 @@ forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
     | Set.null es = contexts (bs:done) opens
     | otherwise = contexts (bs:done) (newcases ++ opens)
                   where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 -- | occursIn bds b e - asks if (the Tgraph of) b occurs in the list (of Tgraphs of) bds
@@ -501,7 +511,7 @@ forcedBVContexts x edge bStart
       locals bds (open:opens) | not (IntSet.member x $ boundaryVertexSet open) = locals bds opens
       locals bds (open:opens) | occursIn bds open edge = locals bds opens
       locals bds (open:opens) | otherwise = 
-          locals (open:bds) (concatMap (atLeastOne . tryDartAndKite open)
+          locals (open:bds) (concatMap (atLeastOne . tryDartAndKiteForced open)
                                          (boundary4 x open)
                               ++ opens)
 -- after applying locals this sets up cases for processing by contexts
@@ -518,7 +528,7 @@ forcedBVContexts x edge bStart
         | Set.null es = contexts (bs:done) opens
         | otherwise = contexts (bs:done) (newcases ++ opens)
                       where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-      makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
+      makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
         where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 -- |for v a boundary vertex of bd, boundary4 v bd 

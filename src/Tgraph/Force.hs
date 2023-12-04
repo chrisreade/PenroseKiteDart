@@ -529,7 +529,7 @@ trySafeUpdate bd (SafeUpdate newface) =
                    , revisedEdges = affectedBoundary resultBd newDedges
                    , newFace = newface
                    }
-   in if noConflict newface nbrFaces 
+   in if newNoConflict newface nbrFaces 
       then Right bdChange 
       else Left $ "trySafeUpdate:(incorrect tiling)\nConflicting new face  "
                    ++ show newface
@@ -562,21 +562,8 @@ tryUpdate bd u@(UnsafeUpdate _) =
 
 
 {-*
-Conflict test and final stuck check
+Now unused: final stuck check
 -}
-
--- |noConflictFull fc fcs  where fc is a new face and fcs are neighbouring faces.
--- There is no conflict if none of the new directed face edges of fc are already directed edges
--- of neighbouring faces fcs (in the same direction)
--- and the edge length types (phi/nonPhi) do not conflict.
-noConflictFull :: TileFace -> [TileFace] -> Bool
-noConflictFull fc fcs = null (faceDedges fc `intersect` facesDedges fcs) && noConflict fc fcs
-
--- |noConflict fc fcs  where fc is a new face and fcs are neighbouring faces.
--- Just checks the shared edge length types (phi/nonPhi) do not conflict.
-noConflict :: TileFace -> [TileFace] -> Bool
-noConflict fc fcs = null (faceNonPhiEdges fc `intersect` concatMap facePhiEdges fcs) &&
-                    null (facePhiEdges fc `intersect` concatMap faceNonPhiEdges fcs)
 
 
 {- |
@@ -636,7 +623,7 @@ Forcing rules
    add any missing half dart on a boundary kite long edge
 10.(queenKiteUpdates) If there are 3 kite wings at a vertex (necessarily a queen)
    add any missing fourth half kite on a boundary kite short edge
-11.(stuckFalseQueen) If there are 4 kite wings at a vertex but with a kite short edge on the boundary
+11.(stuckFalseQueen) If there are 4 kite wings at a vertex with a kite short edge on the boundary
    fail with a (Left) stuck Tgraph report.
 -}
            

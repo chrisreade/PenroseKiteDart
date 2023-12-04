@@ -20,7 +20,10 @@ module TestIllustrate where
 import Diagrams.TwoD.Vector (e) -- for decompExplainFig
 import Diagrams.Prelude
 import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
+import Data.List(partition)
 import Control.Monad ((<=<))  -- for rocketsFig
+import qualified Data.IntSet as IntSet (member) -- for bvExtendCase
+
 
 import ChosenBackend (B)
 import TileLib
@@ -1074,7 +1077,7 @@ sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] wh
     | Set.null es = contexts (bs:done) opens -- bs is a completed cover
     | otherwise = contexts (bs:done) (newcases ++ opens)
         where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 
@@ -1111,7 +1114,7 @@ foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] w
     | otherwise = contexts (bs:done) (newcases ++ opens)
                   where newcases = concatMap (makecases (bs,es)) (Set.toList es)
 
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKite bs de)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 
@@ -1267,7 +1270,45 @@ testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23)
         g1 = tgraph ttg1
         g2 = tgraph ttg2
 
+-- |The discovery of the false queen (now a new force rule) prompted a check that forcing 
+-- discovers any stuck Tgraph with a single vertex common to all faces.  There are 6 sets of diagrams
+-- showing that this is the case. bvCasesCheck i for i = 0..5.
+-- In each case the top group are those where a stuck Tgraph is not detected, and the bottom group
+-- shows detected stuck Tgraphs.  Not all repetitions have been removed.
+bvCasesCheck:: Int -> Diagram B
+bvCasesCheck i = padBorder $ lw ultraThin $ vsep 5 $ 
+              [arrangeRows 5 (fmap drawit ok), arrangeRows 5 (fmap drawit notok)] where
+    (notok,ok) = partition incorrect $ row i
+    row i = bvExtendCase 1 (1,2) (startCases!!i)
+    drawit = showOrigin . alignBefore draw (1,2) . recoverGraph
+    startCases = fmap  (wholeTiles . makeBoundaryState . makeTgraph) 
+                 [[RK(1,3,2)],[RK(2,3,1)],[RK(3,1,2)],[LK(3,1,2)],[LD(1,3,2)],[LD(2,3,1)]]
+    incorrect bd = isFail (tryForceWith allUGenerator bd)
 
+-- | (Used by bvCasesCheck)
+-- Given a boundary vertex and a Dedge in an initial BoundaryState,
+-- Find all possible legal additions of faces at the vertex which leave it on the boundary.
+-- The edge is used to remove some repetitions with guided equality checks (but will not find all).
+-- The result is a list of BoundaryStates which extend the starting BoundaryState.
+bvExtendCase:: Vertex -> Dedge -> BoundaryState -> [BoundaryState]
+bvExtendCase x edge bStart 
+  | x `notElem` fmap fst (boundary bStart) 
+      = error $ "bvExtendCase: vertex " ++ show x ++ " must be on the boundary."
+  | edge `notElem` graphEdges (recoverGraph bStart)
+      = error $ "bvExtendCase: edge " ++ show edge ++ " must be a graph edge (either direction)."
+  | otherwise = locals [] [bStart] where
+-- locals:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
+      locals bds [] = reverse bds
+      locals bds (open:opens) | not (IntSet.member x $ boundaryVertexSet open) = locals bds opens
+      locals bds (open:opens) | occursIn bds open edge = locals bds opens
+      locals bds (open:opens) | otherwise = 
+          locals (open:bds) (ignoreFails $ 
+          fmap (tryForceWith wholeTileUpdates) $ concatMap (ignoreFails . tryDartAndKite open)
+                                                         (boundaryEdgesAt x open)
+                                                         ++ opens)
+
+                    
+                
 {-*
 Inspection tools
 -}

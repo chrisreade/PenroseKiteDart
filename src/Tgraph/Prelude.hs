@@ -16,7 +16,7 @@ This module re-exports module HalfTile.
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, union, elemIndex,foldl',find)
-import Data.Either(fromRight, lefts, rights)
+import Data.Either(fromRight, lefts, rights, isLeft)
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!))
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup)
@@ -173,6 +173,28 @@ sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
                    , let d2 = reverseD d1
                    , f2 <- filter (`hasDedge` d2) fcs
                   ]
+
+-- |A version of sharedEdges comparing a single face against a list of faces.
+-- This does not look at shared edges within the list, but just the new face against the list.
+sharedEdgesWith:: TileFace -> [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
+sharedEdgesWith fc fcs = 
+    [(fc, edgeType d1 fc, fc', edgeType d2 fc') 
+     | d1 <- faceDedges fc
+     , let d2 = reverseD d1
+     , fc' <- filter (`hasDedge` d2) fcs
+    ]
+
+-- | newNoConflict fc fcs returns True if fc has a conflicting edge with fcs.
+-- It does not check fcs for conflicts among the fcs
+newNoConflict :: TileFace -> [TileFace] -> Bool
+newNoConflict fc fcs = null $ filter (not . legal) shared where
+    shared = sharedEdgesWith fc fcs
+
+-- |newNoConflictFull fc fcs  where fc is a new face and fcs are neighbouring faces.
+-- Checks for illegal tiling with newNoConflict but also checks that fc does not have a directed edge
+-- in the same direction as a directed edge in fcs.
+newNoConflictFull :: TileFace -> [TileFace] -> Bool
+newNoConflictFull fc fcs = null (faceDedges fc `intersect` facesDedges fcs) && newNoConflict fc fcs
 
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   
@@ -675,7 +697,11 @@ runTry = either error id
 -- |ifFail a tr - extracts the (Right) result from tr but returning a if tr is Left s.
 ifFail :: a -> Try a -> a
 ifFail = fromRight 
-    
+
+-- |a try result is a failure if it is a Left
+isFail:: Try a -> Bool
+isFail = isLeft
+   
 -- |Combines a list of Trys into a single Try with failure overriding success.
 -- It concatenates all failure reports if there are any and returns a single Left r.
 -- Otherwise it produces Right rs where rs is the list of all (successful) results.
