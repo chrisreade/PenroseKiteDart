@@ -453,18 +453,18 @@ relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2 (-10,-10))) <>  mainfig w
             b = named "B" (rect 0 0.1 # lw none)
 
 -- | Diagram illustrating force rules with 13 figures.
--- The yellow half-tile is the one being added in each case.
--- Mirror symmetric versions are omitted.
+-- The yellow half-tile is the one being added in each case
+-- and mirror symmetric versions are omitted.
 forceRules:: Diagram B
 forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap drawRule rules where
-  rules = [ (  [LD (1,2,3)],                               RD (1,4,2)  )
-          , (  [RK (1,2,3)],                               LK (1,4,2)  )
-          , (  [LD (1,2,3)],                               RK (4,3,2)  )
-          , (  [LK (1,2,3), RD (2,1,4)],                    RK (5,3,2)  )
+  rules = [ (  [LD (1,2,3)],                                 RD (1,4,2)  )
+          , (  [RK (1,2,3)],                                 LK (1,4,2)  )
+          , (  [LD (1,2,3)],                                 RK (4,3,2)  )
+          , (  [LK (1,2,3), RD (2,1,4)],                     RK (5,3,2)  )
           , (  [LK (1,3,2), RK (1,2,4), RK (5,2,3)],         LD (6,4,2)  )
           , (  [LK (1,2,3), RK (1,4,2), LK (5,2,4)],         RK (6,3,2)  )
           , (  [LK (1,2,3), RK (1,4,2), LK (5,2,4), RK (6,3,2)],          RD (2,5,7)  )
-          , (  [LK (1,2,3),RD (2,1,4),LD (2,4,5),RD (2,5,7),LD (2,7,8)],   RD (2,8,9) )
+          , (  [LK (1,2,3),RD (2,1,4),LD (2,4,5),RD (2,5,7),LD (2,7,8)],  RD (2,8,9) )
           , (  [LK (1,4,2),RK (1,2,3),RD (5,2,4),LD (6,3,2)],             LK (2,5,7) )
           , (  [LK (1,3,2), RK (1,2,4), RD (5,2,3), LK (2,5,6)],          LD (7,4,2)  )
           , (  [RK (2,1,3),LK (2,4,1),RK (2,5,4),LK (2,6,5),RK (2,7,6),LK (2,8,7)],   RK (2,9,8) )
@@ -474,7 +474,10 @@ forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap draw
   drawRule (fs,f) = drawWith (fillPiece yellow) vpf <> drawj vp where
     vp = makeAlignedVP (1,2) $ makeTgraph (f:fs)
     vpf = subVP vp [f]
-
+{-
+  falsequeen = lc red $ alignBefore drawj (1,2) $ 
+               makeTgraph [LK (1,2,3), RK (1,4,2),  RK (6,3,2), LK (6,2,5)]
+-}
 
 
 -- |coverForceRules shows cases for a proof that 
@@ -540,46 +543,6 @@ coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
 emptyRep:: Diagram B
 emptyRep = lc orange $ (circle phi :: QDiagram B V2 Double Any) <> rotate (45@@deg) (hrule (3*phi))
 
-{- |
-For a proof that (compose . force . decompose) gF = gF for forced Tgraphs gF, this
-diagram is to check boundary vertices (of a forced Tgraph) after applying (compose . force . decompose).
-This shows all boundary vertex contexts for a forced Tgraph using forcedBVContexts.
-For each context (with vertex marked with a red dot) the result of (compose . force . decompose)
-is shown underneath. This establishes that no boundary vertex changes for a forced Tgraph
-when applying (compose . force . decompose).
--}
-checkCFDFig :: Diagram B
-checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
-  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  dartOriginDiags = take 11 alldartOriginDiags ++ fmap (alldartOriginDiags!!) [15,18,21,23]
-  dartWingDiags = alldartWingDiags
-  kiteOriginDiags = take 4 allkiteOriginDiags ++ fmap (allkiteOriginDiags!!) [5,6,7,8,9,10,12,13,19,21,26,29,30,37,59]
-  kiteWingDiags = take 7 allkiteWingDiags ++ fmap (allkiteWingDiags!!) [8,9,10,12,13,15,24,25,26,27,29,30,31,32,33,34,35,37,44]
-  kiteOppDiags = take 7 allkiteOppDiags ++ fmap (allkiteOppDiags!!) [8,9,10,11,12,13,19]
-                 ++ take 13 (drop 19 allkiteOppDiags) ++ [allkiteOppDiags!!44]
-  alldartOriginDiags = drawCases 1 $ makeTgraph [LD (1,3,2)]
-  alldartWingDiags = drawCases 2 $ makeTgraph [LD (1,3,2)]
-  allkiteOriginDiags = drawCases 2 $ makeTgraph [LK (2,1,3)]
-  allkiteWingDiags = drawCases 1 $ makeTgraph [LK (2,1,3)]
-  allkiteOppDiags = drawCases 1 $ makeTgraph [LK (3,2,1)]
-  edge = (1,2)
-  drawCases v g = fmap (drawCase v) $ genFContexts (v, edge, force $ makeBoundaryState g)
-  drawCase v bd = vsep 1 [drawv <> drawg, drawcfd] where
-     g = recoverGraph bd
-     vp = makeAlignedVP edge g
-     drawg = draw vp
- --    drawe = drawEdgeWith vp edge # lc red
-     drawv = case findLoc v vp of
-               Nothing -> error $ "checkCFDFig: vertex not found " ++ show v
-               Just p -> circle 0.2 # fc red # lc red # moveTo p
-     drawcfd = (alignBefore draw edge . compose . force . decompose) g
-
--- | For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF
--- All internal vertices are dealt with by relatedVTypeFig except for the (forced) star case
--- which this figure deals with.
-checkCFDStar:: Diagram B
-checkCFDStar = padBorder $ hsep 1 [drawForce starGraph, draw $ compose sfDf, draw sfDf]
-   where sfDf = (force . decompose . force) starGraph
 
 -- | figure to check that force can complete a hole
 forceHoleTest :: Diagram B
@@ -1247,12 +1210,6 @@ kiteWingContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
     (v, edge, bd) = kiteWingStart
 kiteOppContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
     (v, edge, bd) = kiteOppStart
-{-
-dartOriginContexts = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LD (1,3,2)]
-kiteOriginContexts = fmap recoverGraph $ forcedBVContexts 2 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (2,1,3)]
-kiteWingContexts   = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (2,1,3)]
-kiteOppContexts    = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (3,2,1)]
--}
 
 -- |drawVContext v e g - draws the Tgraph g with vertex v shown red and edge e aligned on the x-axis and
 -- the composition of g shown in yellow.
@@ -1337,52 +1294,6 @@ foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] w
 
   makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
-
-
-{-
--- |forcedBVContexts v e bd - where bd is a boundary state of a forced Tgraph,
--- e is any edge of bd (either direction), and v is a boundary vertex of bd.
--- This will generate the possible boundary contexts of v in a forced Tgraph.
--- The edge is used for comparing Tgraphs with sameGraph to reduce repetitions.
--- It first generates local cases for bd by repeatedly adding kite/dart on 4 boundary edges (2 on either side of v) and forcing,
--- It then generates further contexts in each case by adding all possibilities to the rest of the new boundary (except the 4 nearest edges).
--- Any case where v is no longer on the boundary is excluded in each case.
--- The edge argument is necessary for doing 'sameGraph' comparisons to remove repetitions. 
--- The resulting contexts are returned as a list of BoundaryStates.      
-forcedBVContexts:: Vertex -> Dedge -> BoundaryState -> [BoundaryState]
-forcedBVContexts x edge bStart 
-  | x `notElem` fmap fst (boundary bStart) 
-      = error $ "forcedBVContexts: vertex " ++ show x ++ " must be on the boundary."
-  | edge `notElem` graphEdges (recoverGraph bStart)
-      = error $ "forcedBVContexts: edge " ++ show edge ++ " must be a graph edge (either direction)."
-  | otherwise = contexts [] (setup <$> locals [] [bStart]) where
--- locals:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
--- locals produces all the cases for 4 local edges (2 edges either side of x)
-      locals bds [] = reverse bds
-      locals bds (open:opens) | not (IntSet.member x $ boundaryVertexSet open) = locals bds opens
-      locals bds (open:opens) | occursIn bds open edge = locals bds opens
-      locals bds (open:opens) | otherwise = 
-          locals (open:bds) (concatMap (atLeastOne . tryDartAndKiteForced open)
-                                       (boundary4 x open)
-                              ++ opens)
--- after applying locals this sets up cases for processing by contexts
-      setup bs = (bs, boundaryEdgeSet bs Set.\\ Set.fromList (boundary4  x bs))
-
-      contexts done [] = reverse done
-      contexts done ((bs,es):opens) 
-        | occursIn done bs edge = contexts done opens
-        | not (x `IntSet.member` boundaryVertexSet bs) = contexts done opens
--- check null composition before null es
-        | nullGraph $ compose $ recoverGraph bs
-          = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ boundary4  x bs)
-            in  contexts (bs:done) (newcases++opens)
-        | Set.null es = contexts (bs:done) opens
-        | otherwise = contexts (bs:done) (newcases ++ opens)
-                      where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-      makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
-        where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
--}
-
     
 
 {-*
@@ -1471,6 +1382,48 @@ drawBEContext edge g = drawe <> drawg <> drawComp where
 
 
 
+{- |
+For a proof that (compose . force . decompose) gF = gF for forced Tgraphs gF, this
+diagram is to check boundary vertices (of a forced Tgraph) after applying (compose . force . decompose).
+This shows all boundary vertex contexts for a forced Tgraph using genFContexts.
+For each context (with vertex marked with a red dot) the result of (compose . force . decompose)
+is shown underneath. This establishes that no boundary vertex changes for a forced Tgraph
+when applying (compose . force . decompose).
+Dart wing cases are a subset of kite opp cases, and dart opp cases are not on the boundary for forced Tgraphs.
+-}
+checkCFDFig :: Diagram B
+checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
+              [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
+  dartOriginDiags = take 11 alldartOriginDiags ++ fmap (alldartOriginDiags!!) [15,18,21,23]
+  kiteOriginDiags = take 4 allkiteOriginDiags ++ fmap (allkiteOriginDiags!!) [5,6,7,8,9,10,12,13,19,21,26,29,30,37,59]
+  kiteWingDiags = take 7 allkiteWingDiags ++ fmap (allkiteWingDiags!!) [8,9,10,12,13,15,24,25,26,27,29,30,31,32,33,34,35,37,44]
+  kiteOppDiags = take 7 allkiteOppDiags ++ fmap (allkiteOppDiags!!) [8,9,10,11,12,13,19]
+                 ++ take 13 (drop 19 allkiteOppDiags) ++ [allkiteOppDiags!!44]
+  alldartOriginDiags = fmap (drawCase v edge) $ genFContexts (v, edge, force bd) where
+    (v, edge, bd) = dartOriginStart
+  allkiteOriginDiags = fmap (drawCase v edge) $ genFContexts (v, edge, force bd) where
+    (v, edge, bd) = kiteOriginStart
+  allkiteWingDiags = fmap (drawCase v edge) $ genFContexts (v, edge, force bd) where
+    (v, edge, bd) = kiteWingStart
+  allkiteOppDiags = fmap (drawCase v edge) $ genFContexts (v, edge, force bd) where
+    (v, edge, bd) = kiteOppStart
+  drawCase v edge bd = vsep 1 [drawv <> drawg, drawcfd] where
+     g = recoverGraph bd
+     vp = makeAlignedVP edge g
+     drawg = draw vp
+ --    drawe = drawEdgeWith vp edge # lc red
+     drawv = case findLoc v vp of
+               Nothing -> error $ "checkCFDFig: vertex not found " ++ show v
+               Just p -> circle 0.2 # fc red # lc red # moveTo p
+     drawcfd = (alignBefore draw edge . compose . force . decompose) g
+
+
+-- | For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF
+-- All internal vertices are dealt with by relatedVTypeFig except for the (forced) star case
+-- which this figure deals with.
+checkCFDStar:: Diagram B
+checkCFDStar = padBorder $ hsep 1 [drawForce starGraph, draw $ compose sfDf, draw sfDf]
+   where sfDf = (force . decompose . force) starGraph
 
 
 

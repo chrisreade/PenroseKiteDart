@@ -6,7 +6,8 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This module includes force and tryForce plus related operations for testing and experimenting.
+This module includes force and tryForce plus related operations for testing and experimenting
+such as tryStepForce, tryAddHalfKite and tryAddHalfDart.
 It introduces BoundaryState and ForceState types and includes a Forcible class with instances for
 Tgraph, BoundaryState, and ForceState.
 It exposes the calculation of relative angle of edges at boundary vertices used to find existing edges.
@@ -619,12 +620,10 @@ Forcing rules
 8. (kingDartUpdates) When a vertex is a kite wing and also an origin for exactly 4 dart halves
    it must be a king vertex.
    Add a missing dart half (on any boundary long edge of a dart at the vertex).
-9. (queenDartUpdates) If there are 4 kite wings at a vertex (necessarily a queen)
+9. (queenDartUpdates) If there are more than 2 kite wings at a vertex (necessarily a queen)
    add any missing half dart on a boundary kite long edge
-10.(queenKiteUpdates) If there are 3 kite wings at a vertex (necessarily a queen)
+10.(queenKiteUpdates) If there are more than 2 kite wings at a vertex (necessarily a queen)
    add any missing fourth half kite on a boundary kite short edge
-11.(stuckFalseQueen) If there are 4 kite wings at a vertex with a kite short edge on the boundary
-   fail with a (Left) stuck Tgraph report.
 -}
            
 {-------------------  FORCING RULES and Generators --------------------------
@@ -634,7 +633,7 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
                 
 
 
-{-| allUGenerator combines all the 11 rule update generators.
+{-| allUGenerator combines all the 10 rule update generators.
     They are combined in sequence (keeping the rule order) after applying each to the
     supplied BoundaryState and a focus edge list. (See also defaultAllUGen).
     This version returns a Left..(fail report) for the first generator that produces a Left..(fail report)
@@ -659,7 +658,7 @@ allUGenerator bd focus =
                  , kingDartUpdates           -- (rule 8)
                  , queenDartUpdates          -- (rule 9)
                  , queenKiteUpdates          -- (rule 10)
-                 , stuckFalseQueen           -- (new: rule 11)
+--                 , stuckFalseQueen           -- (new: rule 11)
                  ]
 
 -- |UFinder (Update case finder functions). Given a BoundaryState and a list of (focus) boundary directed edges,
@@ -749,6 +748,7 @@ isKiteOppV bd v = v `elem` fmap oppV (filter isKite (facesAtBV bd v))
 isDartOrigin:: BoundaryState -> Vertex -> Bool
 isDartOrigin bd v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
 
+{-
 -- |A boundary vertex with 4 kite wings is a queen vertex (maybe needing a dart)
 mustbeQueen4Kite:: BoundaryState -> Vertex -> Bool
 mustbeQueen4Kite bd v = kiteWingCount bd v ==4
@@ -756,6 +756,11 @@ mustbeQueen4Kite bd v = kiteWingCount bd v ==4
 -- |A boundary vertex with 3 kite wings is a queen vertex (needing a fourth kite)
 mustbeQueen3Kite:: BoundaryState -> Vertex -> Bool
 mustbeQueen3Kite bd v = kiteWingCount bd v ==3
+-}
+
+-- |A boundary vertex with 3 or 4 kite wings is a queen vertex (needing a fourth kite short adge or dart long edge)
+mustbeQueen:: BoundaryState -> Vertex -> Bool
+mustbeQueen bd v = kiteWingCount bd v >2
 
 -- |kiteWingCount bd v - the number of kite wings at v in BoundaryState bd
 kiteWingCount:: BoundaryState -> Vertex -> Int
@@ -918,6 +923,14 @@ kingMissingThirdDart = boundaryFilter pred where
 queenDartUpdates :: UpdateGenerator
 queenDartUpdates = makeGenerator addDartLongE queenMissingDarts
 
+-- |Find queen vertices (with 3 or 4 kite wings) and a boundary kite long edge
+queenMissingDarts :: UFinder                      
+queenMissingDarts = boundaryFilter pred where
+    pred bd (a,b) fc = longE fc == (b,a) && isKite fc && length kiteWings >2
+                        where fcWing = wingV fc
+                              kiteWings = filter ((==fcWing) . wingV) $ 
+                                          filter isKite $ facesAtBV bd fcWing
+{-
 -- |Find queen vertices (with 4 kite wings) and a boundary kite long edge
 queenMissingDarts :: UFinder                      
 queenMissingDarts = boundaryFilter pred where
@@ -925,6 +938,7 @@ queenMissingDarts = boundaryFilter pred where
                         where fcWing = wingV fc
                               kiteWings = filter ((==fcWing) . wingV) $ 
                                           filter isKite $ facesAtBV bd fcWing
+
 
 -- |find a false queen vertex (with 4 kite wings) and a boundary kite short edge.
 -- This is an incorrect Tgraph.
@@ -941,6 +955,8 @@ falseQueen = boundaryFilter pred where
                               kiteWings = filter ((==fcWing) . wingV) $ 
                                           filter isKite $ facesAtBV bd fcWing
 
+-}
+                                      
 -- |Update generator for rule (10)
 -- queen vertices with 3 kite wings -- add missing fourth half kite on a boundary kite short edge
 queenKiteUpdates :: UpdateGenerator
@@ -949,10 +965,20 @@ queenKiteUpdates = makeGenerator addKiteShortE queenMissingKite
 -- |Find queen vertices with only 3 kite wings and a kite short edge on the boundary
 queenMissingKite :: UFinder                        
 queenMissingKite = boundaryFilter pred where
+    pred bd (a,b) fc = shortE fc == (b,a) && isKite fc && length kiteWings >2
+                        where
+                          fcWing = wingV fc
+                          kiteWings = filter ((==fcWing) . wingV) $ filter isKite (facesAtBV bd fcWing)
+
+{-
+-- |Find queen vertices with only 3 kite wings and a kite short edge on the boundary
+queenMissingKite :: UFinder                        
+queenMissingKite = boundaryFilter pred where
     pred bd (a,b) fc = shortE fc == (b,a) && isKite fc && length kiteWings ==3
                         where
                           fcWing = wingV fc
                           kiteWings = filter ((==fcWing) . wingV) $ filter isKite (facesAtBV bd fcWing)
+-}
 
 
 {-*
@@ -1077,14 +1103,18 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
     | otherwise = Right Map.empty
   kiteLongDecider e fc
     | mustbeSun bd (originV fc) = mapItem e (completeSunStar bd fc)
-    | mustbeQueen4Kite bd (wingV fc) = mapItem e (addDartLongE bd fc)
+    | mustbeQueen bd (wingV fc) = mapItem e (addDartLongE bd fc)
+--    | mustbeQueen4Kite bd (wingV fc) = mapItem e (addDartLongE bd fc)
     | otherwise = Right Map.empty
   kiteShortDecider e fc
     | mustbeDeuce bd (oppV fc) || mustbeJack bd (oppV fc) = mapItem e (addDartShortE bd fc)
-    | mustbeQueen3Kite bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
+    | mustbeQueen bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
+--    | mustbeQueen3Kite bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
     -- addewd new false queen check (4 kite wings at a vertex with a kite SHORT edge on the boundary)
+{-
     | mustbeQueen4Kite bd (wingV fc) = Left $ "defaultAllUGen: stuck/incorrect Tgraph (false Queen) found at vertex " ++ show (wingV fc) ++ 
                                               "\nwith faces: " ++ show (facesAtBV bd (wingV fc)) ++ "\n"
+-}
     | otherwise = Right Map.empty
   mapItem e = fmap (\u -> Map.insert e u Map.empty)
   combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
