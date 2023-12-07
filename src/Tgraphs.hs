@@ -36,7 +36,7 @@ import ChosenBackend (B)
 import TileLib
 
 import Data.List (intersect, union, (\\), find, foldl',nub, transpose)      
-import qualified Data.Set as Set  (Set,fromList,member,null,intersection,deleteFindMin,delete,toList,(\\))-- used for boundary covers
+import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin,delete,toList)-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
@@ -340,6 +340,15 @@ boundaryVCovering bd = covers [(bd, startbds)] where
         Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKiteForced open de) ++opens
     | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced open de) ++opens  
                    where (de,des) = Set.deleteFindMin es
+
+-- | returns the set of boundary vertices of a BoundaryState
+boundaryVertexSet :: BoundaryState -> VertexSet
+boundaryVertexSet bd = IntSet.fromList $ fmap fst (boundary bd)
+
+-- | returns the set of internal vertices of a BoundaryState
+internalVertexSet :: BoundaryState -> VertexSet
+internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet bd
+
                   
 -- | tryDartAndKiteForced b de - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de a forcible b and then tries forcing. Each of the result is a Try.
@@ -429,6 +438,7 @@ drawEmpire2 g =
 Contexts for (forced) Boundary Vertices and Edges
 -}
 
+{-
 {- |forcedBEContexts e bd - 
 assumes bd to be a BoundaryState of a forced Tgraph and e to be a boundary edge of bd.
 It calculates all possible face additions on boundary edges either side of e,
@@ -512,7 +522,7 @@ forcedBVContexts x edge bStart
       locals bds (open:opens) | occursIn bds open edge = locals bds opens
       locals bds (open:opens) | otherwise = 
           locals (open:bds) (concatMap (atLeastOne . tryDartAndKiteForced open)
-                                         (boundary4 x open)
+                                       (boundary4 x open)
                               ++ opens)
 -- after applying locals this sets up cases for processing by contexts
       setup bs = (bs, boundaryEdgeSet bs Set.\\ Set.fromList (boundary4  x bs))
@@ -546,6 +556,8 @@ boundaryVertexSet bd = IntSet.fromList $ fmap fst (boundary bd)
 -- | returns the set of internal vertices of a BoundaryState
 internalVertexSet :: BoundaryState -> VertexSet
 internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet bd
+
+-}
 
 {-*
 Super Force with boundary edge covers

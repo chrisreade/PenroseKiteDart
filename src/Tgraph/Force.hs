@@ -158,7 +158,7 @@ Forcible class
 -- ForceState -> Try ForceState, then use (<=<) or (>=>) to combine and pass to tryFSOpWith.
 -- This ensures there are no unnecessary conversions between steps.
 class Forcible a where
-    -- | tryFSOpWith (try ForseState Operation with) when given an update generator, generalises a ForceState operation to a Forcible operation.
+    -- | tryFSOpWith (try ForseState Operation with) when given an update generator, generalises a (try) ForceState operation to a (try) Forcible operation.
     -- The update generator is only used to initialise a ForceState when there is not one
     -- already available (i.e not used when the Forcible is a ForceState)
     tryFSOpWith :: UpdateGenerator -> (ForceState -> Try ForceState) -> a -> Try a

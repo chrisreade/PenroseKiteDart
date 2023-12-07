@@ -20,10 +20,11 @@ module TestIllustrate where
 import Diagrams.TwoD.Vector (e) -- for decompExplainFig
 import Diagrams.Prelude
 import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
-import Data.List(partition)
+import Data.List(partition, (\\))
 import Control.Monad ((<=<))  -- for rocketsFig
 import qualified Data.IntSet as IntSet (member) -- for bvExtendCase
-
+import qualified Data.Set as Set  (member, (\\), fromList) -- used for forced Contexts
+-- (Set,fromList,member,null,intersection,deleteFindMin,delete,toList,(\\))-- used for boundary covers
 
 import ChosenBackend (B)
 import TileLib
@@ -562,7 +563,7 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
   allkiteWingDiags = drawCases 1 $ makeTgraph [LK (2,1,3)]
   allkiteOppDiags = drawCases 1 $ makeTgraph [LK (3,2,1)]
   edge = (1,2)
-  drawCases v g = fmap (drawCase v) $ forcedBVContexts v edge $ makeBoundaryState $ force g
+  drawCases v g = fmap (drawCase v) $ genFContexts (v, edge, force $ makeBoundaryState g)
   drawCase v bd = vsep 1 [drawv <> drawg, drawcfd] where
      g = recoverGraph bd
      vp = makeAlignedVP edge g
@@ -964,180 +965,6 @@ kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ mak
 
 
 
-{-*
-Forced Boundary Edge and Vertex Contexts
--}
-
-{- |
-Diagram of contexts for an edge on the boundary of a forced Tgraph (using forcedBEContexts).
-The edge is shown in red in each case.
-There are 3 groups for the 3 edge types (right-hand variants are not shown).
-For each group, we consider both dart and kite additions either side of the red edge of the first Tgraph in the group.
-There are further additions on other boundary edges when
-the composition is empty.
-We remove any Tgraphs where the red edge is no longer on the boundary and remove any repeated cases.
-The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
--}
-forcedBEContextsFig :: Diagram B
-forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7)
-                      [ fmap (dartLongDiags!!)  [1,2,3,6,7,8,9,10,12,13,14,15,16]
-                      , fmap (kiteLongDiags!!)  [2,3,4] ++ drop 6 kiteLongDiags
-                      , fmap (kiteShortDiags!!) [2,3,4,7,8,9,10,12,16,17,18,19,22]
-                      ] where
-    edge = (1,2)
-    dartLongDiags  = fmap (drawBEContext edge) dartLongContexts
-    kiteLongDiags  = fmap (drawBEContext edge) kiteLongContexts
-    kiteShortDiags = fmap (drawBEContext edge) kiteShortContexts
-
--- | Local forced contexts for boundary edges: dart long, kite long, kite short.
-dartLongContexts,kiteLongContexts,kiteShortContexts:: [Tgraph]
-dartLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LD (1,3,2)]
-kiteLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (2,1,3)]
-kiteShortContexts = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (3,2,1)]
-
--- |drawBEContext e g - draws g, aligning e on the x-axis.
--- It emphasises the edge e with red and shows the composition of g filled yellow. 
-drawBEContext::Dedge -> Tgraph -> Diagram B
-drawBEContext edge g = drawe <> drawg <> drawComp where
-    vp = makeAlignedVP edge g
-    drawg = draw vp
-    drawe = drawEdgeWith vp edge # lc red # lw thin
-    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
-
-{- |
-Diagram showing boundary vertex contexts for a forced Tgraph using forcedBVContexts.
-There are 4 groups for (left hand only) dart origin, kite origin, kite wing, kite opp. 
-Note that dart wing cases are a subset of kite opp cases.
-(A dart opp cannot be on the boundary of a forced Tgraph).
-Repetitions have been removed.
--}
-forcedBVContextsFig :: Diagram B
-forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5
---  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  edge = (1,2)
-  dartOriginDiags = arrangeRows 10 $ fmap (alldartOriginDiags!!) [3,4,6,7,8,9,10,18,21,23]
-  kiteOriginDiags = arrangeRows 12 $ fmap (allkiteOriginDiags!!) [2,3,5,6,7,9,10,11,12,13,30,36]
-  kiteWingDiags = arrangeRows 9 $ fmap (allkiteWingDiags!!) [2,3,4,5,6,8,9,10,12,13,14,15,27,29,32,33,37]
-  kiteOppDiags = arrangeRows 7 $ fmap (allkiteOppDiags!!) [4,5,6,8,9,10,11,12,23,24,25,27,28,31]
-
-  alldartOriginDiags = fmap (drawVContext 1 edge) dartOriginContexts
-  allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
-  allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
-  allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
-
--- | Local forced contexts for vertex types: dart origin, kite origin, kite wing, kite opp
-dartOriginContexts,kiteOriginContexts,kiteWingContexts,kiteOppContexts:: [Tgraph]
-dartOriginContexts = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LD (1,3,2)]
-kiteOriginContexts = fmap recoverGraph $ forcedBVContexts 2 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (2,1,3)]
-kiteWingContexts   = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (2,1,3)]
-kiteOppContexts    = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (3,2,1)]
-     
--- |drawVContext v e g - draws the Tgraph g with vertex v shown red and edge e aligned on the x-axis and
--- the composition of g shown in yellow.
--- It raises an error if the vertex or edge is not found.
-drawVContext::Vertex -> Dedge -> Tgraph -> Diagram B
-drawVContext v edge g = drawv <> drawg <> drawComp where
-    vp = makeAlignedVP edge g
-    drawg = draw vp
---    drawe = drawEdgeWith vp edge # lc red
-    drawv = case findLoc v vp of
-              Nothing -> error $ "drawVContext: vertex not found " ++ show v
-              Just p -> circle 0.2 # fc red # lc red # moveTo p
-    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
-
-
--- |Diagram showing all local forced contexts for a sun vertex.
--- The vertex is shown with a red dot and the composition filled yellow.
--- 5 fold symmetry is used to remove rotated duplicates.
-sunVContextsFig :: Diagram B
-sunVContextsFig = padBorder $ lw ultraThin $ arrangeRows 7 $ fmap (drawVContext 1 (1,3)) sunContexts
-
--- |Diagram showing only the cases from sunVContextFig where the vertex is on the composition boundary
-sunVContextsCompBoundary :: Diagram B
-sunVContextsCompBoundary = padBorder $ lw ultraThin $ hsep 1 $
-                           fmap (drawVContext 1 (1,3) . (sunContexts!!)) [2,3,4,7,9,11]
-   -- only show cases where v is on the composition boundary and remove one indexed as 10 - a mirror symetric version of 7
-
--- |All local forced contexts for a sun vertex (as BoundaryStates).
--- The vertex is shown with a red dot and the composition filled yellow.
--- 5 fold symmetry is used to remove rotated duplicates.
-sunContexts:: [Tgraph]
-sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
-  bStart = makeBoundaryState sunGraph
--- occursRotatedIn deals with 5 rotational symmetries of the sunGraph
--- occursRotatedIn done bs is true if bs matches a case in done in any of 5 rotations
-  occursRotatedIn done bs = any (same done bs (1,3)) [(1,3),(1,5),(1,7),(1,9),(1,11)]
-  same done bs e e' = any (sameGraph (recoverGraph bs,e) . (,e') . recoverGraph) done
---  same done bs e e' = any (sameGraph (recoverGraph bs,e)) . (\bd -> (recoverGraph bd,e'))) done
--- contexts generates the cases keeping a list of done cases for filtering out copies
-  contexts done [] = reverse done
-  contexts done ((bs,es):opens)
-    | occursRotatedIn done bs = contexts done opens
-    | Set.null es = contexts (bs:done) opens -- bs is a completed cover
-    | otherwise = contexts (bs:done) (newcases ++ opens)
-        where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
-    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
-
-
--- |Diagram showing local contexts in a forced Tgraph for a fool/ace vertex.
--- The vertex is shown with a red dot and the composition filled yellow.
--- Mirror symmetric versions have been removed.
-foolVContextsFig:: Diagram B
-foolVContextsFig  = padBorder $ lw ultraThin $ arrangeRows 8 $ 
-                    fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
-                    [0,1,2,3,4,5,6,7,9,13,14,15,16,17,18,19,20,21,23,26,27,28]
-   -- only include 1 of each mirror symmetric case
-
--- |Diagram showing only the cases from foolVContextsFig where
--- the vertex is on the composition boundary
-foolVContextsCompBoundary:: Diagram B
-foolVContextsCompBoundary  = padBorder $ lw ultraThin $ arrangeRows 4 $ 
-                             fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
-                             [1,6,7,15,19,21,26,28]
-   -- only show cases where v is on the composition boundary
-
--- | Generates the cases for fool vertex contexts in a forced Tgraph (some mirror symetric duplicates)
-foolContexts:: [Tgraph]
-foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
-  edge = (1,4)
-  bStart = makeBoundaryState fool
-  contexts done [] = reverse done
-  contexts done ((bs,es):opens)
-    | occursIn done bs edge = contexts done opens
--- check null composition before null es
-    | nullGraph $ compose $ recoverGraph bs
-          = let newcases = concatMap (makecases (bs,es)) (boundary bs)
-            in  contexts (bs:done) (newcases++opens)
-    | Set.null es = contexts (bs:done) opens
-    | otherwise = contexts (bs:done) (newcases ++ opens)
-                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
-    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
-
-
--- | Diagram illustrating 3 cases for groups of remainder half-tiles (when composing a forced Tgraph)
-remainderGroupsFig:: Diagram B
-remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
-    halfFoolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3)]
-    hfDiag = lc yellow (drawEdgesIn halfFoolVP [(1,2),(2,4)])
-             <> lc red (drawEdgesIn halfFoolVP [(3,1),(5,3)])
-             <> drawj halfFoolVP
-    kiteVP = makeVP $ makeTgraph [RK (1,2,3),LK (1,4,2)]
-    kDiag = drawv 1 kiteVP
-             <> lc red (drawEdgesIn kiteVP [(2,3),(4,2)])
-             <> drawj kiteVP
-    foolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3),RD (1,6,2),LK (4,2,6),RK (4,6,7)]
-    fDiag = drawv 4 foolVP
-             <> lc red (drawEdgesIn foolVP [(3,1),(5,3),(1,6),(6,7)])
-             <> drawj foolVP
-    drawv v vp = case findLoc v vp of
-              Nothing -> error $ "remainderGroupsFig: vertex not found " ++ show v
-              Just p -> circle 0.05 # fc yellow # lc yellow # moveTo p
-
-
 
 
 
@@ -1270,42 +1097,406 @@ testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23)
         g1 = tgraph ttg1
         g2 = tgraph ttg2
 
--- |The discovery of the false queen (now a new force rule) prompted a check that forcing 
--- discovers any stuck Tgraph with a single vertex common to all faces.  There are 6 sets of diagrams
--- showing that this is the case. bvCasesCheck i for i = 0..5.
--- In each case the top group are those where a stuck Tgraph is not detected, and the bottom group
--- shows detected stuck Tgraphs.  Not all repetitions have been removed.
-bvCasesCheck:: Int -> Diagram B
-bvCasesCheck i = padBorder $ lw ultraThin $ vsep 5 $ 
-              [arrangeRows 5 (fmap drawit ok), arrangeRows 5 (fmap drawit notok)] where
-    (notok,ok) = partition incorrect $ row i
-    row i = bvExtendCase 1 (1,2) (startCases!!i)
-    drawit = showOrigin . alignBefore draw (1,2) . recoverGraph
-    startCases = fmap  (wholeTiles . makeBoundaryState . makeTgraph) 
-                 [[RK(1,3,2)],[RK(2,3,1)],[RK(3,1,2)],[LK(3,1,2)],[LD(1,3,2)],[LD(2,3,1)]]
-    incorrect bd = isFail (tryForceWith allUGenerator bd)
 
--- | (Used by bvCasesCheck)
--- Given a boundary vertex and a Dedge in an initial BoundaryState,
--- Find all possible legal additions of faces at the vertex which leave it on the boundary.
--- The edge is used to remove some repetitions with guided equality checks (but will not find all).
--- The result is a list of BoundaryStates which extend the starting BoundaryState.
-bvExtendCase:: Vertex -> Dedge -> BoundaryState -> [BoundaryState]
-bvExtendCase x edge bStart 
+{-*
+Generating Contexts for Vertices
+-}
+
+dartOriginStart,kiteOriginStart,kiteWingStart,kiteOppStart :: (Vertex,Dedge,BoundaryState)
+-- | Starting case for exploring dart origin boundary vertex
+dartOriginStart = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LD (1,3,2)])
+-- | Starting case for exploring kite origin boundary vertex
+kiteOriginStart = (2 ,(1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (2,1,3)])
+-- | Starting case for exploring dart wing boundary vertex
+kiteWingStart   = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (2,1,3)])
+-- | Starting case for exploring kite opp boundary vertex
+kiteOppStart    = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (3,2,1)])
+
+checkDartOrigin, checkKiteOrigin, checkKiteWing,checkKiteOpp :: Diagram B
+-- |Diagram to check correct and incorrect tilings at a dart origin
+checkDartOrigin = bvCheck dartOriginStart
+-- |Diagram to check correct and incorrect tilings at a kite origin
+checkKiteOrigin = bvCheck kiteOriginStart
+-- |Diagram to check correct and incorrect tilings at a kite wing
+checkKiteWing   = bvCheck kiteWingStart
+-- |Diagram to check correct and incorrect tilings at a kite opp
+checkKiteOpp    = bvCheck kiteOppStart
+
+-- | Given a function (newcases) to produce new BoundaryStates from a given BoundaryState,
+-- and a start case (v, e, boundaryState) where v is a boundary vertex and e is an edge of boundaryState
+-- this uses newcases to generate all cases where v is still on the boundary.
+-- It uses the edge to check for repeated cases to reduce repetitions.
+-- It also raises an error if v is not a boundary vertex and if e is not an edge of boundaryState
+genLocalsWith:: (BoundaryState -> [BoundaryState]) -> (Vertex, Dedge, BoundaryState) -> [BoundaryState]
+genLocalsWith newcases (v,edge,bd) 
+  | v `notElem` fmap fst (boundary bd) 
+        = error $ "genLocalsWith: vertex " ++ show v ++ " must be on the boundary."
+  | edge `notElem` graphEdges (recoverGraph bd)
+        = error $ "genLocalsWith: edge " ++ show edge ++ " must be a graph edge (either direction)."
+  | otherwise = locals [] [bd] where    
+     locals bds [] = reverse bds
+     locals bds (open:opens) | not (IntSet.member v $ boundaryVertexSet open) = locals bds opens
+     locals bds (open:opens) | occursIn bds open edge = locals bds opens
+     locals bds (open:opens) = locals (open:bds) (newcases open ++ opens)
+
+-- | occursIn bds b e - asks if (the Tgraph of) b occurs in the list (of Tgraphs of) bds
+-- after relabelling to match edge e in each case.
+--  e can be a directed edge from any face of b or a boundary directed edge of b (in which case it is reversed).
+occursIn:: [BoundaryState] -> BoundaryState -> Dedge -> Bool
+occursIn bds b e
+  = any bmatches bds
+    where bmatches bd = sameGraph (recoverGraph b,edge) (recoverGraph bd,edge)
+          edge | e `elem` boundary b = reverseD e
+               | otherwise = e
+
+-- | Given a start case (v, e, boundaryState) where v is a boundary vertex and e is an edge of boundaryState
+-- this generates all wholetile complete extensions of boundaryState where v is still on the boundary
+-- by adding faces at v. This may include incorrect (stuck) cases. 
+bvCases:: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
+bvCases start@(v,_,_) = genLocalsWith newcases start where
+    newcases open = concatMap (extend open) (boundaryEdgesAt v open)
+    extend open d = ignoreFails $ fmap (tryForceWith wholeTileUpdates) $
+                    ignoreFails $ tryDartAndKite open d
+
+-- |boundaryEdgesAt v bd - returns the boundary edges in BoundaryState bd that have v as a vertex.
+boundaryEdgesAt:: Vertex -> BoundaryState -> [Dedge]
+boundaryEdgesAt v = boundaryEdgesWith [v] 
+
+-- |boundaryEdgesWith vs bd - returns all boundary edges in BoundaryState bd that have a vertex in vs.
+boundaryEdgesWith:: [Vertex] -> BoundaryState -> [Dedge]
+boundaryEdgesWith vs = filter (\(x,y) -> x `elem` vs || y `elem` vs) . boundary 
+
+-- | Given a start case (v, e, boundaryState) where v is a boundary vertex and e is an edge of boundaryState
+-- this generates the extensions at v of  boundaryState (using bvCases) then partitions results
+-- into correct and incorrect cases (using tryForce). It then draws the group of correct cases above the incorrect cases.
+bvCheck:: (Vertex, Dedge, BoundaryState) -> Diagram B
+bvCheck start@(_,edge,_) = 
+  padBorder $ lw ultraThin $ vsep 5 $ 
+  [arrangeRows 7 (fmap drawit ok), arrangeRows 7 (fmap drawit notok)] where
+    (notok,ok) = partition incorrect $ bvCases start
+    drawit = showOrigin . alignBefore draw edge . recoverGraph
+    incorrect bd = isFail (tryForce bd)
+
+
+{-*
+Generating Forced Boundary Vertex Contexts
+-}
+
+-- | Given a start case (v, e, boundaryState) where v is a boundary vertex and e is an edge of boundaryState
+-- this generates all forced contexts starting from boundaryState, where v remains on the boundary
+-- The edge is used to compare results to reduce repetitions.
+-- It first generates local cases for bd by repeatedly adding kite/dart on 4 boundary edges (2 on either side of v) and forcing.
+-- It then generates further contexts in each case by adding all possibilities to the rest of the new boundary (except the 4 nearest edges). This is repeated if the composed Tgraph of any resulting BoundaryState is empty.
+-- Any case where v is no longer on the boundary is excluded.
+genFContexts:: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
+genFContexts start@(v ,edge, _) = contexts [] $ setup <$> genLocalsWith newcases start where
+  newcases open = concatMap (atLeastOne . tryDartAndKiteForced open) (boundary4 v open)
+  setup bs = (bs, boundaryEdgeSet bs Set.\\ Set.fromList (boundary4  v bs))
+  contexts done [] = reverse done
+  contexts done ((bs,es):opens) 
+    | occursIn done bs edge = contexts done opens
+    | not (v `IntSet.member` boundaryVertexSet bs) = contexts done opens
+-- check null composition before null es
+    | nullGraph $ compose $ recoverGraph bs
+      = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ boundary4  v bs)
+        in  contexts (bs:done) (newcases++opens)
+    | Set.null es = contexts (bs:done) opens
+    | otherwise = contexts (bs:done) (newcases ++ opens)
+                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
+
+-- |for v a boundary vertex of bd, boundary4 v bd 
+-- returns the list of 4 directed boundary edges (2 on each side of v) in BoundaryState bd.
+-- There could be a repeated directed edge in the result if bd represents a Tgraph with a single face, however
+-- this cannot be the case when bd represents a forced Tgraph.
+boundary4:: Vertex -> BoundaryState -> [Dedge]
+boundary4 v bd = affectedBoundary bd es where
+  es = boundaryEdgesAt v bd
+
+
+{- |
+Diagram showing boundary vertex contexts for a forced Tgraph using forcedBVContexts.
+There are 4 groups for (left hand only) dart origin, kite origin, kite wing, kite opp. 
+Note that dart wing cases are a subset of kite opp cases.
+(A dart opp cannot be on the boundary of a forced Tgraph).
+Repetitions have been removed.
+-}
+forcedBVContextsFig :: Diagram B
+forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5
+--  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
+  [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
+  edge = (1,2)
+  dartOriginDiags = arrangeRows 10 $ fmap (alldartOriginDiags!!) [3,4,6,7,8,9,10,18,21,23]
+  kiteOriginDiags = arrangeRows 12 $ fmap (allkiteOriginDiags!!) [2,3,5,6,7,9,10,11,12,13,30,36]
+  kiteWingDiags = arrangeRows 9 $ fmap (allkiteWingDiags!!) [2,3,4,5,6,8,9,10,12,13,14,15,27,29,32,33,37]
+  kiteOppDiags = arrangeRows 7 $ fmap (allkiteOppDiags!!) [4,5,6,8,9,10,11,12,23,24,25,27,28,31]
+
+  alldartOriginDiags = fmap (drawVContext 1 edge) dartOriginContexts
+  allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
+  allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
+  allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
+
+-- | Local forced contexts for vertex types: dart origin, kite origin, kite wing, kite opp
+dartOriginContexts,kiteOriginContexts,kiteWingContexts,kiteOppContexts:: [Tgraph]
+dartOriginContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
+    (v, edge, bd) = dartOriginStart
+kiteOriginContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
+    (v, edge, bd) = kiteOriginStart
+kiteWingContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
+    (v, edge, bd) = kiteWingStart
+kiteOppContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
+    (v, edge, bd) = kiteOppStart
+{-
+dartOriginContexts = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LD (1,3,2)]
+kiteOriginContexts = fmap recoverGraph $ forcedBVContexts 2 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (2,1,3)]
+kiteWingContexts   = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (2,1,3)]
+kiteOppContexts    = fmap recoverGraph $ forcedBVContexts 1 (1,2) $ force $ makeBoundaryState $ makeTgraph [LK (3,2,1)]
+-}
+
+-- |drawVContext v e g - draws the Tgraph g with vertex v shown red and edge e aligned on the x-axis and
+-- the composition of g shown in yellow.
+-- It raises an error if the vertex or edge is not found.
+drawVContext::Vertex -> Dedge -> Tgraph -> Diagram B
+drawVContext v edge g = drawv <> drawg <> drawComp where
+    vp = makeAlignedVP edge g
+    drawg = draw vp
+--    drawe = drawEdgeWith vp edge # lc red
+    drawv = case findLoc v vp of
+              Nothing -> error $ "drawVContext: vertex not found " ++ show v
+              Just p -> circle 0.2 # fc red # lc red # moveTo p
+    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
+
+
+-- |Diagram showing all local forced contexts for a sun vertex.
+-- The vertex is shown with a red dot and the composition filled yellow.
+-- 5 fold symmetry is used to remove rotated duplicates.
+sunVContextsFig :: Diagram B
+sunVContextsFig = padBorder $ lw ultraThin $ arrangeRows 7 $ fmap (drawVContext 1 (1,3)) sunContexts
+
+-- |Diagram showing only the cases from sunVContextFig where the vertex is on the composition boundary
+sunVContextsCompBoundary :: Diagram B
+sunVContextsCompBoundary = padBorder $ lw ultraThin $ hsep 1 $
+                           fmap (drawVContext 1 (1,3) . (sunContexts!!)) [2,3,4,7,9,11]
+   -- only show cases where v is on the composition boundary and remove one indexed as 10 - a mirror symetric version of 7
+
+-- |All local forced contexts for a sun vertex (as BoundaryStates).
+-- The vertex is shown with a red dot and the composition filled yellow.
+-- 5 fold symmetry is used to remove rotated duplicates.
+sunContexts:: [Tgraph]
+sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
+  bStart = makeBoundaryState sunGraph
+-- occursRotatedIn deals with 5 rotational symmetries of the sunGraph
+-- occursRotatedIn done bs is true if bs matches a case in done in any of 5 rotations
+  occursRotatedIn done bs = any (same done bs (1,3)) [(1,3),(1,5),(1,7),(1,9),(1,11)]
+  same done bs e e' = any (sameGraph (recoverGraph bs,e) . (,e') . recoverGraph) done
+--  same done bs e e' = any (sameGraph (recoverGraph bs,e)) . (\bd -> (recoverGraph bd,e'))) done
+-- contexts generates the cases keeping a list of done cases for filtering out copies
+  contexts done [] = reverse done
+  contexts done ((bs,es):opens)
+    | occursRotatedIn done bs = contexts done opens
+    | Set.null es = contexts (bs:done) opens -- bs is a completed cover
+    | otherwise = contexts (bs:done) (newcases ++ opens)
+        where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
+
+
+-- |Diagram showing local contexts in a forced Tgraph for a fool/ace vertex.
+-- The vertex is shown with a red dot and the composition filled yellow.
+-- Mirror symmetric versions have been removed.
+foolVContextsFig:: Diagram B
+foolVContextsFig  = padBorder $ lw ultraThin $ arrangeRows 8 $ 
+                    fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
+                    [0,1,2,3,4,5,6,7,9,13,14,15,16,17,18,19,20,21,23,26,27,28]
+   -- only include 1 of each mirror symmetric case
+
+-- |Diagram showing only the cases from foolVContextsFig where
+-- the vertex is on the composition boundary
+foolVContextsCompBoundary:: Diagram B
+foolVContextsCompBoundary  = padBorder $ lw ultraThin $ arrangeRows 4 $ 
+                             fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
+                             [1,6,7,15,19,21,26,28]
+   -- only show cases where v is on the composition boundary
+
+-- | Generates the cases for fool vertex contexts in a forced Tgraph (some mirror symetric duplicates)
+foolContexts:: [Tgraph]
+foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
+  edge = (1,4)
+  bStart = makeBoundaryState fool
+  contexts done [] = reverse done
+  contexts done ((bs,es):opens)
+    | occursIn done bs edge = contexts done opens
+-- check null composition before null es
+    | nullGraph $ compose $ recoverGraph bs
+          = let newcases = concatMap (makecases (bs,es)) (boundary bs)
+            in  contexts (bs:done) (newcases++opens)
+    | Set.null es = contexts (bs:done) opens
+    | otherwise = contexts (bs:done) (newcases ++ opens)
+                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
+
+
+{-
+-- |forcedBVContexts v e bd - where bd is a boundary state of a forced Tgraph,
+-- e is any edge of bd (either direction), and v is a boundary vertex of bd.
+-- This will generate the possible boundary contexts of v in a forced Tgraph.
+-- The edge is used for comparing Tgraphs with sameGraph to reduce repetitions.
+-- It first generates local cases for bd by repeatedly adding kite/dart on 4 boundary edges (2 on either side of v) and forcing,
+-- It then generates further contexts in each case by adding all possibilities to the rest of the new boundary (except the 4 nearest edges).
+-- Any case where v is no longer on the boundary is excluded in each case.
+-- The edge argument is necessary for doing 'sameGraph' comparisons to remove repetitions. 
+-- The resulting contexts are returned as a list of BoundaryStates.      
+forcedBVContexts:: Vertex -> Dedge -> BoundaryState -> [BoundaryState]
+forcedBVContexts x edge bStart 
   | x `notElem` fmap fst (boundary bStart) 
-      = error $ "bvExtendCase: vertex " ++ show x ++ " must be on the boundary."
+      = error $ "forcedBVContexts: vertex " ++ show x ++ " must be on the boundary."
   | edge `notElem` graphEdges (recoverGraph bStart)
-      = error $ "bvExtendCase: edge " ++ show edge ++ " must be a graph edge (either direction)."
-  | otherwise = locals [] [bStart] where
+      = error $ "forcedBVContexts: edge " ++ show edge ++ " must be a graph edge (either direction)."
+  | otherwise = contexts [] (setup <$> locals [] [bStart]) where
 -- locals:: Vertex -> [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
+-- locals produces all the cases for 4 local edges (2 edges either side of x)
       locals bds [] = reverse bds
       locals bds (open:opens) | not (IntSet.member x $ boundaryVertexSet open) = locals bds opens
       locals bds (open:opens) | occursIn bds open edge = locals bds opens
       locals bds (open:opens) | otherwise = 
-          locals (open:bds) (ignoreFails $ 
-          fmap (tryForceWith wholeTileUpdates) $ concatMap (ignoreFails . tryDartAndKite open)
-                                                         (boundaryEdgesAt x open)
-                                                         ++ opens)
+          locals (open:bds) (concatMap (atLeastOne . tryDartAndKiteForced open)
+                                       (boundary4 x open)
+                              ++ opens)
+-- after applying locals this sets up cases for processing by contexts
+      setup bs = (bs, boundaryEdgeSet bs Set.\\ Set.fromList (boundary4  x bs))
+
+      contexts done [] = reverse done
+      contexts done ((bs,es):opens) 
+        | occursIn done bs edge = contexts done opens
+        | not (x `IntSet.member` boundaryVertexSet bs) = contexts done opens
+-- check null composition before null es
+        | nullGraph $ compose $ recoverGraph bs
+          = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ boundary4  x bs)
+            in  contexts (bs:done) (newcases++opens)
+        | Set.null es = contexts (bs:done) opens
+        | otherwise = contexts (bs:done) (newcases ++ opens)
+                      where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+      makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+        where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
+-}
+
+    
+
+{-*
+Generating Forced Boundary Edge Contexts
+-}
+
+{- |forcedBEContexts e bd - 
+assumes bd to be a BoundaryState of a forced Tgraph and e to be a boundary edge of bd.
+It calculates all possible face additions on boundary edges either side of e,
+forcing each case and discarding results where the e is no longer on the boundary.
+It then generates further contexts for those cases by
+by making additions round the rest of the new boundary in each case.
+Repetitions are removed using 'sameGraph' with edge e.
+The resulting contexts are returned as a list of BoundaryStates.      
+-}
+forcedBEContexts:: Dedge -> BoundaryState -> [BoundaryState]
+forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
+-- after applying locals this setsup cases for processing by contexts
+  setup bd = (bd, Set.delete edge $ boundaryEdgeSet bd)
+--locals:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
+-- locals produces the cases where 1 edge either side of bde is changed
+  locals bds [] = reverse bds
+  locals bds (open:opens) | not (Set.member edge (boundaryEdgeSet open)) = locals bds opens
+  locals bds (open:opens) | occursIn bds open edge = locals bds opens
+  locals bds (open:opens) | otherwise = 
+     locals (open:bds) (concatMap (atLeastOne . tryDartAndKiteForced open)
+                                  (boundaryEdgeNbs edge open)
+                        ++ opens)
+  contexts done [] = reverse done
+  contexts done ((bs,es):opens) 
+    | occursIn done bs edge = contexts done opens
+    | not (Set.member edge (boundaryEdgeSet bs)) = contexts done opens
+-- check null composition before null es
+    | nullGraph $ compose $ recoverGraph bs
+          = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ [edge])
+            in  contexts (bs:done) (newcases++opens)
+    | Set.null es = contexts (bs:done) opens
+    | otherwise = contexts (bs:done) (newcases ++ opens)
+                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+    where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
+
+
+-- |boundaryEdgeNbs bde b - returns the list of 2 directed boundary edges either side
+--  of the directed boundary edge bde in BoundaryState b.
+-- It raises an error if bde is not a boundary edge of b.
+boundaryEdgeNbs:: Dedge -> BoundaryState -> [Dedge]
+boundaryEdgeNbs (a,b) bd = boundaryEdgesWith [a,b] bd \\ [(a,b)]
+
+
+{- |
+Diagram of contexts for an edge on the boundary of a forced Tgraph (using forcedBEContexts).
+The edge is shown in red in each case.
+There are 3 groups for the 3 edge types (right-hand variants are not shown).
+For each group, we consider both dart and kite additions either side of the red edge of the first Tgraph in the group.
+There are further additions on other boundary edges when
+the composition is empty.
+We remove any Tgraphs where the red edge is no longer on the boundary and remove any repeated cases.
+The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
+-}
+forcedBEContextsFig :: Diagram B
+forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7)
+                      [ fmap (dartLongDiags!!)  [1,2,3,6,7,8,9,10,12,13,14,15,16]
+                      , fmap (kiteLongDiags!!)  [2,3,4] ++ drop 6 kiteLongDiags
+                      , fmap (kiteShortDiags!!) [2,3,4,7,8,9,10,12,16,17,18,19,22]
+                      ] where
+    edge = (1,2)
+    dartLongDiags  = fmap (drawBEContext edge) dartLongContexts
+    kiteLongDiags  = fmap (drawBEContext edge) kiteLongContexts
+    kiteShortDiags = fmap (drawBEContext edge) kiteShortContexts
+
+-- | Local forced contexts for boundary edges: dart long, kite long, kite short.
+dartLongContexts,kiteLongContexts,kiteShortContexts:: [Tgraph]
+dartLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LD (1,3,2)]
+kiteLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (2,1,3)]
+kiteShortContexts = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (3,2,1)]
+
+-- |drawBEContext e g - draws g, aligning e on the x-axis.
+-- It emphasises the edge e with red and shows the composition of g filled yellow. 
+drawBEContext::Dedge -> Tgraph -> Diagram B
+drawBEContext edge g = drawe <> drawg <> drawComp where
+    vp = makeAlignedVP edge g
+    drawg = draw vp
+    drawe = drawEdgeWith vp edge # lc red # lw thin
+    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
+
+
+
+
+
+
+
+
+
+
+-- | Diagram illustrating 3 cases for groups of remainder half-tiles (when composing a forced Tgraph)
+remainderGroupsFig:: Diagram B
+remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
+    halfFoolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3)]
+    hfDiag = lc yellow (drawEdgesIn halfFoolVP [(1,2),(2,4)])
+             <> lc red (drawEdgesIn halfFoolVP [(3,1),(5,3)])
+             <> drawj halfFoolVP
+    kiteVP = makeVP $ makeTgraph [RK (1,2,3),LK (1,4,2)]
+    kDiag = drawv 1 kiteVP
+             <> lc red (drawEdgesIn kiteVP [(2,3),(4,2)])
+             <> drawj kiteVP
+    foolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3),RD (1,6,2),LK (4,2,6),RK (4,6,7)]
+    fDiag = drawv 4 foolVP
+             <> lc red (drawEdgesIn foolVP [(3,1),(5,3),(1,6),(6,7)])
+             <> drawj foolVP
+    drawv v vp = case findLoc v vp of
+              Nothing -> error $ "remainderGroupsFig: vertex not found " ++ show v
+              Just p -> circle 0.05 # fc yellow # lc yellow # moveTo p
+
 
                     
                 

@@ -103,7 +103,7 @@ checkTgraphProps fcs
       | hasEdgeLoops fcs  =  Left $ "checkTgraphProps: Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
       | illegalTiling fcs =  Left $ "checkTgraphProps: Non-legal tiling\n" ++
-                                      "Conflicting face edges (non-planar tiling): "
+                                      "Conflicting face directed edges (non-planar tiling): "
                                       ++ show (conflictingDedges fcs) ++
                                       "\nIllegal tile juxtapositions: "
                                       ++ show (illegals fcs) ++ "\n"
@@ -144,6 +144,7 @@ duplicates = fst . foldl' check ([],[]) where
                      | otherwise = (dups,x:seen)
 
 -- |conflictingDedges fcs returns a list of conflicting directed edges in fcs
+-- i.e. different faces having the same edge in the same direction.
 -- (which should be null for a Tgraph)
 conflictingDedges :: [TileFace] -> [Dedge]
 conflictingDedges = duplicates . facesDedges
@@ -184,14 +185,14 @@ sharedEdgesWith fc fcs =
      , fc' <- filter (`hasDedge` d2) fcs
     ]
 
--- | newNoConflict fc fcs returns True if fc has a conflicting edge with fcs.
--- It does not check fcs for conflicts among the fcs
+-- | newNoConflict fc fcs returns True if fc has an illegal shared edge with fcs.
+-- It does not check for illegal cases within the fcs.
 newNoConflict :: TileFace -> [TileFace] -> Bool
 newNoConflict fc fcs = null $ filter (not . legal) shared where
     shared = sharedEdgesWith fc fcs
 
 -- |newNoConflictFull fc fcs  where fc is a new face and fcs are neighbouring faces.
--- Checks for illegal tiling with newNoConflict but also checks that fc does not have a directed edge
+-- Checks for illegal shared edges using newNoConflict but also checks that fc does not have a directed edge
 -- in the same direction as a directed edge in fcs.
 newNoConflictFull :: TileFace -> [TileFace] -> Bool
 newNoConflictFull fc fcs = null (faceDedges fc `intersect` facesDedges fcs) && newNoConflict fc fcs
