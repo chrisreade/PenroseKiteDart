@@ -463,7 +463,7 @@ forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap draw
           , (  [LK (1,2,3), RD (2,1,4)],                     RK (5,3,2)  )
           , (  [LK (1,3,2), RK (1,2,4), RK (5,2,3)],         LD (6,4,2)  )
           , (  [LK (1,2,3), RK (1,4,2), LK (5,2,4)],         RK (6,3,2)  )
-          , (  [LK (1,2,3), RK (1,4,2), LK (5,2,4), RK (6,3,2)],          RD (2,5,7)  )
+          , (  [LK (1,2,3), RK (1,4,2), LK (5,2,4)],          RD (2,5,7)  ) --  RK (6,3,2),
           , (  [LK (1,2,3),RD (2,1,4),LD (2,4,5),RD (2,5,7),LD (2,7,8)],  RD (2,8,9) )
           , (  [LK (1,4,2),RK (1,2,3),RD (5,2,4),LD (6,3,2)],             LK (2,5,7) )
           , (  [LK (1,3,2), RK (1,2,4), RD (5,2,3), LK (2,5,6)],          LD (7,4,2)  )
@@ -1062,28 +1062,32 @@ testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23)
 
 
 {-*
-Generating Contexts for Vertices
+Generating Local Contexts for Boundary Vertices
 -}
 
-dartOriginStart,kiteOriginStart,kiteWingStart,kiteOppStart :: (Vertex,Dedge,BoundaryState)
--- | Starting case for exploring dart origin boundary vertex
-dartOriginStart = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LD (1,3,2)])
--- | Starting case for exploring kite origin boundary vertex
-kiteOriginStart = (2 ,(1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (2,1,3)])
--- | Starting case for exploring dart wing boundary vertex
-kiteWingStart   = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (2,1,3)])
--- | Starting case for exploring kite opp boundary vertex
-kiteOppStart    = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (3,2,1)])
+dartOriginLongStart,kiteOriginLongStart,kiteWingLongStart,kiteOppShortStart :: (Vertex,Dedge,BoundaryState)
+-- | Starting case for exploring dart origin boundary vertex and long edge.
+-- The BoundaryState is a single whole tile (2 faces) and the edge is one of those at the vertex.
+dartOriginLongStart = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LD (1,3,2)])
+-- | Starting case for exploring kite origin boundary vertex and long edge.
+-- The BoundaryState is a single whole tile (2 faces) and the edge is one of those at the vertex.
+kiteOriginLongStart = (2 ,(1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (2,1,3)])
+-- | Starting case for exploring dart wing boundary vertex and short edge.
+-- The BoundaryState is a single whole tile (2 faces) and the edge is one of those at the vertex.
+kiteWingLongStart   = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (2,1,3)])
+-- | Starting case for exploring kite opp boundary vertex and short edge.
+-- The BoundaryState is a single whole tile (2 faces) and the edge is one of those at the vertex.
+kiteOppShortStart    = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (3,2,1)])
 
 checkDartOrigin, checkKiteOrigin, checkKiteWing,checkKiteOpp :: Diagram B
 -- |Diagram to check correct and incorrect tilings at a dart origin
-checkDartOrigin = bvCheck dartOriginStart
+checkDartOrigin = bvCheck dartOriginLongStart
 -- |Diagram to check correct and incorrect tilings at a kite origin
-checkKiteOrigin = bvCheck kiteOriginStart
+checkKiteOrigin = bvCheck kiteOriginLongStart
 -- |Diagram to check correct and incorrect tilings at a kite wing
-checkKiteWing   = bvCheck kiteWingStart
+checkKiteWing   = bvCheck kiteWingLongStart
 -- |Diagram to check correct and incorrect tilings at a kite opp
-checkKiteOpp    = bvCheck kiteOppStart
+checkKiteOpp    = bvCheck kiteOppShortStart
 
 -- | Given a function (newcases) to produce new BoundaryStates from a given BoundaryState,
 -- and a start case (v, e, boundaryState) where v is a boundary vertex and e is an edge of boundaryState
@@ -1133,13 +1137,16 @@ boundaryEdgesWith vs = filter (\(x,y) -> x `elem` vs || y `elem` vs) . boundary
 -- this generates the extensions at v of  boundaryState (using bvCases) then partitions results
 -- into correct and incorrect cases (using tryForce). It then draws the group of correct cases above the incorrect cases.
 bvCheck:: (Vertex, Dedge, BoundaryState) -> Diagram B
-bvCheck start@(_,edge,_) = 
+bvCheck start@(v,edge,_) = 
   padBorder $ lw ultraThin $ vsep 5 $ 
   [arrangeRows 7 (fmap drawit ok), arrangeRows 7 (fmap drawit notok)] where
     (notok,ok) = partition incorrect $ bvCases start
-    drawit = showOrigin . alignBefore draw edge . recoverGraph
+    drawit = alignBefore drawWithV edge . recoverGraph
     incorrect bd = isFail (tryForce bd)
-
+    drawWithV vp = 
+        case findLoc v vp of
+           Nothing -> error $ "drawVContext: vertex not found " ++ show v
+           Just p -> (circle 0.1 # fc red # lc red # moveTo p) <> draw vp
 
 {-*
 Generating Forced Boundary Vertex Contexts
@@ -1187,29 +1194,19 @@ Repetitions have been removed.
 -}
 forcedBVContextsFig :: Diagram B
 forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5
---  [dartOriginDiags, dartWingDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
+-- fmap (arrangeRows 10) [alldartOriginDiags, allkiteOriginDiags, allkiteWingDiags, allkiteOppDiags] where
   [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
-  edge = (1,2)
+--  edge = (1,2)
   dartOriginDiags = arrangeRows 10 $ fmap (alldartOriginDiags!!) [3,4,6,7,8,9,10,18,21,23]
   kiteOriginDiags = arrangeRows 12 $ fmap (allkiteOriginDiags!!) [2,3,5,6,7,9,10,11,12,13,30,36]
   kiteWingDiags = arrangeRows 9 $ fmap (allkiteWingDiags!!) [2,3,4,5,6,8,9,10,12,13,14,15,27,29,32,33,37]
   kiteOppDiags = arrangeRows 7 $ fmap (allkiteOppDiags!!) [4,5,6,8,9,10,11,12,23,24,25,27,28,31]
 
-  alldartOriginDiags = fmap (drawVContext 1 edge) dartOriginContexts
-  allkiteOriginDiags = fmap (drawVContext 2 edge) kiteOriginContexts
-  allkiteWingDiags = fmap (drawVContext 1 edge) kiteWingContexts
-  allkiteOppDiags = fmap (drawVContext 1 edge) kiteOppContexts
-
--- | Local forced contexts for vertex types: dart origin, kite origin, kite wing, kite opp
-dartOriginContexts,kiteOriginContexts,kiteWingContexts,kiteOppContexts:: [Tgraph]
-dartOriginContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
-    (v, edge, bd) = dartOriginStart
-kiteOriginContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
-    (v, edge, bd) = kiteOriginStart
-kiteWingContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
-    (v, edge, bd) = kiteWingStart
-kiteOppContexts = fmap recoverGraph $ genFContexts (v, edge, force bd) where
-    (v, edge, bd) = kiteOppStart
+  alldartOriginDiags = makeDiagrams dartOriginLongStart
+  allkiteOriginDiags = makeDiagrams kiteOriginLongStart
+  allkiteWingDiags = makeDiagrams kiteWingLongStart
+  allkiteOppDiags = makeDiagrams kiteOppShortStart
+  makeDiagrams (v,edge,bd) = fmap (drawVContext v edge . recoverGraph) $ genFContexts (v,edge, force bd)
 
 -- |drawVContext v e g - draws the Tgraph g with vertex v shown red and edge e aligned on the x-axis and
 -- the composition of g shown in yellow.
@@ -1360,27 +1357,18 @@ forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7)
                       , fmap (kiteLongDiags!!)  [2,3,4] ++ drop 6 kiteLongDiags
                       , fmap (kiteShortDiags!!) [2,3,4,7,8,9,10,12,16,17,18,19,22]
                       ] where
-    edge = (1,2)
-    dartLongDiags  = fmap (drawBEContext edge) dartLongContexts
-    kiteLongDiags  = fmap (drawBEContext edge) kiteLongContexts
-    kiteShortDiags = fmap (drawBEContext edge) kiteShortContexts
-
--- | Local forced contexts for boundary edges: dart long, kite long, kite short.
-dartLongContexts,kiteLongContexts,kiteShortContexts:: [Tgraph]
-dartLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LD (1,3,2)]
-kiteLongContexts  = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (2,1,3)]
-kiteShortContexts = fmap recoverGraph $ forcedBEContexts (1,2) $ makeBoundaryState $ force $ makeTgraph [LK (3,2,1)]
-
--- |drawBEContext e g - draws g, aligning e on the x-axis.
--- It emphasises the edge e with red and shows the composition of g filled yellow. 
-drawBEContext::Dedge -> Tgraph -> Diagram B
-drawBEContext edge g = drawe <> drawg <> drawComp where
-    vp = makeAlignedVP edge g
-    drawg = draw vp
-    drawe = drawEdgeWith vp edge # lc red # lw thin
-    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
-
-
+--    edge = (1,2)
+    dartLongDiags  = makeDiagrams dartOriginLongStart --fmap (drawBEContext edge) dartLongContexts
+    kiteLongDiags  = makeDiagrams kiteOriginLongStart --fmap (drawBEContext edge) kiteLongContexts
+    kiteShortDiags = makeDiagrams kiteOppShortStart --fmap (drawBEContext edge) kiteShortContexts
+    makeDiagrams (_,edge,bd) = fmap (drawBEContext edge . recoverGraph) $ forcedBEContexts edge (force bd)
+    -- |drawBEContext e g - draws g, aligning e on the x-axis.
+    -- It emphasises the edge e with red and shows the composition of g filled yellow. 
+    drawBEContext edge g = drawe <> drawg <> drawComp where
+        vp = makeAlignedVP edge g
+        drawg = draw vp
+        drawe = drawEdgeWith vp edge # lc red # lw thin
+        drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
 
 {- |
 For a proof that (compose . force . decompose) gF = gF for forced Tgraphs gF, this
@@ -1399,14 +1387,11 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
   kiteWingDiags = take 7 allkiteWingDiags ++ fmap (allkiteWingDiags!!) [8,9,10,12,13,15,24,25,26,27,29,30,31,32,33,34,35,37,44]
   kiteOppDiags = take 7 allkiteOppDiags ++ fmap (allkiteOppDiags!!) [8,9,10,11,12,13,19]
                  ++ take 13 (drop 19 allkiteOppDiags) ++ [allkiteOppDiags!!44]
-  alldartOriginDiags = fmap (drawCase v edge) $ genFContexts (v, edge, force bd) where
-    (v, edge, bd) = dartOriginStart
-  allkiteOriginDiags = fmap (drawCase v edge) $ genFContexts (v, edge, force bd) where
-    (v, edge, bd) = kiteOriginStart
-  allkiteWingDiags = fmap (drawCase v edge) $ genFContexts (v, edge, force bd) where
-    (v, edge, bd) = kiteWingStart
-  allkiteOppDiags = fmap (drawCase v edge) $ genFContexts (v, edge, force bd) where
-    (v, edge, bd) = kiteOppStart
+  alldartOriginDiags = makeCases dartOriginLongStart
+  allkiteOriginDiags = makeCases kiteOriginLongStart
+  allkiteWingDiags   = makeCases kiteWingLongStart
+  allkiteOppDiags    = makeCases kiteOppShortStart
+  makeCases (v, edge, bd) = drawCase v edge <$> genFContexts (v,edge, force bd)
   drawCase v edge bd = vsep 1 [drawv <> drawg, drawcfd] where
      g = recoverGraph bd
      vp = makeAlignedVP edge g

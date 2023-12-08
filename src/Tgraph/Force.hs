@@ -701,12 +701,6 @@ makeUpdate:: (Vertex -> TileFace) -> Maybe Vertex ->  Update
 makeUpdate f (Just v) = SafeUpdate (f v)
 makeUpdate f Nothing  = UnsafeUpdate f
 
-{-
--- |checkUpdate f lifts makeUpdate f to apply to Try results from third vertex search.
-checkUpdate:: (Vertex -> TileFace) -> Try (Maybe Vertex) -> Try Update
-checkUpdate f  = fmap (makeUpdate f) 
--}
-
 {-*
 BoundaryState vertex predicates and properties
 -}
@@ -748,17 +742,8 @@ isKiteOppV bd v = v `elem` fmap oppV (filter isKite (facesAtBV bd v))
 isDartOrigin:: BoundaryState -> Vertex -> Bool
 isDartOrigin bd v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
 
-{-
--- |A boundary vertex with 4 kite wings is a queen vertex (maybe needing a dart)
-mustbeQueen4Kite:: BoundaryState -> Vertex -> Bool
-mustbeQueen4Kite bd v = kiteWingCount bd v ==4
-
--- |A boundary vertex with 3 kite wings is a queen vertex (needing a fourth kite)
-mustbeQueen3Kite:: BoundaryState -> Vertex -> Bool
-mustbeQueen3Kite bd v = kiteWingCount bd v ==3
--}
-
--- |A boundary vertex with 3 or 4 kite wings is a queen vertex (needing a fourth kite short adge or dart long edge)
+-- |A boundary vertex with >2 kite wings is a queen vertex 
+-- (needing a fourth kite on a kite short edge or dart on a kite long edge)
 mustbeQueen:: BoundaryState -> Vertex -> Bool
 mustbeQueen bd v = kiteWingCount bd v >2
 
@@ -930,32 +915,6 @@ queenMissingDarts = boundaryFilter pred where
                         where fcWing = wingV fc
                               kiteWings = filter ((==fcWing) . wingV) $ 
                                           filter isKite $ facesAtBV bd fcWing
-{-
--- |Find queen vertices (with 4 kite wings) and a boundary kite long edge
-queenMissingDarts :: UFinder                      
-queenMissingDarts = boundaryFilter pred where
-    pred bd (a,b) fc = longE fc == (b,a) && isKite fc && length kiteWings ==4
-                        where fcWing = wingV fc
-                              kiteWings = filter ((==fcWing) . wingV) $ 
-                                          filter isKite $ facesAtBV bd fcWing
-
-
--- |find a false queen vertex (with 4 kite wings) and a boundary kite short edge.
--- This is an incorrect Tgraph.
-stuckFalseQueen  :: UpdateGenerator
-stuckFalseQueen = makeGenerator abortFalseQueen falseQueen where
-    abortFalseQueen bd fc = Left $ "stuckFalseQueen: stuck/incorrect Tgraph found at vertex " ++ show (wingV fc) ++ 
-                                   "\nwith faces: " ++ show (facesAtBV bd (wingV fc)) ++ "\n"
-
--- |A vertex with 4 kite wings and a boundary kite short edge is a stck/incorrect Tgraph
-falseQueen :: UFinder                      
-falseQueen = boundaryFilter pred where
-    pred bd (a,b) fc = shortE fc == (b,a) && isKite fc && length kiteWings ==4
-                        where fcWing = wingV fc
-                              kiteWings = filter ((==fcWing) . wingV) $ 
-                                          filter isKite $ facesAtBV bd fcWing
-
--}
                                       
 -- |Update generator for rule (10)
 -- queen vertices with 3 kite wings -- add missing fourth half kite on a boundary kite short edge
@@ -969,16 +928,6 @@ queenMissingKite = boundaryFilter pred where
                         where
                           fcWing = wingV fc
                           kiteWings = filter ((==fcWing) . wingV) $ filter isKite (facesAtBV bd fcWing)
-
-{-
--- |Find queen vertices with only 3 kite wings and a kite short edge on the boundary
-queenMissingKite :: UFinder                        
-queenMissingKite = boundaryFilter pred where
-    pred bd (a,b) fc = shortE fc == (b,a) && isKite fc && length kiteWings ==3
-                        where
-                          fcWing = wingV fc
-                          kiteWings = filter ((==fcWing) . wingV) $ filter isKite (facesAtBV bd fcWing)
--}
 
 
 {-*
@@ -1104,22 +1053,14 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
   kiteLongDecider e fc
     | mustbeSun bd (originV fc) = mapItem e (completeSunStar bd fc)
     | mustbeQueen bd (wingV fc) = mapItem e (addDartLongE bd fc)
---    | mustbeQueen4Kite bd (wingV fc) = mapItem e (addDartLongE bd fc)
     | otherwise = Right Map.empty
   kiteShortDecider e fc
     | mustbeDeuce bd (oppV fc) || mustbeJack bd (oppV fc) = mapItem e (addDartShortE bd fc)
     | mustbeQueen bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
---    | mustbeQueen3Kite bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
-    -- addewd new false queen check (4 kite wings at a vertex with a kite SHORT edge on the boundary)
-{-
-    | mustbeQueen4Kite bd (wingV fc) = Left $ "defaultAllUGen: stuck/incorrect Tgraph (false Queen) found at vertex " ++ show (wingV fc) ++ 
-                                              "\nwith faces: " ++ show (facesAtBV bd (wingV fc)) ++ "\n"
--}
     | otherwise = Right Map.empty
   mapItem e = fmap (\u -> Map.insert e u Map.empty)
   combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
                                        -- otherwise combines the update maps with mconcat
-  
 
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)

@@ -204,8 +204,8 @@ mistake1:: Tgraph
 mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 
 -- |Figure showing an incorrect tiling (left) with a false queen vertex at 2.
--- and (right) the result of forcing without the false queen rule
--- and without a final stuck check.
+-- and (right) the result of forcing before the queen rules were generalised.
+-- Forcing will now identify the left Tgraph as stuck/incorrect.
 falseQueenFig :: Diagram B
 falseQueenFig = padBorder $ hsep 1 $ [smart (labelLarge draw) g, labelLarge draw fg] where
   g = makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]

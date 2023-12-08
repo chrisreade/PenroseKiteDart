@@ -10,7 +10,7 @@ main = hspec spec
 spec :: Spec
 spec = do graphPropSpec
           graphOpSpec
-
+          graphLabelCheck
 -- Example lists of tile-faces
 
 -- x0 has a face with a repeated vertex
@@ -118,4 +118,16 @@ graphOpSpec = describe "Main Tgraph Operations Test" $ do
     context "Forcing Tgraphs" $
       it "Number of faces of force (dartDs !!6) should be 7546" $
          length(faces(force dD6)) `shouldBe` 7546
+
+graphLabelCheck :: Spec
+graphLabelCheck = describe "Label critical examples check" $ do
+    context "boundaryGapFDart4" $
+      it "Number of faces of boundaryGapFDart4 should be 180" $
+         length(faces boundaryGapFDart4)  `shouldBe` 180
+    context "boundaryGapFDart5" $
+      it "Number of faces of boundaryGapFDart5 should be 316" $
+         length(faces boundaryGapFDart5)  `shouldBe` 316
+    context "superForceFig" $
+      it "Number of faces of superForceFig should be 349" $         
+         length (faces(addHalfDart (220,221) $ force $ decompositions fool !!3)) `shouldBe` 349
   

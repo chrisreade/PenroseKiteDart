@@ -16,7 +16,7 @@ import ArtWork
                
 -- normal executable generating single figure
 fig::Diagram B
-fig = bvCheck kiteWingStart--,kiteOppStart--padBorder $ smartRotateBefore (labelLarge draw) (ttangle 3) foolD --rocketsFig -- christmasleaves
+fig = checkCFDFig --rocketsFig -- christmasleaves
 
 main :: IO ()
 main = mainWith fig
