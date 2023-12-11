@@ -51,14 +51,15 @@ Basic Tgraphs with Figures
 -}
 fool, foolD, foolDminus:: Tgraph
 -- |fool: fool's kite - a decomposed left and right kite back-to-back (i.e. not sharing join edge)
-fool = makeTgraph
-          [ RD (1,2,3), LD (1,3,4), RK (6,2,5), LK (6,3,2), RK (6,4,3), LK (6,7,4)]
+fool = makeTgraph [RK (5,2,7),LK (5,6,4),RK (5,4,3),LK (5,3,2),RD (1,2,3),LD (1,3,4)]
+-- fool = makeTgraph [ RD (1,2,3), LD (1,3,4), RK (6,2,5), LK (6,3,2), RK (6,4,3), LK (6,7,4)]
 
 -- |a once decomposed fool (= foolDs!!1)
 foolD = decompose fool
 
 -- |foolDminus: 3 faces removed from foolD - still a valid Tgraph
-foolDminus = removeFaces [RD (6,15,13), LD (6,17,15), RK (5,11,2)] foolD
+foolDminus = removeFaces [RD (5,15,13), LD (5,16,15), RK (7,11,2)] foolD
+-- foolDminus = removeFaces [RD (6,15,13), LD (6,17,15), RK (5,11,2)] foolD
 
 -- | an infinite list of decompositions of fool
 foolDs :: [Tgraph]
@@ -70,7 +71,7 @@ foolFig = padBorder $ labelLarge drawj fool
 
 -- |diagram of fool with foolD
 foolAndFoolD :: Diagram B
-foolAndFoolD = padBorder $ hsep 1 [scale phi $ labelLarge drawj fool, labelLarge drawj foolD]
+foolAndFoolD = padBorder $ hsep 1 [scale phi $ labelled drawj fool, labelled drawj foolD]
 
 -- |Tgraph for a sun
 sunGraph :: Tgraph
@@ -127,7 +128,7 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 -- |diagram of foolDminus and the result of forcing              
 forceFoolDminus :: Diagram B
-forceFoolDminus = padBorder $ hsep 1 $ fmap (labelLarge drawj) [foolDminus, force foolDminus]
+forceFoolDminus = padBorder $ hsep 1 $ fmap (labelled drawj) [foolDminus, force foolDminus]
 
 
 -- |diagrams of forced graphs (5 times decomposed kite or dart or sun)           

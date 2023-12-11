@@ -1262,7 +1262,11 @@ sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] wh
 foolVContextsFig:: Diagram B
 foolVContextsFig  = padBorder $ lw ultraThin $ arrangeRows 8 $ 
                     fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
+                    [0,1,2,3,4,5,6,7,9,10,13,14,15,16,17,18,20,22,25,26,27]
+{-
+                    fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
                     [0,1,2,3,4,5,6,7,9,13,14,15,16,17,18,19,20,21,23,26,27,28]
+-}
    -- only include 1 of each mirror symmetric case
 
 -- |Diagram showing only the cases from foolVContextsFig where
@@ -1270,8 +1274,12 @@ foolVContextsFig  = padBorder $ lw ultraThin $ arrangeRows 8 $
 foolVContextsCompBoundary:: Diagram B
 foolVContextsCompBoundary  = padBorder $ lw ultraThin $ arrangeRows 4 $ 
                              fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
-                             [1,6,7,15,19,21,26,28]
+                              [1,4,9,14,18,20,25,27]
    -- only show cases where v is on the composition boundary
+{-
+                             fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
+                              [1,6,7,15,19,21,26,28]
+-}
 
 -- | Generates the cases for fool vertex contexts in a forced Tgraph (some mirror symetric duplicates)
 foolContexts:: [Tgraph]
@@ -1370,6 +1378,10 @@ forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7)
         drawe = drawEdgeWith vp edge # lc red # lw thin
         drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
 
+{-*
+More Diagrams for Proofs
+-}
+
 {- |
 For a proof that (compose . force . decompose) gF = gF for forced Tgraphs gF, this
 diagram is to check boundary vertices (of a forced Tgraph) after applying (compose . force . decompose).
@@ -1409,10 +1421,6 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
 checkCFDStar:: Diagram B
 checkCFDStar = padBorder $ hsep 1 [drawForce starGraph, draw $ compose sfDf, draw sfDf]
    where sfDf = (force . decompose . force) starGraph
-
-
-
-
 
 
 

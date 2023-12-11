@@ -16,7 +16,7 @@ import ArtWork
                
 -- normal executable generating single figure
 fig::Diagram B
-fig = checkCFDFig --rocketsFig -- christmasleaves
+fig = foolVContextsCompBoundary    --rocketsFig -- christmasleaves
 
 main :: IO ()
 main = mainWith fig

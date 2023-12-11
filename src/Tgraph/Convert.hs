@@ -145,11 +145,11 @@ instance DrawableLabelled Tgraph where
 
 labelled,labelSmall,labelLarge :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
 -- | Version of labelSize with a default normal label size. Example usage: labelled draw a , labelled drawj a
-labelled = labelSize (normalized 0.018)
+labelled = labelSize (normalized 0.024)
 -- | Version of labelSize with a default small label size. Example usage: labelSmall draw a , labelSmall drawj a 
 labelSmall = labelSize (normalized 0.007)
 -- | Version of labelSize with a default large label size. Example usage: labelLarge draw a , labelLarge drawj a 
-labelLarge = labelSize (normalized 0.027) 
+labelLarge = labelSize (normalized 0.036) 
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
