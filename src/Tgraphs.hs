@@ -171,9 +171,9 @@ drawWithMax g =  (dmax # lc red # lw thin) <> dg # lw ultraThin where
     maxg = maxCompForce g
     dmax = restrictSmart maxg draw vp
 
--- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with labels)
-drawGBoundary :: Tgraph -> Diagram B
-drawGBoundary g =  (drawEdgesIn vp edges # lc lime) <> labelled draw vp where
+-- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with f)
+addBoundaryAfter :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
+addBoundaryAfter f g =  (drawEdgesIn vp edges # lc lime) <> f vp where
     vp = makeVP g
     edges = graphBoundary g
 

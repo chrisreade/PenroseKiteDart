@@ -18,7 +18,7 @@ It imports a touching check for adding new vertices (with locateVertices and add
 module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
-import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
+import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys,null) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
             -- used for BoundaryState locations AND faces at boundary vertices
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
@@ -452,15 +452,28 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
    Left report if there are unsafes but all unsafes are blocked, where report describes the problem.
 -}
 tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
+tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
+  bd = boundaryState fs
+  -- the boolean records whether a blocked case has been found so far
+  checkBlocked 0 [] = return Nothing
+  checkBlocked n [] = Left $ "tryUnsafes: There are " ++ show n++ " unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n"
+                             ++ "This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
+                             ++ "Total number of faces is " ++ show (length $ allFaces bd) ++ "\n"
+  checkBlocked n (u: more) = case checkUnsafeUpdate bd u of
+                               Nothing -> checkBlocked (n+1) more
+                               other -> return other
+{-
+tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
 tryUnsafes fs = checkBlocked False $ Map.elems $ updateMap fs where
   bd = boundaryState fs
   -- the boolean records whether a blocked case has been found so far
   checkBlocked True  [] = Left $ "tryUnsafes: There are unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n" ++
-                                 "This should not happen!\n"
+                                 "This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
   checkBlocked False [] = return Nothing
   checkBlocked _ (u: more) = case checkUnsafeUpdate bd u of
                                Nothing -> checkBlocked True more
                                other -> return other
+-}
 
 {-| checkUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
      (raising an error if u is a safe update).
@@ -561,6 +574,31 @@ tryUpdate bd u@(UnsafeUpdate _) =
        Just bdC -> return bdC
        Nothing ->  Left "tryUpdate: crossing boundary (touching vertices).\n"
 
+{-*
+Recalibrating versions of force and tryForce
+-}
+
+-- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateVertices.
+-- (Used at intervals in tryRecalibrateForce and recalibrateForce).
+recalculateBVLocs :: BoundaryState -> BoundaryState
+recalculateBVLocs bd = bd {bvLocMap = newlocs} where
+    newlocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ allFaces bd
+    bvs = fmap fst $ boundary bd
+
+-- |A version of tryForce that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
+-- This is needed to limit accumulation of errors when large numbers of faces are added in forcing.
+tryRecalibrateForce :: Forcible c => c -> Try c
+tryRecalibrateForce = tryFSOp recalibrating where
+   recalibrating fs = do
+       fs' <- tryStepForce 20000 fs
+       if null $ updateMap fs'
+       then return fs'
+       else recalibrating $ fs' {boundaryState = recalculateBVLocs $ boundaryState fs'}
+
+-- |A version of force that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
+-- This is needed to limit accumulation of errors when large numbers of faces are added in forcing.
+recalibrateForce :: Forcible c => c -> c
+recalibrateForce = runTry . tryRecalibrateForce
 
 {-*
 Now unused: final stuck check
@@ -1098,7 +1136,7 @@ This will need to have its position checked against other (boundary) vertices to
 creating a touching vertex/crossing boundary. (Taken care of in tryUnsafeUpdate)
 ---------------------------------}
 
-{-|tryFindThirdV finds a neighbouring third vertex (if it is in the Tgraph) for a face added to
+{-|tryFindThirdV finds a neighbouring third vertex on the boundary if there is one in the correct direction for a face added to
    the right hand side of a directed boundary edge.
    In tryFindThirdV bd (a,b) (n,m), the two integer arguments n and m are the INTERNAL angles
    for the new face on the boundary directed edge (a,b)
@@ -1109,6 +1147,38 @@ creating a touching vertex/crossing boundary. (Taken care of in tryUnsafeUpdate)
    If either n or m is too large a Left report is returned indicating an incorrect graph (stuck tiling).
    If n and m are smaller than the respective external angles, Right Nothing is returned.
 -}
+tryFindThirdV:: BoundaryState -> Dedge -> (Int,Int) -> Try (Maybe Vertex)
+tryFindThirdV bd (a,b) (n,m) = maybeV where
+    aAngle = externalAngle bd a
+    bAngle = externalAngle bd b
+    maybeV | aAngle <1 || aAngle >9 
+                = Left $ "tryFindThirdV: vertex: " ++ show a ++ " has (tt) external angle " ++ show aAngle
+                          ++ "\nwhen adding to boundary directed edge: " ++ show (a,b)
+                          ++ "\nwith faces at " ++ show a ++ ":\n" ++ show (bvFacesMap bd VMap.! a) 
+                          ++ "\nand faces at " ++ show b ++ ":\n" ++ show (bvFacesMap bd VMap.! b)
+                          ++ "\nand a total of " ++ show (length $ allFaces bd) ++ " faces.\n"
+           | bAngle <1 || bAngle >9 
+                = Left $ "tryFindThirdV: vertex: " ++ show b ++ " has (tt) external angle " ++ show bAngle
+                          ++ "\nwhen adding to boundary directed edge: " ++ show (a,b)
+                          ++ "\nwith faces at " ++ show a ++ ":\n" ++ show (bvFacesMap bd VMap.! a) 
+                          ++ "\nand faces at " ++ show b ++ ":\n" ++ show (bvFacesMap bd VMap.! b)
+                          ++ "\nand a total of " ++ show (length $ allFaces bd) ++ " faces.\n"
+           | aAngle < n 
+                = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " 
+                         ++ show (a,b) ++ "\n"
+           | bAngle < m
+                = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " 
+                         ++ show (a,b) ++ "\n"
+           | aAngle == n = case find ((==a) . snd) (boundary bd) of
+                             Just pr -> Right $ Just (fst pr)
+                             Nothing -> Left $ "tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge " 
+                                               ++ show (a,b) ++ "\n"
+           | bAngle == m = case find ((==b) . fst) (boundary bd) of
+                             Just pr -> Right $ Just (snd pr)
+                             Nothing -> Left $ "tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge " 
+                                               ++ show (a,b) ++ "\n"
+           | otherwise =   Right  Nothing
+{-
 tryFindThirdV:: BoundaryState -> Dedge -> (Int,Int) -> Try (Maybe Vertex)
 tryFindThirdV bd (a,b) (n,m) = maybeV where
     aAngle = externalAngle bd a
@@ -1126,16 +1196,22 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                  ++ show (a,b) ++ "\n"
     errB = Left $ "tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge " 
                  ++ show (a,b) ++ "\n"
+-}
 
 -- |externalAngle bd v - calculates the external angle at boundary vertex v in BoundaryState bd as an
 -- integer multiple of tt (tenth turn), so 1..9.  It relies on there being no crossing boundaries,
 -- so that there is a single external angle at each boundary vertex. 
+externalAngle:: BoundaryState -> Vertex -> Int
+externalAngle bd v = 10 - sum (map (intAngleAt v) $ facesAtBV bd v)
+
+{-
 externalAngle:: BoundaryState -> Vertex -> Int
 externalAngle bd v = check $ 10 - sum (map (intAngleAt v) $ facesAtBV bd v) where
   check n | n>9 || n<1 = error $ "externalAngle: vertex not on boundary "++show v
                                   ++ " with external angle " ++show n++" with faces:\n"
                                   ++ show (bvFacesMap bd VMap.! v)
   check n = n
+-}
   
 -- |intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
 -- in terms of tenth turns, so returning an Int (1,2,or 3).

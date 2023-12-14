@@ -16,7 +16,7 @@ import ArtWork
                
 -- normal executable generating single figure
 fig::Diagram B
-fig = foolVContextsCompBoundary    --rocketsFig -- christmasleaves
+fig = forceLimit --superForceRocketsFig   --rocketsFig -- christmasleaves
 
 main :: IO ()
 main = mainWith fig

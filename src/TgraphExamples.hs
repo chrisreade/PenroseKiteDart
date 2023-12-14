@@ -50,7 +50,7 @@ labelAt p l d = baselineText l # fontSize (output 15) # moveTo p <> d
 Basic Tgraphs with Figures
 -}
 fool, foolD, foolDminus:: Tgraph
--- |fool: fool's kite - a decomposed left and right kite back-to-back (i.e. not sharing join edge)
+-- |fool: fool's kite - also called an ace.
 fool = makeTgraph [RK (5,2,7),LK (5,6,4),RK (5,4,3),LK (5,3,2),RD (1,2,3),LD (1,3,4)]
 -- fool = makeTgraph [ RD (1,2,3), LD (1,3,4), RK (6,2,5), LK (6,3,2), RK (6,4,3), LK (6,7,4)]
 
@@ -208,7 +208,7 @@ mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 -- and (right) the result of forcing before the queen rules were generalised.
 -- Forcing will now identify the left Tgraph as stuck/incorrect.
 falseQueenFig :: Diagram B
-falseQueenFig = padBorder $ hsep 1 $ [smart (labelLarge draw) g, labelLarge draw fg] where
+falseQueenFig = padBorder $ hsep 1 $ [smart (labelled draw) g, labelled draw fg] where
   g = makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]
   fg = makeTgraph [LK (4,21,17),RK (4,20,21),LK (4,19,20),RK (4,18,19),LK (4,10,18)
                   ,RK (4,17,6),LD (9,6,17),LK (1,16,7),RK (1,15,16),LK (1,14,15)

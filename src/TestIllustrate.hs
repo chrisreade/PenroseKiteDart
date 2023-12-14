@@ -22,9 +22,9 @@ import Diagrams.Prelude
 import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
 import Data.List(partition, (\\))
 import Control.Monad ((<=<))  -- for rocketsFig
-import qualified Data.IntSet as IntSet (member) -- for bvExtendCase
+import qualified Data.IntSet as IntSet (member,toList) -- for bvExtendCase
 import qualified Data.Set as Set  (member, (\\), fromList) -- used for forced Contexts
--- (Set,fromList,member,null,intersection,deleteFindMin,delete,toList,(\\))-- used for boundary covers
+
 
 import ChosenBackend (B)
 import TileLib
@@ -46,7 +46,7 @@ piecesFig2 :: Diagram B
 piecesFig2 = hsep 1 $ fmap (leftFillDK red blue) thePieces ++ fmap dashjPiece thePieces 
 
 
--- |figure showing origins and markings on tiles
+-- |figure showing origins and markings on tiles for legal tilings.
 markedTiles:: Diagram B
 markedTiles = hsep 1  
         [ kiteDiag # showOrigin # centerXY # rotate (90@@deg)
@@ -57,22 +57,12 @@ markedTiles = hsep 1
                 dartDiag = draw [ldart `at` origin, rdart `at` origin]
                 pL = origin .+^ phi*^rotate (ttangle 1) unitX
                 pR = origin .+^ phi*^rotate (ttangle 9) unitX
-{-
-        [ kiteDiag # showOrigin 
-        , dartDiag # showOrigin 
-        , kiteDiag <> (pL ~~ pR # lc red # lw thick) 
-        , dartDiag <> (origin ~~ p2(1,0) # lc red # lw thick)
-        ] where kiteDiag = draw [lkite `at` origin, rkite `at` origin]
-                dartDiag = draw [ldart `at` origin, rdart `at` origin]
-                pL = origin .+^ phi*^rotate (ttangle 1) unitX
-                pR = origin .+^ phi*^rotate (ttangle 9) unitX
--}
 
--- |another figure showing origins and markings on tiles
+-- |Figure showing markings on tiles for legal tilings.
 markedTiles2:: Diagram B
-markedTiles2 = hsep 1  
-        [ kiteDiag <> (pL ~~ pR # lc lime # lw thick) 
-        , dartDiag <> (origin ~~ p2(1,0) # lc lime # lw thick)
+markedTiles2 = pad 1.2 $ centerXY $ hsep 0.25  
+        [ centerXY $ rotate (90@@deg) $ dartDiag <> (origin ~~ p2(1,0) # lc lime # lw thick)
+        , centerXY $ rotate (90@@deg)  $ kiteDiag <> (pL ~~ pR # lc lime # lw thick)
         ] where kiteDiag = draw [lkite `at` origin, rkite `at` origin]
                 dartDiag = draw [ldart `at` origin, rdart `at` origin]
                 pL = origin .+^ phi*^rotate (ttangle 1) unitX
@@ -94,7 +84,7 @@ newPiecesFig = pad 1.2 $ centerXY $
     
 -- |diagram combining markedTiles2 and newPiecesFig
 tileIntro:: Diagram B
-tileIntro = hsep 1 [markedTiles2, newPiecesFig]
+tileIntro = hsep 0.5 [markedTiles2, newPiecesFig]
 
 {-*
 Figures for decompositions and compChoices
@@ -357,8 +347,8 @@ forcingDmistakeFig = padBorder $ hsep 1 [labelled drawj (decompose mistake), lab
 
 {-|  forcingD2mistakeFig
     Figure showing a stuck graph with error at vertex 35 
-    This is involves a twice decomposed mistake which fails when forced.
-    The figure shows the graph when the error is discovered.
+    This involves a twice decomposed mistake which fails when forced.
+    The figure shows the graph when incorrectness is discovered.
 -}
 forcingD2mistakeFig :: Diagram B
 forcingD2mistakeFig = padBorder $ labelled drawj partF where
@@ -386,7 +376,7 @@ forcingD2mistakeFig = padBorder $ labelled drawj partF where
 
 -- |partially forced mistake1 (at the point of discovery of incorrect graph
 partFMistake1Fig:: Diagram B
-partFMistake1Fig = padBorder $ labelled drawj partF where
+partFMistake1Fig = padBorder $ labelLarge drawj partF where
   partF = makeTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD (3,1,5),LD (4,6,1)]
 
 -- |decomposed mistake1 is no longer incorrect and can be forced and recomposed
@@ -399,7 +389,7 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap (labelled drawj) $ scales [phi,1,1,phi
 -- It shows (top) mistake4 = 4 times decomposed mistake Tgraph - in incorrect Tgraph which fails on forcing.
 -- (centre) mistake4' = 4 times decomposed [mistake Tgraph with a half dart removed],
 -- (bottom) a forced mistake4' with the common faces of mistake4 emphasised.
--- Thus mistake4' (where the half dart is removed) does not go wrong on forcing and
+-- Thus mistake4' (where the half dart is removed before decomposing) does not go wrong on forcing and
 -- the incorrect mistake4 clashes only near the wing tip of the removed half dart.
 mistake4Explore :: Diagram B
 mistake4Explore = padBorder $ lw ultraThin $ vsep 1
@@ -753,7 +743,7 @@ testForce5 = padBorder $ lw ultraThin $ drawForce boundaryGapFDart5
 -- This is overlaid on the full graph drawn with vertex labels.
 -}
 testViewBoundary :: BoundaryState -> Diagram B
-testViewBoundary bd =  (drawEdges vpMap bdE # lc lime) <> labelled drawj g where
+testViewBoundary bd =  (drawEdges vpMap bdE # lc lime) <> labelSmall draw g where
     g = recoverGraph bd
     vpMap = bvLocMap bd
     bdE = boundary bd
@@ -771,8 +761,8 @@ inspectForce3 n = padBorder $ lw ultraThin $
 
 -- |figures showing boundary edges of the boundary gap graphs boundaryGapFDart4 and boundaryGapFDart5 
 testBoundary4, testBoundary5 :: Diagram B
-testBoundary4 =  padBorder $ lw ultraThin $ drawGBoundary boundaryGapFDart4
-testBoundary5 =  padBorder $ lw ultraThin $ drawGBoundary boundaryGapFDart5
+testBoundary4 =  padBorder $ lw ultraThin $ addBoundaryAfter (labelSmall draw) boundaryGapFDart4
+testBoundary5 =  padBorder $ lw ultraThin $ addBoundaryAfter (labelSmall draw) boundaryGapFDart5
 
 -- |test wholeTiles (which adds missing second halves of each face)
 checkCompleteFig:: Diagram B
@@ -1444,7 +1434,20 @@ remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
               Just p -> circle 0.05 # fc yellow # lc yellow # moveTo p
 
 
-                    
+-- |forceLimit is a diagram showing (top) accumulated error problems after 48754 face additions in one force:
+-- stepForce 48754 (decompositions kingGraph !!6). There are clearly several cases of touching vertices and 
+-- all unsafe updates are blocked with touching quadrance set to 0.4
+-- The completed final Tgraph is also shown (bottom) calculated with recalibratingForce.
+-- It could also be completed by forcing kingGraph before the decompositions as in
+-- force $ decompositions (force kingGraph) !!6  as this only requires
+-- 53574 - 35710 = 17864 faces added in the final force step:
+forceLimit :: Diagram B
+forceLimit = padBorder $ lw ultraThin $ vsep 5 $ fmap draw [g,g'] where
+   g = stepForce 48754 $ decompositions kingGraph !!6
+   g' = recalibrateForce $ decompositions kingGraph !!6
+--   g' = force $ decompositions (force kingGraph) !!6  -- also works
+
+
                 
 {-*
 Inspection tools
