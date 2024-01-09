@@ -420,7 +420,7 @@ empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
 drawEmpire1:: Tgraph -> Diagram B
 drawEmpire1 g = 
     drawTrackedTgraph  [ lw ultraThin . draw
-                       , lw thin . drawWith (fillDK lightgrey lightgrey)
+                       , lw thin . fillDK lightgrey lightgrey
                        , lw thin . lc red . draw
                        ]  (empire1 g)
 
@@ -429,7 +429,7 @@ drawEmpire1 g =
 drawEmpire2:: Tgraph -> Diagram B
 drawEmpire2 g =
      drawTrackedTgraph  [ lw ultraThin . draw
-                        , lw thin . drawWith (fillDK lightgrey lightgrey)
+                        , lw thin . fillDK lightgrey lightgrey
                         , lw thin . lc red . draw
                         ]  (empire2 g)
 

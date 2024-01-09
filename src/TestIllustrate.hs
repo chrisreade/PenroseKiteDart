@@ -20,10 +20,11 @@ module TestIllustrate where
 import Diagrams.TwoD.Vector (e) -- for decompExplainFig
 import Diagrams.Prelude
 import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
-import Data.List(partition, (\\))
+import Data.List(partition, (\\), sort)
 import Control.Monad ((<=<))  -- for rocketsFig
 import qualified Data.IntSet as IntSet (member,toList) -- for bvExtendCase
 import qualified Data.Set as Set  (member, (\\), fromList) -- used for forced Contexts
+import qualified Data.IntMap.Strict as VMap (keys, (!))
 
 
 import ChosenBackend (B)
@@ -43,7 +44,7 @@ piecesFig :: Diagram B
 piecesFig = hsep 0.5 $ fmap (showOrigin . dashjPiece) thePieces 
 -- |filled 4 pieces in a row         
 piecesFig2 :: Diagram B
-piecesFig2 = hsep 1 $ fmap (leftFillDK red blue) thePieces ++ fmap dashjPiece thePieces 
+piecesFig2 = hsep 1 $ fmap (leftFillPieceDK red blue) thePieces ++ fmap dashjPiece thePieces 
 
 
 -- |figure showing origins and markings on tiles for legal tilings.
@@ -825,7 +826,7 @@ twoChoices = trackTwoChoices (223,255) (force dartD4) --(233,201)
 -- |show the result of (tracked) two choices
 -- with tracked faces in red, new face filled black. 
 drawChoice:: TrackedTgraph -> Diagram B
-drawChoice = drawTrackedTgraph [draw, lc red . draw, drawWith (fillDK black black)]
+drawChoice = drawTrackedTgraph [draw, lc red . draw, fillDK black black]
 
 -- |show the (tracked) twoChoices with (tracked faces in red, new face filled black)  
 twoChoicesFig:: Diagram B
@@ -1043,7 +1044,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
 testCommonFacesFig :: Diagram B
 testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23),(49,59)] where
     fk = force kingGraph
-    drawTracked = drawTrackedTgraph [draw, lc red . draw, drawWith (fillDK black black)]
+    drawTracked = drawTrackedTgraph [draw, lc red . draw, fillDK black black]
     edgecase e = hsep 1 $ fmap (lw ultraThin) [drawTracked ttg1, drawTracked ttg2, drawCommonFaces (g1,(1,2)) (g2,(1,2))]
       where
         [ttg1, ttg2] = trackTwoChoices e fk
@@ -1209,7 +1210,7 @@ drawVContext v edge g = drawv <> drawg <> drawComp where
     drawv = case findLoc v vp of
               Nothing -> error $ "drawVContext: vertex not found " ++ show v
               Just p -> circle 0.2 # fc red # lc red # moveTo p
-    drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
+    drawComp = lw none $ fillDK yellow yellow $ subVP vp $ faces $ compose g
 
 
 -- |Diagram showing all local forced contexts for a sun vertex.
@@ -1366,7 +1367,7 @@ forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7)
         vp = makeAlignedVP edge g
         drawg = draw vp
         drawe = drawEdgeWith vp edge # lc red # lw thin
-        drawComp = lw none $ drawWith (fillDK yellow yellow) $ subVP vp $ faces $ compose g
+        drawComp = lw none $ fillDK yellow yellow $ subVP vp $ faces $ compose g
 
 {-*
 More Diagrams for Proofs
@@ -1435,23 +1436,38 @@ remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
 
 
 -- |forceLimit is a diagram showing (top) accumulated error problems after 48754 face additions in one force:
--- stepForce 48754 (decompositions kingGraph !!6). There are clearly several cases of touching vertices and 
--- all unsafe updates are blocked with touching quadrance set to 0.4
+-- stepForce 48754 (decompositions kingGraph !!6). There are clearly several cases of touching vertices. 
+-- The problem will vary with the touching quadrance setting
+-- but no setting seems to prevent errors.
 -- The completed final Tgraph is also shown (bottom) calculated with recalibratingForce.
 -- It could also be completed by forcing kingGraph before the decompositions as in
 -- force $ decompositions (force kingGraph) !!6  as this only requires
--- 53574 - 35710 = 17864 faces added in the final force step:
+-- 53574 - 35710 = 17864 faces added in the final force.
 forceLimit :: Diagram B
 forceLimit = padBorder $ lw ultraThin $ vsep 5 $ fmap draw [g,g'] where
    g = stepForce 48754 $ decompositions kingGraph !!6
-   g' = recalibrateForce $ decompositions kingGraph !!6
+   g' = recalibratingForce $ decompositions kingGraph !!6
 --   g' = force $ decompositions (force kingGraph) !!6  -- also works
 
-
-                
 {-*
 Inspection tools
 -}
+
+-- |reportBVLocsAfter n g - After n force steps on g, this reports the worst case inaccuracy
+-- of boundary vertex locations (comparing before and after recalibration)
+reportBVLocsAfter :: Int -> Tgraph -> Double
+reportBVLocsAfter n g =  worst   where 
+    bd = stepForce n $ makeBoundaryState g
+    orig = bvLocMap bd
+    corrected = bvLocMap $ recalculateBVLocs bd
+    worst = maximum diffs
+    diffs = fmap (\i -> distanceA (orig VMap.! i) (corrected VMap.! i)) (VMap.keys orig)
+
+-- |bvLocsTest n - After n force steps on a 6 times decomposed kingGraph, this reports the worst case inaccuracy
+-- of boundary vertex locations (comparing before and after recalibration)
+bvLocsTest :: Int -> Double
+bvLocsTest n =  reportBVLocsAfter n (decompositions kingGraph !!6)   
+            
 
 {- | A failure inspection tool.
 If a Tgraph is found to be incorrect when forced, findMistake applied to the list of incorrect faces

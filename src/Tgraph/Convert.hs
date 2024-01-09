@@ -1,6 +1,6 @@
 {-|
 Module      : Tgraph.Convert
-Description : Conversion of a Tgraph to a VPatch and drawing operations for both (producing Diagrams).
+Description : Conversion of a Tgraph to a VPatch and drawing operations.
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
@@ -365,15 +365,13 @@ touchingVertices fcs = check vpAssoc where
 -- does not correctly deal with 3 or more vertices touching at the same point
 
 {-|touching checks if two points are considered close.
-Close means the square of the distance between them is less than a certain number (currently 0.4) so they cannot be
+Close means the square of the distance between them is less than a certain number (currently 0.1) so they cannot be
 vertex locations for 2 different vertices in a VPatch using unit scale for short edges.
 It is used in touchingVertices and touchingVerticesGen).
 -}
 touching :: Point V2 Double -> Point V2 Double -> Bool
-touching p p1 = quadrance (p .-. p1) < 0.4 --0.24--0.0625 -- quadrance is square of length of a vector
--- The number is sensitive to accuracy for large Tgraphs. Currently 0.4
--- Note force $ decompositions kingGraph !! 6 will fail but with different error message at 0.399 and 0.4
--- However force $ decompositions (force kingGraph) !! 6 succeeds
+touching p p1 = quadrance (p .-. p1) < 0.1 -- quadrance is square of length of a vector
+--  0.1 represents a distance of about 0.316 units (= sqrt 0.1)
 
 
 {-*  Generalised Touching Vertices

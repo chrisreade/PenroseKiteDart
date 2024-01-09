@@ -16,10 +16,8 @@ This package is a library of tools to build, draw and explore finite tilings wit
 
 ## Tgraphs to Describe Finite Tilings
 
-Tile Graphs (Tgraphs):
-
-Tgraphs use a simple planar graph representation for patches of tiles.
-For example
+Tile Graphs (Tgraphs) use a simple planar graph representation for patches of tiles.
+For example:
 
     fool :: Tgraph
     fool = makeTgraph [RD (1,2,3),LD (1,3,4)   -- right and left dart

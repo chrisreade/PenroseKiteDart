@@ -586,9 +586,9 @@ recalculateBVLocs bd = bd {bvLocMap = newlocs} where
     bvs = fmap fst $ boundary bd
 
 -- |A version of tryForce that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
--- This is needed to limit accumulation of errors when large numbers of faces are added in forcing.
-tryRecalibrateForce :: Forcible c => c -> Try c
-tryRecalibrateForce = tryFSOp recalibrating where
+-- This is needed to limit accumulated inaccuracies when large numbers of faces are added in forcing.
+tryRecalibratingForce :: Forcible c => c -> Try c
+tryRecalibratingForce = tryFSOp recalibrating where
    recalibrating fs = do
        fs' <- tryStepForce 20000 fs
        if null $ updateMap fs'
@@ -597,8 +597,8 @@ tryRecalibrateForce = tryFSOp recalibrating where
 
 -- |A version of force that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
 -- This is needed to limit accumulation of errors when large numbers of faces are added in forcing.
-recalibrateForce :: Forcible c => c -> c
-recalibrateForce = runTry . tryRecalibrateForce
+recalibratingForce :: Forcible c => c -> c
+recalibratingForce = runTry . tryRecalibratingForce
 
 {-*
 Now unused: final stuck check
