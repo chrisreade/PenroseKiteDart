@@ -100,8 +100,8 @@ fourDecomps = hsep 1 $ fmap decomps thePieces # lw thin where
 -- This shows inital and final piece together on the left,  
 -- and 5 decomposition of the final piece on the right.
 fiveCompChoices:: Diagram B
-fiveCompChoices = pad 1.1 $ hsep 1 $ fmap drawj [[ld,lk'], decompositionsP [lk'] !! 5] where
-     -- two seperate patches
+fiveCompChoices = pad 1.1 $ hsep 1 $ [drawj [ld] <> drawj [lk'], drawj (decompositionsP [lk'] !! 5)] where
+     -- seperate patches
        ld  = ldart `at` origin
        lk  = compChoices ld  !!1
        rk  = compChoices lk  !!1
@@ -462,7 +462,7 @@ forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap draw
           , (  [RK (2,1,3),LK (2,4,1),RK (2,5,4),LK (2,6,5),RK (2,7,6),LK (2,8,7),RK (2,9,8),LK (2,10,9)],   RK (2,11,10) )
           , (  [LD (2,1,3),RD (2,10,1),LD (2,8,9),RD (2,7,8),LD (2,6,7),RD (2,5,6),LD (2,4,5),RD (2,3,4)],   LD (2,11,10) )
           ]
-  drawRule (fs,f) = drawWith (fillPiece yellow) vpf <> drawj vp where
+  drawRule (fs,f) = drawWith (fillOnlyPiece yellow) vpf <> drawj vp where
     vp = makeAlignedVP (1,2) $ makeTgraph (f:fs)
     vpf = subVP vp [f]
 {-

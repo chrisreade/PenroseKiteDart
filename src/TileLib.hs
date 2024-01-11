@@ -103,9 +103,6 @@ drawPiece = strokeLine . fromOffsets . pieceEdges
 dashjPiece:: Piece -> Diagram B
 dashjPiece piece = drawPiece piece <> dashjOnly piece
 
--- |draw join edge only 
-drawJoin:: Piece -> Diagram B
-drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |draw join edge only (as dashed line)
 dashjOnly:: Piece -> Diagram B
@@ -115,16 +112,19 @@ dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lw ultraThin -- # 
 drawRoundPiece:: Piece -> Diagram B
 drawRoundPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
 
+-- |draw join edge only 
+drawJoin:: Piece -> Diagram B
+drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
--- |fillPiece col piece - fills piece with colour col without drawing any lines
-fillPiece:: Colour Double -> Piece -> Diagram B
-fillPiece col piece  = drawRoundPiece piece # fc col # lw none
+-- |fillOnlyPiece col piece - fills piece with colour col without drawing any lines
+fillOnlyPiece:: Colour Double -> Piece -> Diagram B
+fillOnlyPiece col piece  = drawRoundPiece piece # fc col # lw none
 
 -- |fillPieceDK dcol kcol piece - draws and fills the half-tile piece
 -- with colour dcol for darts and kcol for kites.
 -- Note the order D K.
 fillPieceDK:: Colour Double -> Colour Double -> Piece -> Diagram B
-fillPieceDK dcol kcol piece = drawPiece piece <> fillPiece col piece where
+fillPieceDK dcol kcol piece = drawPiece piece <> fillOnlyPiece col piece where
     col = case piece of (LD _) -> dcol
                         (RD _) -> dcol
                         (LK _) -> kcol
@@ -135,7 +135,7 @@ fillPieceDK dcol kcol piece = drawPiece piece <> fillPiece col piece where
 -- Nothing indicates no fill for either darts or kites or both
 fillMaybePieceDK:: Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram B
 fillMaybePieceDK d k piece = drawPiece piece <> filler where
-    maybeFill (Just c) = fillPiece c piece
+    maybeFill (Just c) = fillOnlyPiece c piece
     maybeFill  Nothing = mempty
     filler = case piece of (LD _) -> maybeFill d
                            (RD _) -> maybeFill d
@@ -199,18 +199,18 @@ drawj = drawWith dashjPiece
 fillDK:: Drawable a => Colour Double -> Colour Double -> a -> Diagram B
 fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
     
--- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
--- colour c3 for grout (that is, the non-join edges).
--- Note the order D K G.
-colourDKG::  Drawable a => (Colour Double,Colour Double,Colour Double) -> a -> Diagram B
-colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lc c3
-
 -- |fillMaybeDK c1 c2 a - draws a and maybe fills as well:
 -- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
 -- Nothing indicates no fill for either darts or kites or both
 -- Note the order D K.
 fillMaybeDK:: Drawable a => Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram B
 fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
+
+-- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
+-- colour c3 for grout (that is, the non-join edges).
+-- Note the order D K G.
+colourDKG::  Drawable a => (Colour Double,Colour Double,Colour Double) -> a -> Diagram B
+colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lc c3
 
 -- |colourMaybeDKG (d,k,g) a - draws a and possibly fills as well:
 -- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
@@ -341,11 +341,11 @@ Colour-filled examples
 -}
 
 -- |using leftFillPieceDK
-filledSun6::Diagram B
-filledSun6 = drawWith (leftFillPieceDK red blue) sun6 # lw thin
+leftFilledSun6::Diagram B
+leftFilledSun6 = drawWith (leftFillPieceDK red blue) sun6 # lw thin
 -- |using fillPieceDK
-newFillSun6::Diagram B
-newFillSun6 = fillDK darkmagenta indigo sun6 # lw thin # lc gold
+filledSun6::Diagram B
+filledSun6 = fillDK darkmagenta indigo sun6 # lw thin # lc gold
 
 
 

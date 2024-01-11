@@ -16,7 +16,7 @@ import ArtWork
                
 -- normal executable generating single figure
 fig::Diagram B
-fig = testmakeArtD --forceLimit --superForceRocketsFig   --rocketsFig -- christmasleaves
+fig = fiveCompChoices --forceLimit --superForceRocketsFig   --rocketsFig -- christmasleaves
 
 main :: IO ()
 main = mainWith fig
