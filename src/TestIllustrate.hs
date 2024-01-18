@@ -88,7 +88,7 @@ tileIntro:: Diagram B
 tileIntro = hsep 0.5 [markedTiles2, newPiecesFig]
 
 {-*
-Figures for decompositions and compChoices
+Figures for decompositions and compChoices (not using Tgraphs)
 -}
 
 -- |figure showing 4 decompositions in a column for each of the four pieces
@@ -244,7 +244,12 @@ decompExplainFig = pad 1.2 $ centerXY fig0 where
   edgeArrow = arrowBetween' (with & headLength .~ small )
 
 
--- |Diagram showing decomposition of (left hand) half-tiles.
+
+{-*
+Illustrations Using Tgraphs
+-}
+
+-- |Diagram showing decomposition of (left hand) half-tiles with labels.
 decompHalfTiles :: Diagram B
 decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
    [ addArrow  "d" "decd" [ scale phi $ labelLarge drawj d
@@ -259,7 +264,7 @@ decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
           addArrow s1 s2 [a,b] = decompArrow s1 s2 $ hsep 2
                            [named s1 $ centerXY a, named s2 $ centerXY b]
 
--- | diagram illustrating compose, force, and decompose with kinGraph
+-- | diagram illustrating compose, force, and decompose with kinGraph using labels
 cdfIllustrate:: Diagram B
 cdfIllustrate = position (zip [p2 (0,0), p2 (0,7), p2 (10,0), p2 (10, -12)]
                               [k,dk,fk,cfk]) 
@@ -276,12 +281,6 @@ cdfIllustrate = position (zip [p2 (0,0), p2 (0,7), p2 (10,0), p2 (10, -12)]
             fk = labelled draw fKing # named "fk"
             dk = smart (labelled draw) (decompose kingGraph) # scale (phi-1) # named "dk"
             cfk = rotateBefore (labelled draw) (ttangle 9) (compose fKing) # scale phi # named "cfk"
-
-
-{-*
-Illustrations Using Tgraphs
--}
-
 
 {-|
 This example illustrates that an experimental version of composition (composeK)

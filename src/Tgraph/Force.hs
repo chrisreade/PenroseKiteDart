@@ -128,6 +128,7 @@ instance Show Update where
     show (UnsafeUpdate mf) = "UnsafeUpdate (\0 -> " ++ show (mf 0)++ ")"
     
 -- |UpdateMap: partial map associating updates with (some) boundary directed edges.
+-- (Any boundary directed edge will have the opposite direction in some face.)
 type UpdateMap = Map.Map Dedge Update
 
 -- |ForceState: The force state records information between executing single face updates during forcing
@@ -169,8 +170,10 @@ class Forcible a where
     -- | tryChangeBoundaryWith when given an update generator, converts a (try) BoundaryState changing operation to a (try) Forcible operation.
     -- The update generator is only used when the instance is a ForceState (to revise the update map in the result).
     tryChangeBoundaryWith :: UpdateGenerator -> (BoundaryState -> Try BoundaryChange) -> a -> Try a
+{-
     -- | construct or recover the BoundaryState from a Forcible
     getBoundaryState :: a -> BoundaryState
+-}
 
 -- |ForceStates are Forcible
 instance Forcible ForceState where
@@ -179,7 +182,7 @@ instance Forcible ForceState where
     tryChangeBoundaryWith ugen f fs = do
         bdC <- f (boundaryState fs)
         tryReviseFSWith ugen bdC fs
-    getBoundaryState = boundaryState
+--    getBoundaryState = boundaryState
     
 -- | BoundaryStates are Forcible    
 instance Forcible BoundaryState where
@@ -193,7 +196,7 @@ instance Forcible BoundaryState where
     tryChangeBoundaryWith _ f bd = do -- update generator not used
         bdC <- f bd
         return $ newBoundaryState bdC
-    getBoundaryState = id
+--    getBoundaryState = id
 
 -- | Tgraphs are Forcible    
 instance Forcible Tgraph where
@@ -201,7 +204,7 @@ instance Forcible Tgraph where
     tryInitFSWith ugen g = tryInitFSWith ugen (makeBoundaryState g)
     tryChangeBoundaryWith ugen f g = -- update generator not used
         recoverGraph <$> tryChangeBoundaryWith ugen f (makeBoundaryState g)
-    getBoundaryState = makeBoundaryState
+--    getBoundaryState = makeBoundaryState
 
 {-*
 Generalised forcing operations
@@ -268,13 +271,15 @@ tryInitFS = tryInitFSWith defaultAllUGen
 initFS :: Forcible a => a -> ForceState
 initFS = runTry . tryInitFS
 
--- |tryStepForce produces a (Right) intermediate state after a given number of steps (face additions)
--- or a Left report if it encounters a stuck/incorrect Tgraph/forcible
+-- |tryStepForce n a - produces a (Right) intermediate Forcible after n steps (n face additions) starting from Forcible a.
+-- or a Left report if it encounters a stuck/incorrect Forcible within n steps.
+-- If forcing finishes successfully in n or fewer steps, it will return that final Forcible. 
 tryStepForce :: Forcible a => Int -> a -> Try a 
 tryStepForce = tryStepForceWith defaultAllUGen-- Was called tryStepForceFrom
 
--- |stepForce  produces an intermediate state after a given number of steps (face additions).
--- It raises an error if it encounters a stuck/incorrect Forcible
+-- |stepForce  n a - produces an intermediate intermediate Forcible after n steps (n face additions) starting from Forcible a.
+-- It raises an error if it encounters a stuck/incorrect Tgraph/Forcible within n steps.
+-- If forcing finishes successfully in n or fewer steps, it will return that final Forcible. 
 stepForce :: Forcible a => Int -> a ->  a
 stepForce n = runTry . tryStepForce n
 

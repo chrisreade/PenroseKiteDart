@@ -598,7 +598,7 @@ instance Forcible TrackedTgraph where
     tryChangeBoundaryWith ugen f ttg = do
         g' <- tryChangeBoundaryWith ugen f $ tgraph ttg
         return ttg{ tgraph = g' }
-    getBoundaryState = getBoundaryState . tgraph
+--    getBoundaryState = getBoundaryState . tgraph
               
 -- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.

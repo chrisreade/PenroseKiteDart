@@ -14,24 +14,30 @@ import Tgraphs
 
 import ArtWork
                
--- normal executable generating single figure
 fig::Diagram B
-fig = fiveCompChoices --forceLimit --superForceRocketsFig   --rocketsFig -- christmasleaves
+fig = maxExampleFig 
 
 main :: IO ()
 main = mainWith fig
 
-
 {-
--- To produce executable which can output multiple diagrams, use e.g.
-figs::[(String,Diagram B)]
-figs = trial2
+-- normal executable generating single figure
+fig::Diagram B
+fig = maxExampleFig 
 
-main = mainWith figs
+main :: IO ()
+main = mainWith fig
 -}
 
 
+{-
+-- For generating animated gifs with Rasterific Backend. Don't forget Use -o ...gif when generating output
+figs::[(Diagram B,Int)]
+figs = animGapFill
 
+main :: IO ()
+main = mainWith figs
+-}
 
 
 {-

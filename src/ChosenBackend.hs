@@ -13,9 +13,16 @@ Postscript (Diagrams.Backend.Postscript.CmdLine)
 -}
 module ChosenBackend (module Backend) where
 
--- Either
--- import Diagrams.Backend.SVG.CmdLine as Backend
--- OR 
--- import Diagrams.Backend.Postscript.CmdLine as Backend
+{- Options:
+    for svg output
+import Diagrams.Backend.SVG.CmdLine as Backend
+
+    for eps output
+import Diagrams.Backend.Postscript.CmdLine as Backend
+
+    for gif/animated gif/png/jpg/tif/bmp/pdf output NOT svg
+import Diagrams.Backend.Rasterific.CmdLine as Backend
+-}
+
 import Diagrams.Backend.SVG.CmdLine as Backend
 
