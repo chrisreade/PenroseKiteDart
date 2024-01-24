@@ -136,18 +136,19 @@ Overlaid drawing tools for Tgraphs
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose ::  Tgraph -> Diagram B
-drawPCompose g = restrictSmart g' draw vp # lw ultraThin
-                 <> drawj (subVP vp remainder) # lw thin # lc lime
-  where (remainder,g') = partCompose g
-        vp = makeVP g
+drawPCompose g = 
+    restrictSmart g' draw vp # lw ultraThin
+    <> drawj (subVP vp remainder) # lw thin # lc lime
+    where (remainder,g') = partCompose g
+          vp = makeVP g
 
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
 -- It adds dashed join edges on the boundary of g
 drawForce:: Tgraph -> Diagram B
-drawForce g = (dg # lc red # lw thin) <> dfg  # lw ultraThin where
-    vp = makeVP $ force g
-    dfg = draw vp
-    dg = restrictSmart g draw vp
+drawForce g = 
+    restrictSmart g draw vp # lc red # lw thin 
+    <> draw vp  # lw ultraThin
+    where vp = makeVP $ force g
 
 -- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
 -- overlaid on superForce g in blue.
@@ -264,7 +265,7 @@ emplaceChoices' startbd | nullGraph g' = recoverGraph <$> choices [startbd]
    choices (bd:bds) 
         = case  startunknowns `intersect` unknowns (getDartWingInfo $ recoverGraph bd) of
              [] -> bd:choices bds
-             (u:_) -> choices (atLeastOne (tryDartAndKiteForced bd (findDartLongForWing u bd))++bds)
+             (u:_) -> choices (atLeastOne (tryDartAndKiteForced (findDartLongForWing u bd) bd)++bds)
    findDartLongForWing v bd 
         = case find isDart (facesAtBV bd v) of
             Just d -> longE d
@@ -312,7 +313,7 @@ boundaryECovering bs = covers [(bs, boundaryEdgeSet bs)] where
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
              newcases = fmap (\b -> (b, commonBdry des b))
-                             (atLeastOne $ tryDartAndKiteForced bs de)
+                             (atLeastOne $ tryDartAndKiteForced de bs)
 
 -- |Make a set of the directed boundary edges of a BoundaryState
 boundaryEdgeSet:: BoundaryState -> Set.Set Dedge
@@ -336,8 +337,8 @@ boundaryVCovering bd = covers [(bd, startbds)] where
   covers ((open,es):opens) 
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKiteForced open de) ++opens
-    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced open de) ++opens  
+        Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKiteForced de open) ++opens
+    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced de open) ++opens  
                    where (de,des) = Set.deleteFindMin es
 
 -- | returns the set of boundary vertices of a BoundaryState
@@ -349,20 +350,20 @@ internalVertexSet :: BoundaryState -> VertexSet
 internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet bd
 
                   
--- | tryDartAndKiteForced b de - returns the list of (2) results after adding a dart (respectively kite)
+-- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de a forcible b and then tries forcing. Each of the result is a Try.
-tryDartAndKiteForced:: Forcible a => a -> Dedge -> [Try a]
-tryDartAndKiteForced b de = 
+tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try a]
+tryDartAndKiteForced de b = 
     [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $ 
         tryAddHalfDart de b >>= tryForce
     , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $ 
         tryAddHalfKite de b >>= tryForce
     ]
 
--- | tryDartAndKite b de - returns the list of (2) results after adding a dart (respectively kite)
+-- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b. Each of the result is a Try.
-tryDartAndKite:: Forcible a => a -> Dedge -> [Try a]
-tryDartAndKite b de = 
+tryDartAndKite:: Forcible a => Dedge -> a -> [Try a]
+tryDartAndKite de b = 
     [ onFail ("tryDartAndKite: Dart on edge: " ++ show de ++ "\n") $ 
         tryAddHalfDart de b
     , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $ 

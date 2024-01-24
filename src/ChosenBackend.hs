@@ -1,6 +1,6 @@
 {-|
 Module      : ChosenBackend
-Description : Exports mainWith and B for the chosen backend 
+Description : Exports the chosen backend (including B and mainWith,...)
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
@@ -10,6 +10,7 @@ Export the chosen backend
 Currently  either
 SVG (Diagrams.Backend.SVG.CmdLine) or
 Postscript (Diagrams.Backend.Postscript.CmdLine)
+Rasterific (Diagrams.Backend.Rasterific.CmdLine)
 -}
 module ChosenBackend (module Backend) where
 

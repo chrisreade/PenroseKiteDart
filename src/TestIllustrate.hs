@@ -1113,7 +1113,7 @@ bvCases:: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
 bvCases start@(v,_,_) = genLocalsWith newcases start where
     newcases open = concatMap (extend open) (boundaryEdgesAt v open)
     extend open d = ignoreFails $ fmap (tryForceWith wholeTileUpdates) $
-                    ignoreFails $ tryDartAndKite open d
+                    ignoreFails $ tryDartAndKite d open
 
 -- |boundaryEdgesAt v bd - returns the boundary edges in BoundaryState bd that have v as a vertex.
 boundaryEdgesAt:: Vertex -> BoundaryState -> [Dedge]
@@ -1150,7 +1150,7 @@ Generating Forced Boundary Vertex Contexts
 -- Any case where v is no longer on the boundary is excluded.
 genFContexts:: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
 genFContexts start@(v ,edge, _) = contexts [] $ setup <$> genLocalsWith newcases start where
-  newcases open = concatMap (atLeastOne . tryDartAndKiteForced open) (boundary4 v open)
+  newcases open = concatMap (atLeastOne . (`tryDartAndKiteForced` open)) (boundary4 v open)
   setup bs = (bs, boundaryEdgeSet bs Set.\\ Set.fromList (boundary4  v bs))
   contexts done [] = reverse done
   contexts done ((bs,es):opens) 
@@ -1163,7 +1163,7 @@ genFContexts start@(v ,edge, _) = contexts [] $ setup <$> genLocalsWith newcases
     | Set.null es = contexts (bs:done) opens
     | otherwise = contexts (bs:done) (newcases ++ opens)
                   where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced de bs)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 -- |for v a boundary vertex of bd, boundary4 v bd 
@@ -1242,7 +1242,7 @@ sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] wh
     | Set.null es = contexts (bs:done) opens -- bs is a completed cover
     | otherwise = contexts (bs:done) (newcases ++ opens)
         where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced de bs)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 
@@ -1287,7 +1287,7 @@ foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] w
     | otherwise = contexts (bs:done) (newcases ++ opens)
                   where newcases = concatMap (makecases (bs,es)) (Set.toList es)
 
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced de bs)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
     
 
@@ -1314,7 +1314,7 @@ forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
   locals bds (open:opens) | not (Set.member edge (boundaryEdgeSet open)) = locals bds opens
   locals bds (open:opens) | occursIn bds open edge = locals bds opens
   locals bds (open:opens) | otherwise = 
-     locals (open:bds) (concatMap (atLeastOne . tryDartAndKiteForced open)
+     locals (open:bds) (concatMap (atLeastOne . (`tryDartAndKiteForced` open))
                                   (boundaryEdgeNbs edge open)
                         ++ opens)
   contexts done [] = reverse done
@@ -1328,7 +1328,7 @@ forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
     | Set.null es = contexts (bs:done) opens
     | otherwise = contexts (bs:done) (newcases ++ opens)
                   where newcases = concatMap (makecases (bs,es)) (Set.toList es)
-  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced bs de)
+  makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced de bs)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
 
