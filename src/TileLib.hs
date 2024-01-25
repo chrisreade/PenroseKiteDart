@@ -94,41 +94,46 @@ wholeTileEdges (RD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (
 wholeTileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (RK v))
 wholeTileEdges (RK v) = wholeTileEdges (LK v)
 
+
+-- | Abbreviation for 2D diagrams for any Backend b
+type Diagram2D b = QDiagram b V2 Double Any
+
+
 -- |drawing lines for the 2 non-join edges of a piece.
 -- drawPiece:: Piece -> Diagram B
 drawPiece :: Renderable (Path V2 Double) b =>
-             Piece -> QDiagram b V2 Double Any
+             Piece -> Diagram2D b
 drawPiece = strokeLine . fromOffsets . pieceEdges
 
 -- |same as drawPiece but with join edge added as dashed-line.
 -- dashjPiece:: Piece -> Diagram B
 dashjPiece :: Renderable (Path V2 Double) b =>
-              Piece -> QDiagram b V2 Double Any
+              Piece -> Diagram2D b
 dashjPiece piece = drawPiece piece <> dashjOnly piece
 
 
 -- |draw join edge only (as dashed line).
 -- dashjOnly:: Piece -> Diagram B
 dashjOnly :: Renderable (Path V2 Double) b =>
-             Piece -> QDiagram b V2 Double Any
+             Piece -> Diagram2D b
 dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lw ultraThin -- # lc grey 
 
 -- |same as drawPiece but with added join edge (also fillable as a loop).
 -- drawRoundPiece:: Piece -> Diagram B
 drawRoundPiece :: Renderable (Path V2 Double) b =>
-                  Piece -> QDiagram b V2 Double Any
+                  Piece -> Diagram2D b
 drawRoundPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
 
 -- |draw join edge only.
 -- drawJoin:: Piece -> Diagram B
 drawJoin :: Renderable (Path V2 Double) b =>
-            Piece -> QDiagram b V2 Double Any
+            Piece -> Diagram2D b
 drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |fillOnlyPiece col piece - fills piece with colour col without drawing any lines.
 -- fillOnlyPiece:: Colour Double -> Piece -> Diagram B
 fillOnlyPiece :: Renderable (Path V2 Double) b =>
-                 Colour Double -> Piece -> QDiagram b V2 Double Any
+                 Colour Double -> Piece -> Diagram2D b
 fillOnlyPiece col piece  = drawRoundPiece piece # fc col # lw none
 
 -- |fillPieceDK dcol kcol piece - draws and fills the half-tile piece
@@ -136,7 +141,7 @@ fillOnlyPiece col piece  = drawRoundPiece piece # fc col # lw none
 -- Note the order D K.
 -- fillPieceDK:: Colour Double -> Colour Double -> Piece -> Diagram B
 fillPieceDK :: Renderable (Path V2 Double) b =>
-               Colour Double -> Colour Double -> HalfTile (V2 Double) -> QDiagram b V2 Double Any
+               Colour Double -> Colour Double -> HalfTile (V2 Double) -> Diagram2D b
 fillPieceDK dcol kcol piece = drawPiece piece <> fillOnlyPiece col piece where
     col = case piece of (LD _) -> dcol
                         (RD _) -> dcol
@@ -148,7 +153,7 @@ fillPieceDK dcol kcol piece = drawPiece piece <> fillOnlyPiece col piece where
 -- Nothing indicates no fill for either darts or kites or both.
 -- fillMaybePieceDK:: Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram B
 fillMaybePieceDK :: Renderable (Path V2 Double) b =>
-                    Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> QDiagram b V2 Double Any
+                    Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram2D b
 fillMaybePieceDK d k piece = drawPiece piece <> filler where
     maybeFill (Just c) = fillOnlyPiece c piece
     maybeFill  Nothing = mempty
@@ -163,7 +168,7 @@ fillMaybePieceDK d k piece = drawPiece piece <> filler where
 -- (Right half-tiles produce nothing, so whole tiles are not drawn twice).
 -- leftFillPieceDK:: Colour Double -> Colour Double -> Piece -> Diagram B
 leftFillPieceDK :: Renderable (Path V2 Double) b =>
-                   Colour Double -> Colour Double -> HalfTile (V2 Double) -> QDiagram b V2 Double Any
+                   Colour Double -> Colour Double -> HalfTile (V2 Double) -> Diagram2D b
 leftFillPieceDK dcol kcol pc =
      case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc dcol
                 (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc kcol
@@ -176,7 +181,7 @@ leftFillPieceDK dcol kcol pc =
 -- Half kites have the long edge emphasised in black.
 -- experiment:: Piece -> Diagram B
 experiment:: Renderable (Path V2 Double) b =>
-             Piece ->  QDiagram b V2 Double Any
+             Piece ->  Diagram2D b
 experiment pc = emph pc <> (drawRoundPiece pc # dashingN [0.003,0.003] 0 # lw ultraThin)
     --emph pc <> (drawRoundPiece pc # dashingO [1,2] 0 # lw ultraThin)
   where emph pc = case pc of
@@ -198,7 +203,7 @@ type Patch = [Located Piece]
 class Drawable a where
 --  drawWith :: (Piece -> Diagram B) -> a -> Diagram B
   drawWith :: Renderable (Path V2 Double) b =>
-              (Piece ->  QDiagram b V2 Double Any) -> a ->  QDiagram b V2 Double Any
+              (Piece ->  Diagram2D b) -> a ->  Diagram2D b
 
 -- | Patches are drawable
 instance Drawable Patch where
@@ -210,20 +215,20 @@ instance Drawable Patch where
 -- | the main default case for drawing using drawPiece.
 -- draw :: Drawable a => a -> Diagram B
 draw :: (Drawable a, Renderable (Path V2 Double) b) =>
-        a -> QDiagram b V2 Double Any
+        a -> Diagram2D b
 draw = drawWith drawPiece
 
 -- | alternative default case for drawing adding dashed lines for join edges.
 -- drawj :: Drawable a => a -> Diagram B
 drawj :: (Drawable a, Renderable (Path V2 Double) b) =>
-         a -> QDiagram b V2 Double Any
+         a -> Diagram2D b
 drawj = drawWith dashjPiece
 
 -- |fillDK dcol kcol a - draws and fills a with colour dcol for darts and kcol for kites.
 -- Note the order D K.
 -- fillDK:: Drawable a => Colour Double -> Colour Double -> a -> Diagram B
 fillDK :: (Drawable a, Renderable (Path V2 Double) b) =>
-          Colour Double -> Colour Double -> a -> QDiagram b V2 Double Any
+          Colour Double -> Colour Double -> a -> Diagram2D b
 fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
     
 -- |fillMaybeDK c1 c2 a - draws a and maybe fills as well:
@@ -232,7 +237,7 @@ fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 -- Note the order D K.
 -- fillMaybeDK:: Drawable a => Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram B
 fillMaybeDK :: (Drawable a, Renderable (Path V2 Double) b) =>
-               Maybe (Colour Double) -> Maybe (Colour Double) -> a -> QDiagram b V2 Double Any
+               Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram2D b
 fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
 
 -- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
@@ -240,7 +245,7 @@ fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
 -- Note the order D K G.
 -- colourDKG::  Drawable a => (Colour Double,Colour Double,Colour Double) -> a -> Diagram B
 colourDKG :: (Drawable a, Renderable (Path V2 Double) b) =>
-             (Colour Double,Colour Double,Colour Double) -> a -> QDiagram b V2 Double Any
+             (Colour Double,Colour Double,Colour Double) -> a -> Diagram2D b
 colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lc c3
 
 -- |colourMaybeDKG (d,k,g) a - draws a and possibly fills as well:
@@ -250,7 +255,7 @@ colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lc c3
 -- Edges are drawn with gcol if g  = Just gcol and not drawn if g = Nothing.
 -- colourMaybeDKG:: Drawable a => (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> a -> Diagram B
 colourMaybeDKG:: (Drawable a, Renderable (Path V2 Double) b) =>
-                 (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> a -> QDiagram b V2 Double Any
+                 (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> a -> Diagram2D b
 colourMaybeDKG (d,k,g) a = fillMaybeDK d k a # maybeGrout g where
     maybeGrout (Just c) = lc c
     maybeGrout Nothing = lw none
@@ -366,7 +371,7 @@ sun5 = suns!!5
 
 -- |diagram for sun6.
 -- sun6Fig::Diagram B
-sun6Fig :: Renderable (Path V2 Double) b => QDiagram b V2 Double Any
+sun6Fig :: Renderable (Path V2 Double) b => Diagram2D b
 sun6Fig = draw sun6 # lw thin
 
 
@@ -375,10 +380,10 @@ Colour-filled examples
 -}
 
 -- |using leftFillPieceDK.
-leftFilledSun6 :: Renderable (Path V2 Double) b => QDiagram b V2 Double Any
+leftFilledSun6 :: Renderable (Path V2 Double) b => Diagram2D b
 leftFilledSun6 = drawWith (leftFillPieceDK red blue) sun6 # lw thin
 -- |using fillPieceDK
-filledSun6 :: Renderable (Path V2 Double) b => QDiagram b V2 Double Any
+filledSun6 :: Renderable (Path V2 Double) b => Diagram2D b
 filledSun6 = fillDK darkmagenta indigo sun6 # lw thin # lc gold
 
 

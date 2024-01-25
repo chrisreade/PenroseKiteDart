@@ -15,8 +15,8 @@ Stability   : experimental
 module TgraphExamples where
 
 import Diagrams.Prelude
-
-import ChosenBackend (B)
+import Diagrams.TwoD.Text (Text)
+-- import ChosenBackend (B)
 import TileLib
 import Tgraphs
 
@@ -25,7 +25,8 @@ Some Layout tools
 -}
 
 -- |used for most diagrams to give border padding
-padBorder:: Diagram B -> Diagram B
+-- padBorder:: Diagram B -> Diagram B
+padBorder :: Renderable (Path V2 Double) b => Diagram2D b -> Diagram2D b
 padBorder = pad 1.2 . centerXY
 
 -- |chunks n l -  split a list l into chunks of length n (n>0)
@@ -37,12 +38,15 @@ chunks n
       ch as = take n as : ch (drop n as)
 
 -- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
--- The result is a single diagram (seperation is 1 unit vertically and horizontally)
-arrangeRows::Int -> [Diagram B] -> Diagram B
+-- The result is a single diagram (seperation is 1 unit vertically and horizontally).
+-- arrangeRows :: Int -> [Diagram B] -> Diagram B
+arrangeRows :: Renderable (Path V2 Double) b => 
+               Int -> [Diagram2D b] -> Diagram2D b
 arrangeRows n = centerY . vsep 1 . fmap (centerX . hsep 1) . chunks n
 
 -- |add a given label at a given point offset from the centre of the given diagram
-labelAt :: Point V2 Double -> String -> Diagram B -> Diagram B
+labelAt :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
+           Point V2 Double -> String -> Diagram2D b -> Diagram2D b
 labelAt p l d = baselineText l # fontSize (output 15) # moveTo p <> d
 --labelAt p l d = baselineText l # fontSize (normalized 0.02) # moveTo p <> d
 
@@ -65,12 +69,14 @@ foolDminus = removeFaces [RD (5,15,13), LD (5,16,15), RK (7,11,2)] foolD
 foolDs :: [Tgraph]
 foolDs = decompositions fool
 
--- | diagram of just fool
-foolFig :: Diagram B
+-- | diagram of just fool.
+-- foolFig :: Diagram B
+foolFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 foolFig = padBorder $ labelLarge drawj fool
 
--- |diagram of fool with foolD
-foolAndFoolD :: Diagram B
+-- |diagram of fool with foolD.
+-- foolAndFoolD :: Diagram B
+foolAndFoolD :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 foolAndFoolD = padBorder $ hsep 1 [scale phi $ labelled drawj fool, labelled drawj foolD]
 
 -- |Tgraph for a sun
@@ -87,7 +93,7 @@ sunDs :: [Tgraph]
 sunDs =  decompositions sunGraph
 
 -- |Figure for a 3 times decomposed sun with a 2 times decomposed sun
-figSunD3D2:: Diagram B
+figSunD3D2 :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 figSunD3D2 = padBorder $ hsep 1 [labelled drawj $ sunDs !! 3, scale phi $ labelled drawj $ sunDs !! 2]
 
 -- |Tgraph for kite
@@ -113,7 +119,7 @@ dartD4 = dartDs!!4
 {-* Partial Composition figures
 -}
 
-pCompFig1,pCompFig2,pCompFig:: Diagram B
+pCompFig1,pCompFig2,pCompFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 -- |diagram showing partial composition of a forced 3 times decomposed dart (with remainder faces in pale green)
 pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
             where fd3 = force $ dartDs!!3
@@ -127,12 +133,12 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 -}
 
 -- |diagram of foolDminus and the result of forcing              
-forceFoolDminus :: Diagram B
+forceFoolDminus :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 forceFoolDminus = padBorder $ hsep 1 $ fmap (labelled drawj) [foolDminus, force foolDminus]
 
 
 -- |diagrams of forced graphs (5 times decomposed kite or dart or sun)           
-forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig:: Diagram B
+forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
 forceKiteD5Fig = padBorder $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
 forceSunD5Fig =  padBorder $ drawForce $ sunDs !! 5
@@ -140,13 +146,13 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 -- |an example showing a 4 times forceDecomp pair of darts (sharing a long edge),
 -- with the maximal compForce Tgraph (a kite) overlaid in red
-maxExampleFig :: Diagram B
+maxExampleFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlusDart !! 4 where
                  dartPlusDart = addHalfDart (1,5) $ addHalfDart (1,2) dartGraph
 
 -- |showing 4 emplaceChoices for foolD 
 -- Uses revised emplaceChoices.
-emplaceChoicesFoolD :: Diagram B
+emplaceChoicesFoolD :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 emplaceChoicesFoolD = padBorder $ hsep 1 $
         fmap (addFoolD . lw ultraThin . draw) vpChoices where
         (vpFoolD:vpChoices) = alignAll (1,6) $ fmap makeVP (foolD:emplaceChoices foolD)
@@ -173,13 +179,13 @@ badlyBrokenDart = removeFaces deleted bbd where
 --  deleted = RK(6,28,54):filter (isAtV 63) (faces brokenDart)
 
 -- |brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
-brokenDartFig :: Diagram B
+brokenDartFig  :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [dartD4, brokenDart, badlyBrokenDart]
 
 -- |badlyBrokenDartFig shows badlyBrokenDart, followed by its composition, followed by the faces 
 -- that would result from an unchecked second composition which are not tile-connected.
 -- (Simply applying compose twice to badlyBrokenDart will raise an error).
-badlyBrokenDartFig :: Diagram B
+badlyBrokenDartFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, vpComp, vpFailed] where
     vp = makeVP badlyBrokenDart
     comp = compose badlyBrokenDart
@@ -188,7 +194,7 @@ badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, v
 
 -- |figure showing the result of removing incomplete tiles (those that do not have their matching halftile)
 -- to a 3 times decomposed sun.
-removeIncompletesFig::Diagram B
+removeIncompletesFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 removeIncompletesFig = padBorder $ drawj $ removeFaces (boundaryJoinFaces g) g where 
     g = sunDs !! 3
 
@@ -207,7 +213,7 @@ mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 -- |Figure showing an incorrect tiling (left) with a false queen vertex at 2.
 -- and (right) the result of forcing before the queen rules were generalised.
 -- Forcing will now identify the left Tgraph as stuck/incorrect.
-falseQueenFig :: Diagram B
+falseQueenFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 falseQueenFig = padBorder $ hsep 1 $ [smart (labelled draw) g, labelled draw fg] where
   g = makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]
   fg = makeTgraph [LK (4,21,17),RK (4,20,21),LK (4,19,20),RK (4,18,19),LK (4,10,18)
@@ -219,7 +225,7 @@ falseQueenFig = padBorder $ hsep 1 $ [smart (labelled draw) g, labelled draw fg]
 Figures for 7 vertex types
 -}
 {-| vertexTypesFig is 7 vertex types single diagram as a row -}
-vertexTypesFig:: Diagram B
+vertexTypesFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 vertexTypesFig = padBorder $ hsep 1 lTypeFigs
  where
  lTypeFigs = zipWith (labelAt (p2 (0,-2.2))) ["sun","star","jack","queen","king","ace","deuce"] vTypeFigs
@@ -258,7 +264,7 @@ starGraph = makeTgraph
   ]
 
 {-|forceVFigures is a list of 7 diagrams - force of 7 vertex types -}
-forceVFigures :: [Diagram B]
+forceVFigures :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => [Diagram2D b]
 forceVFigures = rotations [0,0,9,5,0,0,1] $
                 fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
 
@@ -281,13 +287,13 @@ sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) sun2AdjDart
 
 -- |Diagram showing superForce with initial Tgraph g (red), force g (red and black),
 -- and superForce g (red and black and blue).
-superForceFig :: Diagram B
+superForceFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 superForceFig = padBorder $ rotate (ttangle 1) $ drawSuperForce g where
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
 
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
 -- of sun3Dart. The decompositions are in red with normal force additions in black and superforce additions in blue.
-superForceRocketsFig :: Diagram B
+superForceRocketsFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
    fmap drawSuperForce decomps where
       decomps = take 4 $ decompositions sun3Dart
@@ -303,7 +309,7 @@ boundaryFDart4 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD
 boundaryFDart5 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
 
 -- |figures of the boundary faces only of a forced graph
-boundaryFDart4Fig,boundaryFDart5Fig:: Diagram B
+boundaryFDart4Fig,boundaryFDart5Fig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 boundaryFDart4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryFDart4
 boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryFDart5
 
@@ -315,7 +321,7 @@ boundaryGapFDart5 = removeVertices [1467] boundaryFDart5
     -- checkedTgraph $ filter ((/=1467).originV) (faces boundaryFDart5)
 
 -- |figures for the boundary gap graphs boundaryGapFDart4, boundaryGapFDart5
-boundaryGap4Fig, boundaryGap5Fig :: Diagram B
+boundaryGap4Fig, boundaryGap5Fig  :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 boundaryGap4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart4
 boundaryGap5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart5
 
@@ -324,10 +330,10 @@ boundaryGap5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart5
 Boundary coverings and empires
 -}
 
-
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
 -- (with the Tgraph represented by bd shown in red in each case)
-boundaryVCoveringFigs:: BoundaryState -> [Diagram B]
+boundaryVCoveringFigs :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) =>
+                         BoundaryState -> [Diagram2D b]
 boundaryVCoveringFigs bd =
     fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryVCovering bd
       where redg = lc red $ draw g --alignBefore draw alig g
@@ -336,7 +342,8 @@ boundaryVCoveringFigs bd =
 
 -- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
 -- (with the Tgraph represented by bd shown in red in each case)
-boundaryECoveringFigs:: BoundaryState -> [Diagram B]
+boundaryECoveringFigs :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) =>
+                         BoundaryState -> [Diagram2D b]
 boundaryECoveringFigs bd =
     fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryECovering bd
       where redg = lc red $ draw g
@@ -344,13 +351,13 @@ boundaryECoveringFigs bd =
             g = recoverGraph bd
 
 -- | diagram showing the boundaryECovering of a forced kingGraph
-kingECoveringFig,kingVCoveringFig :: Diagram B
+kingECoveringFig,kingVCoveringFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoveringFigs $ force $ makeBoundaryState kingGraph
 -- | diagram showing the boundaryVCovering of a forced kingGraph
 kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoveringFigs $ force  $ makeBoundaryState kingGraph
 
 -- | figures showing King's empires (1 and 2)
-kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig::Diagram B
+kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 kingEmpiresFig = padBorder $ hsep 10 [kingEmpire1Fig, kingEmpire2Fig]
 kingEmpire1Fig = drawEmpire1 kingGraph
 kingEmpire2Fig = drawEmpire2 kingGraph

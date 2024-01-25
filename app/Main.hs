@@ -15,7 +15,7 @@ import Tgraphs
 import ArtWork
                
 fig::Diagram B
-fig = newForcedSunrise
+fig = sampleFig0
 
 main :: IO ()
 main = mainWith fig

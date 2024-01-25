@@ -29,7 +29,8 @@ import qualified Data.IntSet as IntSet (member) -- for vertex set in relevantVPL
 import Diagrams.Prelude
 import TileLib
 import Tgraph.Prelude
-import ChosenBackend (B)
+-- import ChosenBackend (B)
+import Diagrams.TwoD.Text (Text)
 
 -- |Abbreviation for finite mappings from Vertex to Location (i.e Point)
 type VertexLocMap = VMap.IntMap (Point V2 Double)
@@ -130,20 +131,25 @@ instance Drawable Tgraph where
 -- labelSize m draw :: DrawableLabelled a => a -> Diagram B
 -- However labelSize m1 (labelSize m2 draw) does not typecheck
 class DrawableLabelled a where
-  labelSize :: Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
+--  labelSize :: Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
+  labelSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
+               Measure Double -> (Patch -> Diagram2D b) -> a -> Diagram2D b
+
 
 -- | VPatches can be drawn with labels
 instance DrawableLabelled VPatch where
   labelSize r d vp = drawLabels r (vLocs vp) <> d (dropLabels vp) where
     -- drawLabels :: Measure Double -> VertexLocMap -> Diagram B
-    drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
+     drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
        where drawlabel(v,p) = (p, baselineText (show v) # fontSize r # fc red)
 
 -- | Tgraphs can be drawn with labels
 instance DrawableLabelled Tgraph where
   labelSize r d = labelSize r d . makeVP
 
-labelled,labelSmall,labelLarge :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
+-- labelled,labelSmall,labelLarge :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
+labelled,labelSmall,labelLarge :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
+                                  (Patch -> Diagram2D b) -> a -> Diagram2D b
 -- | Version of labelSize with a default normal label size. Example usage: labelled draw a , labelled drawj a
 labelled = labelSize (normalized 0.024)
 -- | Version of labelSize with a default small label size. Example usage: labelSmall draw a , labelSmall drawj a 
@@ -319,22 +325,30 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
 
 -- |produce a diagram of a list of edges (given a VPatch)
 -- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
-drawEdgesIn :: VPatch -> [Dedge] -> Diagram B
+-- drawEdgesIn :: VPatch -> [Dedge] -> Diagram B
+drawEdgesIn :: Renderable (Path V2 Double) b =>
+               VPatch -> [Dedge] -> Diagram2D b
 drawEdgesIn vp = drawEdges (vLocs vp) --foldMap (drawEdgeWith vp)
 
 -- |produce a diagram of a single edge (given a VPatch)
 -- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
-drawEdgeWith :: VPatch -> Dedge -> Diagram B
+-- drawEdgeWith :: VPatch -> Dedge -> Diagram B
+drawEdgeWith:: Renderable (Path V2 Double) b =>
+               VPatch -> Dedge -> Diagram2D b
 drawEdgeWith vp = drawEdge (vLocs vp)
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
 -- Will raise an error if any vertex of the edges is not a key in the mapping.
-drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
+-- drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
+drawEdges :: Renderable (Path V2 Double) b =>
+             VertexLocMap -> [Dedge] -> Diagram2D b
 drawEdges vpMap = foldMap (drawEdge vpMap)
 
 -- |produce a diagram of a single edge (given a mapping of vertices to locations).
 -- Will raise an error if either vertex of the edge is not a key in the mapping.
-drawEdge :: VertexLocMap -> Dedge -> Diagram B
+-- drawEdge :: VertexLocMap -> Dedge -> Diagram B
+drawEdge :: Renderable (Path V2 Double) b =>
+            VertexLocMap -> Dedge -> Diagram2D b
 drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error $ "drawEdge: location not found for one or both vertices "++ show(a,b) ++ "\n"
