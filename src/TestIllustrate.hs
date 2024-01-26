@@ -26,8 +26,9 @@ import qualified Data.IntSet as IntSet (member,toList) -- for bvExtendCase
 import qualified Data.Set as Set  (member, (\\), fromList) -- used for forced Contexts
 import qualified Data.IntMap.Strict as VMap (keys, (!))
 
+import Diagrams.TwoD.Text (Text)
 
-import ChosenBackend (B)
+-- import ChosenBackend (B)
 import TileLib
 import Tgraphs
 import TgraphExamples
@@ -40,15 +41,15 @@ Illustrations not Using Tgraphs
 thePieces :: [Piece]
 thePieces =  [ldart, rdart, lkite, rkite]  
 -- |drawn edges of 4 pieces in a row         
-piecesFig :: Diagram B
+piecesFig :: Renderable (Path V2 Double) b => Diagram2D b
 piecesFig = hsep 0.5 $ fmap (showOrigin . dashjPiece) thePieces 
 -- |filled 4 pieces in a row         
-piecesFig2 :: Diagram B
+piecesFig2 :: Renderable (Path V2 Double) b => Diagram2D b
 piecesFig2 = hsep 1 $ fmap (leftFillPieceDK red blue) thePieces ++ fmap dashjPiece thePieces 
 
 
 -- |figure showing origins and markings on tiles for legal tilings.
-markedTiles:: Diagram B
+markedTiles :: Renderable (Path V2 Double) b => Diagram2D b
 markedTiles = hsep 1  
         [ kiteDiag # showOrigin # centerXY # rotate (90@@deg)
         , dartDiag # showOrigin # centerXY  # rotate (270@@deg)
@@ -60,7 +61,7 @@ markedTiles = hsep 1
                 pR = origin .+^ phi*^rotate (ttangle 9) unitX
 
 -- |Figure showing markings on tiles for legal tilings.
-markedTiles2:: Diagram B
+markedTiles2 :: Renderable (Path V2 Double) b => Diagram2D b
 markedTiles2 = pad 1.2 $ centerXY $ hsep 0.25  
         [ centerXY $ rotate (90@@deg) $ dartDiag <> (origin ~~ p2(1,0) # lc lime # lw thick)
         , centerXY $ rotate (90@@deg)  $ kiteDiag <> (pL ~~ pR # lc lime # lw thick)
@@ -70,7 +71,7 @@ markedTiles2 = pad 1.2 $ centerXY $ hsep 0.25
                 pR = origin .+^ phi*^rotate (ttangle 9) unitX
 
 -- |figure showing the four labelled pieces each with join edge and origin shown
-newPiecesFig:: Diagram B
+newPiecesFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 newPiecesFig = pad 1.2 $ centerXY $
                label "RD" (p2 (negate 0.4,0.7)) <>
                label "LD" (p2 (0.3,0.7)) <>
@@ -84,7 +85,7 @@ newPiecesFig = pad 1.2 $ centerXY $
     label l p = baselineText l # fontSize (local 0.2) # fc blue # moveTo p
     
 -- |diagram combining markedTiles2 and newPiecesFig
-tileIntro:: Diagram B
+tileIntro :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 tileIntro = hsep 0.5 [markedTiles2, newPiecesFig]
 
 {-*
@@ -92,14 +93,14 @@ Figures for decompositions and compChoices (not using Tgraphs)
 -}
 
 -- |figure showing 4 decompositions in a column for each of the four pieces
-fourDecomps:: Diagram B
+fourDecomps :: Renderable (Path V2 Double) b => Diagram2D b
 fourDecomps = hsep 1 $ fmap decomps thePieces # lw thin where
          decomps pc = vsep 1 $ fmap drawj $ take 5 $ decompositionsP [pc `at` origin] 
 
 -- |example of compChoices in action with 5 chosen compChoices steps from a left dart.
 -- This shows inital and final piece together on the left,  
 -- and 5 decomposition of the final piece on the right.
-fiveCompChoices:: Diagram B
+fiveCompChoices :: Renderable (Path V2 Double) b => Diagram2D b
 fiveCompChoices = pad 1.1 $ hsep 1 $ [drawj [ld] <> drawj [lk'], drawj (decompositionsP [lk'] !! 5)] where
      -- seperate patches
        ld  = ldart `at` origin
@@ -110,29 +111,29 @@ fiveCompChoices = pad 1.1 $ hsep 1 $ [drawj [ld] <> drawj [lk'], drawj (decompos
        lk' = compChoices ld' !!1
 
 -- |diagram showing first five alternatives of 4-fold compNChoices of a right dart
-fiveAlternatives:: Diagram B
+fiveAlternatives :: Renderable (Path V2 Double) b => Diagram2D b
 fiveAlternatives = hsep 1 $ fmap (drawj . (:[lp])) $ take 5 $ compNChoices 4 lp where
                      lp = rdart `at` origin
 
 -- |diagram overlaying sun5 in red atop sun6
-sun5Over6Fig::Diagram B
+sun5Over6Fig :: Renderable (Path V2 Double) b => Diagram2D b
 sun5Over6Fig = (draw sun5 # lc red # dashingN [0.003,0.003] 0 <> draw sun6) # lw thin
 -- |Using experiment (defined in Tilelib) on sun6 clearly illustrates the embedded sun5
-experimentFig::Diagram B
+experimentFig :: Renderable (Path V2 Double) b => Diagram2D b
 experimentFig = pad 1.1 $ lw thin $ drawWith experiment sun6
 -- |Using experiment (defined in Tilelib) on sun4 clearly illustrates the embedded sun3
-twoLevelsFig::Diagram B
+twoLevelsFig :: Renderable (Path V2 Double) b => Diagram2D b
 twoLevelsFig = drawWith experiment (suns!!4)
 
 -- |figure showing two types of dart wing vertices (largeKiteCentre, largeDartBase)                         
-dartWingFig::Diagram B
+dartWingFig :: Renderable (Path V2 Double) b => Diagram2D b
 dartWingFig = pad 1.2 $ hsep 1 [dkite, ddart] where
   ddart = showOrigin (translate unit_X $ drawj  $ decompPatch [ldart `at` origin, rdart `at` origin])
   dkite = showOrigin (translate unit_X $ drawj  $ decompPatch [lkite `at` origin, rkite `at` origin])
 
 
 -- |list of 3 diagrams for colour filled star,sun kite respectively
-threeColouredShapes:: [Diagram B]
+threeColouredShapes :: Renderable (Path V2 Double) b => [Diagram2D b]
 threeColouredShapes = [star4,sun4,kite5] where
         star4 = colourDKG (goldenrod, darkturquoise, saddlebrown) (decompositionsP TileLib.star !!4)
         sun4 = colourDKG (darken 0.7 darkmagenta, indigo, gold) (suns!!4)
@@ -140,18 +141,18 @@ threeColouredShapes = [star4,sun4,kite5] where
                  scale phi (decompositionsP [lkite `at` origin, rkite `at` origin] !!5)
 
 -- |diagram of three coloured shapes in a row
-exampleTriple1::Diagram B
+exampleTriple1 :: Renderable (Path V2 Double) b => Diagram2D b
 exampleTriple1 =  hsep 0.1 $ lw thin $ rotations [0,0,2] $ fmap center threeColouredShapes
 
 -- |diagram of three coloured shapes in an arc
-exampleTriple2::Diagram B
+exampleTriple2 :: Renderable (Path V2 Double) b => Diagram2D b
 exampleTriple2 =  position $ zip [ p2(-2.55,-0.75), p2(0.0,1.0), p2(2.0,-1.2)] $
                    lw thin $ rotations [1,0,1] $ fmap center threeColouredShapes
 
 
 -- |A figure illustrating decomposition of pieces (and composition choices) with vectors. 
 -- (not using Tgraphs)        
-decompExplainFig::Diagram B
+decompExplainFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 decompExplainFig = pad 1.2 $ centerXY fig0 where
   fig0 =  mconcat[rkiteAt    $ p2 (2.0,3.5)
                  ,name "RK"  $ p2 (1.0,3.8)
@@ -250,7 +251,7 @@ Illustrations Using Tgraphs
 -}
 
 -- |Diagram showing decomposition of (left hand) half-tiles with labels.
-decompHalfTiles :: Diagram B
+decompHalfTiles :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
    [ addArrow  "d" "decd" [ scale phi $ labelLarge drawj d
                , labelLarge drawj $ decompose d
@@ -265,7 +266,7 @@ decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
                            [named s1 $ centerXY a, named s2 $ centerXY b]
 
 -- | diagram illustrating compose, force, and decompose with kinGraph using labels
-cdfIllustrate:: Diagram B
+cdfIllustrate :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 cdfIllustrate = position (zip [p2 (0,0), p2 (0,7), p2 (10,0), p2 (10, -12)]
                               [k,dk,fk,cfk]) 
                   # decompArrow "k" "dk"
@@ -291,7 +292,7 @@ On the right is our usual composition with remainder faces shown green.
 
 Note that both compose and composeK applied to the middle Tgraph produce the mistake1 Tgraph (also incorrect).
 -}
-counterK :: Diagram B
+counterK :: Renderable (Path V2 Double) b => Diagram2D b
 counterK = padBorder $ lw thin $ hsep 1 $
            rotations [0,6] (phiScales $ fmap drawj [g,composeK g]) ++ [drawPCompose g]
         where g = force queenGraph
@@ -303,7 +304,7 @@ counterK = padBorder $ lw thin $ hsep 1 $
 -- The faces shown in lime are removed from a twice decomposed sun.
 -- These are reconstructed by force (with other additional faces). The touching vertex restriction blocks
 -- the bottom 4 face additions initially. 
-touchingIllustration::  Diagram B
+touchingIllustration :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 touchingIllustration =
   padBorder $ lw thin $ hsep 1
     [ labelled drawj vpLeft <> (drawj vpGone # lc lime)
@@ -320,13 +321,13 @@ touchingIllustration =
 -- |faces removed from foolD to illustrate crossing boundary and non tile-connected faces.
 -- There is a crossing boundary at 4 in the first case (but the faces are still tile-connected),
 -- There is a crossing boundary at 11 in the second case and the faces are not tile-connected.
-crossingBdryFig :: Diagram B
+crossingBdryFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 crossingBdryFig = padBorder $ hsep 1 [d1,d2]
        where d1 = labelled drawj $ removeFacesVP [RK (3,11,13), LK (3,13,15), RK (3,15,4)] $ makeVP foolD
              d2 = labelled drawj $ removeFacesVP [RK (5,11,2), LD (6,13,11), RD (6,15,13), LD (6,17,15)] $ makeVP foolD
 
 -- |figure showing mistake Tgraph and the point at which forcing fails                
-pfMistakeFig :: Diagram B
+pfMistakeFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 pfMistakeFig  = padBorder $ hsep 1 [labelled drawj mistake, labelled drawj partForcedMistake] where
    partForcedMistake = makeTgraph
                        [RK (9,1,11),LK (9,10,7),RK (9,7,5),LK (9,5,1),RK (1,2,4)
@@ -334,7 +335,7 @@ pfMistakeFig  = padBorder $ hsep 1 [labelled drawj mistake, labelled drawj partF
                        ]
 
 -- |decompose mistake and the point at which forcing fails  with  RK (6,26,1)              
-forcingDmistakeFig :: Diagram B
+forcingDmistakeFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 forcingDmistakeFig = padBorder $ hsep 1 [labelled drawj (decompose mistake), labelled drawj part] where
     part = makeTgraph
              [RK (26,24,1),RK (5,24,25),LK (5,1,24),RK (3,23,2),LK (3,22,23)
@@ -350,7 +351,7 @@ forcingDmistakeFig = padBorder $ hsep 1 [labelled drawj (decompose mistake), lab
     This involves a twice decomposed mistake which fails when forced.
     The figure shows the graph when incorrectness is discovered.
 -}
-forcingD2mistakeFig :: Diagram B
+forcingD2mistakeFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 forcingD2mistakeFig = padBorder $ labelled drawj partF where
   partF = makeTgraph
             [LK (78,46,35),LK (78,47,45),RK (78,45,46),LK (7,77,73),RK (7,76,77),LK (7,75,76),RK (7,74,75)
@@ -375,12 +376,12 @@ forcingD2mistakeFig = padBorder $ labelled drawj partF where
 
 
 -- |partially forced mistake1 (at the point of discovery of incorrect graph
-partFMistake1Fig:: Diagram B
+partFMistake1Fig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 partFMistake1Fig = padBorder $ labelLarge drawj partF where
   partF = makeTgraph [RK (8,1,6),LK (7,5,1),RK (1,2,4),LK (1,3,2),RD (3,1,5),LD (4,6,1)]
 
 -- |decomposed mistake1 is no longer incorrect and can be forced and recomposed
-cdMistake1Fig :: Diagram B
+cdMistake1Fig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 cdMistake1Fig = padBorder $ hsep 1 $ fmap (labelled drawj) $ scales [phi,1,1,phi] $ alignAll (1,2) $ fmap makeVP
                [ mistake1 , mistake1D, force mistake1D, compose mistake1D]
                where mistake1D = decompose mistake1
@@ -391,7 +392,7 @@ cdMistake1Fig = padBorder $ hsep 1 $ fmap (labelled drawj) $ scales [phi,1,1,phi
 -- (bottom) a forced mistake4' with the common faces of mistake4 emphasised.
 -- Thus mistake4' (where the half dart is removed before decomposing) does not go wrong on forcing and
 -- the incorrect mistake4 clashes only near the wing tip of the removed half dart.
-mistake4Explore :: Diagram B
+mistake4Explore :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 mistake4Explore = padBorder $ lw ultraThin $ vsep 1
                 [ smart (labelSmall draw) mistake4
                 , smart (labelSmall draw) mistake4'
@@ -404,7 +405,7 @@ mistake4Explore = padBorder $ lw ultraThin $ vsep 1
 {-| relatedVType0 lays out figures from forceVFigures plus a kite as single diagram with 3 columns
     without arrows (used by relatedVTypeFig which adds arrows).
 -}
-relatedVType0:: Diagram B
+relatedVType0 :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 relatedVType0 = lw thin $
  atPoints [p2 (0,20),p2 (0,12),  p2 (8,20),p2 (8,12),p2 (8,1),  p2 (18,20),p2 (18,12),p2 (18,1) ]
           [sunF,    starF,      aceF,    jackF,    kingF,     kite,     deuceF,   queenF]
@@ -420,7 +421,7 @@ relatedVType0 = lw thin $
 {-| relatedVTypeFig lays out figures from forceVFigures plus a kite as a single diagram with 3 columns
     showing relationships - forceDecomp (blue arrows) and compose (green arrows)
  -}
-relatedVTypeFig:: Diagram B
+relatedVTypeFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2 (-10,-10))) <>  mainfig where
   mainfig = padBorder relatedVType0
     # forceDecArrow "sunF" "starF"
@@ -445,7 +446,7 @@ relatedVTypeFig = (key # rotate (90@@deg) # moveTo (p2 (-10,-10))) <>  mainfig w
 -- | Diagram illustrating force rules with 13 figures.
 -- The yellow half-tile is the one being added in each case
 -- and mirror symmetric versions are omitted.
-forceRules:: Diagram B
+forceRules :: Renderable (Path V2 Double) b => Diagram2D b
 forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap drawRule rules where
   rules = [ (  [LD (1,2,3)],                                 RD (1,4,2)  )
           , (  [RK (1,2,3)],                                 LK (1,4,2)  )
@@ -478,7 +479,7 @@ forceRules = padBorder $ lw thin $ vsep 1 $ fmap (hsep 1) $ chunks 5 $ fmap draw
 -- (We only need to show the second is included in the fourth, but a later proof establishes they will indeed be the same)
 -- The left hand columns are perfect composition cases, the right hand columns are non-cases i.e not perfect compositions.
 -- The perfect composition cases cover each force rule with (alternative) additions to make a perfect composition setting. 
-coverForceRules:: Diagram B
+coverForceRules :: Renderable (Path V2 Double) b => Diagram2D b
 coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
                      [ vsep 1 $ fmap expandLine lines1
                      , vsep 1 $ fmap expandLine lines2
@@ -530,29 +531,29 @@ coverForceRules = pad 1.05 $ centerXY $ lw ultraThin $ hsep 10
     d0 = scale phi $ alignBefore (restrictSmart g0 draw) (1,2) g0
 
 -- | diagram used to indicate an empty Tgraph (lime circle with diagonal line through it).
-emptyRep:: Diagram B
-emptyRep = lc orange $ (circle phi :: QDiagram B V2 Double Any) <> rotate (45@@deg) (hrule (3*phi))
+emptyRep :: Renderable (Path V2 Double) b => Diagram2D b
+emptyRep = lc orange $ (circle phi) <> rotate (45@@deg) (hrule (3*phi))
 
 
 -- | figure to check that force can complete a hole
-forceHoleTest :: Diagram B
+forceHoleTest :: Renderable (Path V2 Double) b => Diagram2D b
 forceHoleTest = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce boundaryFDart5
 
 -- | figure to check that force can complete a hole and extend from boundary faces
-forceFillTest :: Diagram B
+forceFillTest :: Renderable (Path V2 Double) b => Diagram2D b
 forceFillTest = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce g
     where g = checkedTgraph $ boundaryFaces $ makeBoundaryState $ dartDs!!6
 
 -- |showing intermediate state of filling the inlet and closing the gap of boundaryGapFDart5
 -- using stepForce 2000
-gapProgress5 :: Diagram B
+gapProgress5 :: Renderable (Path V2 Double) b => Diagram2D b
 gapProgress5 = padBorder $ lw ultraThin $ vsep 1 $ center <$> rotations [1,1]
     [ smartdraw g
     , smartdraw $ stepForce 2000 g
     ] where g = boundaryGapFDart5
 
 
-dartPic0,kitePic0,bigPic :: Diagram B
+dartPic0,kitePic0 :: Renderable (Path V2 Double) b => Diagram2D b
 {-| dartPic0 is a diagram of force/compose relationships for decomposed darts
     without arrows. 
 -}
@@ -590,6 +591,7 @@ kitePic0 = padBorder $ lw ultraThin $ position $ concat
 {-| bigPic is a diagram illustrating force/compose relationships for decomposed darts
     and decomposed kites. 
 -}
+bigPic :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 bigPic = addArrows dartPic0 === (box <> key) === addArrows kitePic0 where
     box = rect 120 22 # lw thin
     key = frame 1.1 $ centerXY $ hsep 40 [a,b,c,d]
@@ -608,7 +610,8 @@ bigPic = addArrows dartPic0 === (box <> key) === addArrows kitePic0 where
 
 
 -- | addArrows is used to put arrows in both dartPic0 and kitePic0 (and bigPic)
-addArrows:: Diagram B -> Diagram B
+addArrows:: Renderable (Path V2 Double) b =>
+            Diagram2D b -> Diagram2D b
 addArrows d = d  # composeArcRight "a3" "a2"
                  # composeArcRight "a2" "a1"
                  # composeArcRight "a1" "a0"
@@ -632,51 +635,58 @@ addArrows d = d  # composeArcRight "a3" "a2"
 
 
 -- |add a force arrow (black) from 2 named parts of a diagram
-forceArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+forceArrow :: (Renderable (Path V2 Double) b, IsName n1, IsName n2) =>
+              n1 -> n2 -> Diagram2D b -> Diagram2D b
 forceArrow = connectOutside' arrowStyleF where
   arrowStyleF = with & headLength .~ verySmall
                      & headGap .~ small & tailGap .~ large
 
 -- |add a (force . decompose) arrow (blue) from 2 named parts of a diagram
-forceDecArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+forceDecArrow :: (Renderable (Path V2 Double) b, IsName n1, IsName n2) =>
+                 n1 -> n2 -> Diagram2D b -> Diagram2D b
 forceDecArrow = connectOutside' arrowStyleFD where
   arrowStyleFD = with & headLength .~ verySmall & headStyle %~ fc blue
                       & shaftStyle %~ lc blue
                       & headGap .~ small & tailGap .~ small
 
 -- |add a decompose arrow (ddashed blue) from 2 named parts of a diagram
-decompArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+decompArrow :: (Renderable (Path V2 Double) b, IsName n1, IsName n2) =>
+               n1 -> n2 -> Diagram2D b -> Diagram2D b
 decompArrow = connectOutside' arrowStyleD where
   arrowStyleD  = with & headLength .~ verySmall & headStyle %~ fc blue
                       & shaftStyle %~ dashingN [0.005, 0.005] 0
                       & shaftStyle %~ lc blue & headGap .~ large & tailGap .~ large
 
 -- |add a compose arrow (green) from 2 named parts of a diagram
-composeArrow :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+composeArrow :: (Renderable (Path V2 Double) b, IsName n1, IsName n2) =>
+                n1 -> n2 -> Diagram2D b -> Diagram2D b
 composeArrow = connectOutside' arrowStyleC where
   arrowStyleC = with & headLength .~ verySmall
                       & headStyle %~ fc green & shaftStyle %~ lc green
                       & headGap .~ large & tailGap .~ large
 
 -- |add a compose arrow arc (green) from 2 named parts of a diagram and start/end angles
-composeArc :: (IsName n1, IsName n2) => n1 -> n2 -> Angle Double -> Angle Double -> Diagram B -> Diagram B
+composeArc :: (Renderable (Path V2 Double) b, IsName n1, IsName n2) =>
+              n1 -> n2 -> Angle Double -> Angle Double -> Diagram2D b -> Diagram2D b
 composeArc = connectPerim' arrowStyleC where
   arrowStyleC = with & arrowShaft .~ arc xDir (-1/10 @@ turn) & headLength .~ verySmall
                      & headStyle %~ fc green & shaftStyle %~ lc green
                      & headGap .~ large & tailGap .~ large
 
 -- |add a compose arrow arc (green) from 2 named parts of a diagram (horizontal left to right)
-composeArcRight :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+composeArcRight :: (Renderable (Path V2 Double) b, IsName n1, IsName n2) =>
+                   n1 -> n2 -> Diagram2D b -> Diagram2D b
 composeArcRight a b = composeArc a b (1/10 @@ turn) (4/10 @@ turn)
 
 -- |add a compose arrow arc (green) from 2 named parts of a diagram (vertical up)
-composeArcUp :: (IsName n1, IsName n2) => n1 -> n2 -> Diagram B -> Diagram B
+composeArcUp :: (Renderable (Path V2 Double) b, IsName n1, IsName n2) =>
+                n1 -> n2 -> Diagram2D b -> Diagram2D b
 composeArcUp a b = composeArc a b (3/10 @@ turn) (6/10 @@ turn)
 
 
 {-| curioPic0 is diagram curioPic without arrows
 -}
-curioPic0 :: Diagram B
+curioPic0 :: Renderable (Path V2 Double) b => Diagram2D b
 curioPic0 = padBorder $ lw ultraThin $ position $ concat
   [ zip pointsRa $ zipWith named ["a4","a3","a2","a1","a0"] (dots : fmap center forceDs)
   , zip pointsRb $ zipWith named ["b4", "b3","b2","b1"] (dots : fmap center forceXDs)
@@ -696,7 +706,7 @@ curioPic0 = padBorder $ lw ultraThin $ position $ concat
 {-| curioPic is a diagram illustrating where compose loses information not recovered by force
   with sun3Dart third item in bottom row, (curioPic0 is diagram without arrows)
 -}
-curioPic :: Diagram B
+curioPic :: Renderable (Path V2 Double) b => Diagram2D b
 curioPic =
   curioPic0  # composeArcRight "a3" "a2"
              # composeArcRight "a2" "a1"
@@ -730,7 +740,7 @@ curioPic =
 Testing (functions and figures and experiments)
 -}
 
-testForce4, testForce5 :: Diagram B
+testForce4, testForce5 :: Renderable (Path V2 Double) b => Diagram2D b
 -- |diagram of forced Tgraph for boundaryGapFDart4
 testForce4 = padBorder $ lw ultraThin $ drawForce boundaryGapFDart4
 -- |diagram of forced Tgraph for boundaryGapFDart5
@@ -742,7 +752,8 @@ testForce5 = padBorder $ lw ultraThin $ drawForce boundaryGapFDart5
 -- The boundary edges of a BoundaryState are shown in lime - using the BoundaryState positions of vertices.
 -- This is overlaid on the full graph drawn with vertex labels.
 -}
-testViewBoundary :: BoundaryState -> Diagram B
+testViewBoundary :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
+                    BoundaryState -> Diagram2D b
 testViewBoundary bd =  (drawEdges vpMap bdE # lc lime) <> labelSmall draw g where
     g = recoverGraph bd
     vpMap = bvLocMap bd
@@ -751,7 +762,8 @@ testViewBoundary bd =  (drawEdges vpMap bdE # lc lime) <> labelSmall draw g wher
 -- |used to discover accuracy problem of older thirdVertexLoc
 -- view tha boundary after n steps of forcing (starting with boundaryGapFDart5)
 -- e.g. n = 1900 for inspectForce5 or 200 for inspectForce3
-inspectForce5,inspectForce3 :: Int -> Diagram B
+inspectForce5,inspectForce3 :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
+                               Int -> Diagram2D b
 inspectForce5 n = padBorder $ lw ultraThin $
                   testViewBoundary $ stepForce n (makeBoundaryState boundaryGapFDart5)
 
@@ -760,17 +772,17 @@ inspectForce3 n = padBorder $ lw ultraThin $
 
 
 -- |figures showing boundary edges of the boundary gap graphs boundaryGapFDart4 and boundaryGapFDart5 
-testBoundary4, testBoundary5 :: Diagram B
+testBoundary4, testBoundary5 :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 testBoundary4 =  padBorder $ lw ultraThin $ addBoundaryAfter (labelSmall draw) boundaryGapFDart4
 testBoundary5 =  padBorder $ lw ultraThin $ addBoundaryAfter (labelSmall draw) boundaryGapFDart5
 
 -- |test wholeTiles (which adds missing second halves of each face)
-checkCompleteFig:: Diagram B
+checkCompleteFig :: Renderable (Path V2 Double) b => Diagram2D b
 checkCompleteFig =  padBorder $ hsep 1 $ fmap drawj [sunD4, wholeTiles sunD4] where sunD4 = sunDs !! 4
 
 
 -- |figure testing selectFacesVP by removing all kites
-dartsOnlyFig :: Diagram B
+dartsOnlyFig  :: Renderable (Path V2 Double) b => Diagram2D b
 dartsOnlyFig = padBorder $ lw thin $ draw $ selectFacesVP darts $ makeVP g where
     g = force $ sunDs !! 5
     darts = filter isDart $ faces g
@@ -785,13 +797,13 @@ hollowGraph = removeFaces (faces x) fx where
   fd2 = force (dartDs!!2)
 
 -- |figure showing hollowGraph and the result of forcing which fills the hole
-forceHollowFig:: Diagram B
+forceHollowFig :: Renderable (Path V2 Double) b => Diagram2D b
 forceHollowFig = padBorder $  lw ultraThin $ hsep 1 $ fmap draw [hollowGraph, force hollowGraph]
 
 -- |What happens if you take the first result of twoChoices, then 
 -- select only the faces that were added by force, then force just these faces?
 -- It does not quite complete the original faces    
-forcedNewFaces:: Diagram B
+forcedNewFaces :: Renderable (Path V2 Double) b => Diagram2D b
 forcedNewFaces = padBorder $ lw thin $ drawForce g2 where
     g1 = addHalfDart (223,255) (force dartD4)
     g2 = removeFaces (faces g1) (force g1)
@@ -816,7 +828,7 @@ trackTwoChoices de g = [ttg1,ttg2] where
 
 -- |forced 4 times decomposed dart (used for identifying particular boundary
 -- edges in twoChoices and moreChoices)
-forceDartD4Fig:: Diagram B
+forceDartD4Fig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 forceDartD4Fig = padBorder $ lw ultraThin $ labelSmall drawj $ force dartD4
 -- |Take a forced, 4 times decomposed dart, then track the two choices
 twoChoices:: [TrackedTgraph]
@@ -824,11 +836,12 @@ twoChoices = trackTwoChoices (223,255) (force dartD4) --(233,201)
 
 -- |show the result of (tracked) two choices
 -- with tracked faces in red, new face filled black. 
-drawChoice:: TrackedTgraph -> Diagram B
+drawChoice :: Renderable (Path V2 Double) b =>
+              TrackedTgraph -> Diagram2D b
 drawChoice = drawTrackedTgraph [draw, lc red . draw, fillDK black black]
 
 -- |show the (tracked) twoChoices with (tracked faces in red, new face filled black)  
-twoChoicesFig:: Diagram B
+twoChoicesFig :: Renderable (Path V2 Double) b => Diagram2D b
 twoChoicesFig  = padBorder $ lw ultraThin $ hsep 1 $ fmap drawChoice twoChoices
 
 -- |track two further choices with the first of twoChoices (fullgraph)  
@@ -840,7 +853,7 @@ moreChoices1:: [TrackedTgraph]
 moreChoices1 = trackTwoChoices (200,241) (tgraph $ twoChoices !! 1) --(178,219)
 
 -- |figures for 4 further choices
-moreChoicesFig0,moreChoicesFig1,moreChoicesFig:: Diagram B
+moreChoicesFig0,moreChoicesFig1,moreChoicesFig :: Renderable (Path V2 Double) b => Diagram2D b
 moreChoicesFig0 =  padBorder $ lw ultraThin $ hsep 10 $ fmap drawChoice moreChoices0
 moreChoicesFig1 =  padBorder $ lw ultraThin $ hsep 1 $ fmap drawChoice moreChoices1
 moreChoicesFig  =  vsep 1 [moreChoicesFig0,moreChoicesFig1]
@@ -866,7 +879,7 @@ kitePlusKite = addHalfKite (1,5) $ addHalfKite (1,3) kiteGraph
 
 -- |halfWholeFig shows that a whole dart/kite needs to be added to get the same result as twoChoicesFig
 -- Adding a half tile has no effect on the forced decomposition
-halfWholeFig:: Diagram B
+halfWholeFig :: Renderable (Path V2 Double) b => Diagram2D b
 halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 figs, drop 2 figs]
   where
     figs = zipWith redEmbed scaledCases forcedD4Cases
@@ -878,7 +891,7 @@ halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 figs, 
 
 -- |Two kites and forceDecomp twice.
 -- Composition will reverse the forceDecomps (as in relatedVTypesFig)
-kkEmpsFig:: Diagram B
+kkEmpsFig :: Renderable (Path V2 Double) b => Diagram2D b
 kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [9,0,0] $
             fmap draw  [kk, kkD, kkD2] where
               kk = kitePlusKite
@@ -890,7 +903,7 @@ kkEmpsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [9,0,0] $
 -- of a forceDecomp of the previous rocket. No cone added to the last rocket.
 -- In each case, adding a kite half at the tip instead of a dart would be an incorrect Tgraph.
 -- (See superForce examples).
-rocketsFig:: Diagram B
+rocketsFig :: Renderable (Path V2 Double) b => Diagram2D b
 rocketsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [8,9,9,8,8,9] $
              fmap draw [rc0,rc1,rc2,rc3,rc4,rc5] where
   rc0 = sun3Dart
@@ -912,7 +925,7 @@ rocketsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [8,9,9,8,8,9] $
 
 -- |6 times forced and decomposed kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
 -- There are 2906 faces for kingD6 before forcing.
-kingFD6:: Diagram B
+kingFD6 :: Renderable (Path V2 Double) b => Diagram2D b
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makeVP $
           allForceDecomps kingGraph !!6
 
@@ -932,14 +945,14 @@ on edge (76,77) which fails on forcing showing it is an incorrect Tgraph, and be
 (added half dart on the same boundary edge) after forcing.
 It establishes that a single legal face addition to a forced Tgraph can be an incorrect Tgraph.
 -}
-oneChoiceFig:: Diagram B
+oneChoiceFig  :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 oneChoiceFig = padBorder $ lw ultraThin $ vsep 1 $
                      fmap (smart (labelSmall draw)) [oneChoiceGraph,incorrectExtension,successful] where
   successful = force $ addHalfDart (76,77) oneChoiceGraph
   incorrectExtension = addHalfKite (76,77) oneChoiceGraph -- fails on forcing
 
 -- | Figure showing boundaryECovering of oneChoiceGraph
-coveringOneChoiceFig:: Diagram B
+coveringOneChoiceFig :: Renderable (Path V2 Double) b => Diagram2D b
 coveringOneChoiceFig = pad 1.02 $ lw ultraThin $ arrangeRows 3 $
   fmap drawCase beCover where
     beCover = boundaryECovering (makeBoundaryState oneChoiceGraph)
@@ -950,7 +963,8 @@ coveringOneChoiceFig = pad 1.02 $ lw ultraThin $ arrangeRows 3 $
 -- boundaryLoopsG and pathFromBoundaryLoops. The conversion of the Path to a Diagram allows
 -- a fill colour to be used for the entire internal part of the Tgraph - i.e. not by filling the individual tilefaces.
 -- It also associates vertex labels with the respective positions in the diagram using a vertexNames attribute.
-boundaryLoopFill:: Colour Double -> Tgraph -> Diagram B
+boundaryLoopFill :: Renderable (Path V2 Double) b =>
+                    Colour Double -> Tgraph -> Diagram2D b
 boundaryLoopFill c g = dg # lw ultraThin <> d # fc c where
     vp = makeVP g
     dg = draw vp
@@ -958,7 +972,7 @@ boundaryLoopFill c g = dg # lw ultraThin <> d # fc c where
     bdLoops = boundaryLoopsG g
     d = strokeP' (with & vertexNames .~ bdLoops) $ pathFromBoundaryLoops vlocs bdLoops
 
-testLoops1,testLoops2:: Diagram B
+testLoops1,testLoops2 :: Renderable (Path V2 Double) b => Diagram2D b
 -- | diagram using boundaryLoopFill with a single boundary loop
 testLoops1 = padBorder $ boundaryLoopFill honeydew boundaryGapFDart4
 
@@ -983,7 +997,7 @@ as the edge to match with (1,15),
 The bottom row is as for the row above but using (1,18) as the edge to match with (1,15)
 resulting in a different union.
 -}
-testRelabellingFig:: Diagram B
+testRelabellingFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 testRelabellingFig = 
   padBorder $ lw ultraThin $ vsep 1
     [ hsep 1 $ center <$> take 2 eight
@@ -1017,7 +1031,7 @@ g2 and g1 is not a simple tile connected region.
 A call to relabelTouching is essential to produce a valid Tgraph.
 The correct fullUnion is shown bottom right.
 -}
-incorrectAndFullUnionFig:: Diagram B
+incorrectAndFullUnionFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
                             [ hsep 1 $ center <$> take 2 thelist
                             , hsep 1 $ center <$> drop 2 thelist
@@ -1040,7 +1054,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
 {-| Example showing the use of commonFaces.
  This is applied to the pairs from forcedKingChoicesFig
 -}
-testCommonFacesFig :: Diagram B
+testCommonFacesFig :: Renderable (Path V2 Double) b => Diagram2D b
 testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23),(49,59)] where
     fk = force kingGraph
     drawTracked = drawTrackedTgraph [draw, lc red . draw, fillDK black black]
@@ -1069,7 +1083,7 @@ kiteWingLongStart   = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK
 -- The BoundaryState is a single whole tile (2 faces) and the edge is one of those at the vertex.
 kiteOppShortStart    = (1, (1,2), wholeTiles $ makeBoundaryState $ makeTgraph [LK (3,2,1)])
 
-checkDartOrigin, checkKiteOrigin, checkKiteWing,checkKiteOpp :: Diagram B
+checkDartOrigin, checkKiteOrigin, checkKiteWing,checkKiteOpp :: Renderable (Path V2 Double) b => Diagram2D b
 -- |Diagram to check correct and incorrect tilings at a dart origin
 checkDartOrigin = bvCheck dartOriginLongStart
 -- |Diagram to check correct and incorrect tilings at a kite origin
@@ -1084,7 +1098,7 @@ checkKiteOpp    = bvCheck kiteOppShortStart
 -- this uses newcases to generate all cases where v is still on the boundary.
 -- It uses the edge to check for repeated cases to reduce repetitions.
 -- It also raises an error if v is not a boundary vertex and if e is not an edge of boundaryState
-genLocalsWith:: (BoundaryState -> [BoundaryState]) -> (Vertex, Dedge, BoundaryState) -> [BoundaryState]
+genLocalsWith :: (BoundaryState -> [BoundaryState]) -> (Vertex, Dedge, BoundaryState) -> [BoundaryState]
 genLocalsWith newcases (v,edge,bd) 
   | v `notElem` fmap fst (boundary bd) 
         = error $ "genLocalsWith: vertex " ++ show v ++ " must be on the boundary."
@@ -1099,7 +1113,7 @@ genLocalsWith newcases (v,edge,bd)
 -- | occursIn bds b e - asks if (the Tgraph of) b occurs in the list (of Tgraphs of) bds
 -- after relabelling to match edge e in each case.
 --  e can be a directed edge from any face of b or a boundary directed edge of b (in which case it is reversed).
-occursIn:: [BoundaryState] -> BoundaryState -> Dedge -> Bool
+occursIn :: [BoundaryState] -> BoundaryState -> Dedge -> Bool
 occursIn bds b e
   = any bmatches bds
     where bmatches bd = sameGraph (recoverGraph b,edge) (recoverGraph bd,edge)
@@ -1109,24 +1123,25 @@ occursIn bds b e
 -- | Given a start case (v, e, boundaryState) where v is a boundary vertex and e is an edge of boundaryState
 -- this generates all wholetile complete extensions of boundaryState where v is still on the boundary
 -- by adding faces at v. This may include incorrect (stuck) cases. 
-bvCases:: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
+bvCases :: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
 bvCases start@(v,_,_) = genLocalsWith newcases start where
     newcases open = concatMap (extend open) (boundaryEdgesAt v open)
     extend open d = ignoreFails $ fmap (tryForceWith wholeTileUpdates) $
                     ignoreFails $ tryDartAndKite d open
 
 -- |boundaryEdgesAt v bd - returns the boundary edges in BoundaryState bd that have v as a vertex.
-boundaryEdgesAt:: Vertex -> BoundaryState -> [Dedge]
+boundaryEdgesAt :: Vertex -> BoundaryState -> [Dedge]
 boundaryEdgesAt v = boundaryEdgesWith [v] 
 
 -- |boundaryEdgesWith vs bd - returns all boundary edges in BoundaryState bd that have a vertex in vs.
-boundaryEdgesWith:: [Vertex] -> BoundaryState -> [Dedge]
+boundaryEdgesWith :: [Vertex] -> BoundaryState -> [Dedge]
 boundaryEdgesWith vs = filter (\(x,y) -> x `elem` vs || y `elem` vs) . boundary 
 
 -- | Given a start case (v, e, boundaryState) where v is a boundary vertex and e is an edge of boundaryState
 -- this generates the extensions at v of  boundaryState (using bvCases) then partitions results
 -- into correct and incorrect cases (using tryForce). It then draws the group of correct cases above the incorrect cases.
-bvCheck:: (Vertex, Dedge, BoundaryState) -> Diagram B
+bvCheck :: Renderable (Path V2 Double) b =>
+           (Vertex, Dedge, BoundaryState) -> Diagram2D b
 bvCheck start@(v,edge,_) = 
   padBorder $ lw ultraThin $ vsep 5 $ 
   [arrangeRows 7 (fmap drawit ok), arrangeRows 7 (fmap drawit notok)] where
@@ -1148,7 +1163,7 @@ Generating Forced Boundary Vertex Contexts
 -- It first generates local cases for bd by repeatedly adding kite/dart on 4 boundary edges (2 on either side of v) and forcing.
 -- It then generates further contexts in each case by adding all possibilities to the rest of the new boundary (except the 4 nearest edges). This is repeated if the composed Tgraph of any resulting BoundaryState is empty.
 -- Any case where v is no longer on the boundary is excluded.
-genFContexts:: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
+genFContexts :: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
 genFContexts start@(v ,edge, _) = contexts [] $ setup <$> genLocalsWith newcases start where
   newcases open = concatMap (atLeastOne . (`tryDartAndKiteForced` open)) (boundary4 v open)
   setup bs = (bs, boundaryEdgeSet bs Set.\\ Set.fromList (boundary4  v bs))
@@ -1170,7 +1185,7 @@ genFContexts start@(v ,edge, _) = contexts [] $ setup <$> genLocalsWith newcases
 -- returns the list of 4 directed boundary edges (2 on each side of v) in BoundaryState bd.
 -- There could be a repeated directed edge in the result if bd represents a Tgraph with a single face, however
 -- this cannot be the case when bd represents a forced Tgraph.
-boundary4:: Vertex -> BoundaryState -> [Dedge]
+boundary4 :: Vertex -> BoundaryState -> [Dedge]
 boundary4 v bd = affectedBoundary bd es where
   es = boundaryEdgesAt v bd
 
@@ -1182,7 +1197,7 @@ Note that dart wing cases are a subset of kite opp cases.
 (A dart opp cannot be on the boundary of a forced Tgraph).
 Repetitions have been removed.
 -}
-forcedBVContextsFig :: Diagram B
+forcedBVContextsFig :: Renderable (Path V2 Double) b => Diagram2D b
 forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5
 -- fmap (arrangeRows 10) [alldartOriginDiags, allkiteOriginDiags, allkiteWingDiags, allkiteOppDiags] where
   [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
@@ -1201,7 +1216,8 @@ forcedBVContextsFig = padBorder $ lw ultraThin $ vsep 5
 -- |drawVContext v e g - draws the Tgraph g with vertex v shown red and edge e aligned on the x-axis and
 -- the composition of g shown in yellow.
 -- It raises an error if the vertex or edge is not found.
-drawVContext::Vertex -> Dedge -> Tgraph -> Diagram B
+drawVContext :: Renderable (Path V2 Double) b =>
+                Vertex -> Dedge -> Tgraph -> Diagram2D b
 drawVContext v edge g = drawv <> drawg <> drawComp where
     vp = makeAlignedVP edge g
     drawg = draw vp
@@ -1215,11 +1231,11 @@ drawVContext v edge g = drawv <> drawg <> drawComp where
 -- |Diagram showing all local forced contexts for a sun vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- 5 fold symmetry is used to remove rotated duplicates.
-sunVContextsFig :: Diagram B
+sunVContextsFig :: Renderable (Path V2 Double) b => Diagram2D b
 sunVContextsFig = padBorder $ lw ultraThin $ arrangeRows 7 $ fmap (drawVContext 1 (1,3)) sunContexts
 
 -- |Diagram showing only the cases from sunVContextFig where the vertex is on the composition boundary
-sunVContextsCompBoundary :: Diagram B
+sunVContextsCompBoundary :: Renderable (Path V2 Double) b => Diagram2D b
 sunVContextsCompBoundary = padBorder $ lw ultraThin $ hsep 1 $
                            fmap (drawVContext 1 (1,3) . (sunContexts!!)) [2,3,4,7,9,11]
    -- only show cases where v is on the composition boundary and remove one indexed as 10 - a mirror symetric version of 7
@@ -1227,7 +1243,7 @@ sunVContextsCompBoundary = padBorder $ lw ultraThin $ hsep 1 $
 -- |All local forced contexts for a sun vertex (as BoundaryStates).
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- 5 fold symmetry is used to remove rotated duplicates.
-sunContexts:: [Tgraph]
+sunContexts :: [Tgraph]
 sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
   bStart = makeBoundaryState sunGraph
 -- occursRotatedIn deals with 5 rotational symmetries of the sunGraph
@@ -1249,7 +1265,7 @@ sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] wh
 -- |Diagram showing local contexts in a forced Tgraph for a fool/ace vertex.
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- Mirror symmetric versions have been removed.
-foolVContextsFig:: Diagram B
+foolVContextsFig :: Renderable (Path V2 Double) b => Diagram2D b
 foolVContextsFig  = padBorder $ lw ultraThin $ arrangeRows 8 $ 
                     fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
                     [0,1,2,3,4,5,6,7,9,10,13,14,15,16,17,18,20,22,25,26,27]
@@ -1261,7 +1277,7 @@ foolVContextsFig  = padBorder $ lw ultraThin $ arrangeRows 8 $
 
 -- |Diagram showing only the cases from foolVContextsFig where
 -- the vertex is on the composition boundary
-foolVContextsCompBoundary:: Diagram B
+foolVContextsCompBoundary :: Renderable (Path V2 Double) b => Diagram2D b
 foolVContextsCompBoundary  = padBorder $ lw ultraThin $ arrangeRows 4 $ 
                              fmap (drawVContext 3 (1,4) . (foolContexts!!)) 
                               [1,4,9,14,18,20,25,27]
@@ -1272,7 +1288,7 @@ foolVContextsCompBoundary  = padBorder $ lw ultraThin $ arrangeRows 4 $
 -}
 
 -- | Generates the cases for fool vertex contexts in a forced Tgraph (some mirror symetric duplicates)
-foolContexts:: [Tgraph]
+foolContexts :: [Tgraph]
 foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
   edge = (1,4)
   bStart = makeBoundaryState fool
@@ -1304,7 +1320,7 @@ by making additions round the rest of the new boundary in each case.
 Repetitions are removed using 'sameGraph' with edge e.
 The resulting contexts are returned as a list of BoundaryStates.      
 -}
-forcedBEContexts:: Dedge -> BoundaryState -> [BoundaryState]
+forcedBEContexts :: Dedge -> BoundaryState -> [BoundaryState]
 forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
 -- after applying locals this setsup cases for processing by contexts
   setup bd = (bd, Set.delete edge $ boundaryEdgeSet bd)
@@ -1335,7 +1351,7 @@ forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
 -- |boundaryEdgeNbs bde b - returns the list of 2 directed boundary edges either side
 --  of the directed boundary edge bde in BoundaryState b.
 -- It raises an error if bde is not a boundary edge of b.
-boundaryEdgeNbs:: Dedge -> BoundaryState -> [Dedge]
+boundaryEdgeNbs :: Dedge -> BoundaryState -> [Dedge]
 boundaryEdgeNbs (a,b) bd = boundaryEdgesWith [a,b] bd \\ [(a,b)]
 
 
@@ -1349,7 +1365,7 @@ the composition is empty.
 We remove any Tgraphs where the red edge is no longer on the boundary and remove any repeated cases.
 The composition of each Tgraph is shown filled yellow (no yellow means empty composition).
 -}
-forcedBEContextsFig :: Diagram B
+forcedBEContextsFig :: Renderable (Path V2 Double) b => Diagram2D b
 forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7)
                       [ fmap (dartLongDiags!!)  [1,2,3,6,7,8,9,10,12,13,14,15,16]
                       , fmap (kiteLongDiags!!)  [2,3,4] ++ drop 6 kiteLongDiags
@@ -1381,7 +1397,7 @@ is shown underneath. This establishes that no boundary vertex changes for a forc
 when applying (compose . force . decompose).
 Dart wing cases are a subset of kite opp cases, and dart opp cases are not on the boundary for forced Tgraphs.
 -}
-checkCFDFig :: Diagram B
+checkCFDFig :: Renderable (Path V2 Double) b => Diagram2D b
 checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
               [dartOriginDiags, kiteOriginDiags, kiteWingDiags, kiteOppDiags] where
   dartOriginDiags = take 11 alldartOriginDiags ++ fmap (alldartOriginDiags!!) [15,18,21,23]
@@ -1408,14 +1424,14 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
 -- | For a proof that (compose . force . decompose) gF = gF for froced Tgraphs gF
 -- All internal vertices are dealt with by relatedVTypeFig except for the (forced) star case
 -- which this figure deals with.
-checkCFDStar:: Diagram B
+checkCFDStar :: Renderable (Path V2 Double) b => Diagram2D b
 checkCFDStar = padBorder $ hsep 1 [drawForce starGraph, draw $ compose sfDf, draw sfDf]
    where sfDf = (force . decompose . force) starGraph
 
 
 
 -- | Diagram illustrating 3 cases for groups of remainder half-tiles (when composing a forced Tgraph)
-remainderGroupsFig:: Diagram B
+remainderGroupsFig :: Renderable (Path V2 Double) b => Diagram2D b
 remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
     halfFoolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3)]
     hfDiag = lc yellow (drawEdgesIn halfFoolVP [(1,2),(2,4)])
@@ -1442,7 +1458,7 @@ remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
 -- It could also be completed by forcing kingGraph before the decompositions as in
 -- force $ decompositions (force kingGraph) !!6  as this only requires
 -- 53574 - 35710 = 17864 faces added in the final force.
-forceLimit :: Diagram B
+forceLimit :: Renderable (Path V2 Double) b => Diagram2D b
 forceLimit = padBorder $ lw ultraThin $ vsep 5 $ fmap draw [g,g'] where
    g = stepForce 48754 $ decompositions kingGraph !!6
    g' = recalibratingForce $ decompositions kingGraph !!6

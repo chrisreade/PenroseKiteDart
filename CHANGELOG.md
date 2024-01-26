@@ -1,5 +1,18 @@
 # Revision history for PenroseKiteDart
 
+## 0.5.0.0 -- 2024-01-26
+
+(Removed ChosenBackEnd)
+Only Main now imports a Backend (in preparation for creating library only).
+Types have been generalised in modules that were previously using Backend B 
+e.g.
+
+    pCompFig :: Diagram B
+
+has become
+
+    pCompFig :: Renderable (Path V2 Double) b => Diagram2D b
+
 
 ## 0.4.0.0 -- 2023-10-27
 

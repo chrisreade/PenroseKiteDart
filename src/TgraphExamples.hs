@@ -26,7 +26,7 @@ Some Layout tools
 
 -- |used for most diagrams to give border padding
 -- padBorder:: Diagram B -> Diagram B
-padBorder :: Renderable (Path V2 Double) b => Diagram2D b -> Diagram2D b
+padBorder :: Diagram2D b -> Diagram2D b
 padBorder = pad 1.2 . centerXY
 
 -- |chunks n l -  split a list l into chunks of length n (n>0)
@@ -40,12 +40,12 @@ chunks n
 -- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
 -- The result is a single diagram (seperation is 1 unit vertically and horizontally).
 -- arrangeRows :: Int -> [Diagram B] -> Diagram B
-arrangeRows :: Renderable (Path V2 Double) b => 
-               Int -> [Diagram2D b] -> Diagram2D b
+
+arrangeRows :: Int -> [Diagram2D b] -> Diagram2D b
 arrangeRows n = centerY . vsep 1 . fmap (centerX . hsep 1) . chunks n
 
 -- |add a given label at a given point offset from the centre of the given diagram
-labelAt :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
+labelAt :: Renderable (Text Double) b => 
            Point V2 Double -> String -> Diagram2D b -> Diagram2D b
 labelAt p l d = baselineText l # fontSize (output 15) # moveTo p <> d
 --labelAt p l d = baselineText l # fontSize (normalized 0.02) # moveTo p <> d
@@ -119,7 +119,7 @@ dartD4 = dartDs!!4
 {-* Partial Composition figures
 -}
 
-pCompFig1,pCompFig2,pCompFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+pCompFig1,pCompFig2,pCompFig :: Renderable (Path V2 Double) b => Diagram2D b
 -- |diagram showing partial composition of a forced 3 times decomposed dart (with remainder faces in pale green)
 pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
             where fd3 = force $ dartDs!!3
@@ -138,7 +138,7 @@ forceFoolDminus = padBorder $ hsep 1 $ fmap (labelled drawj) [foolDminus, force 
 
 
 -- |diagrams of forced graphs (5 times decomposed kite or dart or sun)           
-forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig :: Renderable (Path V2 Double) b => Diagram2D b
 forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
 forceKiteD5Fig = padBorder $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
 forceSunD5Fig =  padBorder $ drawForce $ sunDs !! 5
@@ -146,13 +146,13 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 -- |an example showing a 4 times forceDecomp pair of darts (sharing a long edge),
 -- with the maximal compForce Tgraph (a kite) overlaid in red
-maxExampleFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+maxExampleFig :: Renderable (Path V2 Double) b => Diagram2D b
 maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlusDart !! 4 where
                  dartPlusDart = addHalfDart (1,5) $ addHalfDart (1,2) dartGraph
 
 -- |showing 4 emplaceChoices for foolD 
 -- Uses revised emplaceChoices.
-emplaceChoicesFoolD :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+emplaceChoicesFoolD :: Renderable (Path V2 Double) b => Diagram2D b
 emplaceChoicesFoolD = padBorder $ hsep 1 $
         fmap (addFoolD . lw ultraThin . draw) vpChoices where
         (vpFoolD:vpChoices) = alignAll (1,6) $ fmap makeVP (foolD:emplaceChoices foolD)
@@ -194,7 +194,7 @@ badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, v
 
 -- |figure showing the result of removing incomplete tiles (those that do not have their matching halftile)
 -- to a 3 times decomposed sun.
-removeIncompletesFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+removeIncompletesFig :: Renderable (Path V2 Double) b => Diagram2D b
 removeIncompletesFig = padBorder $ drawj $ removeFaces (boundaryJoinFaces g) g where 
     g = sunDs !! 3
 
@@ -264,7 +264,7 @@ starGraph = makeTgraph
   ]
 
 {-|forceVFigures is a list of 7 diagrams - force of 7 vertex types -}
-forceVFigures :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => [Diagram2D b]
+forceVFigures :: Renderable (Path V2 Double) b => [Diagram2D b]
 forceVFigures = rotations [0,0,9,5,0,0,1] $
                 fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
 
@@ -287,13 +287,13 @@ sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) sun2AdjDart
 
 -- |Diagram showing superForce with initial Tgraph g (red), force g (red and black),
 -- and superForce g (red and black and blue).
-superForceFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+superForceFig :: Renderable (Path V2 Double) b => Diagram2D b
 superForceFig = padBorder $ rotate (ttangle 1) $ drawSuperForce g where
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
 
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
 -- of sun3Dart. The decompositions are in red with normal force additions in black and superforce additions in blue.
-superForceRocketsFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+superForceRocketsFig :: Renderable (Path V2 Double) b => Diagram2D b
 superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
    fmap drawSuperForce decomps where
       decomps = take 4 $ decompositions sun3Dart
@@ -332,7 +332,7 @@ Boundary coverings and empires
 
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
 -- (with the Tgraph represented by bd shown in red in each case)
-boundaryVCoveringFigs :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) =>
+boundaryVCoveringFigs :: Renderable (Path V2 Double) b =>
                          BoundaryState -> [Diagram2D b]
 boundaryVCoveringFigs bd =
     fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryVCovering bd
@@ -342,7 +342,7 @@ boundaryVCoveringFigs bd =
 
 -- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
 -- (with the Tgraph represented by bd shown in red in each case)
-boundaryECoveringFigs :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) =>
+boundaryECoveringFigs :: Renderable (Path V2 Double) b =>
                          BoundaryState -> [Diagram2D b]
 boundaryECoveringFigs bd =
     fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryECovering bd
@@ -351,13 +351,13 @@ boundaryECoveringFigs bd =
             g = recoverGraph bd
 
 -- | diagram showing the boundaryECovering of a forced kingGraph
-kingECoveringFig,kingVCoveringFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+kingECoveringFig,kingVCoveringFig :: Renderable (Path V2 Double) b => Diagram2D b
 kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoveringFigs $ force $ makeBoundaryState kingGraph
 -- | diagram showing the boundaryVCovering of a forced kingGraph
 kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoveringFigs $ force  $ makeBoundaryState kingGraph
 
 -- | figures showing King's empires (1 and 2)
-kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig :: Renderable (Path V2 Double) b => Diagram2D b
 kingEmpiresFig = padBorder $ hsep 10 [kingEmpire1Fig, kingEmpire2Fig]
 kingEmpire1Fig = drawEmpire1 kingGraph
 kingEmpire2Fig = drawEmpire2 kingGraph

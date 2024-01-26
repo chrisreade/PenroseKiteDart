@@ -3,19 +3,20 @@
 {-# LANGUAGE TypeFamilies              #-}
     
 import Diagrams.Prelude
-import ChosenBackend (B, mainWith)
+import Diagrams.Backend.SVG.CmdLine
+--import ChosenBackend (B, mainWith)
 
 import TgraphExamples
 import TestIllustrate
 
 -- imported for testing / debugging only
 import TileLib
-import Tgraphs
 
+import Tgraphs
 import ArtWork
                
 fig::Diagram B
-fig = sampleFig0
+fig = forcedSunrise
 
 main :: IO ()
 main = mainWith fig
