@@ -4,19 +4,28 @@
     
 import Diagrams.Prelude
 import Diagrams.Backend.SVG.CmdLine
---import ChosenBackend (B, mainWith)
+{-
+-- for svg output
+import Diagrams.Backend.SVG.CmdLine as Backend
+
+-- for eps output
+import Diagrams.Backend.Postscript.CmdLine as Backend
+
+-- for gif/animated gif/png/jpg/tif/bmp/pdf output NOT svg
+import Diagrams.Backend.Rasterific.CmdLine as Backend
+-}
 
 import TgraphExamples
-import TestIllustrate
 
 -- imported for testing / debugging only
 import TileLib
-
 import Tgraphs
+
+import TestIllustrate
 import ArtWork
                
 fig::Diagram B
-fig = forcedSunrise
+fig = brokenDartFig
 
 main :: IO ()
 main = mainWith fig

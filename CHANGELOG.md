@@ -25,7 +25,7 @@ Modules:
       HalfTile.hs              -- (Half)Tile constructors - used by TileLib and Tgraph.Prelude
       ChosenBackend.hs         -- switch between e.g. SVG or PostScript
       TileLib.hs               -- Drawing of Pieces (and Patches)
-      Tgraphs.hs               -- Main Graph Ops (imports and reexports all modules in Tgraph except Tgraph.Convert
+      Tgraphs.hs               -- Main Graph Ops (imports and reexports all modules in Tgraph and adds extra ops)
       Tgraph/
          Tgraph.Prelude.hs     -- (imports and reexports HalfTile)
          Tgraph.Decompose.hs

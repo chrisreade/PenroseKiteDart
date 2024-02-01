@@ -23,7 +23,6 @@ import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup,
 import qualified Data.Map.Strict as Map (lookup, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 import Data.Maybe (mapMaybe)
-
 import qualified Data.IntSet as IntSet (member) -- for vertex set in relevantVPLabelledWith
 
 import Diagrams.Prelude
@@ -125,13 +124,13 @@ instance Drawable Tgraph where
 
 -- | A class for things that can be drawn with labels when given a measure for the label size and a 
 -- a draw function (for Patches).
--- Thus labelSize m is a modifier of the Patch drawing function to add labels (of size measure m).
--- (Measures are defined in Diagrams - normalized/output/local/global)
+-- Thus labelSize m is a modifier of any Patch drawing function to add labels (of size measure m).
+-- (Measures are defined in Diagrams - normalized\/output\/local\/global).
 -- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
--- labelSize m draw :: DrawableLabelled a => a -> Diagram B
--- However labelSize m1 (labelSize m2 draw) does not typecheck
+-- labelSize m draw :: DrawableLabelled a => a -> Diagram B.
+-- However labelSize m1 (labelSize m2 draw) does not typecheck.
 class DrawableLabelled a where
---  labelSize :: Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
+-- When a specific Backend B is in scope,  labelSize :: Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
   labelSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
                Measure Double -> (Patch -> Diagram2D b) -> a -> Diagram2D b
 
@@ -139,7 +138,7 @@ class DrawableLabelled a where
 -- | VPatches can be drawn with labels
 instance DrawableLabelled VPatch where
   labelSize r d vp = drawLabels r (vLocs vp) <> d (dropLabels vp) where
-    -- drawLabels :: Measure Double -> VertexLocMap -> Diagram B
+    -- When a specific Backend B is in scope, drawLabels :: Measure Double -> VertexLocMap -> Diagram B
      drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
        where drawlabel(v,p) = (p, baselineText (show v) # fontSize r # fc red)
 
@@ -147,15 +146,17 @@ instance DrawableLabelled VPatch where
 instance DrawableLabelled Tgraph where
   labelSize r d = labelSize r d . makeVP
 
--- labelled,labelSmall,labelLarge :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
 labelled,labelSmall,labelLarge :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
                                   (Patch -> Diagram2D b) -> a -> Diagram2D b
 -- | Version of labelSize with a default normal label size. Example usage: labelled draw a , labelled drawj a
+-- When a specific Backend B is in scope, labelled :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
 labelled = labelSize (normalized 0.024)
--- | Version of labelSize with a default small label size. Example usage: labelSmall draw a , labelSmall drawj a 
-labelSmall = labelSize (normalized 0.007)
 -- | Version of labelSize with a default large label size. Example usage: labelLarge draw a , labelLarge drawj a 
+-- When a specific Backend B is in scope, labelLarge :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
 labelLarge = labelSize (normalized 0.036) 
+-- | Version of labelSize with a default small label size. Example usage: labelSmall draw a , labelSmall drawj a 
+-- When a specific Backend B is in scope, labelSmall :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
+labelSmall = labelSize (normalized 0.006)
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
@@ -325,28 +326,28 @@ thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
 
 -- |produce a diagram of a list of edges (given a VPatch)
 -- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
--- drawEdgesIn :: VPatch -> [Dedge] -> Diagram B
+-- When a specific Backend B is in scope, drawEdgesIn :: VPatch -> [Dedge] -> Diagram B
 drawEdgesIn :: Renderable (Path V2 Double) b =>
                VPatch -> [Dedge] -> Diagram2D b
 drawEdgesIn vp = drawEdges (vLocs vp) --foldMap (drawEdgeWith vp)
 
 -- |produce a diagram of a single edge (given a VPatch)
 -- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
--- drawEdgeWith :: VPatch -> Dedge -> Diagram B
+-- When a specific Backend B is in scope, drawEdgeWith :: VPatch -> Dedge -> Diagram B
 drawEdgeWith:: Renderable (Path V2 Double) b =>
                VPatch -> Dedge -> Diagram2D b
 drawEdgeWith vp = drawEdge (vLocs vp)
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
 -- Will raise an error if any vertex of the edges is not a key in the mapping.
--- drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
+-- When a specific Backend B is in scope, drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
 drawEdges :: Renderable (Path V2 Double) b =>
              VertexLocMap -> [Dedge] -> Diagram2D b
 drawEdges vpMap = foldMap (drawEdge vpMap)
 
 -- |produce a diagram of a single edge (given a mapping of vertices to locations).
 -- Will raise an error if either vertex of the edge is not a key in the mapping.
--- drawEdge :: VertexLocMap -> Dedge -> Diagram B
+-- When a specific Backend B is in scope, drawEdge :: VertexLocMap -> Dedge -> Diagram B
 drawEdge :: Renderable (Path V2 Double) b =>
             VertexLocMap -> Dedge -> Diagram2D b
 drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of

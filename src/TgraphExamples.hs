@@ -37,12 +37,18 @@ chunks n
       ch [] = []
       ch as = take n as : ch (drop n as)
 
+-- |arrangeRowsGap s n diags - arranges diags into n per row, centering each row horizontally,
+-- with a seperation gap (horizontally and vertically) of s.
+-- The result is a single diagram.
+-- arrangeRows :: Int -> [Diagram B] -> Diagram B
+arrangeRowsGap :: Double -> Int -> [Diagram2D b] -> Diagram2D b
+arrangeRowsGap s n = centerY . vsep s . fmap (centerX . hsep s) . chunks n
+
 -- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
 -- The result is a single diagram (seperation is 1 unit vertically and horizontally).
 -- arrangeRows :: Int -> [Diagram B] -> Diagram B
-
 arrangeRows :: Int -> [Diagram2D b] -> Diagram2D b
-arrangeRows n = centerY . vsep 1 . fmap (centerX . hsep 1) . chunks n
+arrangeRows = arrangeRowsGap 1.0
 
 -- |add a given label at a given point offset from the centre of the given diagram
 labelAt :: Renderable (Text Double) b => 
