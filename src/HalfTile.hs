@@ -27,7 +27,7 @@ data HalfTile rep = LD rep -- ^ Left Dart
 
 -- | Note this ignores the tileLabels when comparing.
 -- However we should never have 2 different HalfTiles with the same rep
-instance Ord a => Ord (HalfTile a) where
+instance Ord rep => Ord (HalfTile rep) where
     compare t1 t2 = compare (tileRep t1) (tileRep t2)
 
 -- |Make Halftile a Functor
@@ -71,7 +71,7 @@ isRK _      = False
 isDart x = isLD x || isRD x
 isKite x = isLK x || isRK x
 
--- |By having Unit as the half tile representation we treat the constructors as just labels
+-- |By having () as the half tile representation we treat the constructors as just labels
 type HalfTileLabel = HalfTile ()
 -- |convert a half tile to its label (HalfTileLabel can be compared for equality)
 tileLabel :: HalfTile a -> HalfTileLabel

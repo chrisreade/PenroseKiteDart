@@ -13,7 +13,9 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 This module introduces Pieces and Patches for drawing finite tilings using Penrose's Dart and Kite tiles.
-It includes a decompose operation for Patches, class Drawable, and sun and star example Patches.
+It includes several primitives for drawing half tiles (Pieces), a class drawable with instance Patches
+and primitives for the drawable class (draw, drawj, fillDK,..).
+There is also a decompose operation for Patches (decompPatch) and sun and star example Patches.
 -}
 module TileLib where
 
@@ -94,7 +96,7 @@ wholeTileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (
 wholeTileEdges (RK v) = wholeTileEdges (LK v)
 
 
--- | Abbreviation for 2D diagrams for any Backend b
+-- | Abbreviation for 2D diagrams for any Backend b.
 type Diagram2D b = QDiagram b V2 Double Any
 
 
@@ -342,7 +344,7 @@ compNChoices n lp = do
     compNChoices (n-1) lp'
 
 {-*
-Example Patches and rotation/scaling operations
+Example Patches
 -}
                                 
 -- |combine 5 copies of a patch (each rotated by ttangle 2 successively)
@@ -358,9 +360,6 @@ sun =  penta [rkite `at` origin, lkite `at` origin]
 -- |star is a patch with five darts sharing common origin (tip of dart)
 star = penta [rdart `at` origin, ldart `at` origin]
 
-{-*
-Figures for pieces
--}
 
 -- |An infinite list of patches of increasingly decomposed sun
 suns::[Patch]
@@ -371,25 +370,29 @@ sun6 = suns!!6
 -- |a patch of a 5 times decomposed sun
 sun5 = suns!!5 
 
+{-*
+Diagrams of Patches
+-}
+
 -- |diagram for sun6.
 -- When a specific Backend B is in scope, sun6Fig::Diagram B
 sun6Fig :: Renderable (Path V2 Double) b => Diagram2D b
 sun6Fig = draw sun6 # lw thin
 
 
-{-*
-Colour-filled examples
--}
-
--- |using leftFillPieceDK. 
+-- |Colour filled using leftFillPieceDK. 
 -- When a specific Backend B is in scope, leftFilledSun6::Diagram B
 leftFilledSun6 :: Renderable (Path V2 Double) b => Diagram2D b
 leftFilledSun6 = drawWith (leftFillPieceDK red blue) sun6 # lw thin
--- |using fillPieceDK.
+
+-- |Colour filled using fillDK.
 -- When a specific Backend B is in scope, filledSun6::Diagram B
 filledSun6 :: Renderable (Path V2 Double) b => Diagram2D b
 filledSun6 = fillDK darkmagenta indigo sun6 # lw thin # lc gold
 
+{-*
+Rotation/scaling operations
+-}
 
 
 -- |rotations takes a list of integers (representing ttangles) for respective rotations of items in the second list (things to be rotated).

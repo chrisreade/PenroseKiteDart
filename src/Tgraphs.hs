@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
-{-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
+-- {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
 
 {-|
 Module      : Tgraphs
@@ -551,6 +551,7 @@ boundaryLoopsG = findLoops . graphBoundary
 -- | Returns a list of (looping) vertex trails for a BoundaryState.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
 -- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
+-- The trails will have disjoint sets of vertices because of the no-crossing-boundaries condition of Tgraphs (and hence BoundaryStates).
 boundaryLoops:: BoundaryState -> [[Vertex]]
 boundaryLoops = findLoops . boundary
 
@@ -576,7 +577,7 @@ findLoops = collectLoops . VMap.fromList where
                 Just b -> chase b (VMap.delete a vm) (b:sofar)
                 Nothing -> if a == start 
                            then reverse sofar: collectLoops vm -- look for more loops
-                           else error $ "boundaryLoops: non looping boundary component, starting at "
+                           else error $ "findLoops (collectLoops): non looping boundary component, starting at "
                                         ++show start++
                                         " and finishing at "
                                         ++ show a ++ 

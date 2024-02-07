@@ -283,6 +283,18 @@ cdfIllustrate = position (zip [p2 (0,0), p2 (0,7), p2 (10,0), p2 (10, -12)]
             dk = smart (labelled draw) (decompose kingGraph) # scale (phi-1) # named "dk"
             cfk = rotateBefore (labelled draw) (ttangle 9) (compose fKing) # scale phi # named "cfk"
 
+-- |Figure showing an incorrect tiling (left) with a false queen vertex at 2.
+-- and (right) the result of forcing before the queen rules were generalised.
+-- Forcing will now identify the left Tgraph as stuck/incorrect.
+falseQueenFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
+falseQueenFig = padBorder $ hsep 1 $ [smart (labelled draw) g, labelled draw fg] where
+  g = makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]
+  fg = makeTgraph [LK (4,21,17),RK (4,20,21),LK (4,19,20),RK (4,18,19),LK (4,10,18)
+                  ,RK (4,17,6),LD (9,6,17),LK (1,16,7),RK (1,15,16),LK (1,14,15)
+                  ,RK (1,13,14),LK (1,12,13),RK (1,11,12),LK (1,5,11),RD (9,11,5)
+                  ,RK (4,8,10),LD (9,5,3),RD (9,3,6),LK (1,2,3),RK (4,3,2),RK (1,3,5)
+                  ,LK (4,6,3),RK (1,7,2),LK (4,2,8)]
+
 {-|
 This example illustrates that an experimental version of composition (composeK)
 which defaults to kites when there are choices (unknowns) is erroneous (does not preserve correctness).
@@ -923,16 +935,11 @@ rocketsFig = padBorder $ lw ultraThin $ vsep 1 $ rotations [8,9,9,8,8,9] $
 
 
 
--- |6 times forced and decomposed kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
--- There are 2906 faces for kingD6 before forcing.
+-- |6 times decomposed and forced kingGraph. Has 53574 faces (now builds more than 60 times faster after profiling)
+-- (There are 2906 faces for a 6 times decomposed kinGraph with no forcing.)
 kingFD6 :: Renderable (Path V2 Double) b => Diagram2D b
 kingFD6 = padBorder $ lw ultraThin $ colourDKG (darkmagenta, indigo, gold) $ makeVP $
           allForceDecomps kingGraph !!6
-
-
-
-
-
 
 -- | oneChoiceGraph is a forced Tgraph where boundary edges (76,77) and (77,78) each have one of their 2 legal extensions
 -- incorrect.
@@ -974,9 +981,11 @@ boundaryLoopFill c g = dg # lw ultraThin <> d # fc c where
 
 testLoops1,testLoops2 :: Renderable (Path V2 Double) b => Diagram2D b
 -- | diagram using boundaryLoopFill with a single boundary loop
+-- The boundary loop is filled rather than the individual faces of the Tgraph.
 testLoops1 = padBorder $ boundaryLoopFill honeydew boundaryGapFDart4
 
--- | diagram using boundaryLoopFill with two boundary loops (i.e. a single hole)
+-- | diagram using boundaryLoopFill with two boundary loops (i.e. a single hole).
+-- The boundary loops are filled rather than the individual faces of the Tgraph with a hole.
 testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
          g = removeFaces (faces $ recoverGraph bs1) (recoverGraph bs2)
          bs2 = head $ boundaryVCovering bs1
@@ -987,7 +996,7 @@ testLoops2 = padBorder $ lw ultraThin $ boundaryLoopFill honeydew g where
 Illustrating Relabelling (fullUnion, commonFaces)
 -}
 
-{-|A diagram testing matchByEdges with a single tile-connected overlap.
+{-|A diagram testing relabelToMatch with a single tile-connected overlap.
 The top 2 graphs g1 and g2 have possible matching overlaps except for labelling.
 The next row has: (left) a relabelling of g2 leaving (1,10) 
 which is a preparation step to avoid accidental clashes with g1,
@@ -1008,10 +1017,10 @@ testRelabellingFig =
                     [ g1
                     , g2
                     , g2_A
-                    , matchByEdges (g1, (1,15)) (g2,(1,10))
+                    , relabelToMatch (g1, (1,15)) (g2,(1,10))
                     , fullUnion (g1, (1,15)) (g2,(1,10))
                     , g2_B
-                    , matchByEdges (g1, (1,15)) (g2,(1,18))
+                    , relabelToMatch (g1, (1,15)) (g2,(1,18))
                     , fullUnion (g1, (1,15)) (g2,(1,18))
                     ]
         sunD2 = sunDs!!2
@@ -1039,7 +1048,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
      thelist = fmap (labelled drawj) $ rotations [0,7] $ fmap makeVP
                  [ g1
                  , g2
-                 , matchByEdges (g1, (1,15)) (g2,(1,10))
+                 , relabelToMatch (g1, (1,15)) (g2,(1,10))
                  , fullUnion  (g1, (1,15)) (g2,(1,10))
                  ]
      sunD2 = sunDs!!2
@@ -1052,10 +1061,10 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
 
 
 {-| Example showing the use of commonFaces.
- This is applied to the pairs from forcedKingChoicesFig
 -}
 testCommonFacesFig :: Renderable (Path V2 Double) b => Diagram2D b
-testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,58),(20,38),(16,23),(49,59)] where
+testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,39),(20,34),(16,23),(36,59)] where
+--[(57,58),(20,38),(16,23),(49,59)] where
     fk = force kingGraph
     drawTracked = drawTrackedTgraph [draw, lc red . draw, fillDK black black]
     edgecase e = hsep 1 $ fmap (lw ultraThin) [drawTracked ttg1, drawTracked ttg2, drawCommonFaces (g1,(1,2)) (g2,(1,2))]

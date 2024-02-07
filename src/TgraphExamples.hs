@@ -216,17 +216,6 @@ mistake = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1), LD (3,5,7)
 mistake1:: Tgraph
 mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 
--- |Figure showing an incorrect tiling (left) with a false queen vertex at 2.
--- and (right) the result of forcing before the queen rules were generalised.
--- Forcing will now identify the left Tgraph as stuck/incorrect.
-falseQueenFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
-falseQueenFig = padBorder $ hsep 1 $ [smart (labelled draw) g, labelled draw fg] where
-  g = makeTgraph [LK(1,2,3),RK(4,3,2),RK(1,3,5),LK(4,6,3),RK(1,7,2),LK(4,2,8)]
-  fg = makeTgraph [LK (4,21,17),RK (4,20,21),LK (4,19,20),RK (4,18,19),LK (4,10,18)
-                  ,RK (4,17,6),LD (9,6,17),LK (1,16,7),RK (1,15,16),LK (1,14,15)
-                  ,RK (1,13,14),LK (1,12,13),RK (1,11,12),LK (1,5,11),RD (9,11,5)
-                  ,RK (4,8,10),LD (9,5,3),RD (9,3,6),LK (1,2,3),RK (4,3,2),RK (1,3,5)
-                  ,LK (4,6,3),RK (1,7,2),LK (4,2,8)]
 {-*
 Figures for 7 vertex types
 -}
@@ -247,15 +236,15 @@ jackGraph,kingGraph,queenGraph,aceGraph,deuceGraph,starGraph::Tgraph
 jackGraph = makeTgraph
   [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
   ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
-  ]
+  ] -- centre 1
 kingGraph = makeTgraph
   [LD (1,2,3),RD (1,11,2),LD (1,4,5),RD (1,3,4),LD (1,10,11)
   ,RD (1,9,10),LK (9,1,7),RK (9,7,8),RK (5,7,1),LK (5,6,7)
-  ]
+  ] -- centre 1
 queenGraph = makeTgraph
   [LK (7,1,5),RK (3,5,1),LD (1,2,3),RK (7,9,1),LK (11,1,9)
   ,RD (1,11,2),RK (7,5,6),LK (7,8,9),LK (3,4,5),RK (11,9,10)
-  ]
+  ] -- centre 1
 
 aceGraph = fool -- centre 3
 
@@ -267,7 +256,7 @@ deuceGraph = makeTgraph
 starGraph = makeTgraph
   [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
   ,RD (1,7,8),LD (1,6,7),RD (1,5,6),LD (1,4,5),RD (1,3,4)
-  ]
+  ] -- centre 1
 
 {-|forceVFigures is a list of 7 diagrams - force of 7 vertex types -}
 forceVFigures :: Renderable (Path V2 Double) b => [Diagram2D b]

@@ -6,13 +6,13 @@ import Diagrams.Prelude
 import Diagrams.Backend.SVG.CmdLine
 {-
 -- for svg output
-import Diagrams.Backend.SVG.CmdLine as Backend
+import Diagrams.Backend.SVG.CmdLine
 
 -- for eps output
-import Diagrams.Backend.Postscript.CmdLine as Backend
+import Diagrams.Backend.Postscript.CmdLine
 
 -- for gif/animated gif/png/jpg/tif/bmp/pdf output NOT svg
-import Diagrams.Backend.Rasterific.CmdLine as Backend
+import Diagrams.Backend.Rasterific.CmdLine
 -}
 
 import TgraphExamples
@@ -25,7 +25,7 @@ import TestIllustrate
 import ArtWork
                
 fig::Diagram B
-fig = brokenDartFig
+fig =  testCommonFacesFig -- padBorder $ labelled draw $ force kingGraph
 
 main :: IO ()
 main = mainWith fig
