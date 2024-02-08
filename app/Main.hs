@@ -25,7 +25,7 @@ import TestIllustrate
 import ArtWork
                
 fig::Diagram B
-fig =  testCommonFacesFig -- padBorder $ labelled draw $ force kingGraph
+fig =  boundaryGap5Fig
 
 main :: IO ()
 main = mainWith fig

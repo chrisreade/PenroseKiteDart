@@ -18,7 +18,7 @@ It imports a touching check for adding new vertices (with locateVertices and add
 module Tgraph.Force  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
-import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys,null) -- used for UpdateMap
+import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
             -- used for BoundaryState locations AND faces at boundary vertices
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
@@ -459,7 +459,7 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
 tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
 tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
   bd = boundaryState fs
-  -- the boolean records whether a blocked case has been found so far
+  -- the integer records how many blocked cases have been found so far
   checkBlocked 0 [] = return Nothing
   checkBlocked n [] = Left $ "tryUnsafes: There are " ++ show n++ " unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n"
                              ++ "This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
@@ -467,18 +467,6 @@ tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
   checkBlocked n (u: more) = case checkUnsafeUpdate bd u of
                                Nothing -> checkBlocked (n+1) more
                                other -> return other
-{-
-tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
-tryUnsafes fs = checkBlocked False $ Map.elems $ updateMap fs where
-  bd = boundaryState fs
-  -- the boolean records whether a blocked case has been found so far
-  checkBlocked True  [] = Left $ "tryUnsafes: There are unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n" ++
-                                 "This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
-  checkBlocked False [] = return Nothing
-  checkBlocked _ (u: more) = case checkUnsafeUpdate bd u of
-                               Nothing -> checkBlocked True more
-                               other -> return other
--}
 
 {-| checkUnsafeUpdate bd u, calculates the resulting boundary change for an unsafe update (u) with a new vertex
      (raising an error if u is a safe update).
@@ -495,7 +483,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        newface = makeFace v
        oldVPoints = bvLocMap bd
        newVPoints = addVPoint newface oldVPoints
-       Just vPosition = VMap.lookup v newVPoints
+       vPosition = newVPoints VMap.! v -- Just vPosition = VMap.lookup v newVPoints
        fDedges = faceDedges newface
        matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges

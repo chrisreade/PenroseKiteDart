@@ -41,7 +41,7 @@ import Diagrams.Prelude hiding (union)
 import TileLib
 
 import Data.List (intersect, union, (\\), find, foldl',nub, transpose)      
-import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin,delete,toList)-- used for boundary covers
+import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 
@@ -682,6 +682,7 @@ decomposeTracked ttg =
     Subsequent functions are applied to VPatches for the respective tracked subsets.
     Each diagram is atop earlier ones, so the diagram for the untracked VPatch is at the bottom.
     The VPatches are all restrictions of a single VPatch for the Tgraph, so consistent.
+    (Any extra draw functions are applied to the VPatch for the main tgraph and the results placed atop.)
     drawTrackedTgraph:: [VPatch -> Diagram B] -> TrackedTgraph -> Diagram B
 -}
 drawTrackedTgraph :: Renderable (Path V2 Double) b =>
@@ -689,7 +690,7 @@ drawTrackedTgraph :: Renderable (Path V2 Double) b =>
 drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeVP (tgraph ttg)
     untracked = vpFaces vp \\ concat (tracked ttg)
-    vpList = fmap (restrictVP vp) (untracked:tracked ttg)
+    vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 {-|
     To draw a TrackedTgraph rotated.
@@ -704,7 +705,7 @@ drawTrackedTgraphRotated :: Renderable (Path V2 Double) b =>
 drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = rotate a $ makeVP (tgraph ttg)
     untracked = vpFaces vp \\ concat (tracked ttg)
-    vpList = fmap (restrictVP vp) (untracked:tracked ttg)
+    vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 
 

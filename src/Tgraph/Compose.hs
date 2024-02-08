@@ -127,7 +127,7 @@ getDartWingInfo g =  DartWingInfo {largeKiteCentres = kcs, largeDartBases = dbs,
   processD (kcs, dbs, unks) ld@(LD (orig, _, w)) = -- classify wing tip w
     if w `elem` kcs || w `elem` dbs then (kcs, dbs, unks) else  -- already classified
     let
-        Just fcs = VMap.lookup w dwFMap -- faces at w
+        fcs = dwFMap VMap.! w -- faces at w
     in
         if length fcs ==1 then (kcs, dbs, w:unks) else -- lone dart wing => unknown
         if w `elem` fmap originV (filter isKite fcs) then (kcs,w:dbs,unks) else

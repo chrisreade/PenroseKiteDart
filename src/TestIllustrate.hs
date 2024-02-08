@@ -20,9 +20,9 @@ module TestIllustrate where
 import Diagrams.TwoD.Vector (e) -- for decompExplainFig
 import Diagrams.Prelude
 import qualified Data.Set as Set  (null,toList,delete) -- used for contexts
-import Data.List(partition, (\\), sort)
+import Data.List(partition, (\\))
 import Control.Monad ((<=<))  -- for rocketsFig
-import qualified Data.IntSet as IntSet (member,toList) -- for bvExtendCase
+import qualified Data.IntSet as IntSet (member) -- for bvExtendCase
 import qualified Data.Set as Set  (member, (\\), fromList) -- used for forced Contexts
 import qualified Data.IntMap.Strict as VMap (keys, (!))
 
@@ -1063,7 +1063,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
 {-| Example showing the use of commonFaces.
 -}
 testCommonFacesFig :: Renderable (Path V2 Double) b => Diagram2D b
-testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,39),(20,34),(16,23),(36,59)] where
+testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,39),(20,34),(16,23),(52,62)] where
 --[(57,58),(20,38),(16,23),(49,59)] where
     fk = force kingGraph
     drawTracked = drawTrackedTgraph [draw, lc red . draw, fillDK black black]
