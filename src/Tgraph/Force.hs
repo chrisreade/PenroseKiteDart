@@ -113,7 +113,7 @@ boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
 
 
 {-*
-Updates and ForceState types
+Types: Update, UpdateMap, UpdateGenerator, ForceState
 -}
 
 -- |An Update is either safe or unsafe.
@@ -147,7 +147,7 @@ type UpdateGenerator = BoundaryState -> [Dedge] -> Try UpdateMap
 
 
 {-*
-Forcible class 
+Forcible class and Instances (ForceState, BoundaryState, Tgraph)
 -}
 
 -- | Forcible class has operations to (indirectly) implement forcing and single step forcing
@@ -593,11 +593,10 @@ tryRecalibratingForce = tryFSOp recalibrating where
 recalibratingForce :: Forcible c => c -> c
 recalibratingForce = runTry . tryRecalibratingForce
 
-{-*
+
+
+{-
 Now unused: final stuck check
--}
-
-
 {- |
 tryFinalStuckCheck was designed to check a final force state (in tryForceStateWith).
 The final state is rejected as having a stuck Tgraph if any boundary vertex external angle is less than 4 (tenth turns).
@@ -618,6 +617,8 @@ tryFinalStuckCheck fs =
                       "\nand boundary edges:" ++ show (boundary bs `intersect` (fmap reverseD $ facesDedges $ facesAtBV bs v)) ++ "\n"
   where bs = boundaryState fs
         bvs = fmap fst (boundary bs)
+-}
+
 
     
 {-*
@@ -661,13 +662,11 @@ Forcing rules
 7 vertex types are:
 sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, star
 -}
-                
-
 
 {-| allUGenerator combines all the 10 rule update generators.
     They are combined in sequence (keeping the rule order) after applying each to the
     supplied BoundaryState and a focus edge list. (See also defaultAllUGen).
-    This version returns a Left..(fail report) for the first generator that produces a Left..(fail report)
+    This version returns a Left..(fail report) for the first generator that produces a Left..(fail report).
     See $rules
 -}
 allUGenerator :: UpdateGenerator 
@@ -717,7 +716,7 @@ type UChecker = BoundaryState -> TileFace -> Try Update
  (when given a BoundaryState and list of focus edges).
  For some predicates the BoundaryState argument is not used (eg boundaryJoin in incompleteHalves), 
  but for others it is used to look at other faces at b or at a besides the supplied face 
- (eg kiteWDO in kitesWingDartOrigin) 
+ (eg in kitesWingDartOrigin) 
 -}
 boundaryFilter::  (BoundaryState -> Dedge -> TileFace -> Bool) -> UFinder
 boundaryFilter predF bd focus = 
@@ -1062,6 +1061,10 @@ anglesForShortLK = (2,2)
 anglesForShortRK = (2,2)
 
 
+{-*
+The Default All Update Generator (defaultAllUGen)
+-}
+
 -- |An alternative to allUGenerator, and used as the default. It uses the same rules and UCheckers,
 -- but makes decisions based on the EdgeType of a boundary edge (instead of trying each UFinder in turn).
 -- If there are any Left..(fail reports) for the given
@@ -1069,6 +1072,7 @@ anglesForShortRK = (2,2)
 defaultAllUGen :: UpdateGenerator
 defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
   decide e = decider (e,fc,etype) where (fc,etype) = inspectBDedge bd e
+
   decider (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
   decider (e,fc,Short) 
     | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2
@@ -1076,19 +1080,23 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
   decider (e,fc,Long)  
     | isDart fc = dartLongDecider e fc
     | otherwise = kiteLongDecider e fc 
+
   dartLongDecider e fc
     | mustbeStar bd (originV fc) = mapItem e (completeSunStar bd fc)
     | mustbeKing bd (originV fc) = mapItem e (addDartLongE bd fc)
     | mustbeJack bd (wingV fc) = mapItem e (addKiteLongE bd fc)
     | otherwise = Right Map.empty
+
   kiteLongDecider e fc
     | mustbeSun bd (originV fc) = mapItem e (completeSunStar bd fc)
     | mustbeQueen bd (wingV fc) = mapItem e (addDartLongE bd fc)
     | otherwise = Right Map.empty
+
   kiteShortDecider e fc
     | mustbeDeuce bd (oppV fc) || mustbeJack bd (oppV fc) = mapItem e (addDartShortE bd fc)
     | mustbeQueen bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
     | otherwise = Right Map.empty
+
   mapItem e = fmap (\u -> Map.insert e u Map.empty)
   combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
                                        -- otherwise combines the update maps with mconcat

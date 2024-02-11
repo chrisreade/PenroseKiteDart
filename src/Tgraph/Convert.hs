@@ -76,7 +76,7 @@ relevantVP vp = vp{vLocs = locVs} where
      vs = facesVSet (vpFaces vp)
      locVs = VMap.filterWithKey (\ v _ -> v `IntSet.member` vs) $ vLocs vp
 
--- | Restrict a vp to a list of faces, removing locations for vertices not in the faces.
+-- | A combination of subVP and relevantVP. Restricts a vp to a list of faces, removing locations for vertices not in the faces.
 -- (Useful when restricting which labels get drawn)
 restrictVP:: VPatch -> [TileFace] -> VPatch
 restrictVP vp fcs = relevantVP (subVP vp fcs)
@@ -127,8 +127,7 @@ instance Drawable Tgraph where
 -- Thus labelSize m is a modifier of any Patch drawing function to add labels (of size measure m).
 -- (Measures are defined in Diagrams - normalized\/output\/local\/global).
 -- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
--- labelSize m draw :: DrawableLabelled a => a -> Diagram B.
--- However labelSize m1 (labelSize m2 draw) does not typecheck.
+-- (So labelSize m draw typechecks but labelSize m1 (labelSize m2 draw) does not typecheck.)
 class DrawableLabelled a where
 -- When a specific Backend B is in scope,  labelSize :: Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
   labelSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
@@ -160,7 +159,7 @@ labelSmall = labelSize (normalized 0.006)
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
--- E.g. rotateBefore (labelled draw) a g
+-- E.g. rotateBefore (labelled draw) a g.
 rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
 rotateBefore vfun angle = vfun . rotate angle . makeVP
 
@@ -186,12 +185,13 @@ alignXaxis (a,b) vp =  rotate angle newvp
                 Just l -> l
                 Nothing -> error $ "alignXaxis: second alignment vertex not found (Vertex " ++ show b ++ ")\n"
 
--- |alignments takes a list of vertex pairs for respective rotations of VPatch in the second list.
+-- |alignments takes a list of vertex pairs for respective alignmants of VPatches in the second list.
 -- For a pair (a,b) the corresponding VPatch is centered on a then b is aligned along the positive x axis. 
 -- The vertex pair list can be shorter than the list of VPatch - the remaining VPatch are left as they are.
+-- (Raises an error if either vertex in a pair is not in the corresponding VPatch vertices)
 alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]     
 alignments [] vps = vps
-alignments _  [] = error "alignments: Too many alignment pairs.\n"  -- prs non-null
+alignments _  [] = error "alignments: Too many alignment pairs.\n"  -- non-null list of pairs
 alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 
 -- |alignAll (a,b) vpList
@@ -220,12 +220,14 @@ makeAlignedVP = alignBefore id
 
 
 {-| locateVertices: processes a list of faces to associate points for each vertex.
-     Faces must be tile-connected. It aligns the lowest numbered join of the faces on the x-axis.
-      Returns a vertex-to-point Map.
-  This version is made more efficient by calculating an edge to face map
-  and also using Sets for 2nd arg of fastAddVPoints.
+It aligns the lowest numbered join of the faces on the x-axis, and returns a vertex-to-point Map.
+It will raise an error if faces are not connected.
+If faces have crossing boundaries (i.e not locally tile-connected), this could raise an error
+or a result with touching vertices (i.e. more than one vertex with the same location).
 -}
 locateVertices:: [TileFace] -> VertexLocMap
+--  This version is made more efficient by calculating an edge to face map
+--  and also using Sets for 2nd arg of fastAddVPoints.
 locateVertices [] = VMap.empty
 locateVertices fcs = fastAddVPoints [joinFace] (Set.fromList more) (axisJoin joinFace) where
     (joinFace:more) = lowestJoinFirst fcs
@@ -251,20 +253,13 @@ The third argument is the mapping of vertices to points.
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
 -- It will raise an error if there are fewer than 2 tileface vertices with a location in the map
 -- (indicating a non tile-connected face).
+-- It is possible that a newly added location is already in the range of the map (creating a touching vertices),
+-- so this needs to be checked for.
 addVPoint:: TileFace -> VertexLocMap -> VertexLocMap
 addVPoint fc vpMap = 
   case thirdVertexLoc fc vpMap of
     Just (v,p) -> VMap.insert v p vpMap
     Nothing -> vpMap
- 
-{-
--- |Given a map from each directed edge to the tileface containing it (efMap), a tileface (fc)
--- return the list of edge neighbours of fc.
-edgeNbs:: Map.Map Dedge TileFace -> TileFace -> [TileFace]
-edgeNbs efMap fc = mapMaybe getNbr edges where
-    getNbr e = Map.lookup e efMap
-    edges = fmap reverseD (faceDedges fc) 
--}
 
 -- |axisJoin fc 
 -- initialises a vertex to point mapping with locations for the join edge vertices of fc
@@ -280,17 +275,15 @@ find3Locs::(Vertex,Vertex,Vertex) -> VertexLocMap
              -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))              
 find3Locs (v1,v2,v3) vpMap = (VMap.lookup v1 vpMap, VMap.lookup v2 vpMap, VMap.lookup v3 vpMap)
 
-{-| New Version - Assumes all edge lengths are 1 or phi.
+{-| thirdVertexLoc fc vpMap,  where fc is a tileface and vpMap associates points with vertices (positions).
+It looks up all 3 vertices of fc in vpMap hoping to find at least 2 of them, it then returns Just pr
+where pr associates a new location with the third vertex.
+If all 3 are found, returns Nothing.
+If none or one found this is an error (a non tile-connected face).
+
+New Version: This assumes all edge lengths are 1 or phi.
 It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
 (Requires ttangle and phi from TileLib).
-
-     thirdVertexLoc fc vpMap
-     where fc is a tileface and
-     vpMap associates points with vertices (positions)
-     It looks up all 3 vertices of fc in vpMap hoping to find at least 2 of them, it then returns Just pr
-     where pr is an association pair for the third vertex.
-     If all 3 are found, returns Nothing.
-     If none or one found this is an error (a non tile-connected face)
 -}
 thirdVertexLoc:: TileFace -> VertexLocMap -> Maybe (Vertex, Point V2 Double)        
 thirdVertexLoc fc@(LD _) vpMap = case find3Locs (faceVs fc) vpMap of
@@ -361,10 +354,9 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
 
 {-| 
 touchingVertices checks that no vertices are too close to each other using locateVertices.
-If vertices are too close that indicates we may have the same point with two different vertex numbers
-arising from the touching vertex problem. 
+If vertices are too close that indicates we may have different vertex numbers at the same location
+(the touching vertex problem). 
 It returns pairs of vertices that are too close (higher number first in each pair)
-(i.e less than 0.5 where 1.0 would be the length of short edges)
 An empty list is returned if there are no touching vertices.
 Complexity has order of the square of the number of vertices.
                            

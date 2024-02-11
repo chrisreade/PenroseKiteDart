@@ -48,7 +48,7 @@ type VertexSet = IntSet.IntSet
 type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
 -- |A Tgraph is a list of faces.
--- (All vertex labels should be positive, so 0 is not used as a vertex label throughout)
+-- All vertex labels should be positive, so 0 is not used as a vertex label.
 -- Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
 newtype Tgraph = Tgraph [TileFace]
                  deriving (Show)
@@ -66,33 +66,31 @@ Tgraphs and Property Checking
 
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
--- It does not perform checks on the faces. Use makeTgraph or checkedTgraph to perform checks.
+-- It does not perform checks on the faces. Use makeTgraph (defined in Tgraphs module) or checkedTgraph to perform checks.
 -- This is intended for use only when checks are known to be redundant (and data constructor Tgraph is hidden).
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph fcs = Tgraph fcs
 
-{-| Creates a Tgraph from a list of faces AND checks for edge conflicts and
-crossing boundaries and connectedness with checkTgraphProps.
+{-| Creates a Tgraph from a list of faces AND checks for edge loops, edge conflicts and
+crossing boundaries and connectedness and legal tiling with checkTgraphProps.
 (No crossing boundaries and connected implies tile-connected).
 Produces an error if a check fails.
 
 Note: This does not check for touching vertices (distinct labels for the same vertex).
-To perform this additional check use makeTgraph (which also calls checkTgraphProps) 
+To perform this additional check use makeTgraph (defined in Tgraphs module) which also calls checkTgraphProps.
 -}
 checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph fcs = runTry $ onFail report (checkTgraphProps fcs)
  where report = "checkedTgraph: Failed\n"  -- ++ " for faces: " ++ show fcs ++ "\n"
 
 
-{- | Checks a list of faces to exclude: 
+{- | Checks a list of faces to avoid: 
     edge loops,
     edge conflicts (same directed edge on two or more faces),
     illegal tilings (breaking legal rules for tiling),
     vertices not all >0 ,
     crossing boundaries, and 
     non-connectedness.
-
-(No crossing boundaries and connectedness implies tile-connected)
 
 Returns Right g where g is a Tgraph on passing checks.
 Returns Left lines if a test fails, where lines describes the problem found.
@@ -113,7 +111,7 @@ checkTgraphProps fcs
                                else checkConnectedNoCross fcs 
 
 -- |Checks a list of faces for crossing boundaries and connectedness.
--- (No crossing boundaries and connected implies tile-connected)
+-- (No crossing boundaries and connected implies tile-connected).
 -- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
 -- This is used by checkTgraphProps after other checks have been made,
@@ -163,7 +161,7 @@ edgeType d f | d == longE f  = Long
              | otherwise = error $ "edgeType: directed edge " ++ show d ++ 
                                    " not found in face " ++ show f ++ "\n"
 
--- |For a list of tile faces fcs this produces a list of tuples of the form (f1,f2,etpe1,etype2)
+-- |For a list of tile faces fcs this produces a list of tuples of the form (f1,etpe1,f2,etype2)
 -- where f1 and f2 share a common edge and etype1 is the type of the shared edge in f1 and
 -- etype2 is the type of the shared edge in f2.
 -- This list can then be checked for inconsistencies / illegal pairings (using legal).
@@ -285,16 +283,23 @@ emptyTgraph = Tgraph []
 nullGraph:: Tgraph -> Bool
 nullGraph = null . faces
 
--- |find the maximum vertex number in a Tgraph
+-- |find the maximum vertex number in a Tgraph, returning 0 for an empty Tgraph.
 maxV :: Tgraph -> Int
 maxV = facesMaxV . faces
 
--- | selecting left darts, right darts, left kite, right kites from a Tgraph
-ldarts,rdarts,lkites,rkites :: Tgraph -> [TileFace]
+ldarts,rdarts,lkites,rkites, kites, darts :: Tgraph -> [TileFace]
+-- | selecting left darts from a Tgraph
 ldarts g = filter isLD (faces g)
+-- | selecting right darts from a Tgraph
 rdarts g = filter isRD (faces g)
+-- | selecting left kites from a Tgraph
 lkites g = filter isLK (faces g)
+-- | selecting right kites from a Tgraph
 rkites g = filter isRK (faces g) 
+-- | selecting half kites from a Tgraph
+kites g = filter isKite (faces g)
+-- | selecting half darts from a Tgraph
+darts g = filter isDart (faces g)
 
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.

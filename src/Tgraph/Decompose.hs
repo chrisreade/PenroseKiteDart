@@ -30,8 +30,8 @@ decompose :: Tgraph -> Tgraph
 decompose g = makeUncheckedTgraph newFaces where
     newFaces = concatMap (decompFace (phiVMap g)) (faces g)
 
--- |phiVMap g produces a function mapping each phi edge to an assigned new vertex.
--- Both (a,b) and (b,a) get the same v.
+-- |phiVMap g produces a function mapping each phi edge (the long edges including kite joins) to an assigned new vertex not in g.
+-- Both (a,b) and (b,a) get the same vertex number.
 -- (Also uses sort to fix order of assigned numbers).  
 phiVMap :: Tgraph -> Map.Map Dedge Vertex
 phiVMap g = edgeVMap where
@@ -40,8 +40,8 @@ phiVMap g = edgeVMap where
   edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (fmap reverseD phiReps) newVs 
 
 -- |Decompose a face producing new faces. 
--- This requires a function to get the unique vertex assigned to each phi edge
--- (as created by maxAndPhiVMap)
+-- This requires a function to get the unique new vertex assigned to each phi edge
+-- (as created by phiVMap).
 decompFace:: Map.Map Dedge Vertex -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
