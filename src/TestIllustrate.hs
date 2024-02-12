@@ -197,8 +197,8 @@ decompExplainFig = pad 1.2 $ centerXY fig0 where
 --                       ,labelP "p .+^ v'" (point1 .+^ (0.1 *^ (unitX ^+^ unitY)))
                        ] where point1 = p .+^ (phi*^ e (ttangle 4))
                                point0 = p .+^ (phi*^ e (ttangle 5))
-                               point2 = p .+^ ((1/phi) *^ (point0 .-. p))
-                               point3 = p .+^ ((1/phi^2) *^ (point1 .-. p))
+                               point2 = p .+^ ((phi-1) *^ (point0 .-. p)) -- phi-1 = (1/phi)
+                               point3 = p .+^ ((2-phi) *^ (point1 .-. p)) -- 2-phi = (1/phi^2)
 
   rdartAt p = mconcat [dotAt p blue
                       ,labelVect "vd" p point1
@@ -253,17 +253,15 @@ Illustrations Using Tgraphs
 -- |Diagram showing decomposition of (left hand) half-tiles with labels.
 decompHalfTiles :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 decompHalfTiles = padBorder $ lw thin $ vsep 1 $ fmap centerX
-   [ addArrow  "d" "decd" [ scale phi $ labelLarge drawj d
-               , labelLarge drawj $ decompose d
-               ]
-   , addArrow  "k" "deck" [ scale phi $ labelLarge drawj k
-               , labelLarge drawj $ rotate (ttangle 1) $ makeVP $ decompose k
-               ]
+   [ addArrow  "d" "decd" (scale phi $ labelLarge drawj d)
+                          (labelLarge drawj $ decompose d)
+   , addArrow  "k" "deck" (scale phi $ labelLarge drawj k)
+                          (labelLarge drawj $ rotate (ttangle 1) $ makeVP $ decompose k)
    ]
     where d = makeTgraph [LD (1,2,3)]
           k = makeTgraph [LK (1,2,3)]
-          addArrow s1 s2 [a,b] = decompArrow s1 s2 $ hsep 2
-                           [named s1 $ centerXY a, named s2 $ centerXY b]
+          addArrow s1 s2 a b = decompArrow s1 s2 $ hsep 2
+                               [named s1 $ centerXY a, named s2 $ centerXY b]
 
 -- | diagram illustrating compose, force, and decompose with kinGraph using labels
 cdfIllustrate :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
@@ -795,9 +793,9 @@ checkCompleteFig =  padBorder $ hsep 1 $ fmap drawj [sunD4, wholeTiles sunD4] wh
 
 -- |figure testing selectFacesVP by removing all kites
 dartsOnlyFig  :: Renderable (Path V2 Double) b => Diagram2D b
-dartsOnlyFig = padBorder $ lw thin $ draw $ selectFacesVP darts $ makeVP g where
+dartsOnlyFig = padBorder $ lw thin $ draw $ selectFacesVP (darts g) $ makeVP g where
     g = force $ sunDs !! 5
-    darts = filter isDart $ faces g
+--    darts = filter isDart $ faces g
 
 -- |hollowgraph is the difference between a particular Tgraph and its forced version.
 -- This may not be a valid Tgraph in general.
@@ -896,7 +894,7 @@ halfWholeFig =  padBorder $ lw ultraThin $ vsep 1 $ fmap (hsep 1) [take 2 figs, 
   where
     figs = zipWith redEmbed scaledCases forcedD4Cases
     cases = [dartPlusDart, dartPlusKite, dartHalfDart, dartHalfKite]
-    scaledCases = alignAll (1,3) $ fmap (scale (phi^4) . makeVP) cases
+    scaledCases = alignAll (1,3) $ fmap (scale (3*phi+2) . makeVP) cases --3*phi+2 = phi^4
     forcedD4Cases = alignAll (1,3) $ fmap (makeVP . force . decomp4) cases
     decomp4 g = decompositions g !! 4
     redEmbed g1 g2 = lc red (lw medium $ drawj g1) <> lw ultraThin (draw g2)
@@ -1067,9 +1065,12 @@ testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,39),(20,34),(16,23)
 --[(57,58),(20,38),(16,23),(49,59)] where
     fk = force kingGraph
     drawTracked = drawTrackedTgraph [draw, lc red . draw, fillDK black black]
-    edgecase e = hsep 1 $ fmap (lw ultraThin) [drawTracked ttg1, drawTracked ttg2, drawCommonFaces (g1,(1,2)) (g2,(1,2))]
+    edgecase de = hsep 1 $ fmap (lw ultraThin) [drawTracked ttg1, drawTracked ttg2, drawCommonFaces (g1,(1,2)) (g2,(1,2))]
       where
-        [ttg1, ttg2] = trackTwoChoices e fk
+--        [ttg1, ttg2] = trackTwoChoices e fk
+        ttgs = trackTwoChoices de fk
+        ttg1 = head ttgs
+        ttg2 = head $ tail ttgs
         g1 = tgraph ttg1
         g2 = tgraph ttg2
 
@@ -1123,17 +1124,17 @@ genLocalsWith newcases (v,edge,bd)
 -- after relabelling to match edge e in each case.
 --  e can be a directed edge from any face of b or a boundary directed edge of b (in which case it is reversed).
 occursIn :: [BoundaryState] -> BoundaryState -> Dedge -> Bool
-occursIn bds b e
+occursIn bds b de
   = any bmatches bds
     where bmatches bd = sameGraph (recoverGraph b,edge) (recoverGraph bd,edge)
-          edge | e `elem` boundary b = reverseD e
-               | otherwise = e
+          edge | de `elem` boundary b = reverseD de
+               | otherwise = de
 
 -- | Given a start case (v, e, boundaryState) where v is a boundary vertex and e is an edge of boundaryState
 -- this generates all wholetile complete extensions of boundaryState where v is still on the boundary
 -- by adding faces at v. This may include incorrect (stuck) cases. 
 bvCases :: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
-bvCases start@(v,_,_) = genLocalsWith newcases start where
+bvCases start3@(v,_,_) = genLocalsWith newcases start3 where
     newcases open = concatMap (extend open) (boundaryEdgesAt v open)
     extend open d = ignoreFails $ fmap (tryForceWith wholeTileUpdates) $
                     ignoreFails $ tryDartAndKite d open
@@ -1151,10 +1152,10 @@ boundaryEdgesWith vs = filter (\(x,y) -> x `elem` vs || y `elem` vs) . boundary
 -- into correct and incorrect cases (using tryForce). It then draws the group of correct cases above the incorrect cases.
 bvCheck :: Renderable (Path V2 Double) b =>
            (Vertex, Dedge, BoundaryState) -> Diagram2D b
-bvCheck start@(v,edge,_) = 
+bvCheck start3@(v,edge,_) = 
   padBorder $ lw ultraThin $ vsep 5 $ 
   [arrangeRows 7 (fmap drawit ok), arrangeRows 7 (fmap drawit notok)] where
-    (notok,ok) = partition incorrect $ bvCases start
+    (notok,ok) = partition incorrect $ bvCases start3
     drawit = alignBefore drawWithV edge . recoverGraph
     incorrect bd = isFail (tryForce bd)
     drawWithV vp = 
@@ -1173,20 +1174,20 @@ Generating Forced Boundary Vertex Contexts
 -- It then generates further contexts in each case by adding all possibilities to the rest of the new boundary (except the 4 nearest edges). This is repeated if the composed Tgraph of any resulting BoundaryState is empty.
 -- Any case where v is no longer on the boundary is excluded.
 genFContexts :: (Vertex, Dedge, BoundaryState) -> [BoundaryState]
-genFContexts start@(v ,edge, _) = contexts [] $ setup <$> genLocalsWith newcases start where
-  newcases open = concatMap (atLeastOne . (`tryDartAndKiteForced` open)) (boundary4 v open)
+genFContexts start3@(v ,edge, _) = contxts [] $ setup <$> genLocalsWith thecases start3 where
+  thecases open = concatMap (atLeastOne . (`tryDartAndKiteForced` open)) (boundary4 v open)
   setup bs = (bs, boundaryEdgeSet bs Set.\\ Set.fromList (boundary4  v bs))
-  contexts done [] = reverse done
-  contexts done ((bs,es):opens) 
-    | occursIn done bs edge = contexts done opens
-    | not (v `IntSet.member` boundaryVertexSet bs) = contexts done opens
+  contxts done [] = reverse done
+  contxts done ((bs,es):opens) 
+    | occursIn done bs edge = contxts done opens
+    | not (v `IntSet.member` boundaryVertexSet bs) = contxts done opens
 -- check null composition before null es
     | nullGraph $ compose $ recoverGraph bs
-      = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ boundary4  v bs)
-        in  contexts (bs:done) (newcases++opens)
-    | Set.null es = contexts (bs:done) opens
-    | otherwise = contexts (bs:done) (newcases ++ opens)
-                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+      = let newcases1 = concatMap (makecases (bs,es)) (boundary bs \\ boundary4  v bs)
+        in  contxts (bs:done) (newcases1++opens)
+    | Set.null es = contxts (bs:done) opens
+    | otherwise = contxts (bs:done) (newcases2 ++ opens)
+                  where newcases2 = concatMap (makecases (bs,es)) (Set.toList es)
   makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced de bs)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
@@ -1253,19 +1254,19 @@ sunVContextsCompBoundary = padBorder $ lw ultraThin $ hsep 1 $
 -- The vertex is shown with a red dot and the composition filled yellow.
 -- 5 fold symmetry is used to remove rotated duplicates.
 sunContexts :: [Tgraph]
-sunContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
+sunContexts = recoverGraph <$> contxts [] [(bStart, boundaryEdgeSet bStart)] where
   bStart = makeBoundaryState sunGraph
 -- occursRotatedIn deals with 5 rotational symmetries of the sunGraph
 -- occursRotatedIn done bs is true if bs matches a case in done in any of 5 rotations
   occursRotatedIn done bs = any (same done bs (1,3)) [(1,3),(1,5),(1,7),(1,9),(1,11)]
-  same done bs e e' = any (sameGraph (recoverGraph bs,e) . (,e') . recoverGraph) done
+  same done bs e1 e2 = any (sameGraph (recoverGraph bs,e1) . (,e2) . recoverGraph) done
 --  same done bs e e' = any (sameGraph (recoverGraph bs,e)) . (\bd -> (recoverGraph bd,e'))) done
--- contexts generates the cases keeping a list of done cases for filtering out copies
-  contexts done [] = reverse done
-  contexts done ((bs,es):opens)
-    | occursRotatedIn done bs = contexts done opens
-    | Set.null es = contexts (bs:done) opens -- bs is a completed cover
-    | otherwise = contexts (bs:done) (newcases ++ opens)
+-- contxts generates the cases keeping a list of done cases for filtering out copies
+  contxts done [] = reverse done
+  contxts done ((bs,es):opens)
+    | occursRotatedIn done bs = contxts done opens
+    | Set.null es = contxts (bs:done) opens -- bs is a completed cover
+    | otherwise = contxts (bs:done) (newcases ++ opens)
         where newcases = concatMap (makecases (bs,es)) (Set.toList es)
   makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced de bs)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
@@ -1298,19 +1299,19 @@ foolVContextsCompBoundary  = padBorder $ lw ultraThin $ arrangeRows 4 $
 
 -- | Generates the cases for fool vertex contexts in a forced Tgraph (some mirror symetric duplicates)
 foolContexts :: [Tgraph]
-foolContexts = recoverGraph <$> contexts [] [(bStart, boundaryEdgeSet bStart)] where
+foolContexts = recoverGraph <$> contxts [] [(bStart, boundaryEdgeSet bStart)] where
   edge = (1,4)
   bStart = makeBoundaryState fool
-  contexts done [] = reverse done
-  contexts done ((bs,es):opens)
-    | occursIn done bs edge = contexts done opens
+  contxts done [] = reverse done
+  contxts done ((bs,es):opens)
+    | occursIn done bs edge = contxts done opens
 -- check null composition before null es
     | nullGraph $ compose $ recoverGraph bs
-          = let newcases = concatMap (makecases (bs,es)) (boundary bs)
-            in  contexts (bs:done) (newcases++opens)
-    | Set.null es = contexts (bs:done) opens
-    | otherwise = contexts (bs:done) (newcases ++ opens)
-                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+          = let newcases1 = concatMap (makecases (bs,es)) (boundary bs)
+            in  contxts (bs:done) (newcases1++opens)
+    | Set.null es = contxts (bs:done) opens
+    | otherwise = contxts (bs:done) (newcases2 ++ opens)
+                  where newcases2 = concatMap (makecases (bs,es)) (Set.toList es)
 
   makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced de bs)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
@@ -1330,8 +1331,8 @@ Repetitions are removed using 'sameGraph' with edge e.
 The resulting contexts are returned as a list of BoundaryStates.      
 -}
 forcedBEContexts :: Dedge -> BoundaryState -> [BoundaryState]
-forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
--- after applying locals this setsup cases for processing by contexts
+forcedBEContexts edge bstate = contxts [] (setup <$> locals [] [bstate]) where
+-- after applying locals this setsup cases for processing by contxts
   setup bd = (bd, Set.delete edge $ boundaryEdgeSet bd)
 --locals:: [BoundaryState] -> [BoundaryState]  -> [BoundaryState]
 -- locals produces the cases where 1 edge either side of bde is changed
@@ -1342,17 +1343,17 @@ forcedBEContexts edge bd = contexts [] (setup <$> locals [] [bd]) where
      locals (open:bds) (concatMap (atLeastOne . (`tryDartAndKiteForced` open))
                                   (boundaryEdgeNbs edge open)
                         ++ opens)
-  contexts done [] = reverse done
-  contexts done ((bs,es):opens) 
-    | occursIn done bs edge = contexts done opens
-    | not (Set.member edge (boundaryEdgeSet bs)) = contexts done opens
+  contxts done [] = reverse done
+  contxts done ((bs,es):opens) 
+    | occursIn done bs edge = contxts done opens
+    | not (Set.member edge (boundaryEdgeSet bs)) = contxts done opens
 -- check null composition before null es
     | nullGraph $ compose $ recoverGraph bs
-          = let newcases = concatMap (makecases (bs,es)) (boundary bs \\ [edge])
-            in  contexts (bs:done) (newcases++opens)
-    | Set.null es = contexts (bs:done) opens
-    | otherwise = contexts (bs:done) (newcases ++ opens)
-                  where newcases = concatMap (makecases (bs,es)) (Set.toList es)
+          = let newcases1 = concatMap (makecases (bs,es)) (boundary bs \\ [edge])
+            in  contxts (bs:done) (newcases1++opens)
+    | Set.null es = contxts (bs:done) opens
+    | otherwise = contxts (bs:done) (newcases2 ++ opens)
+                  where newcases2 = concatMap (makecases (bs,es)) (Set.toList es)
   makecases (bs,es) de = fmap attachEdgeSet (atLeastOne $ tryDartAndKiteForced de bs)
     where attachEdgeSet b = (b, commonBdry (Set.delete de es) b)
 
@@ -1500,10 +1501,10 @@ This relies on forcing order and new faces being added at the front of the list 
 -}
 findMistake :: [TileFace] -> (TileFace,Tgraph)
 findMistake [] = error "findMistake: ??"
-findMistake (fc:fcs) = inspect fc fcs where
-  inspect fc fcs = either (\_ -> inspect (head fcs) (tail fcs))
-                          (\g -> (fc,g)) 
-                          (tryForce $ makeUncheckedTgraph fcs)
+findMistake (face:fcs) = inspect face fcs where
+  inspect f more = either (\_ -> inspect (head more) (tail more))
+                          (\g -> (f,g)) 
+                          (tryForce $ makeUncheckedTgraph more)
 
 {- | Another inspection tool. For a forced Tgraph g,
 findCore g finds a Tgraph with the shortest tail of the faces of g that still produces g when forced.
@@ -1513,10 +1514,10 @@ If g is not a forced Tgraph, the result will just be g or an error if g is found
 findCore  :: Tgraph -> Tgraph
 findCore g = if nullGraph g then g else inspect (faces g)
   where
-    (top: _) = faces g
+    top = head $ faces g
     inspect [] = error "findCore: not possible"
-    inspect (fc:fcs) 
-      = if top == head (faces $ force $ makeUncheckedTgraph fcs)
-        then inspect fcs
-        else makeUncheckedTgraph (fc:fcs)
+    inspect (f:fs) 
+      = if top == head (faces $ force $ makeUncheckedTgraph fs)
+        then inspect fs
+        else makeUncheckedTgraph (f:fs)
 

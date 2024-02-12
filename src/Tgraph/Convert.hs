@@ -23,7 +23,7 @@ import qualified Data.IntMap.Strict as VMap (IntMap, map, filterWithKey, lookup,
 import qualified Data.Map.Strict as Map (lookup, fromListWith) -- used for locateVertices
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 import Data.Maybe (mapMaybe)
-import qualified Data.IntSet as IntSet (member) -- for vertex set in relevantVPLabelledWith
+import qualified Data.IntSet as IntSet (member) -- for vertex set in relevantVP
 
 import Diagrams.Prelude
 import TileLib
@@ -112,10 +112,10 @@ instance Drawable VPatch where
 dropLabels :: VPatch -> Patch
 dropLabels vp = fmap convert (vpFaces vp) where
   locations = vLocs vp
-  convert fc = case (VMap.lookup (originV fc) locations , VMap.lookup (oppV fc) locations) of
-    (Just p, Just p') -> fmap (const (p' .-. p)) fc `at` p -- using HalfTile functor fmap
+  convert face = case (VMap.lookup (originV face) locations , VMap.lookup (oppV face) locations) of
+    (Just p, Just p') -> fmap (const (p' .-. p)) face `at` p -- using HalfTile functor fmap
     _ -> error $ "dropLabels: Vertex location not found for some vertices:\n    " 
-                ++ show (faceVList fc \\ VMap.keys locations)  ++ "\n"
+                ++ show (faceVList face \\ VMap.keys locations)  ++ "\n"
 
 -- |Make drawing tools applicable to Tgraphs.
 instance Drawable Tgraph where
@@ -136,7 +136,7 @@ class DrawableLabelled a where
 
 -- | VPatches can be drawn with labels
 instance DrawableLabelled VPatch where
-  labelSize r d vp = drawLabels r (vLocs vp) <> d (dropLabels vp) where
+  labelSize m d vp = drawLabels m (vLocs vp) <> d (dropLabels vp) where
     -- When a specific Backend B is in scope, drawLabels :: Measure Double -> VertexLocMap -> Diagram B
      drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
        where drawlabel(v,p) = (p, baselineText (show v) # fontSize r # fc red)
@@ -230,7 +230,7 @@ locateVertices:: [TileFace] -> VertexLocMap
 --  and also using Sets for 2nd arg of fastAddVPoints.
 locateVertices [] = VMap.empty
 locateVertices fcs = fastAddVPoints [joinFace] (Set.fromList more) (axisJoin joinFace) where
-    (joinFace:more) = lowestJoinFirst fcs
+    (joinFace,more) = extractLowestJoin fcs
     efMap = buildEFMap fcs  -- map from Dedge to TileFace
 
 {- fastAddVPoints readyfaces fcOther vpMap.
@@ -243,11 +243,11 @@ The third argument is the mapping of vertices to points.
     fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
     fastAddVPoints [] fcOther _ = error $ "locateVertices (fastAddVPoints): Faces not tile-connected: "
                                           ++ show fcOther ++ "/n"
-    fastAddVPoints (fc:fcs) fcOther vpMap = fastAddVPoints (fcs++nbs) fcOther' vpMap' where
-        nbs = filter (`Set.member` fcOther) (edgeNbs fc efMap)
+    fastAddVPoints (face:fs) fcOther vpMap = fastAddVPoints (fs++nbs) fcOther' vpMap' where
+        nbs = filter (`Set.member` fcOther) (edgeNbs face efMap)
         fcOther' = foldl' (flip Set.delete) fcOther nbs
 --        fcOther' = foldr Set.delete fcOther nbs
-        vpMap' = addVPoint fc vpMap
+        vpMap' = addVPoint face vpMap
 
 -- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tileface vertices
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
@@ -256,27 +256,27 @@ The third argument is the mapping of vertices to points.
 -- It is possible that a newly added location is already in the range of the map (creating a touching vertices),
 -- so this needs to be checked for.
 addVPoint:: TileFace -> VertexLocMap -> VertexLocMap
-addVPoint fc vpMap = 
-  case thirdVertexLoc fc vpMap of
+addVPoint face vpMap = 
+  case thirdVertexLoc face vpMap of
     Just (v,p) -> VMap.insert v p vpMap
     Nothing -> vpMap
 
--- |axisJoin fc 
--- initialises a vertex to point mapping with locations for the join edge vertices of fc
--- with originV fc at the origin and aligned along the x axis with unit length for a half dart
+-- |axisJoin face 
+-- initialises a vertex to point mapping with locations for the join edge vertices of face
+-- with originV face at the origin and aligned along the x axis with unit length for a half dart
 -- and length phi for a half kite. (Used to initialise locateVertices)
 axisJoin::TileFace -> VertexLocMap                
-axisJoin fc = 
-  VMap.insert (originV fc) origin $ VMap.insert (oppV fc) (p2(x,0)) VMap.empty where
-    x = if isDart fc then 1 else phi
+axisJoin face = 
+  VMap.insert (originV face) origin $ VMap.insert (oppV face) (p2(x,0)) VMap.empty where
+    x = if isDart face then 1 else phi
 
 -- |lookup 3 vertex locations in a vertex to point map.
 find3Locs::(Vertex,Vertex,Vertex) -> VertexLocMap
              -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))              
 find3Locs (v1,v2,v3) vpMap = (VMap.lookup v1 vpMap, VMap.lookup v2 vpMap, VMap.lookup v3 vpMap)
 
-{-| thirdVertexLoc fc vpMap,  where fc is a tileface and vpMap associates points with vertices (positions).
-It looks up all 3 vertices of fc in vpMap hoping to find at least 2 of them, it then returns Just pr
+{-| thirdVertexLoc face vpMap,  where face is a tileface and vpMap associates points with vertices (positions).
+It looks up all 3 vertices of face in vpMap hoping to find at least 2 of them, it then returns Just pr
 where pr associates a new location with the third vertex.
 If all 3 are found, returns Nothing.
 If none or one found this is an error (a non tile-connected face).
@@ -286,33 +286,33 @@ It now uses signorm to produce vectors of length 1 rather than rely on relative 
 (Requires ttangle and phi from TileLib).
 -}
 thirdVertexLoc:: TileFace -> VertexLocMap -> Maybe (Vertex, Point V2 Double)        
-thirdVertexLoc fc@(LD _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 1) (loc3 .-. loc1))
+thirdVertexLoc face@(LD _) vpMap = case find3Locs (faceVs face) vpMap of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV face, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (oppV face, loc1 .+^ v)    where v = signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show fc ++ "\n"
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
 
-thirdVertexLoc fc@(RD _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc3 .+^ v) where v = signorm (rotate (ttangle 3) (loc2 .-. loc3))
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+thirdVertexLoc face@(RD _) vpMap = case find3Locs (faceVs face) vpMap of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV face, loc1 .+^ v)    where v = signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV face, loc3 .+^ v) where v = signorm (rotate (ttangle 3) (loc2 .-. loc3))
+  (Just loc1, Nothing, Just loc3) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show fc ++ "\n"
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
  
-thirdVertexLoc fc@(LK _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+thirdVertexLoc face@(LK _) vpMap = case find3Locs (faceVs face) vpMap of
+  (Just loc1, Just loc2, Nothing) -> Just (oppV face, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV face, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show fc ++ "\n"
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
  
-thirdVertexLoc fc@(RK _) vpMap = case find3Locs (faceVs fc) vpMap of
-  (Just loc1, Just loc2, Nothing) -> Just (wingV fc, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
-  (Nothing, Just loc2, Just loc3) -> Just (originV fc, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
-  (Just loc1, Nothing, Just loc3) -> Just (oppV fc, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+thirdVertexLoc face@(RK _) vpMap = case find3Locs (faceVs face) vpMap of
+  (Just loc1, Just loc2, Nothing) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
+  (Nothing, Just loc2, Just loc3) -> Just (originV face, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
+  (Just loc1, Nothing, Just loc3) -> Just (oppV face, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
-  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show fc ++ "\n"
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
 
 {-*  Drawing (located) Edges
 -}
@@ -401,8 +401,8 @@ This can arise when applied to the union of faces from 2 Tgraphs (e.g. in common
 -}
 locateVerticesGen:: [TileFace] -> VertexLocMap
 locateVerticesGen [] = VMap.empty
-locateVerticesGen fcs = fastAddVPointsGen [fc] (Set.fromList more) (axisJoin fc) where
-    (fc:more) = lowestJoinFirst fcs
+locateVerticesGen fcs = fastAddVPointsGen [face] (Set.fromList more) (axisJoin face) where
+    (face,more) = extractLowestJoin fcs
     efMapGen = buildEFMapGen fcs  -- map from Dedge to [TileFace]
 
 {- fastAddVPointsGen readyfaces fcOther vpMap.
@@ -414,25 +414,25 @@ The third argument is the mapping of vertices to points.
 -}
     fastAddVPointsGen [] fcOther vpMap | Set.null fcOther = vpMap 
     fastAddVPointsGen [] fcOther _ = error $ "fastAddVPointsGen: Faces not tile-connected " ++ show fcOther ++ "\n"
-    fastAddVPointsGen (fc:fcs) fcOther vpMap = fastAddVPointsGen (fcs++nbs) fcOther' vpMap' where
-        nbs = filter (`Set.member` fcOther) (edgeNbsGen fc)
+    fastAddVPointsGen (f:fs) fcOther vpMap = fastAddVPointsGen (fs++nbs) fcOther' vpMap' where
+        nbs = filter (`Set.member` fcOther) (edgeNbsGen f)
 --        nbs = filter (`Set.member` fcOther) (edgeNbsGen efMapGen fc)
         fcOther' = foldr Set.delete fcOther nbs
-        vpMap' = addVPoint fc vpMap
+        vpMap' = addVPoint f vpMap
 -- Generalises buildEFMap by allowing for multiple faces on a directed edge.
 -- buildEFMapGen:: [TileFace] -> Map.Map Dedge [TileFace]
     buildEFMapGen = Map.fromListWith (++) . concatMap processFace
-    processFace fc = (,[fc]) <$> faceDedges fc
+    processFace f = (,[f]) <$> faceDedges f
 
 -- Generalised edgeNbs allowing for multiple faces on a directed edge.
 -- edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
-    edgeNbsGen fc = concat $ mapMaybe getNbrs edges where
+    edgeNbsGen f = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen
-      edges = fmap reverseD (faceDedges fc) 
+      edges = fmap reverseD (faceDedges f) 
 {-
-    edgeNbsGen efMapGen fc = concat $ mapMaybe getNbrs edges where
+    edgeNbsGen efMapGen f = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen
-      edges = fmap reverseD (faceDedges fc) 
+      edges = fmap reverseD (faceDedges f) 
 -}
 
 

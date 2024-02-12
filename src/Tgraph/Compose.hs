@@ -84,10 +84,10 @@ data DartWingInfo =  DartWingInfo
 -- | getDartWingInfo g, classifies the dart wings in g and calculates a faceMap for each dart wing,
 -- returning as DartWingInfo.
 getDartWingInfo:: Tgraph -> DartWingInfo
-getDartWingInfo g =  DartWingInfo {largeKiteCentres = kcs, largeDartBases = dbs, unknowns = unks, faceMap = dwFMap} where
-  darts  = filter isDart (faces g)
-  dwFMap = vertexFacesMap (nub $ fmap wingV darts) (faces g)
-  (kcs,dbs,unks) = foldl' processD ([],[],[]) darts  
+getDartWingInfo g =  DartWingInfo {largeKiteCentres = allKcs, largeDartBases = allDbs, unknowns = allUnks, faceMap = dwFMap} where
+  drts  = darts g
+  dwFMap = vertexFacesMap (nub $ fmap wingV drts) (faces g)
+  (allKcs,allDbs,allUnks) = foldl' processD ([],[],[]) drts  
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing tips
@@ -122,7 +122,9 @@ getDartWingInfo g =  DartWingInfo {largeKiteCentres = kcs, largeDartBases = dbs,
                       Just (RD _) -> (kcs,w:dbs,unks) 
                               -- short edge of this lk shared with rd => largeDartBases
                       _ -> (kcs,dbs,w:unks) 
+                 Just _ ->  error "getDartWingInfo: illegal case for matchingLongE of a right kite"
                               -- short edge of this lk has nothing attached => unknown
+        Just _ -> error "getDartWingInfo: non-kite returned by findFarK"
 
   processD (kcs, dbs, unks) ld@(LD (orig, _, w)) = -- classify wing tip w
     if w `elem` kcs || w `elem` dbs then (kcs, dbs, unks) else  -- already classified
@@ -153,6 +155,12 @@ getDartWingInfo g =  DartWingInfo {largeKiteCentres = kcs, largeDartBases = dbs,
                      Just (LD _) -> (kcs,w:dbs,unks)
                              -- short edge of this rk shared with ld => largeDartBases
                      _ -> (kcs,dbs,w:unks) -- short edge of this rk has nothing attached => unknown
+                 Just _ ->  error "getDartWingInfo: illegal case for matchingLongE of a left kite"
+
+          Just _ -> error "getDartWingInfo: non-kite returned by findFarK"
+
+  processD _ _ = error "getDartWingInfo: processD applied to non-dart"
+
     -- find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
     -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
   findFarK :: TileFace -> [TileFace] -> Maybe TileFace
@@ -171,6 +179,7 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
     faceGroupRDs = fmap (\gp -> (makeRD gp,gp)) groupRDs 
     groupRDs = mapMaybe groupRD (largeDartBases dwInfo)
     makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
+    makeRD _       = error "composedFaceGroups: RD case"
     groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
@@ -179,6 +188,7 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
     faceGroupLDs = fmap (\gp -> (makeLD gp,gp)) groupLDs 
     groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
     makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
+    makeLD _       = error "composedFaceGroups: LD case"
     groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
@@ -186,7 +196,8 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
 
     faceGroupRKs = fmap (\gp -> (makeRK gp,gp)) groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
-    makeRK [rd,lk,rk] = RK(originV rd, wingV rk, originV rk)
+    makeRK [rd,_,rk] = RK(originV rd, wingV rk, originV rk)
+    makeRK _         = error "composedFaceGroups: RK case"
     groupRK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
@@ -195,7 +206,8 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
 
     faceGroupLKs = fmap (\gp -> (makeLK gp,gp)) groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
-    makeLK [ld,rk,lk] = LK(originV ld, originV lk, wingV lk)
+    makeLK [ld,_,lk] = LK(originV ld, originV lk, wingV lk)
+    makeLK _         = error "composedFaceGroups: LK case"
     groupLK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs

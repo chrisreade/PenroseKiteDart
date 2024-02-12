@@ -6,7 +6,9 @@ cabal-version: 1.12
 
 name:           PenroseKiteDart
 version:        0.5.0.0
+synopsis:       A Haskell library of tools to explore finite tilings with Penrose's kites and darts, using the Haskell Diagrams package.
 description:    Please see the README on GitHub at <https://github.com/chrisreade/PenroseKiteDart#readme>
+category:       Graphics
 homepage:       https://github.com/chrisreade/PenroseKiteDart#readme
 bug-reports:    https://github.com/chrisreade/PenroseKiteDart/issues
 author:         Chris Reade

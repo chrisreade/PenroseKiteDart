@@ -170,7 +170,9 @@ maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlu
 emplaceChoicesFoolD :: Renderable (Path V2 Double) b => Diagram2D b
 emplaceChoicesFoolD = padBorder $ hsep 1 $
         fmap (addFoolD . lw ultraThin . draw) vpChoices where
-        (vpFoolD:vpChoices) = alignAll (1,6) $ fmap makeVP (foolD:emplaceChoices foolD)
+--        (vpFoolD:vpChoices) = alignAll (1,6) $ fmap makeVP (foolD:emplaceChoices foolD)
+        vpFoolD = alignXaxis (1,6) $ makeVP foolD
+        vpChoices = alignAll (1,6) $ fmap makeVP $ emplaceChoices foolD
         addFoolD fig = (lc red . lw thin . drawj) vpFoolD <> fig
 
 {-*

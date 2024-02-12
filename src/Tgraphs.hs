@@ -337,8 +337,8 @@ This can raise an error if bd is a boundary state of an unforced Tgraph.
 It will raise an error if both choices on a boundary edge fail when forced (using atLeastOne).
 -}
 boundaryECovering:: BoundaryState -> [BoundaryState]
-boundaryECovering bs = covers [(bs, boundaryEdgeSet bs)] where
--- covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
+boundaryECovering bstate = covers [(bstate, boundaryEdgeSet bstate)] where
+  covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
   covers ((bs,es):opens) 
     | Set.null es = bs:covers opens -- bs is a completed cover
@@ -369,7 +369,7 @@ boundaryVCovering bd = covers [(bd, startbds)] where
   covers ((open,es):opens) 
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just de -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKiteForced de open) ++opens
+        Just dedge -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKiteForced dedge open) ++opens
     | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced de open) ++opens  
                    where (de,des) = Set.deleteFindMin es
 
@@ -415,7 +415,9 @@ drawFBCovering g = lw ultraThin $ vsep 1 (draw <$> forcedBoundaryVCovering g)
 -- at the head, followed by the original faces of g.
 empire1:: Tgraph -> TrackedTgraph
 empire1 g = makeTrackedTgraph g0 [fcs,faces g] where
-    (g0:others) = forcedBoundaryVCovering g
+    covers = forcedBoundaryVCovering g
+    g0 = head covers
+    others = tail covers
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
@@ -433,7 +435,10 @@ empire2 g = makeTrackedTgraph g0 [fcs, faces g] where
     covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryECovering covers1
-    (g0:others) = fmap recoverGraph covers2
+--    (g0:others) = fmap recoverGraph covers2
+    gcovers = fmap recoverGraph covers2
+    g0 = head gcovers
+    others = tail gcovers
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
@@ -445,7 +450,10 @@ empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
     covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
               $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryVCovering covers1
-    (g0:others) = fmap recoverGraph covers2
+--    (g0:others) = fmap recoverGraph covers2
+    gcovers = fmap recoverGraph covers2
+    g0 = head gcovers
+    others = tail gcovers
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
@@ -500,8 +508,8 @@ trySuperForce = tryFSOp trySuperForceFS where
                        tryForce fs
            case singleChoiceEdges $ boundaryState forcedFS of
               [] -> return forcedFS
-              (pr:_) -> do extended <- addSingle pr forcedFS
-                           trySuperForceFS extended
+              (elpr:_) -> do extended <- addSingle elpr forcedFS
+                             trySuperForceFS extended
     addSingle (e,l) fs = if isDart l then tryAddHalfDart e fs else tryAddHalfKite e fs
 
 -- |singleChoiceEdges bd - if bd is a boundary state of a forced Tgraph this finds those boundary edges of bd
@@ -509,7 +517,7 @@ trySuperForce = tryFSOp trySuperForceFS where
 -- The result is a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
 singleChoiceEdges :: BoundaryState -> [(Dedge,HalfTileLabel)]
-singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)  
+singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary bstate)  
   where
 -- |commonToCovering bds edgeList - when bds are all the boundary edge covers of some forced Tgraph
 -- whose boundary edges were edgeList, this looks for edges in edgeList that have the same tile label added in all covers.
@@ -521,11 +529,11 @@ singleChoiceEdges bd = commonToCovering (boundaryECovering bd) (boundary bd)
       common [] [] = []
       common [] (_:_) = error "singleChoiceEdges:commonToCovering: label list is longer than edge list"
       common (_:_) [] = error "singleChoiceEdges:commonToCovering: label list is shorter than edge list"
-      common (e:more) (ls:lls) = if matching ls 
+      common (e:more) (ls:lls) = if matchingLabels ls 
                                  then (e,head ls):common more lls
                                  else common more lls
-      matching [] = error "singleChoiceEdges:commonToCovering: empty list of labels" 
-      matching (l:ls) = all (==l) ls
+      matchingLabels [] = error "singleChoiceEdges:commonToCovering: empty list of labels" 
+      matchingLabels (l:ls) = all (==l) ls
 
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
@@ -569,16 +577,16 @@ findLoops = collectLoops . VMap.fromList where
     -- This is repeated until the map is empty, to collect all boundary trials.
    collectLoops vmap -- 
      | VMap.null vmap = []
-     | otherwise = chase start vmap [start] 
+     | otherwise = chase startV vmap [startV] 
          where
-         (start,_) = VMap.findMin vmap
+         (startV,_) = VMap.findMin vmap
          chase a vm sofar -- sofar is the collected trail in reverse order.
             = case VMap.lookup a vm of
                 Just b -> chase b (VMap.delete a vm) (b:sofar)
-                Nothing -> if a == start 
+                Nothing -> if a == startV 
                            then reverse sofar: collectLoops vm -- look for more loops
                            else error $ "findLoops (collectLoops): non looping boundary component, starting at "
-                                        ++show start++
+                                        ++show startV++
                                         " and finishing at "
                                         ++ show a ++ 
                                         "\nwith loop vertices "++ show (reverse sofar) ++"\n"

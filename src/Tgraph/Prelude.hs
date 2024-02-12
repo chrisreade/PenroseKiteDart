@@ -432,6 +432,7 @@ nextV v fc = case indexV v fc of
                     0 -> secondV fc
                     1 -> thirdV fc
                     2 -> firstV fc
+                    _ -> error "nextV: index error"
 -- |prevV returns the previous vertex in a face (i.e. next going anti-clockwise) from v
 -- where v must be a vertex of the face
 prevV :: Vertex -> TileFace -> Vertex
@@ -439,6 +440,7 @@ prevV v fc = case indexV v fc of
                     0 -> thirdV fc
                     1 -> firstV fc
                     2 -> secondV fc
+                    _ -> error "prevV: index error"
 
 -- |isAtV v fc asks if a face fc has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool           
@@ -582,8 +584,8 @@ missingRevs es = revUnmatched es where
                    Just vs -> a `elem` vs
                     
     revUnmatched [] = []
-    revUnmatched (e@(a,b):es) | seekR e = revUnmatched es
-                              | otherwise = (b,a):revUnmatched es
+    revUnmatched (e@(a,b):more) | seekR e = revUnmatched more
+                                | otherwise = (b,a):revUnmatched more
 
 
 
@@ -653,16 +655,16 @@ edgeNbs fc efMap = mapMaybe getNbr edges where
 -- find the face with lowest originV (and then lowest oppV).
 -- Move this face to the front of the returned list of faces.
 -- Used by locateVertices to determine the starting point for location calculation
-lowestJoinFirst:: [TileFace] -> [TileFace]
-lowestJoinFirst fcs
-  | null fcs  = error "lowestJoinFirst: applied to empty list of faces"
-  | otherwise = face:(fcs\\[face])
+extractLowestJoin:: [TileFace] -> (TileFace,[TileFace])
+extractLowestJoin fcs
+  | null fcs  = error "extractLowestJoin: applied to empty list of faces"
+  | otherwise = (face, fcs\\[face])
     where a = minimum (fmap originV fcs)
           aFaces = filter ((a==) . originV) fcs
           b = minimum (fmap oppV aFaces)
           face = case find (((a,b)==) . joinOfTile) aFaces of
                   Just fc -> fc
-                  Nothing -> error $ "lowestJoinFirst: no face fond at "
+                  Nothing -> error $ "extractLowestJoin: no face fond at "
                                      ++ show a ++ " with opp vertex at " ++ show b ++ "\n"
 --          (face: _) = filter (((a,b)==) . joinOfTile) aFaces
 

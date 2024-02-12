@@ -16,8 +16,6 @@ import Diagrams.Backend.Rasterific.CmdLine
 -}
 
 import TgraphExamples
-
--- imported for testing / debugging only
 import TileLib
 import Tgraphs
 
@@ -25,7 +23,7 @@ import TestIllustrate
 import ArtWork
                
 fig::Diagram B
-fig =  boundaryGap5Fig
+fig =  halfWholeFig
 
 main :: IO ()
 main = mainWith fig

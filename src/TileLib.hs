@@ -186,7 +186,7 @@ leftFillPieceDK dcol kcol pc =
 -- When a specific Backend B is in scope, experiment:: Piece -> Diagram B
 experiment:: Renderable (Path V2 Double) b =>
              Piece ->  Diagram2D b
-experiment pc = emph pc <> (drawRoundPiece pc # dashingN [0.003,0.003] 0 # lw ultraThin)
+experiment piece = emph piece <> (drawRoundPiece piece # dashingN [0.003,0.003] 0 # lw ultraThin)
     --emph pc <> (drawRoundPiece pc # dashingO [1,2] 0 # lw ultraThin)
   where emph pc = case pc of
           (LD v) -> (strokeLine . fromOffsets) [v] # lc red   -- emphasise join edge of darts in red

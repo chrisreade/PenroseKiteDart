@@ -230,15 +230,23 @@ tryForceWith ugen = tryFSOpWith ugen (tryForceStateWith ugen) where
     
 -- | try a given number of force steps using a given UpdateGenerator.
 tryStepForceWith :: Forcible a => UpdateGenerator -> Int -> a -> Try a
-tryStepForceWith ugen n = tryFSOpWith ugen $ tryStepForceStateWith ugen n where
---    tryStepForceStateWith :: UpdateGenerator -> Int -> ForceState -> Try ForceState
-    tryStepForceStateWith updateGen n = count n where
+tryStepForceWith ugen n = tryFSOpWith ugen $ count n where
       count 0 fs = return fs
-      count n fs = do result <- tryOneStepWith updateGen fs
+      count m fs = do result <- tryOneStepWith ugen fs
                       case result of
                        Nothing -> return fs
-                       Just (fs', _) ->  count (n-1) fs' 
-    
+                       Just (fs', _) ->  count (m-1) fs' 
+{-
+tryStepForceWith ugen n = tryFSOpWith ugen $ tryStepForceStateWith ugen n where
+--    tryStepForceStateWith :: UpdateGenerator -> Int -> ForceState -> Try ForceState
+    tryStepForceStateWith updateGen = count where
+      count 0 fs = return fs
+      count m fs = do result <- tryOneStepWith updateGen fs
+                      case result of
+                       Nothing -> return fs
+                       Just (fs', _) ->  count (m-1) fs' 
+ -}
+   
 -- |A version of tryFSOpWith using defaultAllUGen representing all 10 rules for updates.
 tryFSOp :: Forcible a => (ForceState -> Try ForceState) -> a -> Try a
 tryFSOp = tryFSOpWith defaultAllUGen
@@ -460,6 +468,7 @@ tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
 tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
   bd = boundaryState fs
   -- the integer records how many blocked cases have been found so far
+  checkBlocked:: Int -> [Update]  -> Try (Maybe BoundaryChange)
   checkBlocked 0 [] = return Nothing
   checkBlocked n [] = Left $ "tryUnsafes: There are " ++ show n++ " unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n"
                              ++ "This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
@@ -928,8 +937,8 @@ kingDartUpdates = makeGenerator addDartLongE kingMissingThirdDart
 -- |Find king vertices with a dart long edge on the boundary
 -- and 2 of the 3 darts at its origin plus a kite wing at its origin
 kingMissingThirdDart :: UFinder                    
-kingMissingThirdDart = boundaryFilter pred where
-    pred bd (a,b) fc = longE fc == (b,a) &&
+kingMissingThirdDart = boundaryFilter predicate where
+    predicate bd (a,b) fc = longE fc == (b,a) &&
         isDart fc && mustbeKing bd (originV fc)
 
 
@@ -940,11 +949,12 @@ queenDartUpdates = makeGenerator addDartLongE queenMissingDarts
 
 -- |Find queen vertices (with 3 or 4 kite wings) and a boundary kite long edge
 queenMissingDarts :: UFinder                      
-queenMissingDarts = boundaryFilter pred where
-    pred bd (a,b) fc = longE fc == (b,a) && isKite fc && length kiteWings >2
-                        where fcWing = wingV fc
-                              kiteWings = filter ((==fcWing) . wingV) $ 
-                                          filter isKite $ facesAtBV bd fcWing
+queenMissingDarts = boundaryFilter predicate where
+    predicate bd (a,b) fc = 
+        longE fc == (b,a) && isKite fc && length kiteWings >2
+           where fcWing = wingV fc
+                 kiteWings = filter ((==fcWing) . wingV) $ 
+                             filter isKite $ facesAtBV bd fcWing
                                       
 -- |Update generator for rule (10)
 -- queen vertices with 3 kite wings -- add missing fourth half kite on a boundary kite short edge
@@ -953,11 +963,11 @@ queenKiteUpdates = makeGenerator addKiteShortE queenMissingKite
 
 -- |Find queen vertices with only 3 kite wings and a kite short edge on the boundary
 queenMissingKite :: UFinder                        
-queenMissingKite = boundaryFilter pred where
-    pred bd (a,b) fc = shortE fc == (b,a) && isKite fc && length kiteWings >2
-                        where
-                          fcWing = wingV fc
-                          kiteWings = filter ((==fcWing) . wingV) $ filter isKite (facesAtBV bd fcWing)
+queenMissingKite = boundaryFilter predicate where
+    predicate bd (a,b) fc = 
+        shortE fc == (b,a) && isKite fc && length kiteWings >2
+           where fcWing = wingV fc
+                 kiteWings = filter ((==fcWing) . wingV) $ filter isKite (facesAtBV bd fcWing)
 
 
 {-*
@@ -1071,30 +1081,30 @@ The Default All Update Generator (defaultAllUGen)
 -- boundary edges the result is a sigle Left.. concatenating all the failure reports (unlike allUGenerator).
 defaultAllUGen :: UpdateGenerator
 defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
-  decide e = decider (e,fc,etype) where (fc,etype) = inspectBDedge bd e
+  decide e = decider (e,f,etype) where (f,etype) = inspectBDedge bd e
 
-  decider (e,fc,Join)  = mapItem e (completeHalf bd fc) -- rule 1
-  decider (e,fc,Short) 
-    | isDart fc = mapItem e (addKiteShortE bd fc) -- rule 2
-    | otherwise = kiteShortDecider e fc 
-  decider (e,fc,Long)  
-    | isDart fc = dartLongDecider e fc
-    | otherwise = kiteLongDecider e fc 
+  decider (e,f,Join)  = mapItem e (completeHalf bd f) -- rule 1
+  decider (e,f,Short) 
+    | isDart f = mapItem e (addKiteShortE bd f) -- rule 2
+    | otherwise = kiteShortDecider e f 
+  decider (e,f,Long)  
+    | isDart f = dartLongDecider e f
+    | otherwise = kiteLongDecider e f 
 
-  dartLongDecider e fc
-    | mustbeStar bd (originV fc) = mapItem e (completeSunStar bd fc)
-    | mustbeKing bd (originV fc) = mapItem e (addDartLongE bd fc)
-    | mustbeJack bd (wingV fc) = mapItem e (addKiteLongE bd fc)
+  dartLongDecider e f
+    | mustbeStar bd (originV f) = mapItem e (completeSunStar bd f)
+    | mustbeKing bd (originV f) = mapItem e (addDartLongE bd f)
+    | mustbeJack bd (wingV f) = mapItem e (addKiteLongE bd f)
     | otherwise = Right Map.empty
 
-  kiteLongDecider e fc
-    | mustbeSun bd (originV fc) = mapItem e (completeSunStar bd fc)
-    | mustbeQueen bd (wingV fc) = mapItem e (addDartLongE bd fc)
+  kiteLongDecider e f
+    | mustbeSun bd (originV f) = mapItem e (completeSunStar bd f)
+    | mustbeQueen bd (wingV f) = mapItem e (addDartLongE bd f)
     | otherwise = Right Map.empty
 
-  kiteShortDecider e fc
-    | mustbeDeuce bd (oppV fc) || mustbeJack bd (oppV fc) = mapItem e (addDartShortE bd fc)
-    | mustbeQueen bd (wingV fc) || isDartOrigin bd (wingV fc) = mapItem e (addKiteShortE bd fc)
+  kiteShortDecider e f
+    | mustbeDeuce bd (oppV f) || mustbeJack bd (oppV f) = mapItem e (addDartShortE bd f)
+    | mustbeQueen bd (wingV f) || isDartOrigin bd (wingV f) = mapItem e (addKiteShortE bd f)
     | otherwise = Right Map.empty
 
   mapItem e = fmap (\u -> Map.insert e u Map.empty)
@@ -1104,9 +1114,9 @@ defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a mon
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
 inspectBDedge:: BoundaryState -> Dedge -> (TileFace, EdgeType)
-inspectBDedge bd e = (fc,edgeType (reverseD e) fc) where
-    fc = case facesAtBV bd (fst e) `intersect` facesAtBV bd (snd e) of
-         [fc] -> fc
+inspectBDedge bd e = (face,edgeType (reverseD e) face) where
+    face = case facesAtBV bd (fst e) `intersect` facesAtBV bd (snd e) of
+         [f] -> f
          _ -> error $ "inspectBDedge: Not a boundary directed edge " ++ show e ++ "\n"
 
 
