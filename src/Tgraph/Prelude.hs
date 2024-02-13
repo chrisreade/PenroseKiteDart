@@ -190,24 +190,24 @@ sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
 -- |A version of sharedEdges comparing a single face against a list of faces.
 -- This does not look at shared edges within the list, but just the new face against the list.
 sharedEdgesWith:: TileFace -> [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
-sharedEdgesWith fc fcs = 
-    [(fc, edgeType d1 fc, fc', edgeType d2 fc') 
-     | d1 <- faceDedges fc
+sharedEdgesWith face fcs = 
+    [(face, edgeType d1 face, fc', edgeType d2 fc') 
+     | d1 <- faceDedges face
      , let d2 = reverseD d1
      , fc' <- filter (`hasDedge` d2) fcs
     ]
 
--- | newNoConflict fc fcs returns True if fc has an illegal shared edge with fcs.
+-- | newNoConflict face fcs returns True if face has an illegal shared edge with fcs.
 -- It does not check for illegal cases within the fcs.
 newNoConflict :: TileFace -> [TileFace] -> Bool
-newNoConflict fc fcs = null $ filter (not . legal) shared where
-    shared = sharedEdgesWith fc fcs
+newNoConflict face fcs = null $ filter (not . legal) shared where
+    shared = sharedEdgesWith face fcs
 
--- |newNoConflictFull fc fcs  where fc is a new face and fcs are neighbouring faces.
--- Checks for illegal shared edges using newNoConflict but also checks that fc does not have a directed edge
+-- |newNoConflictFull face fcs  where face is a new face and fcs are neighbouring faces.
+-- Checks for illegal shared edges using newNoConflict but also checks that face does not have a directed edge
 -- in the same direction as a directed edge in fcs.
 newNoConflictFull :: TileFace -> [TileFace] -> Bool
-newNoConflictFull fc fcs = null (faceDedges fc `intersect` facesDedges fcs) && newNoConflict fc fcs
+newNoConflictFull face fcs = null (faceDedges face `intersect` facesDedges fcs) && newNoConflict face fcs
 
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   
@@ -415,9 +415,9 @@ facesMaxV fcs = IntSet.findMax $ facesVSet fcs
 
 -- |firstV, secondV and thirdV vertices of a face are counted clockwise starting with the origin
 firstV,secondV,thirdV:: TileFace -> Vertex
-firstV  fc = a where (a,_,_) = faceVs fc
-secondV fc = b where (_,b,_) = faceVs fc
-thirdV  fc = c where (_,_,c) = faceVs fc
+firstV  face = a where (a,_,_) = faceVs face
+secondV face = b where (_,b,_) = faceVs face
+thirdV  face = c where (_,_,c) = faceVs face
 
 originV,wingV,oppV:: TileFace -> Vertex
 -- |the origin vertex of a face (firstV)
@@ -435,37 +435,37 @@ oppV (RK(_,b,_)) = b
 
 -- |indexV finds the index of a vertex in a face (firstV -> 0, secondV -> 1, thirdV -> 2)
 indexV :: Vertex -> TileFace -> Int
-indexV v fc = case elemIndex v (faceVList fc) of
+indexV v face = case elemIndex v (faceVList face) of
                   Just i -> i
-                  _      -> error ("indexV: " ++ show v ++ " not found in " ++ show fc)                
+                  _      -> error ("indexV: " ++ show v ++ " not found in " ++ show face)                
 
 -- |nextV returns the next vertex in a face going clockwise from v
 -- where v must be a vertex of the face
 nextV :: Vertex -> TileFace -> Vertex
-nextV v fc = case indexV v fc of
-                    0 -> secondV fc
-                    1 -> thirdV fc
-                    2 -> firstV fc
+nextV v face = case indexV v face of
+                    0 -> secondV face
+                    1 -> thirdV face
+                    2 -> firstV face
                     _ -> error "nextV: index error"
 -- |prevV returns the previous vertex in a face (i.e. next going anti-clockwise) from v
 -- where v must be a vertex of the face
 prevV :: Vertex -> TileFace -> Vertex
-prevV v fc = case indexV v fc of
-                    0 -> thirdV fc
-                    1 -> firstV fc
-                    2 -> secondV fc
+prevV v face = case indexV v face of
+                    0 -> thirdV face
+                    1 -> firstV face
+                    2 -> secondV face
                     _ -> error "prevV: index error"
 
--- |isAtV v fc asks if a face fc has v as a vertex
+-- |isAtV v face asks if a face face has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool           
 isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (LK(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RK(a,b,c))  =  v==a || v==b || v==c
 
--- |hasVIn vs fc - asks if face fc has an element of vs as a vertex
+-- |hasVIn vs face - asks if face face has an element of vs as a vertex
 hasVIn:: [Vertex] -> TileFace -> Bool           
-hasVIn vs fc = not $ null $ faceVList fc `intersect` vs
+hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
 -- |n `newVsAfter` v - given existing maxV v, create a list of n new vertices [v+1..v+n]
 newVsAfter :: Int -> Vertex -> [Vertex]
@@ -526,27 +526,27 @@ longE (LK(a,b,_)) = (a,b)
 longE (RK(a,_,c)) = (c,a)
 
 -- |The join edge of a face directed from the origin (not clockwise for RD and LK)
-joinOfTile fc = (originV fc, oppV fc)
+joinOfTile face = (originV face, oppV face)
 
 facePhiEdges, faceNonPhiEdges::  TileFace -> [Dedge]
 -- |The phi edges of a face (both directions)
 -- which is long edges for darts, and join and long edges for kites
-facePhiEdges fc@(RD _) = [e, reverseD e] where e = longE fc
-facePhiEdges fc@(LD _) = [e, reverseD e] where e = longE fc
-facePhiEdges fc        = [e, reverseD e, j, reverseD j] 
-                         where e = longE fc
-                               j = joinE fc
+facePhiEdges face@(RD _) = [e, reverseD e] where e = longE face
+facePhiEdges face@(LD _) = [e, reverseD e] where e = longE face
+facePhiEdges face        = [e, reverseD e, j, reverseD j] 
+                         where e = longE face
+                               j = joinE face
 
 -- |The non-phi edges of a face (both directions)
 -- which is short edges for kites, and join and short edges for darts
-faceNonPhiEdges fc = bothDirOneWay (faceDedges fc) \\ facePhiEdges fc
+faceNonPhiEdges face = bothDirOneWay (faceDedges face) \\ facePhiEdges face
 
--- |matchingE eselect fc is a predicate on tile faces 
+-- |matchingE eselect face is a predicate on tile faces 
 -- where eselect selects a particular edge type of a face
 -- (eselect could be joinE or longE or shortE for example).
--- This is True for fc' if fc' has an eselect edge matching the (reversed) eselect edge of fc
+-- This is True for face' if face' has an eselect edge matching the (reversed) eselect edge of face
 matchingE :: (TileFace -> Dedge) -> TileFace -> TileFace -> Bool
-matchingE eselect fc = (== reverseD (eselect fc)) . eselect
+matchingE eselect face = (== reverseD (eselect face)) . eselect
 
 -- |special cases of matchingE eselect 
 -- where eselect is longE, shortE, and joinE
@@ -560,9 +560,9 @@ matchingJoinE  = matchingE joinE
 hasDedge :: TileFace -> Dedge -> Bool
 hasDedge f e = e `elem` faceDedges f
 
--- |hasDedgeIn fc es - is True if fc has a directed edge in the list of directed edges es.
+-- |hasDedgeIn face es - is True if face has a directed edge in the list of directed edges es.
 hasDedgeIn :: TileFace -> [Dedge] -> Bool
-hasDedgeIn fc es = not $ null $ es `intersect` faceDedges fc
+hasDedgeIn face es = not $ null $ es `intersect` faceDedges face
 
 -- |facesEdges returns a list of all the edges of a list of TileFaces (both directions of each edge).
 facesEdges :: [TileFace] -> [Dedge]
@@ -591,9 +591,9 @@ facesBoundary fcs = missingRevs $ facesDedges fcs
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
 missingRevs:: [Dedge] -> [Dedge]
 missingRevs es = revUnmatched es where
-    imap = VMap.fromListWith (++) $ map singleton es
+    vmap = VMap.fromListWith (++) $ map singleton es
     singleton (a,b) = (a,[b])
-    seekR (a,b) = case VMap.lookup b imap of
+    seekR (a,b) = case VMap.lookup b vmap of
                    Nothing -> False
                    Just vs -> a `elem` vs
                     
@@ -608,8 +608,8 @@ missingRevs es = revUnmatched es where
 
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
-edgeNb fc = any (`elem` edges) . faceDedges where
-      edges = fmap reverseD (faceDedges fc)
+edgeNb face = any (`elem` edges) . faceDedges where
+      edges = fmap reverseD (faceDedges face)
 
 
 -- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
@@ -620,8 +620,8 @@ For list of vertices vs and list of faces fcs,
 create an IntMap from each vertex in vs to a list of those faces in fcs that are at that vertex.
 -}
 vertexFacesMap:: [Vertex] -> [TileFace] -> VertexMap [TileFace]
-vertexFacesMap vs = foldl' insertf start where
-    start = VMap.fromList $ fmap (,[]) vs
+vertexFacesMap vs = foldl' insertf startVF where
+    startVF = VMap.fromList $ fmap (,[]) vs
     insertf vfmap f = foldr (VMap.alter addf) vfmap (faceVList f)
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
@@ -638,7 +638,7 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
    assocFaces [] = []
    assocFaces (d@(a,b):more) = case (VMap.lookup a vfMap, VMap.lookup b vfMap) of
       (Just fcs1, Just fcs2) -> case filter (`hasDedge` d) $ fcs1 `intersect` fcs2 of 
-                                   [fc] -> (d,fc):assocFaces more
+                                   [face] -> (d,face):assocFaces more
                                    []   -> assocFaces more
                                    _   -> error $ "dedgesFacesMap: more than one Tileface has the same directed edge: "
                                                   ++ show d ++ "\n"
@@ -647,23 +647,23 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
 
 -- |Build a Map from directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: [TileFace] -> Map.Map Dedge TileFace
-buildEFMap = Map.fromList . concatMap assign where
-  assign f = fmap (,f) (faceDedges f)
+buildEFMap = Map.fromList . concatMap assignFace where
+  assignFace f = fmap (,f) (faceDedges f)
 {-
 buildEFMap = mconcat . fmap processFace where
-  processFace fc = Map.fromList $ (,fc) <$> faceDedges fc
+  processFace face = Map.fromList $ (,face) <$> faceDedges face
 -}
 
 -- | look up a face for an edge in an edge-face map
 faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
 faceForEdge = Map.lookup
 
--- |Given a tileface (fc) and a map from each directed edge to the tileface containing it (efMap)
--- return the list of edge neighbours of fc.
+-- |Given a tileface (face) and a map from each directed edge to the tileface containing it (efMap)
+-- return the list of edge neighbours of face.
 edgeNbs:: TileFace -> Map.Map Dedge TileFace -> [TileFace]
-edgeNbs fc efMap = mapMaybe getNbr edges where
+edgeNbs face efMap = mapMaybe getNbr edges where
     getNbr e = Map.lookup e efMap
-    edges = fmap reverseD $ faceDedges fc
+    edges = fmap reverseD $ faceDedges face
 
 -- |For a non-empty list of tile faces
 -- find the face with lowest originV (and then lowest oppV).
@@ -677,7 +677,7 @@ extractLowestJoin fcs
           aFaces = filter ((a==) . originV) fcs
           b = minimum (fmap oppV aFaces)
           face = case find (((a,b)==) . joinOfTile) aFaces of
-                  Just fc -> fc
+                  Just f -> f
                   Nothing -> error $ "extractLowestJoin: no face fond at "
                                      ++ show a ++ " with opp vertex at " ++ show b ++ "\n"
 --          (face: _) = filter (((a,b)==) . joinOfTile) aFaces
@@ -891,7 +891,7 @@ rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
 rotateBefore vfun angle = vfun . rotate angle . makeVP
 
 
-{-* Alignment with Vertices
+{-* VPatch alignment with vertices
 -}
 
 -- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
