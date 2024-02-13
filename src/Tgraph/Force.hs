@@ -13,7 +13,6 @@ Tgraph, BoundaryState, and ForceState.
 It exposes the calculation of relative angle of edges at boundary vertices used to find existing edges.
 It imports a touching check for adding new vertices (with locateVertices and addVPoint).
 -}
--- {-# LANGUAGE BangPatterns #-}
 
 module Tgraph.Force  where
 

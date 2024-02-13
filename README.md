@@ -64,7 +64,7 @@ For example a fool consists of two kites and a dart (= 4 half kites and 2 half d
 ## Modules
 
 Module `Tgraphs` includes and exports the contents of the other Tgraph modules, namely 
-`Tgraph.Compose`, `Tgraph.Convert`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Prelude`.
+`Tgraph.Compose`, `Tgraph.Convert`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Relabelling`, `Tgraph.Prelude`.
 
 Module `TileLib` (which re-exports module `HalfTile`) contains underlying drawing tools for tiles (and Patches) and the constructors `LD`,`RD`,`LK`,`R` are introduced in module `HalfTile`.
 

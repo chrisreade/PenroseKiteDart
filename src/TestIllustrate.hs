@@ -1,8 +1,3 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TupleSections             #-}
-
 {-|
 Module      : TestIllustrate
 Description : Testing and Illustrative figures using Tgraphs
@@ -12,6 +7,11 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 -}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TupleSections             #-}
+
 module TestIllustrate where
 
 -- used for testing

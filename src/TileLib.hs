@@ -1,9 +1,3 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
-{-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
-
 {-|
 Module      : TileLib
 Description : Introducing Pieces and Patches and a class for drawing
@@ -17,6 +11,12 @@ It includes several primitives for drawing half tiles (Pieces), a class drawable
 and primitives for the drawable class (draw, drawj, fillDK,..).
 There is also a decompose operation for Patches (decompPatch) and sun and star example Patches.
 -}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
+{-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
+
 module TileLib where
 
 import Diagrams.Prelude

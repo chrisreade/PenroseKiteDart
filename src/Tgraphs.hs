@@ -1,10 +1,3 @@
-{-# OPTIONS_HADDOCK ignore-exports #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
--- {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
-
 {-|
 Module      : Tgraphs
 Description : Collects and exports the various Tgraph modules plus extra operations, including makeTgraph
@@ -19,6 +12,13 @@ The module also defines several functions for producing overlaid diagrams for Tg
 experimental combinations such as boundaryECovering, boundaryVCovering, empire1, empire2, superForce, boundaryLoopsG.
 It also defines experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
 -}
+{-# OPTIONS_HADDOCK ignore-exports #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
+-- {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
+
 module Tgraphs ( module Tgraphs
                , module Tgraph.Prelude -- export excludes data constructor Tgraph
                , module Tgraph.Decompose

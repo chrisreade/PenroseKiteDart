@@ -1,6 +1,3 @@
-{-# OPTIONS_HADDOCK ignore-exports #-}
-{-# LANGUAGE TupleSections         #-}
-
 {-|
 Module      : Tgraph.Prelude
 Description : Introducing type Tgraph and basic operations for Tgraphs
@@ -13,6 +10,10 @@ Introduces Tgraphs and includes operations on vertices, edges and faces as well 
 Includes type constructor Try for use as result of partial operations.
 This module re-exports module HalfTile.
 -}
+
+{-# OPTIONS_HADDOCK ignore-exports #-}
+{-# LANGUAGE TupleSections         #-}
+
 module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
 
 import Data.List ((\\), intersect, union, elemIndex,foldl',find)
@@ -676,8 +677,6 @@ lowestJoin fcs = (a,b) where
     a = minimum (fmap originV fcs)
     aFaces = filter ((a==) . originV) fcs
     b = minimum (fmap oppV aFaces)
-
-
 
 {-* Try - result types with failure reporting (for partial operations) -}
 

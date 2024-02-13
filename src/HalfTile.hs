@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeFamilies              #-} -- needed for Transformable Instance
-{-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Instance
 {-|
 Module      : HalfTile
 Description : Introducing a generic type for half tiles of darts and kites
@@ -9,6 +7,9 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 -}
+{-# LANGUAGE TypeFamilies              #-} -- needed for Transformable Instance
+{-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Instance
+
 module HalfTile where
     
 import Diagrams.Prelude (V,N, Transformable(..)) -- needed to make HalfTile a Transformable when a is Transformable

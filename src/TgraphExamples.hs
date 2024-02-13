@@ -1,7 +1,3 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TupleSections             #-}
 
 {-|
 Module      : TgraphExamples
@@ -12,6 +8,12 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 -}
+
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TupleSections             #-}
+
 module TgraphExamples where
 
 import Diagrams.Prelude
