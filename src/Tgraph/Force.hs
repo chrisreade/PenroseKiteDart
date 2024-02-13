@@ -21,7 +21,7 @@ import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys
 import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
             -- used for BoundaryState locations AND faces at boundary vertices
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
-import Tgraph.Convert(touching, locateVertices, addVPoint)
+-- import Tgraph.Convert(touching, locateVertices, addVPoint)
 import Tgraph.Prelude
 
 {-

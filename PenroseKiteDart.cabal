@@ -34,7 +34,6 @@ library
       Tgraph.Decompose
       Tgraph.Compose
       Tgraph.Force
-      Tgraph.Convert
       Tgraph.Relabelling
       TgraphExamples
       TestIllustrate

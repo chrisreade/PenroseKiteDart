@@ -24,7 +24,7 @@ module Tgraphs ( module Tgraphs
                , module Tgraph.Decompose
                , module Tgraph.Compose
                , module Tgraph.Force
-               , module Tgraph.Convert
+--               , module Tgraph.Convert
                , module Tgraph.Relabelling
                ) where
 
@@ -33,7 +33,7 @@ import Tgraph.Prelude (Tgraph) -- re-includes Tgraph as type constructor only
 import Tgraph.Decompose
 import Tgraph.Compose
 import Tgraph.Force
-import Tgraph.Convert
+--import Tgraph.Convert
 import Tgraph.Relabelling
 
 import Diagrams.Prelude hiding (union)

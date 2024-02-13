@@ -19,7 +19,7 @@ import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, 
 import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\),null,member)
 
 import Tgraph.Prelude
-import Tgraph.Convert (touchingVertices, touchingVerticesGen) -- used for fullUnion and commonFaces
+-- import Tgraph.Convert (touchingVertices, touchingVerticesGen) -- used for fullUnion and commonFaces
 
 
 
