@@ -124,7 +124,7 @@ checkTgraphProps fcs
                                then Left $ "checkTgraphProps: Vertex numbers not all >0: " ++ show (IntSet.toList vs) ++ "\n"
                                else checkConnectedNoCross fcs 
 
--- |Checks a list of faces for crossing boundaries and connectedness.
+-- |Checks a list of faces for no crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected).
 -- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
@@ -359,7 +359,7 @@ internalEdges g =  des \\ fmap reverseD (missingRevs des) where
 graphBoundary :: Tgraph -> [Dedge]
 graphBoundary = facesBoundary . faces
 
--- |phiEdges returns a list of the phi-edges of a Tgraph (including kite joins).
+-- |phiEdges returns a list of the longer (phi-length) edges of a Tgraph (including kite joins).
 -- This includes both directions of each edge.
 phiEdges :: Tgraph -> [Dedge]
 phiEdges = bothDir . concatMap facePhiEdges . faces
@@ -745,8 +745,8 @@ atLeastOne results = case ignoreFails results of
                  other -> other 
 
 -- | noFails rs - returns the list of successes when all cases succeed, but fails with
--- an error and a concatenated failure report of all failures if there is at least one failure
--- noFails [] = []
+-- an error and a concatenated failure report of all failures if there is at least one failure.
+-- In particular, noFails [] = []
 noFails:: [Try a] -> [a]
 noFails = runTry . concatFails
                           
@@ -758,12 +758,12 @@ VPatch and Conversions
 *********************
 -----------------------}
 
+{-* VPatch and Conversions
+-}
+
 -- |Abbreviation for finite mappings from Vertex to Location (i.e Point)
 type VertexLocMap = VMap.IntMap (Point V2 Double)
 
-
-{-* VPatch
--}
 
 -- |A VPatch has a map from vertices to points along with a list of tile faces.
 -- It is an intermediate form between Tgraphs and Diagrams
@@ -886,10 +886,42 @@ labelSmall = labelSize (normalized 0.006)
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
--- E.g. rotateBefore (labelled draw) a g.
+-- E.g. rotateBefore (labelled draw) angle graph.
 rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
 rotateBefore vfun angle = vfun . rotate angle . makeVP
 
+{-*  Drawing Edges with a VPatch or a VertexLocationMap
+-}
+
+-- |produce a diagram of a list of edges (given a VPatch)
+-- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
+-- When a specific Backend B is in scope, drawEdgesVP :: VPatch -> [Dedge] -> Diagram B
+drawEdgesVP :: Renderable (Path V2 Double) b =>
+               VPatch -> [Dedge] -> Diagram2D b
+drawEdgesVP = drawEdges . vLocs --foldMap (drawEdgeVP vp)
+
+-- |produce a diagram of a single edge (given a VPatch)
+-- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
+-- When a specific Backend B is in scope, drawEdgeVP :: VPatch -> Dedge -> Diagram B
+drawEdgeVP:: Renderable (Path V2 Double) b =>
+               VPatch -> Dedge -> Diagram2D b
+drawEdgeVP = drawEdge . vLocs
+
+-- |produce a diagram of a list of edges (given a mapping of vertices to locations)
+-- Will raise an error if any vertex of the edges is not a key in the mapping.
+-- When a specific Backend B is in scope, drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
+drawEdges :: Renderable (Path V2 Double) b =>
+             VertexLocMap -> [Dedge] -> Diagram2D b
+drawEdges = foldMap . drawEdge
+
+-- |produce a diagram of a single edge (given a mapping of vertices to locations).
+-- Will raise an error if either vertex of the edge is not a key in the mapping.
+-- When a specific Backend B is in scope, drawEdge :: VertexLocMap -> Dedge -> Diagram B
+drawEdge :: Renderable (Path V2 Double) b =>
+            VertexLocMap -> Dedge -> Diagram2D b
+drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
+                         (Just pa, Just pb) -> pa ~~ pb
+                         _ -> error $ "drawEdge: location not found for one or both vertices "++ show(a,b) ++ "\n"
 
 {-* VPatch alignment with vertices
 -}
@@ -1040,39 +1072,6 @@ thirdVertexLoc face@(RK _) vpMap = case find3Locs (faceVs face) vpMap of
   (Just loc1, Nothing, Just loc3) -> Just (oppV face, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
-
-{-*  Drawing (located) Edges
--}
-
--- |produce a diagram of a list of edges (given a VPatch)
--- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
--- When a specific Backend B is in scope, drawEdgesIn :: VPatch -> [Dedge] -> Diagram B
-drawEdgesIn :: Renderable (Path V2 Double) b =>
-               VPatch -> [Dedge] -> Diagram2D b
-drawEdgesIn vp = drawEdges (vLocs vp) --foldMap (drawEdgeWith vp)
-
--- |produce a diagram of a single edge (given a VPatch)
--- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
--- When a specific Backend B is in scope, drawEdgeWith :: VPatch -> Dedge -> Diagram B
-drawEdgeWith:: Renderable (Path V2 Double) b =>
-               VPatch -> Dedge -> Diagram2D b
-drawEdgeWith vp = drawEdge (vLocs vp)
-
--- |produce a diagram of a list of edges (given a mapping of vertices to locations)
--- Will raise an error if any vertex of the edges is not a key in the mapping.
--- When a specific Backend B is in scope, drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
-drawEdges :: Renderable (Path V2 Double) b =>
-             VertexLocMap -> [Dedge] -> Diagram2D b
-drawEdges vpMap = foldMap (drawEdge vpMap)
-
--- |produce a diagram of a single edge (given a mapping of vertices to locations).
--- Will raise an error if either vertex of the edge is not a key in the mapping.
--- When a specific Backend B is in scope, drawEdge :: VertexLocMap -> Dedge -> Diagram B
-drawEdge :: Renderable (Path V2 Double) b =>
-            VertexLocMap -> Dedge -> Diagram2D b
-drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
-                         (Just pa, Just pb) -> pa ~~ pb
-                         _ -> error $ "drawEdge: location not found for one or both vertices "++ show(a,b) ++ "\n"
 
 
 

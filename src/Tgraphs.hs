@@ -202,7 +202,7 @@ drawWithMax g =  (dmax # lc red # lw thin) <> dg # lw ultraThin where
 -- addBoundaryAfter :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
 addBoundaryAfter :: Renderable (Path V2 Double) b =>
                     (VPatch ->  Diagram2D b) -> Tgraph ->  Diagram2D b
-addBoundaryAfter f g =  (drawEdgesIn vp edges # lc lime) <> f vp where
+addBoundaryAfter f g =  (drawEdgesVP vp edges # lc lime) <> f vp where
     vp = makeVP g
     edges = graphBoundary g
 

@@ -1,5 +1,9 @@
 # Revision history for PenroseKiteDart
 
+## 0.5.1.0 -- 2024-02-13
+
+Removed Tgraph.Convert (Conversions now included in Tgraph.Prelude)
+
 ## 0.5.0.0 -- 2024-01-26
 
 (Removed ChosenBackEnd)

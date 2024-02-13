@@ -1231,7 +1231,7 @@ drawVContext :: Renderable (Path V2 Double) b =>
 drawVContext v edge g = drawv <> drawg <> drawComp where
     vp = makeAlignedVP edge g
     drawg = draw vp
---    drawe = drawEdgeWith vp edge # lc red
+--    drawe = drawEdgeVP vp edge # lc red
     drawv = case findLoc v vp of
               Nothing -> error $ "drawVContext: vertex not found " ++ show v
               Just p -> circle 0.2 # fc red # lc red # moveTo p
@@ -1391,7 +1391,7 @@ forcedBEContextsFig = padBorder $ lw ultraThin $ vsep 5 $ fmap (arrangeRows 7)
     drawBEContext edge g = drawe <> drawg <> drawComp where
         vp = makeAlignedVP edge g
         drawg = draw vp
-        drawe = drawEdgeWith vp edge # lc red # lw thin
+        drawe = drawEdgeVP vp edge # lc red # lw thin
         drawComp = lw none $ fillDK yellow yellow $ subVP vp $ faces $ compose g
 
 {-*
@@ -1424,7 +1424,7 @@ checkCFDFig = padBorder $ lw ultraThin $ vsep 10 $ fmap (arrangeRows 10)
      g = recoverGraph bd
      vp = makeAlignedVP edge g
      drawg = draw vp
- --    drawe = drawEdgeWith vp edge # lc red
+ --    drawe = drawEdgeVP vp edge # lc red
      drawv = case findLoc v vp of
                Nothing -> error $ "checkCFDFig: vertex not found " ++ show v
                Just p -> circle 0.2 # fc red # lc red # moveTo p
@@ -1444,16 +1444,16 @@ checkCFDStar = padBorder $ hsep 1 [drawForce starGraph, draw $ compose sfDf, dra
 remainderGroupsFig :: Renderable (Path V2 Double) b => Diagram2D b
 remainderGroupsFig = padBorder $ hsep 1 [hfDiag, kDiag, fDiag] where
     halfFoolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3)]
-    hfDiag = lc yellow (drawEdgesIn halfFoolVP [(1,2),(2,4)])
-             <> lc red (drawEdgesIn halfFoolVP [(3,1),(5,3)])
+    hfDiag = lc yellow (drawEdgesVP halfFoolVP [(1,2),(2,4)])
+             <> lc red (drawEdgesVP halfFoolVP [(3,1),(5,3)])
              <> drawj halfFoolVP
     kiteVP = makeVP $ makeTgraph [RK (1,2,3),LK (1,4,2)]
     kDiag = drawv 1 kiteVP
-             <> lc red (drawEdgesIn kiteVP [(2,3),(4,2)])
+             <> lc red (drawEdgesVP kiteVP [(2,3),(4,2)])
              <> drawj kiteVP
     foolVP = makeVP $ makeTgraph [LD (1,2,3),RK (4,3,2),LK (4,5,3),RD (1,6,2),LK (4,2,6),RK (4,6,7)]
     fDiag = drawv 4 foolVP
-             <> lc red (drawEdgesIn foolVP [(3,1),(5,3),(1,6),(6,7)])
+             <> lc red (drawEdgesVP foolVP [(3,1),(5,3),(1,6),(6,7)])
              <> drawj foolVP
     drawv v vp = case findLoc v vp of
               Nothing -> error $ "remainderGroupsFig: vertex not found " ++ show v
