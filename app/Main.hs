@@ -19,11 +19,11 @@ import TgraphExamples
 import TileLib
 import Tgraphs
 
-import TestIllustrate
-import ArtWork
+--import TestIllustrate
+--import ArtWork
                
 fig::Diagram B
-fig =  halfWholeFig
+fig =  foolAndFoolD
 
 main :: IO ()
 main = mainWith fig

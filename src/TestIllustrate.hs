@@ -1058,7 +1058,7 @@ incorrectAndFullUnionFig = padBorder $ lw ultraThin $ vsep 1
 
 
 
-{-| Example showing the use of commonFaces.
+{-| Example showing the use of commonFaces with 4 different pairs of additions to a forced kingGraph.
 -}
 testCommonFacesFig :: Renderable (Path V2 Double) b => Diagram2D b
 testCommonFacesFig = padBorder $ vsep 1 $ fmap edgecase [(57,39),(20,34),(16,23),(52,62)] where

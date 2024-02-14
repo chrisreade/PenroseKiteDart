@@ -11,13 +11,13 @@ extra-source-files:
 - CHANGELOG.md
 
 # Metadata used when publishing your package
-synopsis:  A Haskell library of tools to explore finite tilings with Penrose's kites and darts, using the Haskell Diagrams package.
+synopsis:  Library to explore Penrose's Kite and Dart Tilings.
 category:            Graphics
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/chrisreade/PenroseKiteDart#readme>
+description:  Please see the README on GitHub at <https://github.com/chrisreade/PenroseKiteDart#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -37,7 +37,6 @@ library:
     - Tgraph.Decompose
     - Tgraph.Compose
     - Tgraph.Force
-#    - Tgraph.Convert
     - Tgraph.Relabelling
     - TgraphExamples
     - TestIllustrate
@@ -72,7 +71,7 @@ benchmarks:
     main:                Bench.hs
     source-dirs:         benchmark
     ghc-options:
-    - -O2 
+#    - -O2 
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
