@@ -15,15 +15,16 @@ import Diagrams.Backend.Postscript.CmdLine
 import Diagrams.Backend.Rasterific.CmdLine
 -}
 
+import PKD
 import TgraphExamples
-import TileLib
-import Tgraphs
+-- import TileLib
+-- import Tgraphs
 
---import TestIllustrate
---import ArtWork
+import TestIllustrate
+import ArtWork
                
 fig::Diagram B
-fig =  foolAndFoolD
+fig =  newArtKing
 
 main :: IO ()
 main = mainWith fig

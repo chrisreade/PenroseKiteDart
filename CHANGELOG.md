@@ -1,5 +1,10 @@
 # Revision history for PenroseKiteDart
 
+
+## 0.5.2.0 -- 2024-02-14
+
+Added PKD (overall wrapper module).
+
 ## 0.5.1.0 -- 2024-02-13
 
 Removed Tgraph.Convert (Conversions now included in Tgraph.Prelude)

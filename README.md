@@ -25,10 +25,9 @@ along with the Diagrams prelude
     import Diagrams.Backend.SVG.CmdLine
     import Diagrams.Prelude
 
-plus (for tilings)
+plus (for Penrose Kite and Dart tilings)
 
-    import TileLib
-    import Tgraphs
+    import PKD
 
 and optionally
 
@@ -63,10 +62,10 @@ For example a fool consists of two kites and a dart (= 4 half kites and 2 half d
     
 ## Modules
 
-Module `Tgraphs` includes and exports the contents of the other Tgraph modules, namely 
+Module `PKD` is the main module which imports and rexports `Tgraphs` and `TileLib`.
+`Tgraphs` includes and exports the contents of the other Tgraph modules, namely 
 `Tgraph.Compose`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Relabelling`, `Tgraph.Prelude`.
-
-Module `TileLib` (which re-exports module `HalfTile`) contains underlying drawing tools for tiles (and Patches) and the constructors `LD`,`RD`,`LK`,`R` are introduced in module `HalfTile`.
+`TileLib` contains underlying drawing tools for tiles and re-exports `HalfTile` (with the constructors `LD`,`RD`,`LK`,`R`).
 
 For more information see
 

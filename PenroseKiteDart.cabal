@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           PenroseKiteDart
-version:        0.5.1.0
+version:        0.5.2.0
 synopsis:       Library to explore Penrose's Kite and Dart Tilings.
 description:    Please see the README on GitHub at <https://github.com/chrisreade/PenroseKiteDart#readme>
 category:       Graphics
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      PKD
       HalfTile
       TileLib
       Tgraphs
