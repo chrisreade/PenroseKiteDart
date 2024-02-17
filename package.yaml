@@ -1,5 +1,5 @@
 name:                PenroseKiteDart
-version:             0.5.2.0
+version:             0.6.0.0
 github:              "chrisreade/PenroseKiteDart"
 license:             BSD3
 author:              "Chris Reade"
@@ -40,22 +40,6 @@ library:
     - Tgraph.Force
     - Tgraph.Relabelling
     - TgraphExamples
-    - TestIllustrate
-    - ArtWork
-executables:
-  PenroseKiteDart-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -Wall
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies: 
-    - PenroseKiteDart
-    when:        
-    - condition: false        
-      other-modules: Paths_PenroseKiteDart
 tests:
   PenroseKiteDart-test:
     main:                Spec.hs

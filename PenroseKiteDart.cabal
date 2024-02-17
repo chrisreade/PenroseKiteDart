@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           PenroseKiteDart
-version:        0.5.2.0
+version:        0.6.0.0
 synopsis:       Library to explore Penrose's Kite and Dart Tilings.
 description:    Please see the README on GitHub at <https://github.com/chrisreade/PenroseKiteDart#readme>
 category:       Graphics
@@ -37,30 +37,12 @@ library
       Tgraph.Force
       Tgraph.Relabelling
       TgraphExamples
-      TestIllustrate
-      ArtWork
   other-modules:
       Paths_PenroseKiteDart
   hs-source-dirs:
       src
   build-depends:
       base >=4.7 && <5
-    , containers
-    , diagrams-contrib
-    , diagrams-lib
-    , diagrams-postscript
-    , diagrams-rasterific
-    , diagrams-svg
-  default-language: Haskell2010
-
-executable PenroseKiteDart-exe
-  main-is: Main.hs
-  hs-source-dirs:
-      app
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      PenroseKiteDart
-    , base >=4.7 && <5
     , containers
     , diagrams-contrib
     , diagrams-lib

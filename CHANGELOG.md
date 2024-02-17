@@ -1,6 +1,10 @@
 # Revision history for PenroseKiteDart
 
 
+## 0.6.0.0 -- 2024-02-17
+
+Now as a standalone library
+
 ## 0.5.2.0 -- 2024-02-14
 
 Added PKD (overall wrapper module).
