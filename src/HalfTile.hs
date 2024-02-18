@@ -10,7 +10,19 @@ Stability   : experimental
 {-# LANGUAGE TypeFamilies              #-} -- needed for Transformable Instance
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Instance
 
-module HalfTile where
+module HalfTile 
+  ( HalfTile(..)
+  , tileRep
+  , isLD
+  , isRD
+  , isLK
+  , isRK
+  , isDart
+  , isKite
+  , HalfTileLabel
+  , tileLabel
+  , isMatched
+  ) where
     
 import Diagrams.Prelude (V,N, Transformable(..)) -- needed to make HalfTile a Transformable when a is Transformable
 

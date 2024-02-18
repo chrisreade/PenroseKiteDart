@@ -12,32 +12,99 @@ The module also defines several functions for producing overlaid diagrams for Tg
 experimental combinations such as boundaryECovering, boundaryVCovering, empire1, empire2, superForce, boundaryLoopsG.
 It also defines experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
 -}
-{-# OPTIONS_HADDOCK ignore-exports #-}
+-- {-# OPTIONS_HADDOCK ignore-exports #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
 -- {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
 
-module Tgraphs ( module Tgraphs
-               , module Tgraph.Prelude -- export excludes data constructor Tgraph
-               , module Tgraph.Decompose
-               , module Tgraph.Compose
-               , module Tgraph.Force
---               , module Tgraph.Convert
-               , module Tgraph.Relabelling
-               ) where
+module Tgraphs
+  ( module Tgraph.Prelude
+  , module Tgraph.Decompose
+  , module Tgraph.Compose
+  , module Tgraph.Force
+  , module Tgraph.Relabelling
+   -- * Making valid Tgraphs (with a check for no touching vertices).
+  , makeTgraph
+  , tryMakeTgraph
+  , tryCorrectTouchingVs
+    -- * Smart drawing of Tgraphs
+  , smart
+  , boundaryJoinFaces
+  , drawJoinsFor
+  , smartdraw
+  , restrictSmart
+  , smartRotateBefore
+  , smartAlignBefore
+    -- * Overlaid drawing tools for Tgraphs
+  , drawPCompose
+  , drawForce
+  , drawSuperForce
+  , drawWithMax
+  , addBoundaryAfter
+  , drawCommonFaces
+  , emphasizeFaces
+    -- * Combining force, compose, decompose
+  , composeK
+  , compForce
+  , allCompForce
+  , maxCompForce
+  , forceDecomp
+  , allForceDecomps
+    -- * Emplace Choices
+  , emplaceChoices
+--  , emplaceChoices'  
+    -- * Boundary Covering and Empires
+  , forcedBoundaryECovering
+  , forcedBoundaryVCovering
+  , boundaryECovering
+  , boundaryEdgeSet
+  , commonBdry
+  , boundaryVCovering
+  , boundaryVertexSet
+  , internalVertexSet
+  , tryDartAndKiteForced
+  , tryDartAndKite
+  , drawFBCovering
+  , empire1
+  , empire2
+  , empire2Plus
+  , drawEmpire1
+  , drawEmpire2
+    -- * Super Force with boundary edge covers
+  , superForce
+  , trySuperForce
+  , singleChoiceEdges
+    -- * Boundary loops
+  , boundaryLoopsG
+  , boundaryLoops
+  , findLoops
+  , pathFromBoundaryLoops
+    -- * TrackedTgraphs
+  , TrackedTgraph(..)
+  , newTrackedTgraph
+  , makeTrackedTgraph
+  , trackFaces
+  , unionTwoTracked
+    -- * Forcing and Decomposing TrackedTgraphs
+  , addHalfDartTracked
+  , addHalfKiteTracked
+  , decomposeTracked
+    -- *  Drawing TrackedTgraphs
+  , drawTrackedTgraph
+  , drawTrackedTgraphRotated
+  ) where
 
-import Tgraph.Prelude hiding (Tgraph(Tgraph)) -- hides Tgraph as type and data constructor
-import Tgraph.Prelude (Tgraph) -- re-includes Tgraph as type constructor only
+-- import Tgraph.Prelude hiding (Tgraph(Tgraph)) -- hides Tgraph as type and data constructor
+-- import Tgraph.Prelude (Tgraph) -- re-includes Tgraph as type constructor only
+import Tgraph.Prelude
 import Tgraph.Decompose
 import Tgraph.Compose
 import Tgraph.Force
---import Tgraph.Convert
 import Tgraph.Relabelling
 
 import Diagrams.Prelude hiding (union)
--- import ChosenBackend (B)
 import TileLib
 
 import Data.List (intersect, union, (\\), find, foldl',nub, transpose)      
@@ -90,9 +157,7 @@ tryCorrectTouchingVs fcs =
         -- renumberFaces allows for a non 1-1 relabelling represented by a list 
     where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
 
-{-*
-Smart drawing of Tgraphs
--}
+
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
@@ -146,9 +211,7 @@ smartAlignBefore :: Renderable (Path V2 Double) b =>
                     (VPatch -> Diagram2D b) -> (Vertex,Vertex) -> Tgraph -> Diagram2D b
 smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
 
-{-*
-Overlaid drawing tools for Tgraphs
--}
+
 
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
@@ -223,12 +286,6 @@ emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) whe
 
 
  
-      
-
-{-*
-Combining force, compose, decompose
--}
-
 
 -- | An unsound version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
@@ -272,9 +329,6 @@ forceDecomp = force . decompose
 allForceDecomps:: Tgraph -> [Tgraph]
 allForceDecomps = iterate forceDecomp
 
-{-*
-Emplace Choices
--}
 
 -- |emplaceChoices forces then maximally composes. At this top level it
 -- produces a list of forced choices for the unknowns.
@@ -303,9 +357,7 @@ emplaceChoices' startbd | nullGraph g' = recoverGraph <$> choices [startbd]
             Just d -> longE d
             Nothing -> error $ "emplaceChoices': dart not found for dart wing vertex " ++ show v
 
-{-*
-Boundary Covering and Empires
--}
+
 
 {-| forcedBoundaryECovering g - produces a list of all boundary covers of force g, each of which
 extends force g to cover the entire boundary directed edges in (force g).
@@ -480,11 +532,6 @@ drawEmpire2 g =
                         , lw thin . lc red . draw
                         ]  (empire2 g)
 
-
-{-*
-Super Force with boundary edge covers
--}
-
 -- |superForce g - after forcing g this looks for single choice boundary edges.
 -- That is a boundary edge for which only a dart or only a kite addition occurs in all boundary edge covers.
 -- If there is at least one such edge, it makes the choice for the first such edge and recurses,
@@ -545,9 +592,7 @@ singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary
                      id
                      (faceForEdge e efmap)
       
-{-*
-Boundary loops
--}
+
 
 -- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
@@ -600,9 +645,9 @@ pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!
     locateLoop pts = (`at` head pts) $ glueTrail $ trailFromVertices pts
 
 
-{-*
-TrackedTgraphs
--}
+
+-- * TrackedTgraphs
+
 {-|
  TrackedTgraph - introduced to allow tracking of subsets of faces
  in both force and decompose operations.
@@ -693,8 +738,7 @@ decomposeTracked ttg =
     (Any extra draw functions are applied to the VPatch for the main tgraph and the results placed atop.)
     drawTrackedTgraph:: [VPatch -> Diagram B] -> TrackedTgraph -> Diagram B
 -}
-drawTrackedTgraph :: Renderable (Path V2 Double) b =>
-                     [VPatch -> Diagram2D b] -> TrackedTgraph -> Diagram2D b
+drawTrackedTgraph :: [VPatch -> Diagram2D b] -> TrackedTgraph -> Diagram2D b
 drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeVP (tgraph ttg)
     untracked = vpFaces vp \\ concat (tracked ttg)
@@ -708,8 +752,7 @@ drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList
     (to ensure labels are not rotated).
     drawTrackedTgraphRotated:: [VPatch -> Diagram B] -> Angle Double -> TrackedTgraph -> Diagram B
 -}
-drawTrackedTgraphRotated :: Renderable (Path V2 Double) b =>
-                            [VPatch -> Diagram2D b] -> Angle Double -> TrackedTgraph -> Diagram2D b
+drawTrackedTgraphRotated :: [VPatch -> Diagram2D b] -> Angle Double -> TrackedTgraph -> Diagram2D b
 drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = rotate a $ makeVP (tgraph ttg)
     untracked = vpFaces vp \\ concat (tracked ttg)

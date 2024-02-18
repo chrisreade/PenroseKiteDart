@@ -544,7 +544,7 @@ trySafeUpdate bd (SafeUpdate newface) =
                    , revisedEdges = affectedBoundary resultBd newDedges
                    , newFace = newface
                    }
-   in if newNoConflict newface nbrFaces 
+   in if noNewConflict newface nbrFaces 
       then Right bdChange 
       else Left $ "trySafeUpdate:(incorrect tiling)\nConflicting new face  "
                    ++ show newface

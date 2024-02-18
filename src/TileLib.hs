@@ -1,14 +1,14 @@
 {-|
 Module      : TileLib
-Description : Introducing Pieces and Patches and a class for drawing
+Description : Introducing Pieces and Patches and Drawable class
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 This module introduces Pieces and Patches for drawing finite tilings using Penrose's Dart and Kite tiles.
-It includes several primitives for drawing half tiles (Pieces), a class drawable with instance Patches
-and primitives for the drawable class (draw, drawj, fillDK,..).
+It includes several primitives for drawing half tiles (Pieces), a class Drawable with instance Patch
+and commonly used operations for the Drawable class (draw, drawj, fillDK,..).
 There is also a decompose operation for Patches (decompPatch) and sun and star example Patches.
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -17,15 +17,65 @@ There is also a decompose operation for Patches (decompPatch) and sun and star e
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
 {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
 
-module TileLib where
+module TileLib 
+  ( -- * Pieces
+    Piece
+  , joinVector
+  , ldart
+  , rdart
+  , lkite
+  , rkite
+    -- * Drawing Pieces
+  , Diagram2D
+  , phi
+  , ttangle
+  , pieceEdges
+  , wholeTileEdges
+  , drawPiece
+  , dashjPiece
+  , dashjOnly
+  , drawRoundPiece
+  , drawJoin
+  , fillOnlyPiece
+  , fillPieceDK
+  , fillMaybePieceDK
+  , leftFillPieceDK
+  , experiment
+    -- * Patches and Drawable Class
+  , Drawable(..)
+  , Patch
+  , draw
+  , drawj
+  , fillDK
+  , fillMaybeDK
+  , colourDKG
+  , colourMaybeDKG
+    -- * Patch Decomposition and Compose choices
+  , decompPatch
+  , decompositionsP
+  , compChoices
+  , compNChoices
+    -- * Example Patches
+  , penta
+  , sun
+  , TileLib.star
+  , suns
+  , sun5
+  , sun6
+    -- * Diagrams of Patches
+  , sun6Fig
+  , leftFilledSun6
+  , filledSun6
+    -- * Rotation and Scaling operations
+  , rotations
+  , scales
+  , phiScales
+  , phiScaling
+  ) where
 
 import Diagrams.Prelude
 
 import HalfTile
-
-{-*
-Pieces and drawing Pieces
--}
 
 {-| Piece type for tile halves: Left Dart, Right Dart, Left Kite, Right Kite
 with a vector from their origin along the join edge where
@@ -39,19 +89,6 @@ type Piece = HalfTile (V2 Double)
 -- | get the vector representing the join edge in the direction away from the origin of a piece
 joinVector:: Piece -> V2 Double
 joinVector = tileRep
-
-
-{- ALTERNATIVE (orphaned) instance of Transformable for Pieces (instead of in Module HalfTile)
-
--- |Needed for Transformable Piece
-type instance N Piece = Double
--- |Needed for Transformable Piece
-type instance V Piece = V2
--- |Making Pieces and Patches transformable - Requires FlexibleInstances
-instance Transformable Piece where
-    transform t = fmap (transform t) -- using fmap from HalfTile functor
--}
-
 
 -- |ldart,rdart,lkite,rkite are the 4 pieces (with join edge oriented along the x axis, unit length for darts, length phi for kites).
 ldart,rdart,lkite,rkite:: Piece
@@ -195,9 +232,6 @@ experiment piece = emph piece <> (drawRoundPiece piece # dashingN [0.003,0.003] 
           (RK v) -> (strokeLine . fromOffsets) [rotate (ttangle 9) v]
 
 
-{-*
-Patches and Drawable Class
--}
 
 -- |A patch is a list of Located pieces (the point associated with each piece locates its originV)
 -- Patches are Transformable
@@ -264,9 +298,7 @@ colourMaybeDKG (d,k,g) a = fillMaybeDK d k a # maybeGrout g where
     maybeGrout (Just c) = lc c
     maybeGrout Nothing = lw none
 
-{-*
-Patch Decomposition and Compose choices
--}
+
 
 {-|
 Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch.
@@ -343,9 +375,7 @@ compNChoices n lp = do
     lp' <- compChoices lp
     compNChoices (n-1) lp'
 
-{-*
-Example Patches
--}
+
                                 
 -- |combine 5 copies of a patch (each rotated by ttangle 2 successively)
 -- (ttAngle 2 is 72 degrees) 
@@ -370,9 +400,8 @@ sun6 = suns!!6
 -- |a patch of a 5 times decomposed sun
 sun5 = suns!!5 
 
-{-*
-Diagrams of Patches
--}
+
+   -- * Diagrams of Patches
 
 -- |diagram for sun6.
 -- When a specific Backend B is in scope, sun6Fig::Diagram B
@@ -390,14 +419,13 @@ leftFilledSun6 = drawWith (leftFillPieceDK red blue) sun6 # lw thin
 filledSun6 :: Renderable (Path V2 Double) b => Diagram2D b
 filledSun6 = fillDK darkmagenta indigo sun6 # lw thin # lc gold
 
-{-*
-Rotation/scaling operations
--}
+
 
 
 -- |rotations takes a list of integers (representing ttangles) for respective rotations of items in the second list (things to be rotated).
--- This includes Diagrams, Patches, VPatches
+-- This includes Diagrams, Patches, VPatches.
 -- The integer list can be shorter than the list of items - the remaining items are left unrotated.
+-- It will raise an error if the integer list is longer than the list of items to be rotated.
 -- (Rotations by an angle are anti-clockwise)
 
 rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
@@ -406,18 +434,19 @@ rotations [] ds = ds
 rotations _  [] = error "rotations: too many rotation integers"
 
 -- |scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
--- This includes Diagrams, Pieces, Patches, VPatches
+-- This includes Diagrams, Pieces, Patches, VPatches.
 -- The list of doubles can be shorter than the list of items - the remaining items are left unscaled.
+-- It will raise an error if the integer list is longer than the list of items to be scaled.
 scales :: (Transformable a, V a ~ V2, N a ~ Double) => [Double] -> [a] -> [a]
 scales (s:ss) (d:ds) = scale s d: scales ss ds
 scales [] ds = ds
 scales _  [] = error "scales: too many scalars"
 
--- |increasing scales by phi along a list starting with 1
+-- |increasing scales by a factor of phi along a list starting with 1.
 phiScales:: (Transformable a, V a ~ V2, N a ~ Double) => [a] -> [a]
 phiScales = phiScaling 1
 
--- |increasing scales by phi along a list starting with given first argument
+-- |increasing scales by a factor of phi along a list starting with given first argument
 phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
 phiScaling _ [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more

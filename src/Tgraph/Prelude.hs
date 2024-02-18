@@ -15,14 +15,167 @@ touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing
 The type constructor Try is introduced for results of partial operations.
 This module re-exports module HalfTile.
 -}
-
-{-# OPTIONS_HADDOCK ignore-exports     #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
 
-module Tgraph.Prelude (module Tgraph.Prelude, module HalfTile) where
+module Tgraph.Prelude
+  ( module HalfTile
+    -- * Types for Tgraphs, Faces, Vertices
+  , Tgraph -- not Data Constructor
+  , TileFace
+  , Vertex
+  , VertexSet
+  , VertexMap
+    -- * Type for Directed Edges
+    -- $Edges
+  , Dedge
+  , EdgeType(..)
+   -- * Property Checking for Tgraphs
+  , makeUncheckedTgraph
+  , checkedTgraph
+  , checkTgraphProps
+  , checkConnectedNoCross
+  , findEdgeLoops
+  , hasEdgeLoops
+  , duplicates
+  , conflictingDedges
+  , edgeType
+  , sharedEdges
+  , newSharedEdges
+  , noNewConflict
+  , noNewConflictFull
+  , legal
+  , illegals
+  , illegalTiling
+  , crossingBVs
+  , crossingVertices
+  , crossingBoundaries
+  , connected
+--  , connectedBy
+    -- * Basic Tgraph operations
+  , faces
+  , emptyTgraph
+  , nullGraph
+  , maxV
+  , ldarts
+  , rdarts
+  , lkites
+  , rkites
+  , kites
+  , darts
+  , selectFaces
+  , removeFaces
+  , removeVertices
+  , selectVertices
+  , vertexSet
+  , graphDedges
+  , graphEdges
+  , internalEdges
+  , graphBoundary
+  , phiEdges
+  , nonPhiEdges
+  , graphEFMap
+  , defaultAlignment
+    -- * Other Face/Vertex Operations
+  , faceVs
+  , faceVList
+  , faceVSet
+  , facesVSet
+  , facesMaxV
+  , firstV
+  , secondV
+  , thirdV
+  , originV
+  , wingV
+  , oppV
+  , indexV
+  , nextV 
+  , prevV
+  , isAtV
+  , hasVIn
+    -- * Other Edge Operations
+  , faceDedges
+  , facesDedges 
+  , reverseD
+  , joinE
+  , shortE
+  , longE
+  , facePhiEdges
+  , faceNonPhiEdges
+  , matchingE
+  , matchingLongE
+  , matchingShortE
+  , matchingJoinE
+  , hasDedge
+  , hasDedgeIn
+  , facesEdges
+--   , bothDir
+--   , bothDirOneWay
+  , facesBoundary
+--   , missingRevs
+    -- * Other Face Operations
+  , edgeNb
+  , vertexFacesMap
+  , dedgesFacesMap
+  , buildEFMap
+  , faceForEdge
+  , edgeNbs
+  , extractLowestJoin
+  , lowestJoin
+    -- * Try - result types with failure reporting (for partial operations)
+  , Try
+  , onFail
+  , nothingFail
+  , runTry
+  , ifFail
+  , isFail
+  , concatFails
+  , ignoreFails
+  , atLeastOne
+  , noFails
+    -- * VPatch and Conversions
+  , VPatch(..)
+  , VertexLocMap
+  , makeVP
+  , subVP
+  , relevantVP
+  , restrictVP
+  , graphFromVP
+  , removeFacesVP
+  , selectFacesVP
+  , findLoc
+    -- * Drawing Tgraphs and Vpatches with Labels
+  , DrawableLabelled(..)
+  , labelled
+  , labelSmall
+  , labelLarge 
+  , rotateBefore
+-- , dropLabels
+-- * VPatch alignment with vertices
+  , centerOn
+  , alignXaxis
+  , alignments
+  , alignAll
+  , alignBefore
+  , makeAlignedVP
+    -- *  Drawing Edges with a VPatch or a VertexLocationMap
+  , drawEdgesVP
+  , drawEdgeVP
+  , drawEdges
+  , drawEdge
+    -- * Vertex Location and Touching Vertices
+  , locateVertices
+  , addVPoint
+  , axisJoin
+--  , find3Locs
+--  , thirdVertexLoc
+  , touchingVertices
+  , touching
+  , touchingVerticesGen
+  , locateVerticesGen
+  ) where
 
 import Data.List ((\\), intersect, union, elemIndex,foldl',find)
 import Data.Either(fromRight, lefts, rights, isLeft)
@@ -47,9 +200,9 @@ Tgraphs
 -----------------------}
 
 
-{-*
-Types for Tgraphs, Vertices, Directed Edges, Faces
--}
+
+-- $Types for Tgraphs, Vertices, Directed Edges, Faces
+
 -- |Tgraph vertices
 type Vertex = Int
 -- | directed edge
@@ -64,9 +217,15 @@ type TileFace = HalfTile (Vertex,Vertex,Vertex)
 -- |A Tgraph is a list of faces.
 -- All vertex labels should be positive, so 0 is not used as a vertex label.
 -- Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
+-- The data constructor Tgraph is not exported (but see also makeUncheckedTgraph).
 newtype Tgraph = Tgraph [TileFace]
                  deriving (Show)
 
+-- | type used to classify edges of faces 
+data EdgeType = Short | Long | Join deriving (Show,Eq)
+
+-- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
+type VertexMap a = VMap.IntMap a
 
 {-------------------------------------------
 ********************************************
@@ -81,7 +240,7 @@ Tgraphs and Property Checking
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. Use makeTgraph (defined in Tgraphs module) or checkedTgraph to perform checks.
--- This is intended for use only when checks are known to be redundant (and data constructor Tgraph is hidden).
+-- This is intended for use only when checks are known to be redundant (the data constructor Tgraph is hidden).
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph fcs = Tgraph fcs
 
@@ -162,8 +321,6 @@ conflictingDedges :: [TileFace] -> [Dedge]
 conflictingDedges = duplicates . facesDedges
 
 
--- | type used to classify edges of faces 
-data EdgeType = Short | Long | Join deriving (Show,Eq)
 
 -- | edgeType d f - classifies the directed edge d
 -- which must be one of the three directed edges of face f.
@@ -189,25 +346,25 @@ sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
 
 -- |A version of sharedEdges comparing a single face against a list of faces.
 -- This does not look at shared edges within the list, but just the new face against the list.
-sharedEdgesWith:: TileFace -> [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
-sharedEdgesWith face fcs = 
+newSharedEdges:: TileFace -> [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
+newSharedEdges face fcs = 
     [(face, edgeType d1 face, fc', edgeType d2 fc') 
      | d1 <- faceDedges face
      , let d2 = reverseD d1
      , fc' <- filter (`hasDedge` d2) fcs
     ]
 
--- | newNoConflict face fcs returns True if face has an illegal shared edge with fcs.
+-- | noNewConflict face fcs returns True if face has an illegal shared edge with fcs.
 -- It does not check for illegal cases within the fcs.
-newNoConflict :: TileFace -> [TileFace] -> Bool
-newNoConflict face fcs = null $ filter (not . legal) shared where
-    shared = sharedEdgesWith face fcs
+noNewConflict :: TileFace -> [TileFace] -> Bool
+noNewConflict face fcs = null $ filter (not . legal) shared where
+    shared = newSharedEdges face fcs
 
--- |newNoConflictFull face fcs  where face is a new face and fcs are neighbouring faces.
--- Checks for illegal shared edges using newNoConflict but also checks that face does not have a directed edge
+-- |noNewConflictFull face fcs  where face is a new face and fcs are neighbouring faces.
+-- Checks for illegal shared edges using noNewConflict but also checks that face does not have a directed edge
 -- in the same direction as a directed edge in fcs.
-newNoConflictFull :: TileFace -> [TileFace] -> Bool
-newNoConflictFull face fcs = null (faceDedges face `intersect` facesDedges fcs) && newNoConflict face fcs
+noNewConflictFull :: TileFace -> [TileFace] -> Bool
+noNewConflictFull face fcs = null (faceDedges face `intersect` facesDedges fcs) && noNewConflict face fcs
 
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   
@@ -282,9 +439,7 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
               newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x 
 
 
-{-*
-Basic Tgraph operations
--}
+
 -- |Retrieve the faces of a Tgraph
 faces :: Tgraph -> [TileFace]
 faces (Tgraph fcs) = fcs
@@ -303,17 +458,17 @@ maxV = facesMaxV . faces
 
 ldarts,rdarts,lkites,rkites, kites, darts :: Tgraph -> [TileFace]
 -- | selecting left darts from a Tgraph
-ldarts g = filter isLD (faces g)
+ldarts = filter isLD . faces
 -- | selecting right darts from a Tgraph
-rdarts g = filter isRD (faces g)
+rdarts = filter isRD . faces
 -- | selecting left kites from a Tgraph
-lkites g = filter isLK (faces g)
+lkites = filter isLK . faces
 -- | selecting right kites from a Tgraph
-rkites g = filter isRK (faces g) 
+rkites = filter isRK . faces 
 -- | selecting half kites from a Tgraph
-kites g = filter isKite (faces g)
+kites = filter isKite . faces
 -- | selecting half darts from a Tgraph
-darts g = filter isDart (faces g)
+darts = filter isDart . faces
 
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
@@ -380,11 +535,6 @@ graphEFMap = buildEFMap . faces
 defaultAlignment :: Tgraph -> (Vertex,Vertex)
 defaultAlignment g | nullGraph g = error "defaultAlignment: applied to empty Tgraph\n"
                    | otherwise = lowestJoin $ faces g
-
-      
-{-*
-Other Face and Vertex Operations
--}
 
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
@@ -467,13 +617,8 @@ isAtV v (RK(a,b,c))  =  v==a || v==b || v==c
 hasVIn:: [Vertex] -> TileFace -> Bool           
 hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
--- |n `newVsAfter` v - given existing maxV v, create a list of n new vertices [v+1..v+n]
-newVsAfter :: Int -> Vertex -> [Vertex]
-n `newVsAfter` v = [v+1..v+n]
 
-{-* Other Edge Operations -}
-
-{-
+{- $Edges
 (a,b) is regarded as a directed edge from a to b.
 A list of such pairs will usually be regarded as a list of directed edges.
 In the special case that the list is symmetrically closed [(b,a) is in the list whenever (a,b) is in the list]
@@ -496,18 +641,13 @@ facesDedges = concatMap faceDedges
 reverseD:: Dedge -> Dedge
 reverseD (a,b) = (b,a)
 
--- Whilst first, second and third edges are obvious (always clockwise), 
--- it is often more convenient to refer to the joinE (join edge),
--- shortE (the short edge which is not a join edge), and
--- longE (the long edge which is not a join edge).
--- These are also directed clockwise.
--- joinOfTile also returns the join edge but in the direction away from the origin
-
+{-
 -- |firstE, secondE and thirdE are the directed edges of a face counted clockwise from the origin, 
 firstE,secondE,thirdE:: TileFace -> Dedge
 firstE = head . faceDedges
 secondE = head . tail . faceDedges
 thirdE = head . tail . tail . faceDedges
+-}
 
 joinE, shortE, longE, joinOfTile:: TileFace -> Dedge
 -- |the join directed edge of a face in the clockwise direction going round the face (see also joinOfTile).
@@ -517,7 +657,11 @@ joinE (LK(a,_,c)) = (c,a)
 joinE (RK(a,b,_)) = (a,b)
 -- |The short directed edge of a face in the clockwise direction going round the face.
 -- This is the non-join short edge for darts.
-shortE = secondE
+shortE (LD(_,b,c)) = (b,c)
+shortE (RD(_,b,c)) = (b,c)
+shortE (LK(_,b,c)) = (b,c)
+shortE (RK(_,b,c)) = (b,c)
+
 -- |The long directed edge of a face in the clockwise direction going round the face.
 -- This is the non-join long edge for kites.
 longE (LD(a,_,c)) = (c,a)
@@ -602,18 +746,12 @@ missingRevs es = revUnmatched es where
                                 | otherwise = (b,a):revUnmatched more
 
 
-
-
-{-* Other Face Operations -}
-
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
 edgeNb face = any (`elem` edges) . faceDedges where
       edges = fmap reverseD (faceDedges face)
 
 
--- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
-type VertexMap a = VMap.IntMap a
 
 {-|vertexFacesMap vs fcs -
 For list of vertices vs and list of faces fcs,
@@ -691,7 +829,7 @@ lowestJoin fcs = (a,b) where
     aFaces = filter ((a==) . originV) fcs
     b = minimum (fmap oppV aFaces)
 
-{-* Try - result types with failure reporting (for partial operations) -}
+-- * Try - result types with failure reporting (for partial operations)
 
 -- | Try is a synonym for Either String.  Used for results of partial functions
 -- which return either Right something when defined or Left string when there is a problem
@@ -757,9 +895,6 @@ noFails = runTry . concatFails
 VPatch and Conversions
 *********************
 -----------------------}
-
-{-* VPatch and Conversions
--}
 
 -- |Abbreviation for finite mappings from Vertex to Location (i.e Point)
 type VertexLocMap = VMap.IntMap (Point V2 Double)
@@ -827,8 +962,6 @@ findLoc v = VMap.lookup v . vLocs
 
 
 
-{-* Drawing VPatches and Tgraphs
--}
 
 -- |Make drawing tools applicable to VPatch
 instance Drawable VPatch where
@@ -890,42 +1023,6 @@ labelSmall = labelSize (normalized 0.006)
 rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
 rotateBefore vfun angle = vfun . rotate angle . makeVP
 
-{-*  Drawing Edges with a VPatch or a VertexLocationMap
--}
-
--- |produce a diagram of a list of edges (given a VPatch)
--- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
--- When a specific Backend B is in scope, drawEdgesVP :: VPatch -> [Dedge] -> Diagram B
-drawEdgesVP :: Renderable (Path V2 Double) b =>
-               VPatch -> [Dedge] -> Diagram2D b
-drawEdgesVP = drawEdges . vLocs --foldMap (drawEdgeVP vp)
-
--- |produce a diagram of a single edge (given a VPatch)
--- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
--- When a specific Backend B is in scope, drawEdgeVP :: VPatch -> Dedge -> Diagram B
-drawEdgeVP:: Renderable (Path V2 Double) b =>
-               VPatch -> Dedge -> Diagram2D b
-drawEdgeVP = drawEdge . vLocs
-
--- |produce a diagram of a list of edges (given a mapping of vertices to locations)
--- Will raise an error if any vertex of the edges is not a key in the mapping.
--- When a specific Backend B is in scope, drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
-drawEdges :: Renderable (Path V2 Double) b =>
-             VertexLocMap -> [Dedge] -> Diagram2D b
-drawEdges = foldMap . drawEdge
-
--- |produce a diagram of a single edge (given a mapping of vertices to locations).
--- Will raise an error if either vertex of the edge is not a key in the mapping.
--- When a specific Backend B is in scope, drawEdge :: VertexLocMap -> Dedge -> Diagram B
-drawEdge :: Renderable (Path V2 Double) b =>
-            VertexLocMap -> Dedge -> Diagram2D b
-drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
-                         (Just pa, Just pb) -> pa ~~ pb
-                         _ -> error $ "drawEdge: location not found for one or both vertices "++ show(a,b) ++ "\n"
-
-{-* VPatch alignment with vertices
--}
-
 -- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
 centerOn :: Vertex -> VPatch -> VPatch
 centerOn a vp = 
@@ -974,8 +1071,36 @@ makeAlignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch
 makeAlignedVP = alignBefore id
 
 
+-- |produce a diagram of a list of edges (given a VPatch)
+-- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
+-- When a specific Backend B is in scope, drawEdgesVP :: VPatch -> [Dedge] -> Diagram B
+drawEdgesVP :: Renderable (Path V2 Double) b =>
+               VPatch -> [Dedge] -> Diagram2D b
+drawEdgesVP = drawEdges . vLocs --foldMap (drawEdgeVP vp)
 
-{-* Vertex Location Calculation -}
+-- |produce a diagram of a single edge (given a VPatch)
+-- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
+-- When a specific Backend B is in scope, drawEdgeVP :: VPatch -> Dedge -> Diagram B
+drawEdgeVP:: Renderable (Path V2 Double) b =>
+               VPatch -> Dedge -> Diagram2D b
+drawEdgeVP = drawEdge . vLocs
+
+-- |produce a diagram of a list of edges (given a mapping of vertices to locations)
+-- Will raise an error if any vertex of the edges is not a key in the mapping.
+-- When a specific Backend B is in scope, drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
+drawEdges :: Renderable (Path V2 Double) b =>
+             VertexLocMap -> [Dedge] -> Diagram2D b
+drawEdges = foldMap . drawEdge
+
+-- |produce a diagram of a single edge (given a mapping of vertices to locations).
+-- Will raise an error if either vertex of the edge is not a key in the mapping.
+-- When a specific Backend B is in scope, drawEdge :: VertexLocMap -> Dedge -> Diagram B
+drawEdge :: Renderable (Path V2 Double) b =>
+            VertexLocMap -> Dedge -> Diagram2D b
+drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
+                         (Just pa, Just pb) -> pa ~~ pb
+                         _ -> error $ "drawEdge: location not found for one or both vertices "++ show(a,b) ++ "\n"
+
 
 
 {-| locateVertices: processes a list of faces to associate points for each vertex.
@@ -1075,8 +1200,8 @@ thirdVertexLoc face@(RK _) vpMap = case find3Locs (faceVs face) vpMap of
 
 
 
-{-*  Touching Vertices
--}
+-- *  Touching Vertices
+
 
 {-| 
 touchingVertices checks that no vertices are too close to each other using locateVertices.

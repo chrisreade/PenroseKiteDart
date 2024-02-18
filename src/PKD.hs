@@ -6,9 +6,8 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This is the main module to import Tgraphs and TileLib (whichh includes Halftile) modules.
+This is the main module to import Tgraphs and TileLib (which includes Halftile) modules.
 -}
--- {-# OPTIONS_HADDOCK ignore-exports #-}
 -- {-# LANGUAGE NoMonomorphismRestriction #-}
 -- {-# LANGUAGE FlexibleContexts          #-}
 -- {-# LANGUAGE TypeFamilies              #-}

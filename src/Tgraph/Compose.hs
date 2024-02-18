@@ -6,10 +6,21 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This module includes the main composition operations compose and partCompose but also exposes 
-getDartWingInfo (and type DartWingInfo) for debugging and experimenting.
+This module includes the main composition operations compose, partCompose, tryPartCompose but also exposes 
+getDartWingInfo (and type DartWingInfo) and composedFaceGroups for debugging and experimenting.
 -}
-module Tgraph.Compose where
+module Tgraph.Compose 
+  ( compose
+  , partCompose
+  , tryPartCompose
+  , uncheckedCompose
+  , uncheckedPartCompose
+  , partComposeFaces
+  , composedFaces
+  , DartWingInfo(..)
+  , getDartWingInfo
+  , composedFaceGroups
+  ) where
 
 import Data.List ((\\), find, foldl',nub)
 import qualified Data.IntMap.Strict as VMap (IntMap,lookup,(!))
