@@ -13,6 +13,7 @@ spec = do graphPropSpec
           graphLabelCheck
 -- Example lists of tile-faces
 
+x0,x1,x2,x3,x4,x5 :: [TileFace]
 -- x0 has a face with a repeated vertex
 x0 =  [LK (1,8,3),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13)
       ,RD (6,13,10),LK (3,2,13),LD (6,11,13),LK (7,14,14),RK (7,14,12)
@@ -38,6 +39,7 @@ x4 = [LD(1,2,3),RD(1,4,2),RD(4,1,5),LD(4,5,6)]
 x5 = [LD(0,1,2)]
 
 -- dD6 is a 6 times decomposed dartGraph
+dD6 :: Tgraph
 dD6 = dartDs !!6
 
 {-|touchErrorFaces is an addition of 2 faces to those of foolD which contains touching vertices.

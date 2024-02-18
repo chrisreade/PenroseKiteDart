@@ -8,13 +8,91 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 -}
-
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
 
-module TgraphExamples where
+module TgraphExamples
+  (-- * Some Layout tools
+    padBorder
+  , chunks
+  , arrangeRowsGap
+  , arrangeRows
+  , labelAt
+    -- *  Basic Tgraphs with Figures
+  , fool
+  , foolD
+  , foolDminus
+  , foolDs
+  , foolFig
+  , foolAndFoolD
+  , sunGraph 
+  , sunDs
+  , figSunD3D2
+  , kiteGraph
+  , kiteDs
+  , dartGraph
+  , dartDs
+  , dartD4
+    -- * Partial Composition figures
+  , pCompFig1
+  , pCompFig2
+  , pCompFig
+    -- * Forced Tgraph figures
+  , forceFoolDminus
+  , forceDartD5Fig
+  , forceKiteD5Fig
+  , forceSunD5Fig
+  , forceFig
+  , maxExampleFig
+  , emplaceChoicesFoolD 
+    -- *  Removed faces (forcing and composing)
+  , brokenDart
+  , badlyBrokenDart
+  , brokenDartFig
+  , badlyBrokenDartFig
+  , removeIncompletesFig
+    -- *  Incorrect Tgraphs (and other problem Tgraphs)
+  , mistake
+  , mistake1
+    -- *  Figures for 7 vertex types
+  , vertexTypesFig
+  , jackGraph
+  , kingGraph
+  , queenGraph
+  , aceGraph
+  , deuceGraph
+  , starGraph
+  , forceVFigures
+    -- *  Sun with darts and superForce examples
+  , sun1Dart
+  , sun2AdjDart
+  , sun2Dart
+  , sun3AdjDart
+  , sun3Dart 
+    -- * superForce Figure
+  , superForceFig
+  , superForceRocketsFig
+    -- *  Other miscellaneous Tgraphs and Diagrams
+  , boundaryFDart4
+  , boundaryFDart5
+  , boundaryFDart4Fig
+  , boundaryFDart5Fig
+  , boundaryGapFDart4
+  , boundaryGapFDart5
+  , boundaryGap4Fig
+  , boundaryGap5Fig
+    -- *  Boundary coverings and empires
+ , boundaryVCoveringFigs
+ , boundaryECoveringFigs
+ , kingECoveringFig
+ , kingVCoveringFig 
+ , kingEmpiresFig
+ , kingEmpire1Fig
+ , kingEmpire2Fig
+ 
+  ) where
 
 import Diagrams.Prelude
 import Diagrams.TwoD.Text (Text)
@@ -22,9 +100,7 @@ import Diagrams.TwoD.Text (Text)
 import TileLib
 import Tgraphs
 
-{-*
-Some Layout tools
--}
+
 
 -- |used for most diagrams to give border padding
 -- padBorder:: Diagram B -> Diagram B
@@ -59,9 +135,7 @@ labelAt :: Renderable (Text Double) b =>
 labelAt p l d = baselineText l # fontSize (output 15) # moveTo p <> d
 --labelAt p l d = baselineText l # fontSize (normalized 0.02) # moveTo p <> d
 
-{-*
-Basic Tgraphs with Figures
--}
+
 fool, foolD, foolDminus:: Tgraph
 -- |fool: fool's kite - also called an ace.
 fool = makeTgraph [RK (5,2,7),LK (5,6,4),RK (5,4,3),LK (5,3,2),RD (1,2,3),LD (1,3,4)]
@@ -126,8 +200,8 @@ dartDs =  decompositions dartGraph
 dartD4 :: Tgraph
 dartD4 = dartDs!!4
 
-{-* Partial Composition figures
--}
+
+
 
 pCompFig1,pCompFig2,pCompFig :: Renderable (Path V2 Double) b => Diagram2D b
 -- |diagram showing partial composition of a forced 3 times decomposed dart (with remainder faces in pale green)
@@ -142,8 +216,6 @@ pCompFig2 = lw ultraThin $ hsep 5 [draw fk3, drawPCompose fk3]
 -- When a specific Backend B is in scope, pCompFig :: Diagram B
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
-{-* Forced Tgraph figures
--}
 
 -- |diagram of foolDminus and the result of forcing              
 -- When a specific Backend B is in scope, forceFoolDminus :: Diagram B
@@ -177,9 +249,7 @@ emplaceChoicesFoolD = padBorder $ hsep 1 $
         vpChoices = alignAll (1,6) $ fmap makeVP $ emplaceChoices foolD
         addFoolD fig = (lc red . lw thin . drawj) vpFoolD <> fig
 
-{-*
-Removed faces (forcing and composing)
--}
+
 -- |brokenDart is a 4 times decomposed dart (dartD4) with 5 halftile faces removed.
 -- Forcing will repair to produce the same Tgraph as force dartD4.
 -- This graph can also be repeatedly composed (without forcing) to get a maximal Tgraph.
@@ -220,9 +290,6 @@ removeIncompletesFig :: Renderable (Path V2 Double) b => Diagram2D b
 removeIncompletesFig = padBorder $ drawj $ removeFaces (boundaryJoinFaces g) g where 
     g = sunDs !! 3
 
-{-*
-Incorrect Tgraphs (and other problem Tgraphs)
--}
 
 -- |mistake is a legal but incorrect Tgraph - a kite with 2 darts on its long edges
 mistake:: Tgraph
@@ -232,9 +299,8 @@ mistake = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1), LD (3,5,7)
 mistake1:: Tgraph
 mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 
-{-*
-Figures for 7 vertex types
--}
+-- *  Figures for 7 vertex types
+
 {-| vertexTypesFig is 7 vertex types single diagram as a row -}
 -- When a specific Backend B is in scope, vertexTypesFig :: Diagram B
 vertexTypesFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
@@ -282,9 +348,6 @@ forceVFigures :: Renderable (Path V2 Double) b => [Diagram2D b]
 forceVFigures = rotations [0,0,9,5,0,0,1] $
                 fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
 
-{-*
-Sun with darts and superForce examples
--}
 
 sun1Dart,sun2AdjDart,sun2Dart,sun3AdjDart,sun3Dart :: Tgraph
 -- |A sun with a single complete dart on the boundary
@@ -315,10 +378,6 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
       decomps = take 4 $ decompositions sun3Dart
 
 
-{-*
-Other miscellaneous Tgraphs and Diagrams
--}
-
 -- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
 boundaryFDart4 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
@@ -348,10 +407,6 @@ boundaryGap4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart4
 -- When a specific Backend B is in scope, boundaryGap5Fig :: Diagram B
 boundaryGap5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart5
 
-
-{-*
-Boundary coverings and empires
--}
 
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
 -- (with the Tgraph represented by bd shown in red in each case)

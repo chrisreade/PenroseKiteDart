@@ -14,7 +14,134 @@ It exposes the calculation of relative angle of edges at boundary vertices used 
 It imports a touching check for adding new vertices (with locateVertices and addVPoint).
 -}
 
-module Tgraph.Force  where
+module Tgraph.Force
+  (-- *  Touching vertex checking
+    touchCheck
+    -- *  BoundaryState operations
+  , BoundaryState(..)
+  , makeBoundaryState
+  , recoverGraph
+  , changeVFMap
+  , facesAtBV
+  , boundaryFaces
+    -- *  Types: Update, UpdateMap, UpdateGenerator, ForceState
+  , Update(..)
+  , UpdateMap
+  , ForceState(..)
+  , UpdateGenerator
+    -- *  Forcible class and Instances (ForceState, BoundaryState, Tgraph)
+  , Forcible(..)
+    -- *  Generalised forcing operations
+  , tryForceWith
+  , tryStepForceWith
+  , tryFSOp
+  , tryForce
+  , force
+  , wholeTiles
+  , forceWith
+  , tryInitFS
+  , initFS
+  , tryStepForce
+  , stepForce
+  , tryChangeBoundary
+    -- *  Force Related Functions
+  , addHalfKite
+  , tryAddHalfKite
+  , addHalfDart
+  , tryAddHalfDart
+    -- *  Specialised forcing operations (used for inspecting steps)
+  , tryOneStepWith
+  , tryOneStepF
+    -- *  Updating BoundaryState and ForceState after a single force step
+  , BoundaryChange(..)
+  , affectedBoundary
+--  , mustFind
+  , tryReviseUpdates
+  , tryReviseFSWith
+    -- *  Auxiliary Functions for doing a force step
+  , findSafeUpdate
+  , tryUnsafes
+  , checkUnsafeUpdate
+  , trySafeUpdate
+--   , commonVs
+  , tryUpdate
+    -- *  Recalibrating versions of force and tryForce
+  , recalculateBVLocs
+  , tryRecalibratingForce
+  , recalibratingForce
+    -- *  Main All Update Generators
+  , defaultAllUGen
+  , allUGenerator
+   -- * Tools for making update generators
+  , UFinder
+  , UChecker
+  , boundaryFilter
+  , makeUpdate
+  , makeGenerator 
+    -- *  BoundaryState vertex predicates and properties
+  , mustbeStar
+  , mustbeSun
+  , mustbeDeuce
+  , mustbeKing
+  , isKiteWing
+  , isKiteOppV
+  , isDartOrigin
+  , mustbeQueen
+  , kiteWingCount
+  , mustbeJack
+--  , hasAnyMatchingE
+    -- * Forcing Rules and Individual Update Generators (with corresponding Finders) for each rule.
+    --  $rules
+  , wholeTileUpdates
+  , incompleteHalves
+  , aceKiteUpdates
+  , nonKDarts
+  , queenOrKingUpdates
+  , kitesWingDartOrigin
+  , deuceDartUpdates
+  , kiteGaps
+  , jackDartUpdates
+  , noTouchingDart
+  , sunStarUpdates
+  , almostSunStar
+  , jackKiteUpdates
+  , jackMissingKite
+  , kingDartUpdates
+  , kingMissingThirdDart
+  , queenDartUpdates
+  , queenMissingDarts
+  , queenKiteUpdates
+  , queenMissingKite
+    -- *  Six Update Checkers
+  , completeHalf
+  , addKiteShortE
+  , addDartShortE
+  , completeSunStar
+  , addKiteLongE
+  , addDartLongE
+{-
+  , anglesForJoinRD
+  , anglesForJoinLD
+  , anglesForJoinRK
+  , anglesForJoinLK
+  , anglesForLongLD
+  , anglesForLongRD
+  , anglesForLongRK
+  , anglesForLongLK
+  , anglesForShortLD
+  , anglesForShortRD
+  , anglesForShortLK
+  , anglesForShortRK
+-}
+--   , inspectBDedge
+    -- *  Auxiliary Functions for adding faces: externalAngle and tryFindThirdV. $Additions
+  , tryFindThirdV
+  , externalAngle
+{-
+  , intAngleAt
+  , faceIntAngles
+-}
+  )  where
 
 import Data.List ((\\), intersect, nub, find,foldl')
 import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
@@ -33,9 +160,7 @@ Efficient FORCING with
 ***************************************************************************
 -}
 
-{-*
-Touching vertex checking
--}
+
 
 {-------------------------
 *************************             
@@ -48,9 +173,7 @@ requires Diagrams.Prelude for Point and V2
 touchCheck:: Point V2 Double -> VertexMap (Point V2 Double) -> Bool
 touchCheck p vpMap = any (touching p) (VMap.elems vpMap)
 
-{-*
-BoundaryState operations
--}
+
 {-| A BoundaryState records
 the boundary directed edges (directed so that faces are on LHS and exterior is on RHS)
 plus 
@@ -111,10 +234,6 @@ boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
 
 
 
-{-*
-Types: Update, UpdateMap, UpdateGenerator, ForceState
--}
-
 -- |An Update is either safe or unsafe.
 -- A safe update has a new face involving 3 existing vertices.
 -- An unsafe update has a makeFace function to create the new face when given a fresh third vertex.
@@ -145,9 +264,6 @@ but they can also be combined (e.g in sequence - allUGenerator or otherwise - de
 type UpdateGenerator = BoundaryState -> [Dedge] -> Try UpdateMap
 
 
-{-*
-Forcible class and Instances (ForceState, BoundaryState, Tgraph)
--}
 
 -- | Forcible class has operations to (indirectly) implement forcing and single step forcing
 -- (tryForceWith, tryStepForceWith) for any Forcible. The class operations are more general to allow for other
@@ -205,9 +321,6 @@ instance Forcible Tgraph where
         recoverGraph <$> tryChangeBoundaryWith ugen f (makeBoundaryState g)
 --    getBoundaryState = makeBoundaryState
 
-{-*
-Generalised forcing operations
--}
 
 -- | try forcing using a given UpdateGenerator.
 --  tryForceWith uGen fs - recursively does updates using uGen until there are no more updates.
@@ -294,10 +407,6 @@ stepForce n = runTry . tryStepForce n
 tryChangeBoundary:: Forcible a => (BoundaryState -> Try BoundaryChange) -> a -> Try a
 tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 
-{-*
-Force Related Functions:
-addHalfKite, addHalfDart, tryAddHalfKite, tryAddHalfDart
--}
 
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
@@ -357,9 +466,6 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
          u <- tryU
          tryUpdate bd u
 
-{-*
-Specialised forcing operations (used for inspecting steps)
--}
 
 -- |tryOneStepWith uGen fs does one force step.
 -- It returns a (Try maybe) with a new force sate paired with the boundary change for debugging purposes.
@@ -381,12 +487,6 @@ tryOneStepWith uGen fs =
 -- |tryOneStepF is a special case of tryOneStepWith only used for debugging
 tryOneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
 tryOneStepF = tryOneStepWith defaultAllUGen
-
-
-
-{-*
-Updating BoundaryState and ForceState after a single force step
--}
 
 
 {-| BoundaryChange records the new boundary state after completing an update (by either trySafeUpdate or tryUnsafeUpdate)
@@ -446,9 +546,6 @@ tryReviseFSWith ugen bdC fs =
     do umap <- tryReviseUpdates ugen bdC (updateMap fs)
        return $ ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap}
 
-{-*
-Auxiliary Functions for doing a force step
--}
 
 -- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
 findSafeUpdate:: UpdateMap -> Maybe Update 
@@ -575,9 +672,8 @@ tryUpdate bd u@(UnsafeUpdate _) =
        Just bdC -> return bdC
        Nothing ->  Left "tryUpdate: crossing boundary (touching vertices).\n"
 
-{-*
-Recalibrating versions of force and tryForce
--}
+-- *  Recalibrating versions of force and tryForce
+
 
 -- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateVertices.
 -- (Used at intervals in tryRecalibrateForce and recalibrateForce).
@@ -627,14 +723,9 @@ tryFinalStuckCheck fs =
         bvs = fmap fst (boundary bs)
 -}
 
-
-    
-{-*
-Forcing Rules and Update Generators (with Individual generators for each rule)
--}
                                     
 {- $rules
-Forcing rules
+Forcing rules,
 
 1. (wholeTileUpdates) When a join edge is on the boundary - add the missing half tile to make a whole tile.    
 2. (aceKiteUpdates) When a half dart has its short edge on the boundary
@@ -739,9 +830,7 @@ makeUpdate:: (Vertex -> TileFace) -> Maybe Vertex ->  Update
 makeUpdate f (Just v) = SafeUpdate (f v)
 makeUpdate f Nothing  = UnsafeUpdate f
 
-{-*
-BoundaryState vertex predicates and properties
--}
+
          
 -- |A vertex on the boundary must be a star if it has 7 or more dart origins
 mustbeStar:: BoundaryState -> Vertex -> Bool
@@ -806,12 +895,6 @@ hasAnyMatchingE :: [Dedge] -> Bool
 hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
 hasAnyMatchingE [] = False
 
-
-{-*
-Making generators for each rule.
--}
-
-
 {-| makeGenerator combines an update case finder (UFinder) with its corresponding update checker (UChecker)
     to produce an update generator function.
     This is used to make each of the 10 update generators corresponding to 10 rules. 
@@ -829,9 +912,8 @@ makeGenerator checker finder = gen where
                                               return (Map.insert e u ump)
 
                          
-{-*
-Ten Update Generators (with corresponding Finders)
--}
+-- *  Ten Update Generators (with corresponding Finders)
+
 
 -- |Update generator for rule (1)
 wholeTileUpdates:: UpdateGenerator
@@ -969,9 +1051,8 @@ queenMissingKite = boundaryFilter predicate where
                  kiteWings = filter ((==fcWing) . wingV) $ filter isKite (facesAtBV bd fcWing)
 
 
-{-*
-Six Update Checkers
--}
+-- *  Six Update Checkers
+
 
 -- |completeHalf will check an update to
 --  add a symmetric (mirror) face for a given face at a boundary join edge.
@@ -1050,6 +1131,7 @@ addDartLongE bd (RK(a,_,c)) = makeUpdate makeFace <$> x where
   makeFace v = LD(c,v,a)
   x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongLD
 
+{-
 -- |mnemonic for internal angles of an edge (expressed as integer units of a tenth turn (I.e 1,2 or 3)
 anglesForJoinRD,anglesForJoinLD,anglesForJoinRK,anglesForJoinLK::(Int,Int)
 anglesForJoinRD = (3,1)
@@ -1068,11 +1150,11 @@ anglesForShortLD = (3,1)
 anglesForShortRD = (1,3)
 anglesForShortLK = (2,2)
 anglesForShortRK = (2,2)
-
-
-{-*
-The Default All Update Generator (defaultAllUGen)
 -}
+
+
+-- *  The Default All Update Generator (defaultAllUGen)
+
 
 -- |An alternative to allUGenerator, and used as the default. It uses the same rules and UCheckers,
 -- but makes decisions based on the EdgeType of a boundary edge (instead of trying each UFinder in turn).
@@ -1121,16 +1203,12 @@ inspectBDedge bd e = (face,edgeType (reverseD e) face) where
 
 
 
-{-*
-Auxiliary Functions for adding faces: externalAngle and tryFindThirdV.
--}
+-- *  Auxiliary Functions for adding faces: externalAngle and tryFindThirdV. $Additions
 
-{-------------------------------------------
-****************************
-ADDING FACES with tryFindThirdV
-****************************
+
+{- $Additions
   
-The difficulty is determining if any edges of a new face already exist.
+The difficulty of adding faces is determining if any edges of a new face already exist.
 This goes beyond a simple graph operation and requires use of the internal angles of the faces.
 We use a representation of angles which allows an equality test.
 All angles are integer multiples of 1/10th turn (mod 10) so we use
@@ -1138,7 +1216,7 @@ these integers for comparing angles n where n is 0..9
 
 
 No crossing boundary property:
-It is important that there are no crossing boundaries, otherwise external angle calculations can be wrong.
+It is important that there are no crossing boundaries, otherwise external angle calculations could be wrong.
 
 Possible Touching Vertices.
 When tryFindThirdV returns Nothing, this means a new vertex needs to be created.
@@ -1188,40 +1266,12 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                              Nothing -> Left $ "tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge " 
                                                ++ show (a,b) ++ "\n"
            | otherwise =   Right  Nothing
-{-
-tryFindThirdV:: BoundaryState -> Dedge -> (Int,Int) -> Try (Maybe Vertex)
-tryFindThirdV bd (a,b) (n,m) = maybeV where
-    aAngle = externalAngle bd a
-    bAngle = externalAngle bd b
-    maybeV | aAngle < n = err
-           | bAngle < m = err
-           | aAngle == n = case find ((==a) . snd) (boundary bd) of
-                             Just pr -> Right $ Just (fst pr)
-                             Nothing -> errB
-           | bAngle == m = case find ((==b) . fst) (boundary bd) of
-                             Just pr -> Right $ Just (snd pr)
-                             Nothing -> errB
-           | otherwise =   Right  Nothing
-    err = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: " 
-                 ++ show (a,b) ++ "\n"
-    errB = Left $ "tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge " 
-                 ++ show (a,b) ++ "\n"
--}
 
 -- |externalAngle bd v - calculates the external angle at boundary vertex v in BoundaryState bd as an
 -- integer multiple of tt (tenth turn), so 1..9.  It relies on there being no crossing boundaries,
 -- so that there is a single external angle at each boundary vertex. 
 externalAngle:: BoundaryState -> Vertex -> Int
 externalAngle bd v = 10 - sum (map (intAngleAt v) $ facesAtBV bd v)
-
-{-
-externalAngle:: BoundaryState -> Vertex -> Int
-externalAngle bd v = check $ 10 - sum (map (intAngleAt v) $ facesAtBV bd v) where
-  check n | n>9 || n<1 = error $ "externalAngle: vertex not on boundary "++show v
-                                  ++ " with external angle " ++show n++" with faces:\n"
-                                  ++ show (bvFacesMap bd VMap.! v)
-  check n = n
--}
   
 -- |intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
 -- in terms of tenth turns, so returning an Int (1,2,or 3).

@@ -11,7 +11,42 @@ to implement a guided union of Tgraphs (fullUnion and tryFullUnion)
 and also a commonFaces operation (a kind of intersection which need not be a Tgraph)
 and a guided equality check (sameGraph).
 -}
-module Tgraph.Relabelling  where
+module Tgraph.Relabelling
+  ( -- * Assisted Union (and matching) operations
+    fullUnion
+  , tryFullUnion
+    -- * commonFaces (Assisted Intersection) and sameGraph (Assisted Equivalence)
+  , commonFaces
+  , sameGraph
+    -- * Creating Relabellings
+  , Relabelling(..)
+  , newRelabelling
+  , relabellingFrom
+  , relabellingTo
+  , relabelUnion
+    -- * Relabellings and matching
+  , relabelToMatch
+  , tryRelabelToMatch
+  , tryRelabelFromFaces
+  , tryGrowRelabel
+  , relabelToMatchIgnore
+  , relabelFromFacesIgnore
+  , growRelabelIgnore
+    -- * Using Relabellings
+  , relabelGraph
+  , checkRelabelGraph
+  , relabelFace
+  , relabelV
+  , relabelAvoid
+  , prepareFixAvoid
+  , relabelContig
+  , renumberFaces
+    -- * Face Matching functions
+  , tryMatchFace
+  , twoVMatch
+  , matchFaceIgnore
+-- , differing
+  ) where
 
 
 import Data.List (intersect, (\\), union,find,partition,nub)
@@ -21,12 +56,6 @@ import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\)
 import Tgraph.Prelude
 -- import Tgraph.Convert (touchingVertices, touchingVerticesGen) -- used for fullUnion and commonFaces
 
-
-
-
-{- *
-Assisted Union (and matching) operations
--}
 
 {-| fullUnion (g1,e1) (g2,e2) will try to create the union of g1 and g2.  That is, it will try to combine the faces of g1
     and (possibly relabelled) faces of g2 as a Tgraph.  It does this
@@ -64,10 +93,6 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
           in checkTgraphProps $ nub $ fmap (relabelFace newrel) fcs
 
 
-{- *
-commonFaces (Assisted Intersection)
--}
-
 -- | commonFaces (g1,e1) (g2,e2) relabels g2 to match with g1 (where they match)
 -- and returns the common faces as a subset of faces of g1.
 -- i.e. with g1 vertex labelling.
@@ -84,10 +109,6 @@ commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
   vertg1 = vertexSet g1
   correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
 
-
-{- *
-Guided equality check (sameGraph)
--}
                       
 -- | sameGraph (g1,e1) (g2,e2) checks to see if g1 and g2 are the same Tgraph after relabelling g2.
 -- The relabelling is based on directed edge e2 in g2 matching e1 in g1 (where the direction is clockwise round a face)
@@ -98,11 +119,6 @@ sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
  tryResult = do g <- tryRelabelToMatch (g1,e1) (g2,e2)
                 return (vertexSet g == vertexSet g1)
 
-
- 
-{- *
-Creating Relabellings
--}
 
 -- |Relabelling is a special case of mappings from vertices to vertices that are not the 
 -- identity on a finite number of vertices.
@@ -142,10 +158,6 @@ f1 `relabellingTo` f2 = newRelabelling $ zip (faceVList f1) (faceVList f2) -- f1
 relabelUnion:: Relabelling -> Relabelling -> Relabelling
 relabelUnion (Relabelling r1) (Relabelling r2) = Relabelling $ VMap.union r1 r2 
 
-
-{- *
-Relabellings and matching
--}
 
 {-|relabelToMatch (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
 consistent with g1 on a single tile-connected region of overlap.
@@ -275,9 +287,6 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
                           rlab' = relabelUnion (fc `relabellingTo` orig) rlab
 
-{- *
-Using Relabellings
--}
 
 -- |relabelGraph rlab g - uses a Relabelling rlab to change vertices in a Tgraph g.
 -- Caveat: This should only be used when it is known that:
@@ -356,11 +365,6 @@ renumberFaces prs = fmap renumberFace where
     all3 f (a,b,c) = (f a,f b,f c)
     renumber v = VMap.findWithDefault v v mapping
  
-
-
-{- *
-Face Matching functions
--}
                      
 {-|
 tryMatchFace f g - looks for a face in g that corresponds to f (sharing a directed edge),
@@ -395,9 +399,6 @@ matchFaceIgnore face g = case tryMatchFace face g of
    Right mf -> mf
    Left _   -> Nothing
    
-{- *
-Other Auxiliary functions
--}
 
 -- |selects only non-matching pairs from a list
 differing :: Eq a => [(a,a)] -> [(a,a)]

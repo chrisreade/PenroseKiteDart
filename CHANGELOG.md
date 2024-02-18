@@ -1,5 +1,8 @@
 # Revision history for PenroseKiteDart
 
+## 0.7.0.0 -- 2024-02-18
+
+Export of modules specified and changed (with more hiding)
 
 ## 0.6.0.0 -- 2024-02-17
 
