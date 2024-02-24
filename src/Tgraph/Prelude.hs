@@ -35,21 +35,21 @@ module Tgraph.Prelude
    -- * Property Checking for Tgraphs
   , makeUncheckedTgraph
   , checkedTgraph
-  , checkTgraphProps
-  , checkConnectedNoCross
-  , findEdgeLoops
+  , tryTgraphProps
+  , tryConnectedNoCross
+--  , findEdgeLoops
   , hasEdgeLoops
   , duplicates
-  , conflictingDedges
+--  , conflictingDedges
   , edgeType
-  , sharedEdges
-  , newSharedEdges
+--  , sharedEdges
+--  , newSharedEdges
   , noNewConflict
-  , noNewConflictFull
-  , legal
-  , illegals
+-- unused  , noNewConflictFull
+--  , legal
+--  , illegals
   , illegalTiling
-  , crossingBVs
+--  , crossingBVs
   , crossingVertices
   , crossingBoundaries
   , connected
@@ -104,7 +104,7 @@ module Tgraph.Prelude
   , longE
   , facePhiEdges
   , faceNonPhiEdges
-  , matchingE
+--  , matchingE
   , matchingLongE
   , matchingShortE
   , matchingJoinE
@@ -122,7 +122,7 @@ module Tgraph.Prelude
   , buildEFMap
   , faceForEdge
   , edgeNbs
-  , extractLowestJoin
+--  , extractLowestJoin
   , lowestJoin
     -- * Try - result types with failure reporting (for partial operations)
   , Try
@@ -152,7 +152,7 @@ module Tgraph.Prelude
   , labelSmall
   , labelLarge 
   , rotateBefore
--- , dropLabels
+  , dropLabels
 -- * VPatch alignment with vertices
   , centerOn
   , alignXaxis
@@ -245,15 +245,15 @@ makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph fcs = Tgraph fcs
 
 {-| Creates a Tgraph from a list of faces AND checks for edge loops, edge conflicts and
-crossing boundaries and connectedness and legal tiling with checkTgraphProps.
+crossing boundaries and connectedness and legal tiling with tryTgraphProps.
 (No crossing boundaries and connected implies tile-connected).
 Produces an error if a check fails.
 
 Note: This does not check for touching vertices (distinct labels for the same vertex).
-To perform this additional check use makeTgraph (defined in Tgraphs module) which also calls checkTgraphProps.
+To perform this additional check use makeTgraph (defined in Tgraphs module) which also calls tryTgraphProps.
 -}
 checkedTgraph:: [TileFace] -> Tgraph
-checkedTgraph fcs = runTry $ onFail report (checkTgraphProps fcs)
+checkedTgraph fcs = runTry $ onFail report (tryTgraphProps fcs)
  where report = "checkedTgraph: Failed\n"  -- ++ " for faces: " ++ show fcs ++ "\n"
 
 
@@ -268,31 +268,31 @@ checkedTgraph fcs = runTry $ onFail report (checkTgraphProps fcs)
 Returns Right g where g is a Tgraph on passing checks.
 Returns Left lines if a test fails, where lines describes the problem found.
 -}
-checkTgraphProps:: [TileFace] -> Try Tgraph
-checkTgraphProps []       =  Right emptyTgraph 
-checkTgraphProps fcs
-      | hasEdgeLoops fcs  =  Left $ "checkTgraphProps: Non-valid tile-face(s)\n" ++
+tryTgraphProps:: [TileFace] -> Try Tgraph
+tryTgraphProps []       =  Right emptyTgraph 
+tryTgraphProps fcs
+      | hasEdgeLoops fcs  =  Left $ "tryTgraphProps: Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | illegalTiling fcs =  Left $ "checkTgraphProps: Non-legal tiling\n" ++
+      | illegalTiling fcs =  Left $ "tryTgraphProps: Non-legal tiling\n" ++
                                       "Conflicting face directed edges (non-planar tiling): "
                                       ++ show (conflictingDedges fcs) ++
                                       "\nIllegal tile juxtapositions: "
                                       ++ show (illegals fcs) ++ "\n"
       | otherwise         = let vs = facesVSet fcs
                             in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
-                               then Left $ "checkTgraphProps: Vertex numbers not all >0: " ++ show (IntSet.toList vs) ++ "\n"
-                               else checkConnectedNoCross fcs 
+                               then Left $ "tryTgraphProps: Vertex numbers not all >0: " ++ show (IntSet.toList vs) ++ "\n"
+                               else tryConnectedNoCross fcs 
 
 -- |Checks a list of faces for no crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected).
 -- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
--- This is used by checkTgraphProps after other checks have been made,
+-- This is used by tryTgraphProps after other checks have been made,
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
-checkConnectedNoCross:: [TileFace] -> Try Tgraph
-checkConnectedNoCross fcs
-  | not (connected fcs) =    Left $ "checkConnectedNoCross: Non-valid Tgraph (Not connected)\n" ++ show fcs ++ "\n"
-  | crossingBoundaries fcs = Left $ "checkConnectedNoCross: Non-valid Tgraph\n" ++
+tryConnectedNoCross:: [TileFace] -> Try Tgraph
+tryConnectedNoCross fcs
+  | not (connected fcs) =    Left $ "tryConnectedNoCross: Non-valid Tgraph (Not connected)\n" ++ show fcs ++ "\n"
+  | crossingBoundaries fcs = Left $ "tryConnectedNoCross: Non-valid Tgraph\n" ++
                                   "Crossing boundaries found at " ++ show (crossingBVs fcs) 
                                   ++ "\nwith faces\n" ++ show fcs
   | otherwise            = Right (Tgraph fcs)
@@ -360,11 +360,13 @@ noNewConflict :: TileFace -> [TileFace] -> Bool
 noNewConflict face fcs = null $ filter (not . legal) shared where
     shared = newSharedEdges face fcs
 
+{-
 -- |noNewConflictFull face fcs  where face is a new face and fcs are neighbouring faces.
 -- Checks for illegal shared edges using noNewConflict but also checks that face does not have a directed edge
 -- in the same direction as a directed edge in fcs.
 noNewConflictFull :: TileFace -> [TileFace] -> Bool
 noNewConflictFull face fcs = null (faceDedges face `intersect` facesDedges fcs) && noNewConflict face fcs
+-}
 
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   
@@ -473,12 +475,12 @@ darts = filter isDart . faces
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
 selectFaces :: [TileFace] -> Tgraph -> Tgraph
-selectFaces fcs g = runTry $ checkConnectedNoCross $ faces g `intersect` fcs
+selectFaces fcs g = runTry $ tryConnectedNoCross $ faces g `intersect` fcs
 
 -- |removes faces from a Tgraph,
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
 removeFaces :: [TileFace] -> Tgraph -> Tgraph
-removeFaces fcs g = runTry $ checkConnectedNoCross $ faces g \\ fcs
+removeFaces fcs g = runTry $ tryConnectedNoCross $ faces g \\ fcs
 
 -- |removeVertices vs g - removes any vertex in the list vs from g
 -- by removing all faces at those vertices. Resulting Tgraph is checked

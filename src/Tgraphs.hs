@@ -115,7 +115,7 @@ import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lo
 -- * Making valid Tgraphs (with a check for no touching vertices).
 
 {-|
-makeTgraph performs a no touching vertex check as well as using checkTgraphProps for other required properties.
+makeTgraph performs a no touching vertex check as well as using tryTgraphProps for other required properties.
 It produces an error if either check fails.
 Note that the other Tgraph properties are checked first, to ensure that calculation of 
 vertex locations can be done for a touching vertex check.
@@ -124,7 +124,7 @@ makeTgraph :: [TileFace] -> Tgraph
 makeTgraph fcs = runTry $ onFail "makeTgraph: (failed):\n" $ tryMakeTgraph fcs
 
 {-|
-tryMakeTgraph performs the same checks for Tgraph properties as checkTgraphProps but in addition
+tryMakeTgraph performs the same checks for Tgraph properties as tryTgraphProps but in addition
 it also checks that there are no touching vertices (distinct labels for the same vertex)
 using Tgraph.Convert.touchingVertices (which calculates vertex locations).
 It produces Left ... if either check fails and Right g otherwise where g is the Tgraph.
@@ -133,7 +133,7 @@ vertex locations can be done.
 -}
 tryMakeTgraph :: [TileFace] -> Try Tgraph
 tryMakeTgraph fcs =
- do g <- checkTgraphProps fcs -- must be checked first
+ do g <- tryTgraphProps fcs -- must be checked first
     let touchVs = touchingVertices (faces g)
     if null touchVs 
     then Right g 
@@ -153,7 +153,7 @@ tryMakeTgraph fcs =
 tryCorrectTouchingVs ::  [TileFace] -> Try Tgraph
 tryCorrectTouchingVs fcs = 
     onFail ("tryCorrectTouchingVs:\n" ++ show touchVs) $ 
-    checkTgraphProps $ nub $ renumberFaces touchVs fcs
+    tryTgraphProps $ nub $ renumberFaces touchVs fcs
         -- renumberFaces allows for a non 1-1 relabelling represented by a list 
     where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
 
@@ -290,7 +290,7 @@ emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) whe
 -- | An unsound version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 composeK :: Tgraph -> Tgraph
-composeK g = runTry $ checkConnectedNoCross newfaces where
+composeK g = runTry $ tryConnectedNoCross newfaces where
     dwInfo = getDartWingInfo g
     changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
                         , unknowns = []

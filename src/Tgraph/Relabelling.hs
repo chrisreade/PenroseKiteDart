@@ -21,30 +21,30 @@ module Tgraph.Relabelling
     -- * Creating Relabellings
   , Relabelling(..)
   , newRelabelling
-  , relabellingFrom
-  , relabellingTo
-  , relabelUnion
+--  , relabellingFrom
+--  , relabellingTo
+--  , relabelUnion
     -- * Relabellings and matching
   , relabelToMatch
   , tryRelabelToMatch
   , tryRelabelFromFaces
-  , tryGrowRelabel
+--  , tryGrowRelabel
   , relabelToMatchIgnore
   , relabelFromFacesIgnore
-  , growRelabelIgnore
+--  , growRelabelIgnore
     -- * Using Relabellings
   , relabelGraph
   , checkRelabelGraph
   , relabelFace
   , relabelV
-  , relabelAvoid
-  , prepareFixAvoid
+--  , relabelAvoid
+--  , prepareFixAvoid
   , relabelContig
+    --  * Renumbering (not necessarily 1-1)
   , renumberFaces
-    -- * Face Matching functions
-  , tryMatchFace
-  , twoVMatch
-  , matchFaceIgnore
+--  , tryMatchFace
+--  , twoVMatch
+--  , matchFaceIgnore
 -- , differing
   ) where
 
@@ -63,7 +63,7 @@ import Tgraph.Prelude
     It will raise an error if there is a mismatch.
     If succesfull it then uses geometry of tiles (vertex locations) to correct for multiple overlapping regions
     of tiles in g1 and relabelled g2 by a further relabelling of any touching vertices.
-    The resulting union of faces requires an expensive checkTgraphProps if touching vertices were found.
+    The resulting union of faces requires an expensive tryTgraphProps if touching vertices were found.
     However the check is not needed when there are no touching vertices (i.e. a single tile-connected overlap).          
 -}
 fullUnion:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Tgraph
@@ -75,7 +75,7 @@ fullUnion (g1,e1) (g2,e2) = runTry $ tryFullUnion (g1,e1) (g2,e2)
     It returns Left lines  if there is a mismatch (where lines explains the problem).
     If succesfull it then uses geometry of tiles (vertex locations) to correct for multiple overlapping regions
     of tiles in g1 and relabelled g2 by a further relabelling of any touching vertices. 
-    The resulting union of faces requires an expensive checkTgraphProps if any touching vertices were found,
+    The resulting union of faces requires an expensive tryTgraphProps if any touching vertices were found,
     and will return Left ... if this fails and Right t otherwise, where t is a Tgraph
     containing the union of faces.
     The check is not used when there are no touching vertices (i.e. a single tile-connected overlap).          
@@ -90,7 +90,7 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
      else let vertg1 = vertexSet g1
               correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
               newrel = newRelabelling $ fmap correct touchVs
-          in checkTgraphProps $ nub $ fmap (relabelFace newrel) fcs
+          in tryTgraphProps $ nub $ fmap (relabelFace newrel) fcs
 
 
 -- | commonFaces (g1,e1) (g2,e2) relabels g2 to match with g1 (where they match)

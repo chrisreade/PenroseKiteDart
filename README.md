@@ -18,8 +18,8 @@ Haskell Diagrams package.
 ## Using the Package
 
 You will need the Haskell Diagrams package
-to be installed as well as this package. (See [Haskell Diagrams](https://diagrams.github.io)).
-A Main module to produce diagrams should import a chosen backend for Diagrams such as the default (SVG)
+to be installed as well as this package (PenroseKiteDart). (See [Haskell Diagrams](https://diagrams.github.io)).
+Once installed, a Main.hs module to produce diagrams should import a chosen backend for Diagrams such as the default (SVG)
 along with the Diagrams prelude
 
     import Diagrams.Backend.SVG.CmdLine
@@ -46,9 +46,11 @@ When the code is executed it will generate an SVG file.
 
 ## Tgraphs to Describe Finite Tilings
 
-Tile Graphs (Tgraphs) use a simple planar graph representation for patches of tiles.
-We build tilings using half tiles, each of which is a triangle using constructors
-LD (left dart), RD (right dart), LK (left kite), RK (right kite).
+Tile Graphs (`Tgraph`s) use a simple planar graph representation for finite patches of tiles.
+A `Tgraph` is made from a list of faces with type `TileFace` each of which is a half-dart or a half-kite.
+Each `TileFace` is thus a triangle with three positive Int vertices and a constructor
+`LD` (left dart), `RD` (right dart), `LK` (left kite), `RK` (right kite).
+
 For example a fool consists of two kites and a dart (= 4 half kites and 2 half darts):
 
     fool :: Tgraph
@@ -57,23 +59,33 @@ For example a fool consists of two kites and a dart (= 4 half kites and 2 half d
                       ,RK (5,4,3),LK (5,6,4)   -- right and left kite
                       ]
 
+The function
+
+    makeTgraph :: [TileFace] -> Tgraph
+
+performs checks to make sure the tiling is legal, raising an error if there is a problem.
+To produce a diagram, we simply draw the `Tgraph`
+
     foolFigure :: Diagram B
     foolFigure = labelled draw fool
-    
+
+
 ## Modules
 
 Module `PKD` is the main module which imports and rexports `Tgraphs` and `TileLib`.
 `Tgraphs` includes and exports the contents of the other Tgraph modules, namely 
 `Tgraph.Compose`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Relabelling`, `Tgraph.Prelude`.
-`TileLib` contains underlying drawing tools for tiles and re-exports `HalfTile` (with the constructors `LD`,`RD`,`LK`,`R`).
+`TileLib` contains underlying drawing tools for tiles and re-exports `HalfTile` (with the constructors `LD`,`RD`,`LK`,`RK`).
 
-For more information see
+## Further Information
+
+Further information can be found here
 
 - [Graphs, Kites and Darts](https://readerunner.wordpress.com/2022/01/06/graphs-kites-and-darts/)
 - [Empires and SuperForce](https://readerunner.wordpress.com/2023/04/26/graphs-kites-and-darts-empires-and-superforce/)
 - [Graphs,Kites and Darts and Theorems](https://readerunner.wordpress.com/2023/09/12/graphs-kites-and-darts-and-theorems/) 
 
-For a description of TileLib see
+For a description of `TileLib` see also
 
 - [Diagrams for Penrose Tiles](https://readerunner.wordpress.com/2021/03/20/diagrams-for-penrose-tiles/)
 

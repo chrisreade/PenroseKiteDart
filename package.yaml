@@ -1,5 +1,5 @@
 name:                PenroseKiteDart
-version:             0.7.0.0
+version:             0.8.0.0
 github:              "chrisreade/PenroseKiteDart"
 license:             BSD3
 author:              "Chris Reade"
@@ -12,12 +12,12 @@ extra-source-files:
 
 # Metadata used when publishing your package
 synopsis:  Library to explore Penrose's Kite and Dart Tilings.
-category:            Graphics
+category:  Graphics
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:  Please see the README on GitHub at <https://github.com/chrisreade/PenroseKiteDart#readme>
+description:  Please see the README.md
 
 dependencies:
 - base >= 4.7 && < 5
