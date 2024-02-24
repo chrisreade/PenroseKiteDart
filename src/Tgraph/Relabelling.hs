@@ -38,7 +38,7 @@ module Tgraph.Relabelling
   , relabelFace
   , relabelV
 --  , relabelAvoid
---  , prepareFixAvoid
+  , prepareFixAvoid
   , relabelContig
     --  * Renumbering (not necessarily 1-1)
   , renumberFaces
