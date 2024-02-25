@@ -1,6 +1,10 @@
 # Revision history for PenroseKiteDart
 
 
+## 0.8.0.2 -- 2024-02-25
+
+Documentation changes only.
+
 ## 0.8.0.1 -- 2024-02-24
 
 Fewer exported functions (Tgraph.Prelude, Tgraph.Relabelling), some renaming

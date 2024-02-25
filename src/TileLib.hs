@@ -141,12 +141,14 @@ type Diagram2D b = QDiagram b V2 Double Any
     
     
 -- |drawing lines for the 2 non-join edges of a piece.
+-- 
 -- When a specific Backend B is in scope, drawPiece:: Piece -> Diagram B
 drawPiece :: Renderable (Path V2 Double) b =>
              Piece -> Diagram2D b
 drawPiece = strokeLine . fromOffsets . pieceEdges
 
 -- |same as drawPiece but with join edge added as dashed-line.
+-- 
 -- When a specific Backend B is in scope, dashjPiece:: Piece -> Diagram B
 dashjPiece :: Renderable (Path V2 Double) b =>
               Piece -> Diagram2D b
@@ -154,24 +156,28 @@ dashjPiece piece = drawPiece piece <> dashjOnly piece
 
 
 -- |draw join edge only (as dashed line).
+-- 
 -- When a specific Backend B is in scope, dashjOnly:: Piece -> Diagram B
 dashjOnly :: Renderable (Path V2 Double) b =>
              Piece -> Diagram2D b
 dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lw ultraThin -- # lc grey 
 
 -- |same as drawPiece but with added join edge (also fillable as a loop).
+-- 
 -- When a specific Backend B is in scope, drawRoundPiece:: Piece -> Diagram B
 drawRoundPiece :: Renderable (Path V2 Double) b =>
                   Piece -> Diagram2D b
 drawRoundPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
 
 -- |draw join edge only.
+-- 
 -- When a specific Backend B is in scope, drawJoin:: Piece -> Diagram B
 drawJoin :: Renderable (Path V2 Double) b =>
             Piece -> Diagram2D b
 drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |fillOnlyPiece col piece - fills piece with colour col without drawing any lines.
+-- 
 -- When a specific Backend B is in scope, fillOnlyPiece:: Colour Double -> Piece -> Diagram B
 fillOnlyPiece :: Renderable (Path V2 Double) b =>
                  Colour Double -> Piece -> Diagram2D b
@@ -180,6 +186,7 @@ fillOnlyPiece col piece  = drawRoundPiece piece # fc col # lw none
 -- |fillPieceDK dcol kcol piece - draws and fills the half-tile piece
 -- with colour dcol for darts and kcol for kites.
 -- Note the order D K.
+-- 
 -- When a specific Backend B is in scope, fillPieceDK:: Colour Double -> Colour Double -> Piece -> Diagram B
 fillPieceDK :: Renderable (Path V2 Double) b =>
                Colour Double -> Colour Double -> HalfTile (V2 Double) -> Diagram2D b
@@ -192,6 +199,7 @@ fillPieceDK dcol kcol piece = drawPiece piece <> fillOnlyPiece col piece where
 -- |fillMaybePieceDK d k piece - draws the half-tile piece and possibly fills as well:
 -- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
 -- Nothing indicates no fill for either darts or kites or both.
+-- 
 -- When a specific Backend B is in scope, fillMaybePieceDK:: Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram B
 fillMaybePieceDK :: Renderable (Path V2 Double) b =>
                     Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram2D b
@@ -207,6 +215,7 @@ fillMaybePieceDK d k piece = drawPiece piece <> filler where
 -- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.
 -- (Right half-tiles produce nothing, so whole tiles are not drawn twice).
+-- 
 -- When a specific Backend B is in scope, leftFillPieceDK:: Colour Double -> Colour Double -> Piece -> Diagram B
 leftFillPieceDK :: Renderable (Path V2 Double) b =>
                    Colour Double -> Colour Double -> HalfTile (V2 Double) -> Diagram2D b
@@ -220,6 +229,7 @@ leftFillPieceDK dcol kcol pc =
 -- Half tiles are first drawn with dashed lines, then certain edges are overlayed to emphasise them.
 -- Half darts have the join edge emphasised in red, while
 -- Half kites have the long edge emphasised in black.
+-- 
 -- When a specific Backend B is in scope, experiment:: Piece -> Diagram B
 experiment:: Renderable (Path V2 Double) b =>
              Piece ->  Diagram2D b
@@ -239,7 +249,7 @@ type Patch = [Located Piece]
 
 -- | A class for things that can be turned to diagrams when given a function to draw pieces.
 class Drawable a where
--- When a specific Backend B is in scope,  drawWith :: (Piece -> Diagram B) -> a -> Diagram B
+-- When a specific Backend B is in scope,  drawWith :: Drawable a => (Piece -> Diagram B) -> a -> Diagram B
   drawWith :: Renderable (Path V2 Double) b =>
               (Piece ->  Diagram2D b) -> a ->  Diagram2D b
 
@@ -251,12 +261,14 @@ instance Drawable Patch where
       drawPatchWith pd = position . fmap (viewLoc . mapLoc pd)
 
 -- | the main default case for drawing using drawPiece.
+-- 
 -- When a specific Backend B is in scope, draw :: Drawable a => a -> Diagram B
 draw :: (Drawable a, Renderable (Path V2 Double) b) =>
         a -> Diagram2D b
 draw = drawWith drawPiece
 
 -- | alternative default case for drawing adding dashed lines for join edges.
+-- 
 -- When a specific Backend B is in scope, drawj :: Drawable a => a -> Diagram B
 drawj :: (Drawable a, Renderable (Path V2 Double) b) =>
          a -> Diagram2D b
@@ -264,6 +276,7 @@ drawj = drawWith dashjPiece
 
 -- |fillDK dcol kcol a - draws and fills a with colour dcol for darts and kcol for kites.
 -- Note the order D K.
+-- 
 -- When a specific Backend B is in scope, fillDK:: Drawable a => Colour Double -> Colour Double -> a -> Diagram B
 fillDK :: (Drawable a, Renderable (Path V2 Double) b) =>
           Colour Double -> Colour Double -> a -> Diagram2D b
@@ -273,6 +286,7 @@ fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 -- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
 -- Nothing indicates no fill for either darts or kites or both
 -- Note the order D K.
+-- 
 -- When a specific Backend B is in scope, fillMaybeDK:: Drawable a => Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram B
 fillMaybeDK :: (Drawable a, Renderable (Path V2 Double) b) =>
                Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram2D b
@@ -281,6 +295,7 @@ fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
 -- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
+-- 
 -- When a specific Backend B is in scope, colourDKG::  Drawable a => (Colour Double,Colour Double,Colour Double) -> a -> Diagram B
 colourDKG :: (Drawable a, Renderable (Path V2 Double) b) =>
              (Colour Double,Colour Double,Colour Double) -> a -> Diagram2D b
@@ -291,6 +306,7 @@ colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lc c3
 -- Nothing indicates no fill for either darts or kites or both
 -- The g argument is for grout - i.e the non-join edges round tiles.
 -- Edges are drawn with gcol if g  = Just gcol and not drawn if g = Nothing.
+-- 
 -- When a specific Backend B is in scope, colourMaybeDKG:: Drawable a => (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> a -> Diagram B
 colourMaybeDKG:: (Drawable a, Renderable (Path V2 Double) b) =>
                  (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> a -> Diagram2D b
@@ -404,17 +420,20 @@ sun5 = suns!!5
    -- * Diagrams of Patches
 
 -- |diagram for sun6.
+-- 
 -- When a specific Backend B is in scope, sun6Fig::Diagram B
 sun6Fig :: Renderable (Path V2 Double) b => Diagram2D b
 sun6Fig = draw sun6 # lw thin
 
 
 -- |Colour filled using leftFillPieceDK. 
+-- 
 -- When a specific Backend B is in scope, leftFilledSun6::Diagram B
 leftFilledSun6 :: Renderable (Path V2 Double) b => Diagram2D b
 leftFilledSun6 = drawWith (leftFillPieceDK red blue) sun6 # lw thin
 
 -- |Colour filled using fillDK.
+-- 
 -- When a specific Backend B is in scope, filledSun6::Diagram B
 filledSun6 :: Renderable (Path V2 Double) b => Diagram2D b
 filledSun6 = fillDK darkmagenta indigo sun6 # lw thin # lc gold

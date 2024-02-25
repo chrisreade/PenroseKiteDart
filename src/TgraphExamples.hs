@@ -103,7 +103,8 @@ import Tgraphs
 
 
 -- |used for most diagrams to give border padding
--- padBorder:: Diagram B -> Diagram B
+-- 
+--  When a specific Backend B is in scope, padBorder:: Diagram B -> Diagram B
 padBorder :: Diagram2D b -> Diagram2D b
 padBorder = pad 1.2 . centerXY
 
@@ -118,17 +119,20 @@ chunks n
 -- |arrangeRowsGap s n diags - arranges diags into n per row, centering each row horizontally,
 -- with a seperation gap (horizontally and vertically) of s.
 -- The result is a single diagram.
--- arrangeRows :: Int -> [Diagram B] -> Diagram B
+-- 
+--  When a specific Backend B is in scope, arrangeRowsGap :: Double -> Int -> [Diagram B] -> Diagram B
 arrangeRowsGap :: Double -> Int -> [Diagram2D b] -> Diagram2D b
 arrangeRowsGap s n = centerY . vsep s . fmap (centerX . hsep s) . chunks n
 
 -- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
 -- The result is a single diagram (seperation is 1 unit vertically and horizontally).
--- arrangeRows :: Int -> [Diagram B] -> Diagram B
+-- 
+--  When a specific Backend B is in scope, arrangeRows :: Int -> [Diagram B] -> Diagram B
 arrangeRows :: Int -> [Diagram2D b] -> Diagram2D b
 arrangeRows = arrangeRowsGap 1.0
 
 -- |add a given label at a given point offset from the centre of the given diagram.
+-- 
 -- When a specific Backend B is in scope, labelAt :: Point V2 Double -> String -> Diagram B -> Diagram B
 labelAt :: Renderable (Text Double) b => 
            Point V2 Double -> String -> Diagram2D b -> Diagram2D b
@@ -153,16 +157,18 @@ foolDs :: [Tgraph]
 foolDs = decompositions fool
 
 -- | diagram of just fool.
+--
 -- When a specific Backend B is in scope, foolFig :: Diagram B
 foolFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 foolFig = padBorder $ labelLarge drawj fool
 
 -- |diagram of fool with foolD.
+-- 
 -- When a specific Backend B is in scope, foolAndFoolD :: Diagram B
 foolAndFoolD :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 foolAndFoolD = padBorder $ hsep 1 [scale phi $ labelled drawj fool, labelled drawj foolD]
 
--- |Tgraph for a sun
+-- |Tgraph for a sun (sun vertex type)
 sunGraph :: Tgraph
 sunGraph = makeTgraph
              [ RK (1,2,11), LK (1,3,2)
@@ -175,7 +181,8 @@ sunGraph = makeTgraph
 sunDs :: [Tgraph]
 sunDs =  decompositions sunGraph
 
--- |Figure for a 3 times decomposed sun with a 2 times decomposed sun
+-- |Figure for a 3 times decomposed sun with a 2 times decomposed sun.
+-- 
 -- When a specific Backend B is in scope, figSunD3D2 :: Diagram B
 figSunD3D2 :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 figSunD3D2 = padBorder $ hsep 1 [labelled drawj $ sunDs !! 3, scale phi $ labelled drawj $ sunDs !! 2]
@@ -204,35 +211,50 @@ dartD4 = dartDs!!4
 
 
 pCompFig1,pCompFig2,pCompFig :: Renderable (Path V2 Double) b => Diagram2D b
--- |diagram showing partial composition of a forced 3 times decomposed dart (with remainder faces in pale green)
+-- |diagram showing partial composition of a forced 3 times decomposed dart (with remainder faces in pale green).
+-- 
 -- When a specific Backend B is in scope, pCompFig1 :: Diagram B
 pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
             where fd3 = force $ dartDs!!3
--- |diagram showing partial composition of a forced 3 times decomposed kite (with remainder faces in pale green)
+-- |diagram showing partial composition of a forced 3 times decomposed kite (with remainder faces in pale green).
+-- 
 -- When a specific Backend B is in scope, pCompFig2 :: Diagram B
 pCompFig2 = lw ultraThin $ hsep 5 [draw fk3, drawPCompose fk3]
             where fk3 = force $ kiteDs!!3
--- |diagram showing two partial compositions (with remainder faces in pale green)
+-- |diagram showing two partial compositions (with remainder faces in pale green).
+-- 
 -- When a specific Backend B is in scope, pCompFig :: Diagram B
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 
--- |diagram of foolDminus and the result of forcing              
+-- |diagram of foolDminus and the result of forcing.  
+-- 
 -- When a specific Backend B is in scope, forceFoolDminus :: Diagram B
 forceFoolDminus :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 forceFoolDminus = padBorder $ hsep 1 $ fmap (labelled drawj) [foolDminus, force foolDminus]
 
 
--- |diagrams of forced graphs (5 times decomposed kite or dart or sun)           
--- When a specific Backend B is in scope, the type is simply Diagram B
 forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig :: Renderable (Path V2 Double) b => Diagram2D b
+-- |diagram of forced 5 times decomposed dart.
+-- 
+-- When a specific Backend B is in scope, forceDartD5Fig :: Diagram B
 forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
+-- |diagram of forced 5 times decomposed kite.
+-- 
+-- When a specific Backend B is in scope, forceKiteD5Fig :: Diagram B
 forceKiteD5Fig = padBorder $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
+-- |diagram of forced 5 times decomposed sun.
+-- 
+-- When a specific Backend B is in scope, forceSunD5Fig :: Diagram B
 forceSunD5Fig =  padBorder $ drawForce $ sunDs !! 5
+-- |diagram of forced 5 times decomposed dart (left) and kite (right).
+-- 
+-- When a specific Backend B is in scope, forceFig :: Diagram B
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
 -- |an example showing a 4 times forceDecomp pair of darts (sharing a long edge),
--- with the maximal compForce Tgraph (a kite) overlaid in red
+-- with the maximal compForce Tgraph (a kite) overlaid in red.
+-- 
 -- When a specific Backend B is in scope, maxExampleFig :: Diagram B
 maxExampleFig :: Renderable (Path V2 Double) b => Diagram2D b
 maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlusDart !! 4 where
@@ -240,6 +262,7 @@ maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlu
 
 -- |showing 4 emplaceChoices for foolD 
 -- Uses revised emplaceChoices.
+-- 
 -- When a specific Backend B is in scope, emplaceChoicesFoolD :: Diagram B
 emplaceChoicesFoolD :: Renderable (Path V2 Double) b => Diagram2D b
 emplaceChoicesFoolD = padBorder $ hsep 1 $
@@ -267,7 +290,8 @@ badlyBrokenDart = removeFaces deleted bbd where
   bbd = removeVertices [63,37] brokenDart
 --  deleted = RK(6,28,54):filter (isAtV 63) (faces brokenDart)
 
--- |brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart
+-- |brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart.
+-- 
 -- When a specific Backend B is in scope, brokenDartFig :: Diagram B
 brokenDartFig  :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [dartD4, brokenDart, badlyBrokenDart]
@@ -275,6 +299,7 @@ brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [dartD4, br
 -- |badlyBrokenDartFig shows badlyBrokenDart, followed by its composition, followed by the faces 
 -- that would result from an unchecked second composition which are not tile-connected.
 -- (Simply applying compose twice to badlyBrokenDart will raise an error).
+-- 
 -- When a specific Backend B is in scope, badlyBrokenDartFig :: Diagram B
 badlyBrokenDartFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, vpComp, vpFailed] where
@@ -285,6 +310,7 @@ badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, v
 
 -- |figure showing the result of removing incomplete tiles (those that do not have their matching halftile)
 -- to a 3 times decomposed sun.
+-- 
 -- When a specific Backend B is in scope, removeIncompletesFig :: Diagram B
 removeIncompletesFig :: Renderable (Path V2 Double) b => Diagram2D b
 removeIncompletesFig = padBorder $ drawj $ removeFaces (boundaryJoinFaces g) g where 
@@ -301,7 +327,8 @@ mistake1 = makeTgraph [RK (1,2,4), LK (1,3,2), RD (3,1,5), LD (4,6,1)]
 
 -- *  Figures for 7 vertex types
 
-{-| vertexTypesFig is 7 vertex types single diagram as a row -}
+-- | vertexTypesFig is 7 vertex types in a single diagram as a row.
+-- 
 -- When a specific Backend B is in scope, vertexTypesFig :: Diagram B
 vertexTypesFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 vertexTypesFig = padBorder $ hsep 1 lTypeFigs
@@ -312,38 +339,38 @@ vertexTypesFig = padBorder $ hsep 1 lTypeFigs
                [(1,2),    (1,2),     (1,2),     (1,2),      (1,2),     (3,6),     (2,6)] -- alignments
  drawVertex g alm = alignBefore (lw thin . showOrigin . drawj) alm g
 
-{-|Graphs for the vertex types (other than sunGraph previously declared)
-    7 vertex types are, sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph=fool, deuceGraph
--}
 jackGraph,kingGraph,queenGraph,aceGraph,deuceGraph,starGraph::Tgraph
+-- |Tgraph for vertex type jack.
 jackGraph = makeTgraph
   [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
   ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
   ] -- centre 1
+-- |Tgraph for vertex type king.
 kingGraph = makeTgraph
   [LD (1,2,3),RD (1,11,2),LD (1,4,5),RD (1,3,4),LD (1,10,11)
   ,RD (1,9,10),LK (9,1,7),RK (9,7,8),RK (5,7,1),LK (5,6,7)
   ] -- centre 1
+-- |Tgraph for vertex type queen.
 queenGraph = makeTgraph
   [LK (7,1,5),RK (3,5,1),LD (1,2,3),RK (7,9,1),LK (11,1,9)
   ,RD (1,11,2),RK (7,5,6),LK (7,8,9),LK (3,4,5),RK (11,9,10)
   ] -- centre 1
-
+-- |Tgraph for vertex type ace (same as fool).
 aceGraph = fool -- centre 3
-
+-- |Tgraph for vertextype deuce.
 deuceGraph = makeTgraph
   [LK (7,8,2),RK (7,2,6),RK (5,2,4),LK (5,6,2),LD (1,4,2)
   ,RD (1,2,8),RD (1,3,4),LD (1,8,9)
   ] -- centre 2
-
+-- |Tgraph for vertex type star.
 starGraph = makeTgraph
   [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)
   ,RD (1,7,8),LD (1,6,7),RD (1,5,6),LD (1,4,5),RD (1,3,4)
   ] -- centre 1
 
-{-|forceVFigures is a list of 7 diagrams - force of 7 vertex types.
-When a specific Backend B is in scope, forceVFigures :: [Diagram B]
- -}
+-- |forceVFigures is a list of 7 diagrams - force of 7 vertex types.
+--
+-- When a specific Backend B is in scope, forceVFigures :: [Diagram B]
 forceVFigures :: Renderable (Path V2 Double) b => [Diagram2D b]
 forceVFigures = rotations [0,0,9,5,0,0,1] $
                 fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
@@ -364,6 +391,7 @@ sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) sun2AdjDart
 
 -- |Diagram showing superForce with initial Tgraph g (red), force g (red and black),
 -- and superForce g (red and black and blue).
+-- 
 -- When a specific Backend B is in scope, superForceFig :: Diagram B
 superForceFig :: Renderable (Path V2 Double) b => Diagram2D b
 superForceFig = padBorder $ rotate (ttangle 1) $ drawSuperForce g where
@@ -371,6 +399,7 @@ superForceFig = padBorder $ rotate (ttangle 1) $ drawSuperForce g where
 
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
 -- of sun3Dart. The decompositions are in red with normal force additions in black and superforce additions in blue.
+-- 
 -- When a specific Backend B is in scope, superForceRocketsFig :: Diagram B
 superForceRocketsFig :: Renderable (Path V2 Double) b => Diagram2D b
 superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
@@ -378,16 +407,19 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
       decomps = take 4 $ decompositions sun3Dart
 
 
--- |graphs of the boundary faces only of forced graphs (dartDs!!4 and dartDs!!5)
 boundaryFDart4, boundaryFDart5 :: Tgraph
+-- |graph of the boundary faces only of a forced graph (dartDs!!4)
 boundaryFDart4 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
+-- |graph of the boundary faces only of a forced graph (dartDs!!5)
 boundaryFDart5 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
 
 boundaryFDart4Fig,boundaryFDart5Fig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
--- |figure of the boundary faces only of a forced graph
+-- |figure of the boundary faces only of a forced graph (dartDs!!4).
+-- 
 -- When a specific Backend B is in scope, boundaryFDart4Fig :: Diagram B
 boundaryFDart4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryFDart4
--- |figure of the boundary faces only of a forced graph
+-- |figure of the boundary faces only of a forced graph (dartDs!!5).
+-- 
 -- When a specific Backend B is in scope, boundaryFDart5Fig :: Diagram B
 boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryFDart5
 
@@ -400,16 +432,19 @@ boundaryGapFDart5 = removeVertices [1467] boundaryFDart5
     -- checkedTgraph $ filter ((/=1467).originV) (faces boundaryFDart5)
 
 boundaryGap4Fig, boundaryGap5Fig  :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
--- |figure for the boundary gap graph boundaryGapFDart4
+-- |figure for the boundary gap graph boundaryGapFDart4.
+-- 
 -- When a specific Backend B is in scope, boundaryGap4Fig :: Diagram B
 boundaryGap4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart4
--- |figure for the boundary gap graph boundaryGapFDart5
+-- |figure for the boundary gap graph boundaryGapFDart5.
+-- 
 -- When a specific Backend B is in scope, boundaryGap5Fig :: Diagram B
 boundaryGap5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart5
 
 
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
--- (with the Tgraph represented by bd shown in red in each case)
+-- (with the Tgraph represented by bd shown in red in each case).
+-- 
 -- When a specific Backend B is in scope, boundaryVCoveringFigs :: BoundaryState -> [Diagram B]
 boundaryVCoveringFigs :: Renderable (Path V2 Double) b =>
                          BoundaryState -> [Diagram2D b]
@@ -420,7 +455,8 @@ boundaryVCoveringFigs bd =
             g = recoverGraph bd
 
 -- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
--- (with the Tgraph represented by bd shown in red in each case)
+-- (with the Tgraph represented by bd shown in red in each case).
+-- 
 -- When a specific Backend B is in scope, boundaryECoveringFigs :: BoundaryState -> [Diagram B]
 boundaryECoveringFigs :: Renderable (Path V2 Double) b =>
                          BoundaryState -> [Diagram2D b]
@@ -432,19 +468,24 @@ boundaryECoveringFigs bd =
 
 kingECoveringFig,kingVCoveringFig :: Renderable (Path V2 Double) b => Diagram2D b
 -- | diagram showing the boundaryECovering of a forced kingGraph.
+-- 
 -- When a specific Backend B is in scope, kingECoveringFig :: Diagram B
 kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoveringFigs $ force $ makeBoundaryState kingGraph
 -- | diagram showing the boundaryVCovering of a forced kingGraph.
+-- 
 -- When a specific Backend B is in scope, kingVCoveringFig :: Diagram B
 kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoveringFigs $ force  $ makeBoundaryState kingGraph
 
 kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig :: Renderable (Path V2 Double) b => Diagram2D b
--- | figure showing King's empires (1 and 2)
+-- | figure showing King's empires (1 and 2).
+-- 
 -- When a specific Backend B is in scope, kingEmpiresFig :: Diagram B
 kingEmpiresFig = padBorder $ hsep 10 [kingEmpire1Fig, kingEmpire2Fig]
--- | figure showing King's empires 1
+-- | figure showing King's empires 1.
+-- 
 -- When a specific Backend B is in scope, kingEmpire1Fig :: Diagram B
 kingEmpire1Fig = drawEmpire1 kingGraph
--- | figure showing King's empire 2
+-- | figure showing King's empire 2.
+-- 
 -- When a specific Backend B is in scope, kingEmpire2Fig :: Diagram B
 kingEmpire2Fig = drawEmpire2 kingGraph
