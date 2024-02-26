@@ -1,5 +1,8 @@
 # Revision history for PenroseKiteDart
 
+## 0.8.0.3 -- 2024-02-25
+
+Changes to labelSize and line widths in some diagrams and drawing functions.
 
 ## 0.8.0.2 -- 2024-02-25
 

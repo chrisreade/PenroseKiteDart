@@ -226,8 +226,8 @@ smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
 drawPCompose :: Renderable (Path V2 Double) b =>
                 Tgraph -> Diagram2D b
 drawPCompose g = 
-    restrictSmart g' draw vp # lw ultraThin
-    <> drawj (subVP vp remainder) # lw thin # lc lime
+    restrictSmart g' draw vp
+    <> drawj (subVP vp remainder) # lw medium # lc lime
     where (remainder,g') = partCompose g
           vp = makeVP g
 
@@ -238,8 +238,8 @@ drawPCompose g =
 drawForce :: Renderable (Path V2 Double) b =>
              Tgraph -> Diagram2D b
 drawForce g = 
-    restrictSmart g draw vp # lc red # lw thin 
-    <> draw vp  # lw ultraThin
+    restrictSmart g draw vp # lc red # lw medium 
+    <> draw vp
     where vp = makeVP $ force g
 
 -- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
@@ -249,13 +249,13 @@ drawForce g =
 --  When a specific Backend B is in scope,  drawSuperForce:: Tgraph -> Diagram B
 drawSuperForce :: Renderable (Path V2 Double) b =>
                   Tgraph -> Diagram2D b
-drawSuperForce g = (dg # lc red # lw veryThin) <> dfg  # lw veryThin <> (dsfg # lc blue # lw thin) where
+drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     sfg = superForce g
     fg = force g
     vp = makeVP $ superForce g
-    dfg = draw $ selectFacesVP (faces fg \\ faces g) vp -- restrictSmart (force g) draw vp
+    dfg = draw $ selectFacesVP vp (faces fg \\ faces g) -- restrictSmart (force g) draw vp
     dg = restrictSmart g draw vp
-    dsfg = draw $ selectFacesVP (faces sfg \\ faces fg) vp
+    dsfg = draw $ selectFacesVP vp (faces sfg \\ faces fg)
 
 -- | drawWithMax g - draws g and overlays the maximal composition of force g in red.
 -- This relies on g and all compositions of force g having vertices in force g.
@@ -263,11 +263,11 @@ drawSuperForce g = (dg # lc red # lw veryThin) <> dfg  # lw veryThin <> (dsfg # 
 --  When a specific Backend B is in scope, drawWithMax :: Tgraph -> Diagram B
 drawWithMax :: Renderable (Path V2 Double) b =>
               Tgraph -> Diagram2D b
-drawWithMax g =  (dmax # lc red # lw thin) <> dg # lw ultraThin where
+drawWithMax g =  (dmax # lc red) <> dg where
     vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
     dg = restrictSmart g draw vp
     maxg = maxCompForce g
-    dmax = restrictSmart maxg draw vp
+    dmax = draw $ subVP vp (faces maxg)
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with f).
 -- 

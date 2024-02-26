@@ -160,7 +160,7 @@ foolDs = decompositions fool
 --
 -- When a specific Backend B is in scope, foolFig :: Diagram B
 foolFig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
-foolFig = padBorder $ labelLarge drawj fool
+foolFig = padBorder $ labelSize normal drawj fool
 
 -- |diagram of fool with foolD.
 -- 
@@ -214,12 +214,12 @@ pCompFig1,pCompFig2,pCompFig :: Renderable (Path V2 Double) b => Diagram2D b
 -- |diagram showing partial composition of a forced 3 times decomposed dart (with remainder faces in pale green).
 -- 
 -- When a specific Backend B is in scope, pCompFig1 :: Diagram B
-pCompFig1 = lw ultraThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
+pCompFig1 = lw veryThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
             where fd3 = force $ dartDs!!3
 -- |diagram showing partial composition of a forced 3 times decomposed kite (with remainder faces in pale green).
 -- 
 -- When a specific Backend B is in scope, pCompFig2 :: Diagram B
-pCompFig2 = lw ultraThin $ hsep 5 [draw fk3, drawPCompose fk3]
+pCompFig2 = lw veryThin $ hsep 5 [draw fk3, drawPCompose fk3]
             where fk3 = force $ kiteDs!!3
 -- |diagram showing two partial compositions (with remainder faces in pale green).
 -- 
@@ -238,15 +238,15 @@ forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig :: Renderable (Path V2 Doub
 -- |diagram of forced 5 times decomposed dart.
 -- 
 -- When a specific Backend B is in scope, forceDartD5Fig :: Diagram B
-forceDartD5Fig = padBorder $ drawForce $ dartDs !! 5
+forceDartD5Fig = padBorder $ lw ultraThin $ drawForce $ dartDs !! 5
 -- |diagram of forced 5 times decomposed kite.
 -- 
 -- When a specific Backend B is in scope, forceKiteD5Fig :: Diagram B
-forceKiteD5Fig = padBorder $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
+forceKiteD5Fig = padBorder $ lw ultraThin $ rotate (ttangle 1) $ drawForce $ kiteDs!!5
 -- |diagram of forced 5 times decomposed sun.
 -- 
 -- When a specific Backend B is in scope, forceSunD5Fig :: Diagram B
-forceSunD5Fig =  padBorder $ drawForce $ sunDs !! 5
+forceSunD5Fig =  padBorder $ lw ultraThin $ drawForce $ sunDs !! 5
 -- |diagram of forced 5 times decomposed dart (left) and kite (right).
 -- 
 -- When a specific Backend B is in scope, forceFig :: Diagram B
@@ -257,7 +257,7 @@ forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 -- 
 -- When a specific Backend B is in scope, maxExampleFig :: Diagram B
 maxExampleFig :: Renderable (Path V2 Double) b => Diagram2D b
-maxExampleFig = padBorder $ lw ultraThin $ drawWithMax $ allForceDecomps dartPlusDart !! 4 where
+maxExampleFig = padBorder $ lw veryThin $ drawWithMax $ allForceDecomps dartPlusDart !! 4 where
                  dartPlusDart = addHalfDart (1,5) $ addHalfDart (1,2) dartGraph
 
 -- |showing 4 emplaceChoices for foolD 
@@ -394,7 +394,7 @@ sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) sun2AdjDart
 -- 
 -- When a specific Backend B is in scope, superForceFig :: Diagram B
 superForceFig :: Renderable (Path V2 Double) b => Diagram2D b
-superForceFig = padBorder $ rotate (ttangle 1) $ drawSuperForce g where
+superForceFig = padBorder $ lw thin $ rotate (ttangle 1) $ drawSuperForce g where
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
 
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
@@ -417,11 +417,11 @@ boundaryFDart4Fig,boundaryFDart5Fig :: (Renderable (Path V2 Double) b, Renderabl
 -- |figure of the boundary faces only of a forced graph (dartDs!!4).
 -- 
 -- When a specific Backend B is in scope, boundaryFDart4Fig :: Diagram B
-boundaryFDart4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryFDart4
+boundaryFDart4Fig = padBorder $ lw ultraThin $ labelSize verySmall drawj boundaryFDart4
 -- |figure of the boundary faces only of a forced graph (dartDs!!5).
 -- 
 -- When a specific Backend B is in scope, boundaryFDart5Fig :: Diagram B
-boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryFDart5
+boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryFDart5
 
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph - with extra faces removed to make a gap
@@ -435,11 +435,11 @@ boundaryGap4Fig, boundaryGap5Fig  :: (Renderable (Path V2 Double) b, Renderable 
 -- |figure for the boundary gap graph boundaryGapFDart4.
 -- 
 -- When a specific Backend B is in scope, boundaryGap4Fig :: Diagram B
-boundaryGap4Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart4
+boundaryGap4Fig = padBorder $ lw ultraThin $ labelSize verySmall drawj boundaryGapFDart4
 -- |figure for the boundary gap graph boundaryGapFDart5.
 -- 
 -- When a specific Backend B is in scope, boundaryGap5Fig :: Diagram B
-boundaryGap5Fig = padBorder $ lw ultraThin $ labelSmall drawj boundaryGapFDart5
+boundaryGap5Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryGapFDart5
 
 
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 

@@ -149,8 +149,6 @@ module Tgraph.Prelude
     -- * Drawing Tgraphs and Vpatches with Labels
   , DrawableLabelled(..)
   , labelled
-  , labelSmall
-  , labelLarge 
   , rotateBefore
   , dropLabels
 -- * VPatch alignment with vertices
@@ -950,13 +948,13 @@ graphFromVP:: VPatch -> Tgraph
 graphFromVP = checkedTgraph . vpFaces
 
 -- |remove a list of faces from a VPatch
-removeFacesVP :: [TileFace] -> VPatch -> VPatch
-removeFacesVP fcs vp = restrictVP vp (vpFaces vp \\ fcs)
+removeFacesVP :: VPatch -> [TileFace] -> VPatch
+removeFacesVP vp fcs = restrictVP vp (vpFaces vp \\ fcs)
 
 -- |make a new VPatch with a list of selected faces from a VPatch.
 -- This will ignore any faces that are not in the given VPatch.
-selectFacesVP:: [TileFace] -> VPatch -> VPatch
-selectFacesVP fcs vp = restrictVP vp (fcs `intersect` vpFaces vp)
+selectFacesVP:: VPatch -> [TileFace] -> VPatch
+selectFacesVP vp fcs = restrictVP vp (fcs `intersect` vpFaces vp)
 
 -- |find the location of a single vertex in a VPatch
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
@@ -987,7 +985,7 @@ instance Drawable Tgraph where
 -- | A class for things that can be drawn with labels when given a measure for the label size and a 
 -- a draw function (for Patches).
 -- Thus labelSize m is a modifier of any Patch drawing function to add labels (of size measure m).
--- (Measures are defined in Diagrams - normalized\/output\/local\/global).
+-- Measures are defined in Diagrams. In particular: tiny, verySmall, small, normal, large, veryLarge, huge
 -- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
 -- (So labelSize m draw typechecks but labelSize m1 (labelSize m2 draw) does not typecheck.)
 class DrawableLabelled a where
@@ -1007,17 +1005,19 @@ instance DrawableLabelled VPatch where
 instance DrawableLabelled Tgraph where
   labelSize r d = labelSize r d . makeVP
 
-labelled,labelSmall,labelLarge :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
-                                  (Patch -> Diagram2D b) -> a -> Diagram2D b
--- | Version of labelSize with a default normal label size. Example usage: labelled draw a , labelled drawj a
+labelled :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
+            (Patch -> Diagram2D b) -> a -> Diagram2D b
+-- | Default Version of labelSize with a small (rather than normal) label size. Example usage: labelled draw a , labelled drawj a
 -- When a specific Backend B is in scope, labelled :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
-labelled = labelSize (normalized 0.024)
+labelled = labelSize small --(normalized 0.023)
+{-
 -- | Version of labelSize with a default large label size. Example usage: labelLarge draw a , labelLarge drawj a 
 -- When a specific Backend B is in scope, labelLarge :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
 labelLarge = labelSize (normalized 0.036) 
 -- | Version of labelSize with a default small label size. Example usage: labelSmall draw a , labelSmall drawj a 
 -- When a specific Backend B is in scope, labelSmall :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
 labelSmall = labelSize (normalized 0.006)
+-}
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
