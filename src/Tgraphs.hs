@@ -103,7 +103,6 @@ import Tgraph.Decompose
 import Tgraph.Compose
 import Tgraph.Force
 import Tgraph.Relabelling
-
 import Diagrams.Prelude hiding (union)
 import TileLib
 
@@ -263,7 +262,7 @@ drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
 --  When a specific Backend B is in scope, drawWithMax :: Tgraph -> Diagram B
 drawWithMax :: Renderable (Path V2 Double) b =>
               Tgraph -> Diagram2D b
-drawWithMax g =  (dmax # lc red) <> dg where
+drawWithMax g =  (dmax # lc red # lw medium) <> dg where
     vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
     dg = restrictSmart g draw vp
     maxg = maxCompForce g

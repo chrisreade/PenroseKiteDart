@@ -417,11 +417,11 @@ boundaryFDart4Fig,boundaryFDart5Fig :: (Renderable (Path V2 Double) b, Renderabl
 -- |figure of the boundary faces only of a forced graph (dartDs!!4).
 -- 
 -- When a specific Backend B is in scope, boundaryFDart4Fig :: Diagram B
-boundaryFDart4Fig = padBorder $ lw ultraThin $ labelSize verySmall drawj boundaryFDart4
+boundaryFDart4Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryFDart4
 -- |figure of the boundary faces only of a forced graph (dartDs!!5).
 -- 
 -- When a specific Backend B is in scope, boundaryFDart5Fig :: Diagram B
-boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryFDart5
+boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) drawj boundaryFDart5
 
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph - with extra faces removed to make a gap
@@ -435,11 +435,11 @@ boundaryGap4Fig, boundaryGap5Fig  :: (Renderable (Path V2 Double) b, Renderable 
 -- |figure for the boundary gap graph boundaryGapFDart4.
 -- 
 -- When a specific Backend B is in scope, boundaryGap4Fig :: Diagram B
-boundaryGap4Fig = padBorder $ lw ultraThin $ labelSize verySmall drawj boundaryGapFDart4
+boundaryGap4Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryGapFDart4
 -- |figure for the boundary gap graph boundaryGapFDart5.
 -- 
 -- When a specific Backend B is in scope, boundaryGap5Fig :: Diagram B
-boundaryGap5Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryGapFDart5
+boundaryGap5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) drawj boundaryGapFDart5
 
 
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 

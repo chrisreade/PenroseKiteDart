@@ -12,8 +12,7 @@ Conversion and drawing operations to produce Diagrams.
 The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint),
 touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing functions.
 
-The type constructor Try is introduced for results of partial operations.
-This module re-exports module HalfTile.
+This module re-exports module HalfTile and module Tgraph.Try.
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
@@ -22,13 +21,13 @@ This module re-exports module HalfTile.
 
 module Tgraph.Prelude
   ( module HalfTile
-    -- * Types for Tgraphs, Faces, Vertices
+  , module Tgraph.Try
+    -- * Types for Tgraphs, Faces, Vertices, Directed Edges
   , Tgraph -- not Data Constructor
   , TileFace
   , Vertex
   , VertexSet
   , VertexMap
-    -- * Type for Directed Edges
     -- $Edges
   , Dedge
   , EdgeType(..)
@@ -124,17 +123,6 @@ module Tgraph.Prelude
   , edgeNbs
 --  , extractLowestJoin
   , lowestJoin
-    -- * Try - result types with failure reporting (for partial operations)
-  , Try
-  , onFail
-  , nothingFail
-  , runTry
-  , ifFail
-  , isFail
-  , concatFails
-  , ignoreFails
-  , atLeastOne
-  , noFails
     -- * VPatch and Conversions
   , VPatch(..)
   , VertexLocMap
@@ -176,7 +164,7 @@ module Tgraph.Prelude
   ) where
 
 import Data.List ((\\), intersect, union, elemIndex,foldl',find)
-import Data.Either(fromRight, lefts, rights, isLeft)
+-- import Data.Either(fromRight, lefts, rights, isLeft)
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys)
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith)
@@ -188,7 +176,7 @@ import Diagrams.TwoD.Text (Text)
 
 import TileLib
 import HalfTile
-
+import Tgraph.Try
 
 
 {---------------------
@@ -619,7 +607,7 @@ hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
 
 {- $Edges
-(a,b) is regarded as a directed edge from a to b.
+Edges: (a,b) is regarded as a directed edge from a to b.
 A list of such pairs will usually be regarded as a list of directed edges.
 In the special case that the list is symmetrically closed [(b,a) is in the list whenever (a,b) is in the list]
 we will refer to this as an edge list rather than a directed edge list.                  
@@ -829,67 +817,6 @@ lowestJoin fcs = (a,b) where
     aFaces = filter ((a==) . originV) fcs
     b = minimum (fmap oppV aFaces)
 
--- * Try - result types with failure reporting (for partial operations)
-
--- | Try is a synonym for Either String.  Used for results of partial functions
--- which return either Right something when defined or Left string when there is a problem
--- where string is a failure report.
--- Note: Either String (and hence Try) is a monad, and this is used frequently for combining  partial operations.
-type Try a = Either String a
-
--- | onFail s exp - inserts s at the front of failure report if exp fails with Left report
-onFail:: String -> Try a -> Try a
-onFail s = either (Left . (s++)) Right
-
--- | Converts a Maybe Result into a Try result by treating Nothing as a failure
--- (the string s is the failure report on failure).
--- Usually used as infix (exp `nothingFail` s)
-nothingFail :: Maybe b -> String -> Try b
-nothingFail a s = maybe (Left s) Right a
-
--- |Extract the (Right) result from a Try, producing an error if the Try is Left s.
--- The failure report is passed to error for an error report.
-runTry:: Try a -> a
-runTry = either error id
-
--- |ifFail a tr - extracts the (Right) result from tr but returning a if tr is Left s.
-ifFail :: a -> Try a -> a
-ifFail = fromRight 
-
--- |a try result is a failure if it is a Left
-isFail:: Try a -> Bool
-isFail = isLeft
-   
--- |Combines a list of Trys into a single Try with failure overriding success.
--- It concatenates all failure reports if there are any and returns a single Left r.
--- Otherwise it produces Right rs where rs is the list of all (successful) results.
--- In particular, concatFails [] = Right []
-concatFails:: [Try a] -> Try [a]
-concatFails ls = case lefts ls of
-                 [] -> Right $ rights ls
-                 other -> Left $ mconcat other -- concatenates strings for single report
-
--- |Combines a list of Trys into a list of the successes, ignoring any failures.
--- In particular, ignoreFails [] = []
-ignoreFails:: [Try a] -> [a]
-ignoreFails = rights
-
--- | atLeastOne rs - returns the list of successful results if there are any, but fails with an error otherwise.
--- The error report will include the concatenated reports from the failures. 
-atLeastOne:: [Try a] -> [a]
-atLeastOne [] = error "atLeastOne: applied to empty list.\n"
-atLeastOne results = case ignoreFails results of
-                 [] -> runTry $ onFail "atLeastOne: no successful results.\n" $ concatFails results
-                 other -> other 
-
--- | noFails rs - returns the list of successes when all cases succeed, but fails with
--- an error and a concatenated failure report of all failures if there is at least one failure.
--- In particular, noFails [] = []
-noFails:: [Try a] -> [a]
-noFails = runTry . concatFails
-                          
-
-
 {---------------------
 *********************
 VPatch and Conversions
@@ -963,12 +890,12 @@ findLoc v = VMap.lookup v . vLocs
 
 
 
--- |Make drawing tools applicable to VPatch
+-- |VPatches are drawable
 instance Drawable VPatch where
     drawWith pd vp = drawWith pd (dropLabels vp)
 
 -- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces.
--- Use can be confined to Drawable VPatch instance and DrawableLabelled VPatch instance.
+-- (Usage can be confined to Drawable VPatch instance and DrawableLabelled VPatch instance.)
 dropLabels :: VPatch -> Patch
 dropLabels vp = fmap convert (vpFaces vp) where
   locations = vLocs vp
@@ -977,21 +904,20 @@ dropLabels vp = fmap convert (vpFaces vp) where
     _ -> error $ "dropLabels: Vertex location not found for some vertices:\n    " 
                 ++ show (faceVList face \\ VMap.keys locations)  ++ "\n"
 
--- |Make drawing tools applicable to Tgraphs.
+-- |Tgraphs are Drawable
 instance Drawable Tgraph where
--- (Orphaned instance: Placing it in Tgraphs.Prelude or TileLib would make cyclic dependency of modules)
     drawWith pd = drawWith pd . makeVP
 
 -- | A class for things that can be drawn with labels when given a measure for the label size and a 
 -- a draw function (for Patches).
--- Thus labelSize m is a modifier of any Patch drawing function to add labels (of size measure m).
--- Measures are defined in Diagrams. In particular: tiny, verySmall, small, normal, large, veryLarge, huge
--- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
--- (So labelSize m draw typechecks but labelSize m1 (labelSize m2 draw) does not typecheck.)
+-- So labelSize m  modifies a Patch drawing function to add labels (of size measure m).
+-- Measures are defined in Diagrams. In particular: tiny, verySmall, small, normal, large, veryLarge, huge.
 class DrawableLabelled a where
--- When a specific Backend B is in scope,  labelSize :: Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
+-- | When a specific Backend B is in scope,  labelSize :: DrawableLabelled a => Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
   labelSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
                Measure Double -> (Patch -> Diagram2D b) -> a -> Diagram2D b
+-- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
+-- (So labelSize m draw typechecks but labelSize m1 (labelSize m2 draw) does not typecheck.)
 
 
 -- | VPatches can be drawn with labels
@@ -1007,17 +933,10 @@ instance DrawableLabelled Tgraph where
 
 labelled :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
             (Patch -> Diagram2D b) -> a -> Diagram2D b
--- | Default Version of labelSize with a small (rather than normal) label size. Example usage: labelled draw a , labelled drawj a
+-- | Default Version of labelSize using small (rather than normal) label size. Example usage: labelled draw a , labelled drawj a
+--
 -- When a specific Backend B is in scope, labelled :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
 labelled = labelSize small --(normalized 0.023)
-{-
--- | Version of labelSize with a default large label size. Example usage: labelLarge draw a , labelLarge drawj a 
--- When a specific Backend B is in scope, labelLarge :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
-labelLarge = labelSize (normalized 0.036) 
--- | Version of labelSize with a default small label size. Example usage: labelSmall draw a , labelSmall drawj a 
--- When a specific Backend B is in scope, labelSmall :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
-labelSmall = labelSize (normalized 0.006)
--}
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
@@ -1075,6 +994,7 @@ makeAlignedVP = alignBefore id
 
 -- |produce a diagram of a list of edges (given a VPatch)
 -- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
+--
 -- When a specific Backend B is in scope, drawEdgesVP :: VPatch -> [Dedge] -> Diagram B
 drawEdgesVP :: Renderable (Path V2 Double) b =>
                VPatch -> [Dedge] -> Diagram2D b
@@ -1082,6 +1002,7 @@ drawEdgesVP = drawEdges . vLocs --foldMap (drawEdgeVP vp)
 
 -- |produce a diagram of a single edge (given a VPatch)
 -- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
+--
 -- When a specific Backend B is in scope, drawEdgeVP :: VPatch -> Dedge -> Diagram B
 drawEdgeVP:: Renderable (Path V2 Double) b =>
                VPatch -> Dedge -> Diagram2D b
@@ -1089,6 +1010,7 @@ drawEdgeVP = drawEdge . vLocs
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
 -- Will raise an error if any vertex of the edges is not a key in the mapping.
+--
 -- When a specific Backend B is in scope, drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
 drawEdges :: Renderable (Path V2 Double) b =>
              VertexLocMap -> [Dedge] -> Diagram2D b
@@ -1096,6 +1018,7 @@ drawEdges = foldMap . drawEdge
 
 -- |produce a diagram of a single edge (given a mapping of vertices to locations).
 -- Will raise an error if either vertex of the edge is not a key in the mapping.
+--
 -- When a specific Backend B is in scope, drawEdge :: VertexLocMap -> Dedge -> Diagram B
 drawEdge :: Renderable (Path V2 Double) b =>
             VertexLocMap -> Dedge -> Diagram2D b
