@@ -94,6 +94,7 @@ module Tgraphs
     -- *  Drawing TrackedTgraphs
   , drawTrackedTgraph
   , drawTrackedTgraphRotated
+  , drawTrackedTgraphAligned
   ) where
 
 -- import Tgraph.Prelude hiding (Tgraph(Tgraph)) -- hides Tgraph as type and data constructor
@@ -160,10 +161,14 @@ tryCorrectTouchingVs fcs =
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
--- Example: smart (labelSmall draw) g
--- Example: smart (rotateBefore (labelled draw) angle) g
--- Note smart must come after labelling as e.g. labelled (smart draw) will not typecheck.
+-- Examples:
 -- 
+-- smart draw g
+--
+-- smart (labelled draw) g
+--
+-- smart (labelSize normal draw) g
+--
 --  When a specific Backend B is in scope, smart :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
 smart :: Renderable (Path V2 Double) b => 
          (VPatch -> Diagram2D b) -> Tgraph -> Diagram2D b
@@ -196,13 +201,14 @@ smartdraw = smart draw
 --  When a specific Backend B is in scope, restrictSmart:: Tgraph -> (VPatch -> Diagram B) -> VPatch -> Diagram B
 restrictSmart :: Renderable (Path V2 Double) b =>
                  Tgraph -> (VPatch -> Diagram2D b) -> VPatch -> Diagram2D b
-restrictSmart g dr vp = drawJoinsFor (boundaryJoinFaces g) vp 
-                        <> 
-                        dr (restrictVP vp $ faces g)
+restrictSmart g dr vp = drawJoinsFor (boundaryJoinFaces g) rvp <> dr rvp
+                        where rvp = restrictVP vp $ faces g
 
 -- |smartRotateBefore vfun a g - a tricky combination of smart with rotateBefore.
 -- Uses vfun to produce a Diagram after converting g to a rotated VPatch but also adds the dashed boundary join edges of g.
--- 
+--
+-- Example: smartRotateBefore (labelled draw) angle g
+--
 --  When a specific Backend B is in scope,  smartRotateBefore::  (VPatch -> Diagram B) -> Angle Double -> Tgraph -> Diagram B
 smartRotateBefore :: Renderable (Path V2 Double) b =>
                      (VPatch -> Diagram2D b) -> Angle Double -> Tgraph -> Diagram2D b
@@ -211,6 +217,8 @@ smartRotateBefore vfun angle g = rotateBefore (restrictSmart g vfun) angle g
 -- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with alignBefore.
 -- Uses vfun to produce a Diagram after converting g to n aligned VPatch but also adds the dashed boundary join edges of g.
 -- 
+-- Example: smartAlignBefore (labelled draw) (a,b) g
+--
 --  When a specific Backend B is in scope,  smartAlignBefore::  (VPatch -> Diagram B) -> (Vertex,Vertex) -> Tgraph -> Diagram B
 smartAlignBefore :: Renderable (Path V2 Double) b =>
                     (VPatch -> Diagram2D b) -> (Vertex,Vertex) -> Tgraph -> Diagram2D b
@@ -772,6 +780,20 @@ drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawLi
     untracked = vpFaces vp \\ concat (tracked ttg)
     vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
+{-|
+    To draw a TrackedTgraph aligned.
+    Same as drawTrackedTgraph but with additional vertex pair argument for the (x-axis) aligment.
+    This is useful for when labels are being drawn.
+    The vertex pair argument is used to align the common vertex location map before drawing
+    (to ensure labels are not rotated).
+
+    When a specific Backend B is in scope, drawTrackedTgraphAligned:: [VPatch -> Diagram B] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram B
+-}
+drawTrackedTgraphAligned :: [VPatch -> Diagram2D b] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram2D b
+drawTrackedTgraphAligned drawList (a,b) ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
+    vp = makeAlignedVP (a,b) (tgraph ttg)
+    untracked = vpFaces vp \\ concat (tracked ttg)
+    vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 
 

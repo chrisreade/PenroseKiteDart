@@ -256,7 +256,7 @@ class Drawable a where
 -- | Patches are drawable
 instance Drawable Patch where
   drawWith = drawPatchWith where
-    -- |turn a patch into a diagram using the first argument for drawing pieces.
+    -- turn a patch into a diagram using the first argument for drawing pieces.
     -- drawPatchWith:: (Piece -> Diagram B) -> Patch -> Diagram B      
       drawPatchWith pd = position . fmap (viewLoc . mapLoc pd)
 

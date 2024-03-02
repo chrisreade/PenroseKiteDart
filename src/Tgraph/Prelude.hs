@@ -101,6 +101,7 @@ module Tgraph.Prelude
   , joinE
   , shortE
   , longE
+  , joinOfTile
   , facePhiEdges
   , faceNonPhiEdges
 --  , matchingE
@@ -165,8 +166,8 @@ module Tgraph.Prelude
 
 import Data.List ((\\), intersect, union, elemIndex,foldl',find)
 -- import Data.Either(fromRight, lefts, rights, isLeft)
-import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys)
-import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member)
+import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet)
+import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith)
 import Data.Maybe (mapMaybe) -- edgeNbrs
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
@@ -189,7 +190,7 @@ Tgraphs
 
 -- $Types for Tgraphs, Vertices, Directed Edges, Faces
 
--- |Tgraph vertices
+-- |Tgraph vertices (must be positive)
 type Vertex = Int
 -- | directed edge
 type Dedge = (Vertex,Vertex)
@@ -239,7 +240,7 @@ Note: This does not check for touching vertices (distinct labels for the same ve
 To perform this additional check use makeTgraph (defined in Tgraphs module) which also calls tryTgraphProps.
 -}
 checkedTgraph:: [TileFace] -> Tgraph
-checkedTgraph fcs = runTry $ onFail report (tryTgraphProps fcs)
+checkedTgraph = runTry . onFail report . tryTgraphProps
  where report = "checkedTgraph: Failed\n"  -- ++ " for faces: " ++ show fcs ++ "\n"
 
 
@@ -594,14 +595,14 @@ prevV v face = case indexV v face of
                     2 -> secondV face
                     _ -> error "prevV: index error"
 
--- |isAtV v face asks if a face face has v as a vertex
+-- |isAtV v f asks if a face f has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool           
 isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (LK(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RK(a,b,c))  =  v==a || v==b || v==c
 
--- |hasVIn vs face - asks if face face has an element of vs as a vertex
+-- |hasVIn vs f - asks if face f has an element of vs as a vertex
 hasVIn:: [Vertex] -> TileFace -> Bool           
 hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
@@ -614,18 +615,18 @@ we will refer to this as an edge list rather than a directed edge list.
 -}
 
 
--- |directed edges (clockwise) round a face
+-- |directed edges (clockwise) round a face.
 faceDedges::TileFace -> [Dedge]
 faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (LK(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
 
--- |Returns the list of all directed edges (clockwise round each) of a list of tile faces
+-- |Returns the list of all directed edges (clockwise round each) of a list of tile faces.
 facesDedges :: [TileFace] -> [Dedge]
 facesDedges = concatMap faceDedges
 
--- |opposite directed edge
+-- |opposite directed edge.
 reverseD:: Dedge -> Dedge
 reverseD (a,b) = (b,a)
 
@@ -670,29 +671,30 @@ facePhiEdges face        = [e, reverseD e, j, reverseD j]
                                j = joinE face
 
 -- |The non-phi edges of a face (both directions)
--- which is short edges for kites, and join and short edges for darts
+-- which is short edges for kites, and join and short edges for darts.
 faceNonPhiEdges face = bothDirOneWay (faceDedges face) \\ facePhiEdges face
 
 -- |matchingE eselect face is a predicate on tile faces 
 -- where eselect selects a particular edge type of a face
 -- (eselect could be joinE or longE or shortE for example).
--- This is True for face' if face' has an eselect edge matching the (reversed) eselect edge of face
+-- This is True for face' if face' has an eselect edge matching the (reversed) eselect edge of face.
 matchingE :: (TileFace -> Dedge) -> TileFace -> TileFace -> Bool
 matchingE eselect face = (== reverseD (eselect face)) . eselect
 
--- |special cases of matchingE eselect 
--- where eselect is longE, shortE, and joinE
--- Used in Compose (getDartWingInfo and composedFaceGroups)
 matchingLongE,matchingShortE,matchingJoinE ::  TileFace -> TileFace -> Bool
+      -- Used in Compose (getDartWingInfo and composedFaceGroups).
+-- |check if two TileFaces have opposite directions for their long edge.
 matchingLongE  = matchingE longE
+-- |check if two TileFaces have opposite directions for their short edge.
 matchingShortE = matchingE shortE
+-- |check if two TileFaces have opposite directions for their join edge.
 matchingJoinE  = matchingE joinE
 
 -- |hasDedge f e returns True if directed edge e is one of the directed edges of face f
 hasDedge :: TileFace -> Dedge -> Bool
 hasDedge f e = e `elem` faceDedges f
 
--- |hasDedgeIn face es - is True if face has a directed edge in the list of directed edges es.
+-- |hasDedgeIn f es - is True if face f has a directed edge in the list of directed edges es.
 hasDedgeIn :: TileFace -> [Dedge] -> Bool
 hasDedgeIn face es = not $ null $ es `intersect` faceDedges face
 
@@ -849,9 +851,9 @@ This makes the join of the face with lowest origin and lowest oppV align on the 
 makeVP::Tgraph -> VPatch
 makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces g
 
--- |Creates a VPatch from a list of tile faces, using the vertex locations from the given VPatch.
--- The vertices in the tile faces must have points assigned in the given VPatch vertex locations.
--- (This is not checked for, but missing locations for vertices will raise an error when drawing.)
+-- |Creates a VPatch from a list of tile faces, using the vertex location map from the given VPatch.
+-- The vertices in the tile faces should have locations assigned in the given VPatch vertex locations.
+-- However THIS IS NOT CHECKED so missing locations for vertices will raise an error when drawing.
 -- subVP vp fcs can be used for both subsets of tile faces of vp,
 -- and also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
 -- The vertex location map is not changed (see also relevantVP and restrictVP).
@@ -859,14 +861,22 @@ subVP:: VPatch -> [TileFace] -> VPatch
 subVP vp fcs = vp {vpFaces  = fcs} 
 
 -- | removes locations for vertices not used in the faces of a VPatch.
--- (Useful when restricting which labels get drawn)
+-- (Useful when restricting which labels get drawn).
+-- relevantVP vp will raise an error if any vertex in the faces of vp is not a key in the location map of vp.
 relevantVP :: VPatch -> VPatch
-relevantVP vp = vp{vLocs = locVs} where
+relevantVP vp 
+  | null diffList = vp{vLocs = locVs}   
+  | otherwise = error $ "relevantVP: missing locations for: " ++
+                                    show diffList ++ "\n"
+  where
      vs = facesVSet (vpFaces vp)
+     source = VMap.keysSet locVs
+     diffList = IntSet.toList $ IntSet.difference vs source
      locVs = VMap.filterWithKey (\ v _ -> v `IntSet.member` vs) $ vLocs vp
 
 -- | A combination of subVP and relevantVP. Restricts a vp to a list of faces, removing locations for vertices not in the faces.
 -- (Useful when restricting which labels get drawn)
+-- restrictVP vp fcs will raise an error if any vertex in fcs is not a key in the location map of vp.
 restrictVP:: VPatch -> [TileFace] -> VPatch
 restrictVP vp fcs = relevantVP (subVP vp fcs)
 
