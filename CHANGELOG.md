@@ -1,8 +1,9 @@
 # Revision history for PenroseKiteDart
 
-## 0.9.0.1 -- 2024-03-02
+## 0.9.1.0 -- 2024-03-12
 
 Tgraph.Try as a separate module (instead of part of Tgraph.Prelude)
+Added labelColourSize in DrawableLabelled with labelSize as special case
 Changes to labelSize and line widths in some diagrams and drawing functions.
 Removed labelSmall, labelLarge.
 Added drawTrackedTgraphAligned.

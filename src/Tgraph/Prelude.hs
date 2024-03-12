@@ -137,6 +137,7 @@ module Tgraph.Prelude
   , findLoc
     -- * Drawing Tgraphs and Vpatches with Labels
   , DrawableLabelled(..)
+  , labelSize
   , labelled
   , rotateBefore
   , dropLabels
@@ -918,35 +919,42 @@ dropLabels vp = fmap convert (vpFaces vp) where
 instance Drawable Tgraph where
     drawWith pd = drawWith pd . makeVP
 
--- | A class for things that can be drawn with labels when given a measure for the label size and a 
+-- | A class for things that can be drawn with labels when given a colour and a measure (size) for the label and a 
 -- a draw function (for Patches).
--- So labelSize m  modifies a Patch drawing function to add labels (of size measure m).
+-- So labelColourSize c m  modifies a Patch drawing function to add labels (of colour c and size measure m).
 -- Measures are defined in Diagrams. In particular: tiny, verySmall, small, normal, large, veryLarge, huge.
 class DrawableLabelled a where
--- | When a specific Backend B is in scope,  labelSize :: DrawableLabelled a => Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
-  labelSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
-               Measure Double -> (Patch -> Diagram2D b) -> a -> Diagram2D b
+-- | When a specific Backend B is in scope, 
+--
+-- labelColourSize :: DrawableLabelled a => Colour Double -> Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
+  labelColourSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
+                     Colour Double -> Measure Double -> (Patch -> Diagram2D b) -> a -> Diagram2D b
 -- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
--- (So labelSize m draw typechecks but labelSize m1 (labelSize m2 draw) does not typecheck.)
 
 
 -- | VPatches can be drawn with labels
 instance DrawableLabelled VPatch where
-  labelSize m d vp = drawLabels m (vLocs vp) <> d (dropLabels vp) where
-    -- When a specific Backend B is in scope, drawLabels :: Measure Double -> VertexLocMap -> Diagram B
-     drawLabels r vpMap = position $ drawlabel <$> VMap.toList vpMap
-       where drawlabel(v,p) = (p, baselineText (show v) # fontSize r # fc red)
+  labelColourSize c m d vp = drawLabels (vLocs vp) <> d (dropLabels vp) where
+     drawLabels vpMap = position $ drawlabel <$> VMap.toList vpMap
+     drawlabel(v,p) = (p, baselineText (show v) # fontSize m # fc c)
 
 -- | Tgraphs can be drawn with labels
 instance DrawableLabelled Tgraph where
-  labelSize r d = labelSize r d . makeVP
+  labelColourSize c r d = labelColourSize c r d . makeVP
 
-labelled :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
-            (Patch -> Diagram2D b) -> a -> Diagram2D b
--- | Default Version of labelSize using small (rather than normal) label size. Example usage: labelled draw a , labelled drawj a
+-- | Default Version of labelColourSize with colour red. Example usage: labelSize tiny draw a , labelSize normal drawj a
+--
+-- When a specific Backend B is in scope, labelSize :: DrawableLabelled a => Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
+labelSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
+             Measure Double -> (Patch -> Diagram2D b) -> a -> Diagram2D b
+labelSize = labelColourSize red
+
+-- | Default Version of labelColourSize using red and small (rather than normal label size). Example usage: labelled draw a , labelled drawj a
 --
 -- When a specific Backend B is in scope, labelled :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
-labelled = labelSize small --(normalized 0.023)
+labelled :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
+            (Patch -> Diagram2D b) -> a -> Diagram2D b
+labelled = labelColourSize red small --(normalized 0.023)
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
