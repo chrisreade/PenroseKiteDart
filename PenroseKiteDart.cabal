@@ -46,11 +46,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
-    , diagrams-contrib
     , diagrams-lib
-    , diagrams-postscript
-    , diagrams-rasterific
-    , diagrams-svg
   default-language: Haskell2010
 
 test-suite PenroseKiteDart-test
@@ -65,11 +61,7 @@ test-suite PenroseKiteDart-test
       PenroseKiteDart
     , base >=4.7 && <5
     , containers
-    , diagrams-contrib
     , diagrams-lib
-    , diagrams-postscript
-    , diagrams-rasterific
-    , diagrams-svg
     , hspec
   default-language: Haskell2010
 
@@ -85,9 +77,5 @@ benchmark PenroseKiteDart-bench
       PenroseKiteDart
     , base >=4.7 && <5
     , containers
-    , diagrams-contrib
     , diagrams-lib
-    , diagrams-postscript
-    , diagrams-rasterific
-    , diagrams-svg
   default-language: Haskell2010

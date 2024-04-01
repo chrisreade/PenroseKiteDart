@@ -22,10 +22,10 @@ description:  Library to explore Penrose's Kite and Dart Tilings using Haskell D
 dependencies:
 - base >= 4.7 && < 5
 - diagrams-lib
-- diagrams-contrib
-- diagrams-svg
-- diagrams-rasterific # added for alternative backend
-- diagrams-postscript # added for postscript output
+#- diagrams-contrib
+#- diagrams-svg
+#- diagrams-rasterific # added for alternative backend
+#- diagrams-postscript # added for postscript output
 - containers # added for Data.Map
 ghc-options:
 - -Wall
