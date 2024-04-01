@@ -27,10 +27,10 @@ module Tgraph.Relabelling
     -- * Relabellings and matching
   , relabelToMatch
   , tryRelabelToMatch
-  , tryRelabelFromFaces
+--  , tryRelabelFromFaces
 --  , tryGrowRelabel
   , relabelToMatchIgnore
-  , relabelFromFacesIgnore
+--  , relabelFromFacesIgnore
 --  , growRelabelIgnore
     -- * Using Relabellings
   , relabelGraph
@@ -147,7 +147,7 @@ relabellingFrom n vs
     | n<1 = error $ "relabellingFrom: Label not positive " ++ show n
     | otherwise = Relabelling $ VMap.fromAscList $ differing $ zip (IntSet.elems vs) [n..] 
 
--- | f1 `relabellingTo` f2  - creates a relabelling so that
+-- | f1 \`relabellingTo\` f2  - creates a relabelling so that
 -- if applied to face f1, the vertices will match with face f2 exactly.
 -- It does not check that the tile faces have the same form (LK,RK,LD,RD).
 relabellingTo :: TileFace -> TileFace -> Relabelling

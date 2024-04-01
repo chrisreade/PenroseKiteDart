@@ -323,17 +323,18 @@ composeK g = runTry $ tryConnectedNoCross newfaces where
 compForce:: Tgraph -> Tgraph
 compForce = uncheckedCompose . force 
         
--- |allCompForce g produces a list of all forced compositions starting from g up to but excluding the empty Tgraph.
--- (The list will be empty if g is the emptyGraph).
--- This definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
+-- |allCompForce g produces a list of the non-null iterated forced compositions of g.
+-- It will raise an error if the initial force fails with an incorrect Tgraph.
+-- The list will be [] if g is the emptyTgraph.
+-- The list will be [force g] if the first composition of force g is the emptyTgraph but g is not the emptyTgraph.
+-- The definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
--- It may raise an error if the initial force fails with an incorrect Tgraph.
 allCompForce:: Tgraph -> [Tgraph]
-allCompForce g = takeWhile (not . nullGraph) $ g: iterate uncheckedCompose (compForce g)
+allCompForce = takeWhile (not . nullGraph) . iterate uncheckedCompose . force
 
--- |maxCompForce g produces the maximally composed (non-empty) Tgraph from force g, provided g is non-empty
--- and just the emptyGraph otherwise.
--- It may raise an error if the initial force fails with an incorrect Tgraph.
+-- |maxCompForce g produces the maximally composed (non-null) Tgraph starting from force g, provided g is not the emptyTgraph
+-- and just the emptyTgraph otherwise.
+-- It will raise an error if the initial force fails with an incorrect Tgraph.
 maxCompForce:: Tgraph -> Tgraph
 maxCompForce g | nullGraph g = g
                | otherwise = last $ allCompForce g
@@ -753,7 +754,7 @@ decomposeTracked ttg =
     To draw a TrackedTgraph, we use a list of functions each turning a VPatch into a diagram.
     The first function is applied to a VPatch for untracked faces.
     Subsequent functions are applied to VPatches for the respective tracked subsets.
-    Each diagram is atop earlier ones, so the diagram for the untracked VPatch is at the bottom.
+    Each diagram is beneath later ones in the list, with the diagram for the untracked VPatch at the bottom.
     The VPatches are all restrictions of a single VPatch for the Tgraph, so consistent.
     (Any extra draw functions are applied to the VPatch for the main tgraph and the results placed atop.)
  
@@ -768,7 +769,7 @@ drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList
 {-|
     To draw a TrackedTgraph rotated.
     Same as drawTrackedTgraph but with additional angle argument for the rotation.
-    This is useful for when labels are being drawn.
+    This is useful when labels are being drawn.
     The angle argument is used to rotate the common vertex location map before drawing
     (to ensure labels are not rotated).
 
@@ -786,6 +787,7 @@ drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawLi
     This is useful for when labels are being drawn.
     The vertex pair argument is used to align the common vertex location map before drawing
     (to ensure labels are not rotated).
+    This will raise an error if either of the pair of vertices is not a vertex of (the tgraph of) the TrackedTgraph
 
     When a specific Backend B is in scope, drawTrackedTgraphAligned:: [VPatch -> Diagram B] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram B
 -}

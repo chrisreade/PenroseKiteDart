@@ -1,5 +1,9 @@
 # Revision history for PenroseKiteDart
 
+## 0.10.0.0 -- 2024-04-1
+
+Removed some examples in TgraphExamples and export of some auxiliary functions in Tgraph.Relabelling
+
 ## 0.9.1.0 -- 2024-03-12
 
 Tgraph.Try as a separate module (instead of part of Tgraph.Prelude)

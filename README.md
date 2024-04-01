@@ -8,7 +8,7 @@ See LICENSE file
 
 ## Penrose Kites and Darts
 
-Penrose\'s kite and dart tiles have the property that they can tile the entire plane non-periodicly.
+Penrose\'s kite and dart tiles have the property that they can tile the entire plane aperiodicly.
 There are rules to ensure legal tilings with the kites and darts.
 Tilings can still get stuck (so cannot be continued to cover the entire plane) - these are called incorrect.
 
@@ -20,8 +20,10 @@ Haskell Diagrams package.
 You will need the Haskell Diagrams package
 to be installed as well as this package (PenroseKiteDart). (See [Haskell Diagrams](https://diagrams.github.io)).
 Once installed, a Main.hs module to produce diagrams should import a chosen backend for Diagrams such as the default (SVG)
-along with the Diagrams prelude
+along with Diagrams.Prelude
 
+    module Main (main) where
+    
     import Diagrams.Backend.SVG.CmdLine
     import Diagrams.Prelude
 
@@ -42,7 +44,7 @@ Then to ouput someExample figure
     main = mainWith fig
 
 When the code is executed it will generate an SVG file.
-(See the Diagrams package for more details on producing diagrams.)
+(See the Haskell Diagrams package for more details on producing diagrams.)
 
 ## Tgraphs to Describe Finite Tilings
 
@@ -81,15 +83,8 @@ Module `PKD` is the main module which imports and rexports `Tgraphs` and `TileLi
 
 ## Further Information
 
-Further information can be found here
+A more detailed description of the package can be found at
 
-- [Graphs, Kites and Darts](https://readerunner.wordpress.com/2022/01/06/graphs-kites-and-darts/)
-- [Empires and SuperForce](https://readerunner.wordpress.com/2023/04/26/graphs-kites-and-darts-empires-and-superforce/)
-- [Graphs,Kites and Darts and Theorems](https://readerunner.wordpress.com/2023/09/12/graphs-kites-and-darts-and-theorems/) 
-
-For a description of `TileLib` see also
-
-- [Diagrams for Penrose Tiles](https://readerunner.wordpress.com/2021/03/20/diagrams-for-penrose-tiles/)
-
+- [The PenroseKiteDart Package](https://readerunner.wordpress.com)
 
 

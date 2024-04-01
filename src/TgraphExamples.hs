@@ -20,21 +20,33 @@ module TgraphExamples
   , arrangeRowsGap
   , arrangeRows
   , labelAt
-    -- *  Basic Tgraphs with Figures
+    -- *  Tgraphs for 7 vertex types
+  , sunGraph 
+  , jackGraph
+  , kingGraph
+  , queenGraph
+  , aceGraph
+  , deuceGraph
+  , starGraph
+    -- *  Further Basic Tgraphs
+  , kiteGraph
+  , dartGraph
   , fool
   , foolD
   , foolDminus
   , foolDs
+  , sunDs
+  , kiteDs
+  , dartDs
+  , dartD4  
+  , sun3Dart 
+    -- *  Some Simple Figures
   , foolFig
   , foolAndFoolD
-  , sunGraph 
-  , sunDs
   , figSunD3D2
-  , kiteGraph
-  , kiteDs
-  , dartGraph
-  , dartDs
-  , dartD4
+    -- *  Figures for 7 vertex types
+  , vertexTypesFig
+  , forceVFigures
     -- * Partial Composition figures
   , pCompFig1
   , pCompFig2
@@ -45,36 +57,19 @@ module TgraphExamples
   , forceKiteD5Fig
   , forceSunD5Fig
   , forceFig
-  , maxExampleFig
-  , emplaceChoicesFoolD 
     -- *  Removed faces (forcing and composing)
   , brokenDart
   , badlyBrokenDart
   , brokenDartFig
   , badlyBrokenDartFig
   , removeIncompletesFig
-    -- *  Incorrect Tgraphs (and other problem Tgraphs)
+    -- *  Incorrect Tgraphs
   , mistake
   , mistake1
-    -- *  Figures for 7 vertex types
-  , vertexTypesFig
-  , jackGraph
-  , kingGraph
-  , queenGraph
-  , aceGraph
-  , deuceGraph
-  , starGraph
-  , forceVFigures
-    -- *  Sun with darts and superForce examples
-  , sun1Dart
-  , sun2AdjDart
-  , sun2Dart
-  , sun3AdjDart
-  , sun3Dart 
     -- * superForce Figure
   , superForceFig
   , superForceRocketsFig
-    -- *  Other miscellaneous Tgraphs and Diagrams
+    -- *  Tgraphs with Boundary faces
   , boundaryFDart4
   , boundaryFDart5
   , boundaryFDart4Fig
@@ -252,27 +247,6 @@ forceSunD5Fig =  padBorder $ lw ultraThin $ drawForce $ sunDs !! 5
 -- When a specific Backend B is in scope, forceFig :: Diagram B
 forceFig = hsep 1 [forceDartD5Fig,forceKiteD5Fig]
 
--- |an example showing a 4 times forceDecomp pair of darts (sharing a long edge),
--- with the maximal compForce Tgraph (a kite) overlaid in red.
--- 
--- When a specific Backend B is in scope, maxExampleFig :: Diagram B
-maxExampleFig :: Renderable (Path V2 Double) b => Diagram2D b
-maxExampleFig = padBorder $ lw veryThin $ drawWithMax $ allForceDecomps dartPlusDart !! 4 where
-                 dartPlusDart = addHalfDart (1,5) $ addHalfDart (1,2) dartGraph
-
--- |showing 4 emplaceChoices for foolD 
--- Uses revised emplaceChoices.
--- 
--- When a specific Backend B is in scope, emplaceChoicesFoolD :: Diagram B
-emplaceChoicesFoolD :: Renderable (Path V2 Double) b => Diagram2D b
-emplaceChoicesFoolD = padBorder $ hsep 1 $
-        fmap (addFoolD . lw ultraThin . draw) vpChoices where
---        (vpFoolD:vpChoices) = alignAll (1,6) $ fmap makeVP (foolD:emplaceChoices foolD)
-        vpFoolD = alignXaxis (1,6) $ makeVP foolD
-        vpChoices = alignAll (1,6) $ fmap makeVP $ emplaceChoices foolD
-        addFoolD fig = (lc red . lw thin . drawj) vpFoolD <> fig
-
-
 -- |brokenDart is a 4 times decomposed dart (dartD4) with 5 halftile faces removed.
 -- Forcing will repair to produce the same Tgraph as force dartD4.
 -- This graph can also be repeatedly composed (without forcing) to get a maximal Tgraph.
@@ -376,17 +350,11 @@ forceVFigures = rotations [0,0,9,5,0,0,1] $
                 fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
 
 
-sun1Dart,sun2AdjDart,sun2Dart,sun3AdjDart,sun3Dart :: Tgraph
--- |A sun with a single complete dart on the boundary
-sun1Dart = addHalfDart (3,4) $ addHalfDart (2,3) sunGraph
--- |A sun with 2 darts adjacent on the boundary
-sun2AdjDart = addHalfDart (5,6) $ addHalfDart (4,5) sun1Dart
--- |A sun with 2 darts NOT adjacent on the boundary
-sun2Dart = addHalfDart (7,8) $ addHalfDart (6,7) sun1Dart
--- |A sun with 3 darts adjacent on the boundary
-sun3AdjDart = addHalfDart (7,8) $ addHalfDart (6,7) sun2AdjDart
+sun3Dart :: Tgraph
 -- |A sun with 3 darts on the boundary NOT all adjacent
-sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) sun2AdjDart
+-- (Used in superForceRocketsFig).
+sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) $ addHalfDart (5,6) $ addHalfDart (4,5) $ addHalfDart (3,4) $ addHalfDart (2,3) sunGraph
+-- sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) sun2AdjDart
 
 
 -- |Diagram showing superForce with initial Tgraph g (red), force g (red and black),

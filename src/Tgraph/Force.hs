@@ -672,9 +672,6 @@ tryUpdate bd u@(UnsafeUpdate _) =
        Just bdC -> return bdC
        Nothing ->  Left "tryUpdate: crossing boundary (touching vertices).\n"
 
--- *  Recalibrating versions of force and tryForce
-
-
 -- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateVertices.
 -- (Used at intervals in tryRecalibrateForce and recalibrateForce).
 recalculateBVLocs :: BoundaryState -> BoundaryState
