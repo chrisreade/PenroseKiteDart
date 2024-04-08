@@ -452,8 +452,8 @@ kingEmpiresFig = padBorder $ hsep 10 [kingEmpire1Fig, kingEmpire2Fig]
 -- | figure showing King's empires 1.
 -- 
 -- When a specific Backend B is in scope, kingEmpire1Fig :: Diagram B
-kingEmpire1Fig = drawEmpire1 kingGraph
+kingEmpire1Fig = showEmpire1 kingGraph
 -- | figure showing King's empire 2.
 -- 
 -- When a specific Backend B is in scope, kingEmpire2Fig :: Diagram B
-kingEmpire2Fig = drawEmpire2 kingGraph
+kingEmpire2Fig = showEmpire2 kingGraph

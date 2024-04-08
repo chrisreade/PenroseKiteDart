@@ -47,6 +47,7 @@ module TileLib
   , draw
   , drawj
   , fillDK
+  , fillKD
   , fillMaybeDK
   , colourDKG
   , colourMaybeDKG
@@ -274,13 +275,19 @@ drawj :: (Drawable a, Renderable (Path V2 Double) b) =>
          a -> Diagram2D b
 drawj = drawWith dashjPiece
 
+fillDK, fillKD :: (Drawable a, Renderable (Path V2 Double) b) =>
+                   Colour Double -> Colour Double -> a -> Diagram2D b
 -- |fillDK dcol kcol a - draws and fills a with colour dcol for darts and kcol for kites.
 -- Note the order D K.
 -- 
 -- When a specific Backend B is in scope, fillDK:: Drawable a => Colour Double -> Colour Double -> a -> Diagram B
-fillDK :: (Drawable a, Renderable (Path V2 Double) b) =>
-          Colour Double -> Colour Double -> a -> Diagram2D b
 fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
+
+-- |fillKD kcol dcol a - draws and fills a with colour kcol for kites and dcol for darts.
+-- Note the order K D.
+-- 
+-- When a specific Backend B is in scope, fillKD:: Drawable a => Colour Double -> Colour Double -> a -> Diagram B
+fillKD c1 c2 = fillDK c2 c1
     
 -- |fillMaybeDK c1 c2 a - draws a and maybe fills as well:
 -- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol

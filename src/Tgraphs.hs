@@ -70,8 +70,9 @@ module Tgraphs
   , empire1
   , empire2
   , empire2Plus
-  , drawEmpire1
-  , drawEmpire2
+  , drawEmpire
+  , showEmpire1
+  , showEmpire2
     -- * Super Force with boundary edge covers
   , superForce
   , trySuperForce
@@ -482,7 +483,7 @@ drawFBCovering :: Renderable (Path V2 Double) b =>
 drawFBCovering g = lw ultraThin $ vsep 1 (draw <$> forcedBoundaryVCovering g)
 
 -- | empire1 g - produces a TrackedTgraph representing the level 1 empire of g.
--- The tgraph of the result is an arbitrarily chosen boundary vertex cover of force g,
+-- The tgraph of the result is the first boundary vertex cover of force g,
 -- and the tracked list of the result has the common faces of all the boundary vertex covers (of force g)
 -- at the head, followed by the original faces of g.
 empire1:: Tgraph -> TrackedTgraph
@@ -499,7 +500,7 @@ empire1 g = makeTrackedTgraph g0 [fcs,faces g] where
 -- That is, after finding all boundary edge covers of force g, 
 -- boundary edge covers are then found for each boundary edge cover to form a list of doubly-extended
 -- boundary edge covers.
--- The tgraph  of the result is an arbitrarily chosen (doubly-extended) boundary edge cover (of force g),
+-- The tgraph of the result is the first (doubly-extended) boundary edge cover (of force g),
 -- and the tracked list of the result has the common faces of all the (doubly-extended) boundary edge covers
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> TrackedTgraph
@@ -530,28 +531,35 @@ empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
     de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
--- | drawEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
--- This is drawn over one of the possible boundary covers and the faces of g are shown in red.
+-- | drawEmpire e - produces a diagram for an empire e represented as a TrackedTgraph
+-- as calcultaed by e.g. empire1 or empire2 or empire2Plus.
+-- The diagram draws the underlying Tgraph, with the first tracked faces - the starting Tgraph shown red, and emphasising the second tracked faces
+-- - the common  faces.
 -- 
---  When a specific Backend B is in scope, drawEmpire1:: Tgraph -> Diagram B
-drawEmpire1 :: Renderable (Path V2 Double) b =>
-               Tgraph -> Diagram2D b
-drawEmpire1 g = 
+--  When a specific Backend B is in scope, drawEmpire:: TrackedTgraph -> Diagram B
+drawEmpire :: Renderable (Path V2 Double) b =>
+               TrackedTgraph -> Diagram2D b
+drawEmpire = 
     drawTrackedTgraph  [ lw ultraThin . draw
                        , lw thin . fillDK lightgrey lightgrey
                        , lw thin . lc red . draw
-                       ]  (empire1 g)
+                       ]
 
--- | drawEmpire2 g - produces a diagram emphasising the common faces of a doubly-extended boundary cover of force g.
--- This is drawn over one of the possible doubly-extended boundary covers and the faces of g are shown in red.
--- drawEmpire2:: Tgraph -> Diagram B
-drawEmpire2 :: Renderable (Path V2 Double) b =>
+-- | showEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
+-- This is drawn over one of the possible boundary covers and the faces of g are shown in red.
+-- 
+--  When a specific Backend B is in scope, showEmpire1:: Tgraph -> Diagram B
+showEmpire1 :: Renderable (Path V2 Double) b =>
                Tgraph -> Diagram2D b
-drawEmpire2 g =
-     drawTrackedTgraph  [ lw ultraThin . draw
-                        , lw thin . fillDK lightgrey lightgrey
-                        , lw thin . lc red . draw
-                        ]  (empire2 g)
+showEmpire1 = drawEmpire . empire1
+
+-- | showEmpire2 g - produces a diagram emphasising the common faces of a doubly-extended boundary cover of force g.
+-- This is drawn over one of the possible doubly-extended boundary covers and the faces of g are shown in red.
+-- 
+--  When a specific Backend B is in scope, showEmpire2:: Tgraph -> Diagram B
+showEmpire2 :: Renderable (Path V2 Double) b =>
+               Tgraph -> Diagram2D b
+showEmpire2 = drawEmpire . empire2
 
 -- |superForce g - after forcing g this looks for single choice boundary edges.
 -- That is a boundary edge for which only a dart or only a kite addition occurs in all boundary edge covers.

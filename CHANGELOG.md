@@ -1,5 +1,11 @@
 # Revision history for PenroseKiteDart
 
+## 1.0.0 -- 2024-04-08
+
+Release candidate: 
+Added upper bounds on dependencies
+Added new drawEmpire and changed drawEmpire1, drawEmpire2 to showEmpire1, showEmpire2
+
 ## 0.10.0.0 -- 2024-04-1
 
 Removed some examples in TgraphExamples and export of some auxiliary functions in Tgraph.Relabelling
