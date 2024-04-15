@@ -1,7 +1,7 @@
 import Tgraphs
 import TgraphExamples
-import TileLib (draw)
-import Diagrams.Prelude
+-- import TileLib (draw)
+-- import Diagrams.Prelude
 
 main :: IO ()
 main = 
@@ -10,8 +10,10 @@ main =
      putStrLn $ "Number of faces of force (" ++ sn ++ " times decomposed King) is " 
                             ++ show (length (faces fkD))
 
+{-
      putStrLn $ "Width of figure for force (" ++ sn ++ " times decomposed King) is " 
                             ++ show w
+-}
 
      putStrLn $ "Number of faces of recomposed force (" ++ sn ++ " times decomposed King) is " 
                             ++ show (length (faces cfkD))
@@ -28,7 +30,9 @@ main =
        fkD ={-# SCC "forcing" #-} force kD
        cfkD = {-# SCC "composing" #-} last $ takeWhile (not . nullGraph) $ iterate compose fkD
 
-       fig = {-# SCC "drawing" #-} draw fkD
+{-
+       fig = draw fkD
        w = width fig
+-}
 
 
