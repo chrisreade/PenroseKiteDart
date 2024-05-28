@@ -980,7 +980,7 @@ alignXaxis (a,b) vp =  rotate angle newvp
                 Just l -> l
                 Nothing -> error $ "alignXaxis: second alignment vertex not found (Vertex " ++ show b ++ ")\n"
 
--- |alignments takes a list of vertex pairs for respective alignmants of VPatches in the second list.
+-- |alignments takes a list of vertex pairs for respective alignments of VPatches in the second list.
 -- For a pair (a,b) the corresponding VPatch is centered on a then b is aligned along the positive x axis. 
 -- The vertex pair list can be shorter than the list of VPatch - the remaining VPatch are left as they are.
 -- (Raises an error if either vertex in a pair is not in the corresponding VPatch vertices)
