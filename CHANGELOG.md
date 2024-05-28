@@ -1,5 +1,10 @@
 # Revision history for PenroseKiteDart
 
+
+## 1.0.1 -- 2024-05-28
+
+moved makeTgraph to Tgraph.Prelude
+
 ## 1.0.0 -- 2024-04-08
 
 Release candidate: 

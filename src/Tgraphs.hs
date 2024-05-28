@@ -1,13 +1,12 @@
 {-|
 Module      : Tgraphs
-Description : Collects and exports the various Tgraph modules plus extra operations, including makeTgraph
+Description : Collects and exports the various Tgraph modules plus extra operations.
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 This is the main module for Tgraph operations which collects and exports the other Tgraph modules. 
-It exports makeTgraph for constructing checked Tgraphs and excludes data constructor Tgraph.
 The module also defines several functions for producing overlaid diagrams for Tgraphs (including smart drawing) and
 experimental combinations such as boundaryECovering, boundaryVCovering, empire1, empire2, superForce, boundaryLoopsG.
 It also defines experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
@@ -26,9 +25,9 @@ module Tgraphs
   , module Tgraph.Force
   , module Tgraph.Relabelling
    -- * Making valid Tgraphs (with a check for no touching vertices).
-  , makeTgraph
-  , tryMakeTgraph
-  , tryCorrectTouchingVs
+--  , makeTgraph
+--  , tryMakeTgraph
+--  , tryCorrectTouchingVs
     -- * Smart drawing of Tgraphs
   , smart
   , boundaryJoinFaces
@@ -108,55 +107,10 @@ import Tgraph.Relabelling
 import Diagrams.Prelude hiding (union)
 import TileLib
 
-import Data.List (intersect, union, (\\), find, foldl',nub, transpose)      
+import Data.List (intersect, union, (\\), find, foldl', transpose)      
 import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
-
--- * Making valid Tgraphs (with a check for no touching vertices).
-
-{-|
-makeTgraph performs a no touching vertex check as well as using tryTgraphProps for other required properties.
-It produces an error if either check fails.
-Note that the other Tgraph properties are checked first, to ensure that calculation of 
-vertex locations can be done for a touching vertex check.
--}
-makeTgraph :: [TileFace] -> Tgraph
-makeTgraph fcs = runTry $ onFail "makeTgraph: (failed):\n" $ tryMakeTgraph fcs
-
-{-|
-tryMakeTgraph performs the same checks for Tgraph properties as tryTgraphProps but in addition
-it also checks that there are no touching vertices (distinct labels for the same vertex)
-using Tgraph.Convert.touchingVertices (which calculates vertex locations).
-It produces Left ... if either check fails and Right g otherwise where g is the Tgraph.
-Note that the other Tgraph properties are checked first, to ensure that calculation of 
-vertex locations can be done.
--}
-tryMakeTgraph :: [TileFace] -> Try Tgraph
-tryMakeTgraph fcs =
- do g <- tryTgraphProps fcs -- must be checked first
-    let touchVs = touchingVertices (faces g)
-    if null touchVs 
-    then Right g 
-    else Left ("Found touching vertices: " 
-               ++ show touchVs
-               ++ "\nwith faces:\n"
-               ++ show fcs
-               ++ "\n\n(To fix, use: tryCorrectTouchingVs)\n\n"
-              )
-
-{-| tryCorrectTouchingVs fcs finds touching vertices by calculating locations for vertices in the faces fcs,
-    then renumbers to remove touching vertices (renumbers higher to lower numbers),
-    then checks for Tgraph properties of the resulting faces to produce a Tgraph.
-    NB fcs needs to be tile-connected before the renumbering and
-    the renumbering need not be 1-1 (hence Relabelling is not used)      
--}
-tryCorrectTouchingVs ::  [TileFace] -> Try Tgraph
-tryCorrectTouchingVs fcs = 
-    onFail ("tryCorrectTouchingVs:\n" ++ show touchVs) $ 
-    tryTgraphProps $ nub $ renumberFaces touchVs fcs
-        -- renumberFaces allows for a non 1-1 relabelling represented by a list 
-    where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
 
 
 

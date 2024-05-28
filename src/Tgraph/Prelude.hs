@@ -32,6 +32,11 @@ module Tgraph.Prelude
   , Dedge
   , EdgeType(..)
    -- * Property Checking for Tgraphs
+  , makeTgraph
+  , tryMakeTgraph
+  , tryCorrectTouchingVs
+--  , renumberFaces
+  , differing
   , makeUncheckedTgraph
   , checkedTgraph
   , tryTgraphProps
@@ -165,15 +170,15 @@ module Tgraph.Prelude
   , locateVerticesGen
   ) where
 
-import Data.List ((\\), intersect, union, elemIndex,foldl',find)
+import Data.List ((\\), intersect, union, elemIndex,foldl',find,nub)
 -- import Data.Either(fromRight, lefts, rights, isLeft)
-import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet)
+import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault)
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith)
 import Data.Maybe (mapMaybe) -- edgeNbrs
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 
-import Diagrams.Prelude hiding (union)
+import Diagrams.Prelude hiding (union,mapping)
 import Diagrams.TwoD.Text (Text)
 
 import TileLib
@@ -224,6 +229,62 @@ Basic Tgraph, vertex, edge, face operations
 {-*
 Tgraphs and Property Checking
 -}
+
+{-|
+makeTgraph performs a no touching vertex check as well as using tryTgraphProps for other required properties.
+It produces an error if either check fails.
+Note that the other Tgraph properties are checked first, to ensure that calculation of 
+vertex locations can be done for a touching vertex check.
+-}
+makeTgraph :: [TileFace] -> Tgraph
+makeTgraph fcs = runTry $ onFail "makeTgraph: (failed):\n" $ tryMakeTgraph fcs
+
+{-|
+tryMakeTgraph performs the same checks for Tgraph properties as tryTgraphProps but in addition
+it also checks that there are no touching vertices (distinct labels for the same vertex)
+using Tgraph.Convert.touchingVertices (which calculates vertex locations).
+It produces Left ... if either check fails and Right g otherwise where g is the Tgraph.
+Note that the other Tgraph properties are checked first, to ensure that calculation of 
+vertex locations can be done.
+-}
+tryMakeTgraph :: [TileFace] -> Try Tgraph
+tryMakeTgraph fcs =
+ do g <- tryTgraphProps fcs -- must be checked first
+    let touchVs = touchingVertices (faces g)
+    if null touchVs 
+    then Right g 
+    else Left ("Found touching vertices: " 
+               ++ show touchVs
+               ++ "\nwith faces:\n"
+               ++ show fcs
+               ++ "\n\n(To fix, use: tryCorrectTouchingVs)\n\n"
+              )
+
+{-| tryCorrectTouchingVs fcs finds touching vertices by calculating locations for vertices in the faces fcs,
+    then renumbers to remove touching vertices (renumbers higher to lower numbers),
+    then checks for Tgraph properties of the resulting faces to produce a Tgraph.
+    NB fcs needs to be tile-connected before the renumbering and
+    the renumbering need not be 1-1 (hence Relabelling is not used)      
+-}
+tryCorrectTouchingVs ::  [TileFace] -> Try Tgraph
+tryCorrectTouchingVs fcs = 
+    onFail ("tryCorrectTouchingVs:\n" ++ show touchVs) $ 
+    tryTgraphProps $ nub $ renumberFaces touchVs fcs
+        -- renumberFaces allows for a non 1-1 relabelling represented by a list 
+    where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
+
+-- |renumberFaces allows for a non 1-1 relabelling represented by a list of pairs.
+-- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result 
+renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
+renumberFaces prs = fmap renumberFace where
+    mapping = VMap.fromList $ differing prs
+    renumberFace = fmap (all3 renumber)
+    all3 f (a,b,c) = (f a,f b,f c)
+    renumber v = VMap.findWithDefault v v mapping
+ 
+-- |selects only non-matching pairs from a list
+differing :: Eq a => [(a,a)] -> [(a,a)]
+differing = filter (\(a,b) -> a/=b)
 
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.

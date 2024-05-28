@@ -41,7 +41,7 @@ module Tgraph.Relabelling
   , prepareFixAvoid
   , relabelContig
     --  * Renumbering (not necessarily 1-1)
-  , renumberFaces
+--  , renumberFaces
 --  , tryMatchFace
 --  , twoVMatch
 --  , matchFaceIgnore
@@ -54,7 +54,6 @@ import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, 
 import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\),null,member)
 
 import Tgraph.Prelude
--- import Tgraph.Convert (touchingVertices, touchingVerticesGen) -- used for fullUnion and commonFaces
 
 
 {-| fullUnion (g1,e1) (g2,e2) will try to create the union of g1 and g2.  That is, it will try to combine the faces of g1
@@ -356,6 +355,7 @@ relabelContig g = relabelGraph rlab g where
   -- assert: the relabelled Tgraph satisfies Tgraph properties (if g does)
  
 
+{-
 -- |renumberFaces allows for a non 1-1 relabelling represented by a list of pairs.
 -- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result 
 renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
@@ -364,7 +364,8 @@ renumberFaces prs = fmap renumberFace where
     renumberFace = fmap (all3 renumber)
     all3 f (a,b,c) = (f a,f b,f c)
     renumber v = VMap.findWithDefault v v mapping
- 
+ -}
+
                      
 {-|
 tryMatchFace f g - looks for a face in g that corresponds to f (sharing a directed edge),
@@ -400,7 +401,4 @@ matchFaceIgnore face g = case tryMatchFace face g of
    Left _   -> Nothing
    
 
--- |selects only non-matching pairs from a list
-differing :: Eq a => [(a,a)] -> [(a,a)]
-differing = filter (\(a,b) -> a/=b)
 
