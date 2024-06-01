@@ -6,6 +6,7 @@
 moved makeTgraph to Tgraph.Prelude
 moved emplaceChoices to TgraphExamples and added example
 added graphBoundaryVs to Tgraph.Prelude
+added lower limit on dash sizes for join edges (in dashjOnly)
 
 ## 1.0.0 -- 2024-04-08
 

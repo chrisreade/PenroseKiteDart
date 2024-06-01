@@ -85,6 +85,6 @@ Module `PKD` is the main module which imports and rexports `Tgraphs` and `TileLi
 
 A more detailed User Guide for the PenroseKiteDart package can be found at
 
-- [PenroseKiteDart User  Guide](https://readerunner.wordpress.com/2024/04/08/penrosekitedart-user-guides/)
+- [PenroseKiteDart User Guide](https://readerunner.wordpress.com/2024/04/08/penrosekitedart-user-guides/)
 
 
