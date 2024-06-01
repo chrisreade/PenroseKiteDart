@@ -74,6 +74,7 @@ module Tgraph.Prelude
   , removeVertices
   , selectVertices
   , vertexSet
+  , graphBoundaryVs
   , graphDedges
   , graphEdges
   , internalEdges
@@ -546,6 +547,10 @@ selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 -- |the set of vertices of a Tgraph
 vertexSet:: Tgraph -> VertexSet
 vertexSet = facesVSet . faces
+
+-- |list of vertices that are on the boundary of a Tgraph
+graphBoundaryVs :: Tgraph -> [Vertex]
+graphBoundaryVs = map fst . graphBoundary
 
 -- |A list of all the directed edges of a Tgraph (going clockwise round faces)
 graphDedges :: Tgraph -> [Dedge]

@@ -4,6 +4,8 @@
 ## 1.0.1 -- 2024-05-28
 
 moved makeTgraph to Tgraph.Prelude
+moved emplaceChoices to TgraphExamples and added example
+added graphBoundaryVs to Tgraph.Prelude
 
 ## 1.0.0 -- 2024-04-08
 

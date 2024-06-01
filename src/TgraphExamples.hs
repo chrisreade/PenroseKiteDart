@@ -86,6 +86,8 @@ module TgraphExamples
  , kingEmpiresFig
  , kingEmpire1Fig
  , kingEmpire2Fig
+ , emplaceChoices
+ , emplaceChoicesFig
  
   ) where
 
@@ -95,6 +97,7 @@ import Diagrams.TwoD.Text (Text)
 import TileLib
 import Tgraphs
 
+import Data.List (intersect,find)      -- for emplaceChoices
 
 
 -- |used for most diagrams to give border padding
@@ -457,3 +460,41 @@ kingEmpire1Fig = showEmpire1 kingGraph
 -- 
 -- When a specific Backend B is in scope, kingEmpire2Fig :: Diagram B
 kingEmpire2Fig = showEmpire2 kingGraph
+
+
+-- |emplaceChoices forces then maximally composes. At this top level it
+-- produces a list of forced choices for each of the unknowns of this top level Tgraph.
+-- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
+-- This version relies on compForce theorem and related theorems
+emplaceChoices:: Tgraph -> [Tgraph]
+emplaceChoices g = emplaceChoicesForced $ recoverGraph $ force $ makeBoundaryState g where
+
+  emplaceChoicesForced:: Tgraph -> [Tgraph]
+  emplaceChoicesForced g0 | nullGraph g' = chooseUnknowns [(unknowns $ getDartWingInfo g0, g0)]
+                          | otherwise    = forceDecomp <$> emplaceChoicesForced g'
+                          where g' = compose g0
+
+  chooseUnknowns :: [([Vertex],Tgraph)] -> [Tgraph]
+  chooseUnknowns [] = []
+  chooseUnknowns (([],g0):more) = g0:chooseUnknowns more
+  chooseUnknowns (((u:unks),g0): more)
+     =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
+        where newgs = map recoverGraph $ atLeastOne $ tryDartAndKiteForced (findDartLongForWing u bd) bd
+              bd = makeBoundaryState g0
+              remainingunks startunks g' = (startunks `intersect` graphBoundaryVs g', g')
+
+  findDartLongForWing :: Vertex -> BoundaryState -> Dedge
+  findDartLongForWing v bd 
+      = case find isDart (facesAtBV bd v) of
+        Just d -> longE d
+        Nothing -> error $ "findDartLongForWing: dart not found for dart wing vertex " ++ show v
+
+-- |Example showing emplaceChoices for foolD with foolD shown in red in each choice
+-- 
+-- When a specific Backend B is in scope, emplaceChoicesFig :: Diagram B
+emplaceChoicesFig :: Renderable (Path V2 Double) b => Diagram2D b
+emplaceChoicesFig =  lw thin $ hsep 1 $ map overlayg $ emplaceChoices g
+    where g = foolD
+          overlayg g' = smartAlignBefore draw algmnt g # lc red <> alignBefore draw algmnt g'
+          algmnt = defaultAlignment g
+

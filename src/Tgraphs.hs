@@ -24,10 +24,6 @@ module Tgraphs
   , module Tgraph.Compose
   , module Tgraph.Force
   , module Tgraph.Relabelling
-   -- * Making valid Tgraphs (with a check for no touching vertices).
---  , makeTgraph
---  , tryMakeTgraph
---  , tryCorrectTouchingVs
     -- * Smart drawing of Tgraphs
   , smart
   , boundaryJoinFaces
@@ -51,9 +47,6 @@ module Tgraphs
   , maxCompForce
   , forceDecomp
   , allForceDecomps
-    -- * Emplace Choices
-  , emplaceChoices
---  , emplaceChoices'  
     -- * Boundary Covering and Empires
   , forcedBoundaryECovering
   , forcedBoundaryVCovering
@@ -97,8 +90,6 @@ module Tgraphs
   , drawTrackedTgraphAligned
   ) where
 
--- import Tgraph.Prelude hiding (Tgraph(Tgraph)) -- hides Tgraph as type and data constructor
--- import Tgraph.Prelude (Tgraph) -- re-includes Tgraph as type constructor only
 import Tgraph.Prelude
 import Tgraph.Decompose
 import Tgraph.Compose
@@ -212,9 +203,9 @@ drawForce g =
 drawSuperForce :: Renderable (Path V2 Double) b =>
                   Tgraph -> Diagram2D b
 drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
-    sfg = superForce g
     fg = force g
-    vp = makeVP $ superForce g
+    sfg = superForce fg
+    vp = makeVP $ sfg
     dfg = draw $ selectFacesVP vp (faces fg \\ faces g) -- restrictSmart (force g) draw vp
     dg = restrictSmart g draw vp
     dsfg = draw $ selectFacesVP vp (faces sfg \\ faces fg)
@@ -294,7 +285,6 @@ maxCompForce:: Tgraph -> Tgraph
 maxCompForce g | nullGraph g = g
                | otherwise = last $ allCompForce g
 
-
 -- |force after a decomposition
 forceDecomp:: Tgraph -> Tgraph
 forceDecomp = force . decompose
@@ -302,36 +292,6 @@ forceDecomp = force . decompose
 -- | allForceDecomps g - produces an infinite list of forced decompositions of g
 allForceDecomps:: Tgraph -> [Tgraph]
 allForceDecomps = iterate forceDecomp
-
-
--- |emplaceChoices forces then maximally composes. At this top level it
--- produces a list of forced choices for the unknowns.
--- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
--- This version relies on compForce theorem and related theorems
-emplaceChoices:: Tgraph -> [Tgraph]
-emplaceChoices g = emplaceChoices' $ force $ makeBoundaryState g
-
--- |emplaceChoices' bd - assumes bd is forced. It maximally composes. At this top level it
--- produces a list of forced choices for the unknowns.
--- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
--- This version relies on compForce theorem and related theorems
-emplaceChoices':: BoundaryState -> [Tgraph]
-emplaceChoices' startbd | nullGraph g' = recoverGraph <$> choices [startbd]
-                   | otherwise = forceDecomp <$> emplaceChoices' (makeBoundaryState g')
-  where   
-   g' = compose $ recoverGraph startbd
-   startunknowns = unknowns $ getDartWingInfo $ recoverGraph startbd
-   choices [] = []
-   choices (bd:bds) 
-        = case  startunknowns `intersect` unknowns (getDartWingInfo $ recoverGraph bd) of
-             [] -> bd:choices bds
-             (u:_) -> choices (atLeastOne (tryDartAndKiteForced (findDartLongForWing u bd) bd)++bds)
-   findDartLongForWing v bd 
-        = case find isDart (facesAtBV bd v) of
-            Just d -> longE d
-            Nothing -> error $ "emplaceChoices': dart not found for dart wing vertex " ++ show v
-
-
 
 {-| forcedBoundaryECovering g - produces a list of all boundary covers of force g, each of which
 extends force g to cover the entire boundary directed edges in (force g).
@@ -409,7 +369,7 @@ internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet b
 
                   
 -- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de a forcible b and then tries forcing. Each of the result is a Try.
+-- to edge de of a Forcible b and then tries forcing. Each of the results is a Try.
 tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try a]
 tryDartAndKiteForced de b = 
     [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $ 
@@ -419,7 +379,7 @@ tryDartAndKiteForced de b =
     ]
 
 -- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de of a Forcible b. Each of the result is a Try.
+-- to edge de of a Forcible b. Each of the results is a Try.
 tryDartAndKite:: Forcible a => Dedge -> a -> [Try a]
 tryDartAndKite de b = 
     [ onFail ("tryDartAndKite: Dart on edge: " ++ show de ++ "\n") $ 
