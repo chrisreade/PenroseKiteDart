@@ -78,7 +78,7 @@ Module `PKD` is the main module which imports and rexports `Tgraphs` and `TileLi
 `Tgraphs` imports and re-exports the contents of the other Tgraph modules, namely 
 `Tgraph.Compose`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Relabelling`, `Tgraph.Prelude`.
 `TileLib` contains underlying drawing tools for tiles.
-`Tgraph.Try` is imported and re-exported by `Tgraph.Prelude` - used for results of partial functions.
+`Try` is imported and re-exported by `Tgraph.Prelude` - used for results of partial functions.
 `HalfTile` is imported and re-exported by `Tgraph.Prelude` -  (with the constructors `LD`,`RD`,`LK`,`RK`).
 
 ## Further Information

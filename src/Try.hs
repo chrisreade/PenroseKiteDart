@@ -13,7 +13,7 @@ This is to allow computation to continue in failure cases without necessarily ra
 This module contains functions associated with Try results.
 -}
 
-module Tgraph.Try
+module Try
   ( -- * Try - result types with failure reporting (for partial operations).
   Try
   , onFail

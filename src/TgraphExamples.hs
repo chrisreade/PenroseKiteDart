@@ -86,6 +86,7 @@ module TgraphExamples
  , kingEmpiresFig
  , kingEmpire1Fig
  , kingEmpire2Fig
+    -- *  Emplace Choices
  , emplaceChoices
  , emplaceChoicesFig
  

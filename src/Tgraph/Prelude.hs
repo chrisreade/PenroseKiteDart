@@ -12,7 +12,7 @@ Conversion and drawing operations to produce Diagrams.
 The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint),
 touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing functions.
 
-This module re-exports module HalfTile and module Tgraph.Try.
+This module re-exports module HalfTile and module Try.
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
@@ -21,7 +21,7 @@ This module re-exports module HalfTile and module Tgraph.Try.
 
 module Tgraph.Prelude
   ( module HalfTile
-  , module Tgraph.Try
+  , module Try
     -- * Types for Tgraphs, Faces, Vertices, Directed Edges
   , Tgraph -- not Data Constructor
   , TileFace
@@ -36,7 +36,7 @@ module Tgraph.Prelude
   , tryMakeTgraph
   , tryCorrectTouchingVs
 --  , renumberFaces
-  , differing
+--  , differing
   , makeUncheckedTgraph
   , checkedTgraph
   , tryTgraphProps
@@ -184,7 +184,7 @@ import Diagrams.TwoD.Text (Text)
 
 import TileLib
 import HalfTile
-import Tgraph.Try
+import Try
 
 
 {---------------------
@@ -195,20 +195,20 @@ Tgraphs
 
 
 
--- $Types for Tgraphs, Vertices, Directed Edges, Faces
+-- Types for Tgraphs, Vertices, Directed Edges, Faces
 
--- |Tgraph vertices (must be positive)
+-- |Tgraph vertex labels (must be positive)
 type Vertex = Int
 -- | directed edge
 type Dedge = (Vertex,Vertex)
--- | Vertex Sets
+-- | Vertex label sets
 type VertexSet = IntSet.IntSet
 
--- |Tgraph faces  (vertices clockwise starting with tile origin vertex)
--- a specialisation of HalfTile
+-- |A TileFace is a HalfTile with 3 vertex labels (clockwise starting with the origin vertex).
+-- Usually referred to as a face.
 type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
--- |A Tgraph is a list of faces.
+-- |A Tgraph is a list of faces (TileFaces).
 -- All vertex labels should be positive, so 0 is not used as a vertex label.
 -- Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
 -- The data constructor Tgraph is not exported (but see also makeUncheckedTgraph).
@@ -221,14 +221,9 @@ data EdgeType = Short | Long | Join deriving (Show,Eq)
 -- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
 type VertexMap a = VMap.IntMap a
 
-{-------------------------------------------
-********************************************
-Basic Tgraph, vertex, edge, face operations
-********************************************
---------------------------------------------}
 
-{-*
-Tgraphs and Property Checking
+{-
+Tgraphs Property Checking
 -}
 
 {-|
@@ -243,7 +238,7 @@ makeTgraph fcs = runTry $ onFail "makeTgraph: (failed):\n" $ tryMakeTgraph fcs
 {-|
 tryMakeTgraph performs the same checks for Tgraph properties as tryTgraphProps but in addition
 it also checks that there are no touching vertices (distinct labels for the same vertex)
-using Tgraph.Convert.touchingVertices (which calculates vertex locations).
+using touchingVertices (which calculates vertex locations).
 It produces Left ... if either check fails and Right g otherwise where g is the Tgraph.
 Note that the other Tgraph properties are checked first, to ensure that calculation of 
 vertex locations can be done.
@@ -282,38 +277,32 @@ renumberFaces prs = fmap renumberFace where
     renumberFace = fmap (all3 renumber)
     all3 f (a,b,c) = (f a,f b,f c)
     renumber v = VMap.findWithDefault v v mapping
+    differing = filter $ uncurry (/=)
  
--- |selects only non-matching pairs from a list
-differing :: Eq a => [(a,a)] -> [(a,a)]
-differing = filter (\(a,b) -> a/=b)
-
-
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. Use makeTgraph (defined in Tgraphs module) or checkedTgraph to perform checks.
 -- This is intended for use only when checks are known to be redundant (the data constructor Tgraph is hidden).
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph fcs = Tgraph fcs
 
-{-| Creates a Tgraph from a list of faces AND checks for edge loops, edge conflicts and
-crossing boundaries and connectedness and legal tiling with tryTgraphProps.
-(No crossing boundaries and connected implies tile-connected).
-Produces an error if a check fails.
+{-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
+and producing an error if a check fails.
 
 Note: This does not check for touching vertices (distinct labels for the same vertex).
-To perform this additional check use makeTgraph (defined in Tgraphs module) which also calls tryTgraphProps.
+To perform this additional check use makeTgraph which also uses tryTgraphProps.
 -}
 checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph = runTry . onFail report . tryTgraphProps
  where report = "checkedTgraph: Failed\n"  -- ++ " for faces: " ++ show fcs ++ "\n"
 
 
-{- | Checks a list of faces to avoid: 
-    edge loops,
-    edge conflicts (same directed edge on two or more faces),
-    illegal tilings (breaking legal rules for tiling),
-    vertices not all >0 ,
-    crossing boundaries, and 
-    non-connectedness.
+{- | Checks a list of faces to ensure: 
+    no edge loops,
+    no edge conflicts (same directed edge on two or more faces),
+    legal tiling (obeys rules for legal tiling),
+    all vertex labels >0 ,
+    no crossing boundaries, and 
+    connectedness.
 
 Returns Right g where g is a Tgraph on passing checks.
 Returns Left lines if a test fails, where lines describes the problem found.
@@ -347,11 +336,11 @@ tryConnectedNoCross fcs
                                   ++ "\nwith faces\n" ++ show fcs
   | otherwise            = Right (Tgraph fcs)
 
--- |Returns any repeated vertices in a single tileface for a list of tilefaces.
+-- |Returns any repeated vertices within each TileFace for a list of TileFaces.
 findEdgeLoops:: [TileFace] -> [Vertex]
 findEdgeLoops = concatMap (duplicates . faceVList)
 
--- |Checks if there are repeated vertices within a tileface for a list of tilefaces.
+-- |Checks if there are repeated vertices within any TileFace for a list of TileFaces.
 -- Returns True if there are any.
 hasEdgeLoops:: [TileFace] -> Bool
 hasEdgeLoops = not . null . findEdgeLoops
@@ -538,7 +527,7 @@ removeFaces fcs g = runTry $ tryConnectedNoCross $ faces g \\ fcs
 removeVertices :: [Vertex] -> Tgraph -> Tgraph
 removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
 
--- |selectVertices vs g - removes any face that does not have a vertex in the list vs from g.
+-- |selectVertices vs g - removes any face that does not have at least one vertex in the list vs from g.
 -- Resulting Tgraph is checked
 -- for required properties  e.g. connectedness and no crossing boundaries.
 selectVertices :: [Vertex] -> Tgraph -> Tgraph
@@ -675,7 +664,10 @@ hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
 
 {- $Edges
-Edges: (a,b) is regarded as a directed edge from a to b.
+Representing Edges:
+
+For vertices a and b, (a,b) is regarded as a directed edge from a to b (a Dedge).
+
 A list of such pairs will usually be regarded as a list of directed edges.
 In the special case that the list is symmetrically closed [(b,a) is in the list whenever (a,b) is in the list]
 we will refer to this as an edge list rather than a directed edge list.                  
@@ -1112,11 +1104,12 @@ drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
 
 
 
-{-| locateVertices: processes a list of faces to associate points for each vertex.
+{-| locateVertices: processes a list of faces to associate points for each vertex using a default scale and orientation.
+The default scale is 1 unit for short edges (phi units for long edges).
 It aligns the lowest numbered join of the faces on the x-axis, and returns a vertex-to-point Map.
 It will raise an error if faces are not connected.
 If faces have crossing boundaries (i.e not locally tile-connected), this could raise an error
-or a result with touching vertices (i.e. more than one vertex with the same location).
+or a result with touching vertices (i.e. more than one vertex label with the same location).
 -}
 locateVertices:: [TileFace] -> VertexLocMap
 --  This version is made more efficient by calculating an edge to face map
@@ -1154,7 +1147,7 @@ addVPoint face vpMap =
     Just (v,p) -> VMap.insert v p vpMap
     Nothing -> vpMap
 
--- |axisJoin face 
+-- |axisJoin face - 
 -- initialises a vertex to point mapping with locations for the join edge vertices of face
 -- with originV face at the origin and aligned along the x axis with unit length for a half dart
 -- and length phi for a half kite. (Used to initialise locateVertices)
@@ -1213,10 +1206,10 @@ thirdVertexLoc face@(RK _) vpMap = case find3Locs (faceVs face) vpMap of
 
 
 {-| 
-touchingVertices checks that no vertices are too close to each other using locateVertices.
-If vertices are too close that indicates we may have different vertex numbers at the same location
+touchingVertices finds if any vertices are too close to each other using locateVertices.
+If vertices are too close that indicates we may have different vertex labels at the same location
 (the touching vertex problem). 
-It returns pairs of vertices that are too close (higher number first in each pair)
+It returns pairs of vertices that are too close with higher number first in each pair, and no repeated first numbers.
 An empty list is returned if there are no touching vertices.
 Complexity has order of the square of the number of vertices.
                            
@@ -1224,17 +1217,15 @@ This is used in makeTgraph and fullUnion (via correctTouchingVertices).
 -}
 touchingVertices:: [TileFace] -> [(Vertex,Vertex)]
 touchingVertices fcs = check vpAssoc where
-  vpAssoc = VMap.assocs $ locateVertices fcs  -- assocs puts in key order so that check returns (higher,lower) pairs
+  vpAssoc = VMap.assocs $ locateVertices fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
   check [] = []
   check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ check (filter ((`notElem` nearv).fst) more)
                         where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
--- check ((v,p):more) = [(v1,v) | (v1,p1) <- more, touching p p1 ] ++ check more
--- does not correctly deal with 3 or more vertices touching at the same point
 
 {-|touching checks if two points are considered close.
 Close means the square of the distance between them is less than a certain number (currently 0.1) so they cannot be
 vertex locations for 2 different vertices in a VPatch using unit scale for short edges.
-It is used in touchingVertices and touchingVerticesGen).
+It is used in touchingVertices and touchingVerticesGen and Force.touchCheck).
 -}
 touching :: Point V2 Double -> Point V2 Double -> Bool
 touching p p1 = quadrance (p .-. p1) < 0.1 -- quadrance is square of length of a vector

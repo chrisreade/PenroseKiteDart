@@ -41,7 +41,6 @@ module Tgraph.Relabelling
   , prepareFixAvoid
   , relabelContig
     --  * Renumbering (not necessarily 1-1)
---  , renumberFaces
 --  , tryMatchFace
 --  , twoVMatch
 --  , matchFaceIgnore
@@ -353,19 +352,6 @@ relabelContig g = relabelGraph rlab g where
    rlab = relabellingFrom 1 (vertexSet g)
   -- assert: rlab is 1-1 on the vertices of g
   -- assert: the relabelled Tgraph satisfies Tgraph properties (if g does)
- 
-
-{-
--- |renumberFaces allows for a non 1-1 relabelling represented by a list of pairs.
--- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result 
-renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
-renumberFaces prs = fmap renumberFace where
-    mapping = VMap.fromList $ differing prs
-    renumberFace = fmap (all3 renumber)
-    all3 f (a,b,c) = (f a,f b,f c)
-    renumber v = VMap.findWithDefault v v mapping
- -}
-
                      
 {-|
 tryMatchFace f g - looks for a face in g that corresponds to f (sharing a directed edge),
@@ -399,6 +385,10 @@ matchFaceIgnore:: TileFace -> Tgraph -> Maybe TileFace
 matchFaceIgnore face g = case tryMatchFace face g of
    Right mf -> mf
    Left _   -> Nothing
-   
+
+-- |selects the non-equal pairs from a list
+differing :: Eq a => [(a,a)] -> [(a,a)]
+differing = filter $ uncurry (/=) -- (\(a,b) -> a/=b)
+
 
 

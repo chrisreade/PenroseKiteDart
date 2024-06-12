@@ -1,5 +1,5 @@
 name:                PenroseKiteDart
-version:             1.0.1
+version:             1.1.0
 github:              "chrisreade/PenroseKiteDart"
 license:             BSD3
 author:              "Chris Reade"
@@ -39,13 +39,13 @@ library:
     - PKD
     - HalfTile
     - TileLib
+    - Try
     - Tgraphs
     - Tgraph.Prelude
     - Tgraph.Decompose
     - Tgraph.Compose
     - Tgraph.Force
     - Tgraph.Relabelling
-    - Tgraph.Try
     - TgraphExamples
 tests:
   PenroseKiteDart-test:

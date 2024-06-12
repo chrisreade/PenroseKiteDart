@@ -1,17 +1,32 @@
 # Revision history for PenroseKiteDart
 
 
-## 1.0.1 -- 2024-05-28
+## 1.1.0 -- 2024-06-12
 
-moved makeTgraph to Tgraph.Prelude
-moved emplaceChoices to TgraphExamples and added example
-added graphBoundaryVs to Tgraph.Prelude
-added lower limit on dash sizes for join edges (in dashjOnly)
+No longer exported: differing, changeVFMap, affectedBoundary.
+
+Moved makeTgraph to Tgraph.Prelude.
+
+Moved emplaceChoices to TgraphExamples and added example.
+
+Moved module Tgraph.Try out of Tgraph (so now module Try).
+
+Added graphBoundaryVs to Tgraph.Prelude.
+
+Added uppper limit on dash sizes for join edges (in dashjOnly).
+
+Made ForceState an instance of Show.
+
+Improved haddock comments in Tgraph.Force.
+
+tryStepForceWith now raises an error for negative number of steps.
 
 ## 1.0.0 -- 2024-04-08
 
 Release candidate: 
+
 Added upper bounds on dependencies
+
 Added new drawEmpire and changed drawEmpire1, drawEmpire2 to showEmpire1, showEmpire2
 
 ## 0.10.0.0 -- 2024-04-1
