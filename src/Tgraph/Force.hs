@@ -52,7 +52,7 @@ module Tgraph.Force
   , facesAtBV
   , boundaryFaces
     -- *  Auxiliary Functions for a force step
---  , affectedBoundary  -- Now HIDDEN
+  , affectedBoundary
 --  , mustFind
   , tryReviseUpdates
   , tryReviseFSWith
@@ -487,11 +487,12 @@ data BoundaryChange = BoundaryChange
                        , newFace :: TileFace -- ^ face added in the change
                        } deriving (Show)
 
-{-| Given a BoundaryState with a list of one new boundary edge or
-     two adjacent new boundary edges (or exceptionally no new boundary edges) to be added,
+{-| Given a BoundaryState with a list of one boundary edge or
+     two adjacent boundary edges (or exceptionally no boundary edges),
      it extends the list with adjacent boundary edges (to produce 3 or 4 or none).
-     (Used to calculate revisedEdges in a BoundaryChange)
-     (When a face is fitted in to a hole with 3 sides there is no new boundary.)
+     It will raise an error if given more than 2 or 2 non-adjacent boundary edges.
+     (Used to calculate revisedEdges in a BoundaryChange.
+     (N.B. When a new face is fitted in to a hole with 3 sides there is no new boundary. Hence the need to allow for an empty list.)
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bd [(a,b)] = [(x,a),(a,b),(b,y)] where
@@ -507,15 +508,16 @@ affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
            (x,_) = mustFind ((==c).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show c ++ "\n")
            (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b ++ "\n")
 affectedBoundary _ [] = []
-affectedBoundary _ edges = error $ "affectedBoundary: unexpected new boundary edges " ++ show edges ++ "\n"
+affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges " ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
 
 {-| mustFind is an auxiliary function used to search with definite result.
-mustFind p ls err returns the first item in ls satisfying predicate p and returns
-err argument when none found (in finite cases).    
+mustFind p ls default returns the first item in ls satisfying predicate p and returns
+default argument when none found (in finite cases).
+Special case: the default arg may be used to raise an error when nothing is found.
 -}
 mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
-mustFind p ls err
-  = maybe err id (find p ls)
+mustFind p ls dflt
+  = maybe dflt id (find p ls)
 
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.

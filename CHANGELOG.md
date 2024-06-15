@@ -3,7 +3,7 @@
 
 ## 1.1.0 -- 2024-06-12
 
-No longer exported: differing, changeVFMap, affectedBoundary.
+No longer exported: differing, changeVFMap.
 
 Moved makeTgraph to Tgraph.Prelude.
 
