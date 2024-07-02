@@ -381,9 +381,9 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 
 boundaryFDart4, boundaryFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph (dartDs!!4)
-boundaryFDart4 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
+boundaryFDart4 = makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
 -- |graph of the boundary faces only of a forced graph (dartDs!!5)
-boundaryFDart5 = checkedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
+boundaryFDart5 = makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
 
 boundaryFDart4Fig,boundaryFDart5Fig :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => Diagram2D b
 -- |figure of the boundary faces only of a forced graph (dartDs!!4).

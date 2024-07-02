@@ -51,6 +51,7 @@ module Tgraph.Force
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
   , boundaryFaces
+  , boundaryFaceGraph
     -- *  Auxiliary Functions for a force step
   , affectedBoundary
 --  , mustFind
@@ -224,6 +225,9 @@ boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
 -- boundaryFaces = nub . concat . VMap.elems . bvFacesMap 
 -- relies on the map containing no extra info for non boundary vertices
 
+-- |Creates a new Tgraph from all faces with a boundary vertex in a Tgraph. (Necessarily connected with no crossing boundaries)
+boundaryFaceGraph :: Tgraph -> Tgraph
+boundaryFaceGraph = makeUncheckedTgraph . boundaryFaces . makeBoundaryState
 
 
 -- |An Update is either safe or unsafe.

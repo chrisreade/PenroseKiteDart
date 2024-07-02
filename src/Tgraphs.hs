@@ -588,7 +588,6 @@ pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!
     locateLoop pts = (`at` head pts) $ glueTrail $ trailFromVertices pts
 
 
-
 -- * TrackedTgraphs
 
 {-|

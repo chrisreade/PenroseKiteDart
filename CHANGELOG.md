@@ -21,6 +21,8 @@ Improved haddock comments in Tgraph.Force.
 
 tryStepForceWith now raises an error for negative number of steps.
 
+Added boundaryFaceGraph to Tgraph.Force.
+
 ## 1.0.0 -- 2024-04-08
 
 Release candidate: 
