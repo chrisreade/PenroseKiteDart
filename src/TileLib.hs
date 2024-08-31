@@ -148,7 +148,7 @@ drawPiece :: Renderable (Path V2 Double) b =>
              Piece -> Diagram2D b
 drawPiece = strokeLine . fromOffsets . pieceEdges
 
--- |same as drawPiece but with join edge added as dashed-line.
+-- |same as drawPiece but with join edge added as faint dashed line.
 -- 
 -- When a specific Backend B is in scope, dashjPiece:: Piece -> Diagram B
 dashjPiece :: Renderable (Path V2 Double) b =>
@@ -156,14 +156,14 @@ dashjPiece :: Renderable (Path V2 Double) b =>
 dashjPiece piece = drawPiece piece <> dashjOnly piece
 
 
--- |draw join edge only (as dashed line).
+-- |draw join edge only (as faint dashed line).
 -- 
 -- When a specific Backend B is in scope, dashjOnly:: Piece -> Diagram B
 dashjOnly :: Renderable (Path V2 Double) b =>
              Piece -> Diagram2D b
 -- dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lw ultraThin -- # lc grey 
 dashjOnly piece = drawJoin piece # dashing [dashmeasure,dashmeasure] 0 # lw ultraThin
-                  where dashmeasure = normalized 0.005  `atMost` output 2.0
+                  where dashmeasure = normalized 0.003  `atLeast` output 0.5
 
 -- |same as drawPiece but with added join edge (also fillable as a loop).
 -- 

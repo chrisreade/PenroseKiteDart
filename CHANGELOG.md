@@ -13,7 +13,7 @@ Moved module Tgraph.Try out of Tgraph (so now module Try).
 
 Added graphBoundaryVs to Tgraph.Prelude.
 
-Added uppper limit on dash sizes for join edges (in dashjOnly).
+Changed dash sizes for join edges (in dashjOnly).
 
 Made ForceState an instance of Show.
 
