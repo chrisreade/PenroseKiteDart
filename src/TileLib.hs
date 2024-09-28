@@ -133,7 +133,6 @@ wholeTileEdges (RD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (
 wholeTileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (RK v))
 wholeTileEdges (RK v) = wholeTileEdges (LK v)
 
-
 -- | Abbreviation for 2D diagrams for any Backend b.
 type Diagram2D b = QDiagram b V2 Double Any
 

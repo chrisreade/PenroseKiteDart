@@ -465,14 +465,14 @@ kingEmpire2Fig = showEmpire2 kingGraph
 
 -- |emplaceChoices forces then maximally composes. At this top level it
 -- produces a list of forced choices for each of the unknowns of this top level Tgraph.
--- It then repeatedly forceDecomps back to the starting level to return a list of Tgraphs.
+-- It then repeatedly applies (force . decompose) back to the starting level to return a list of Tgraphs.
 -- This version relies on compForce theorem and related theorems
 emplaceChoices:: Tgraph -> [Tgraph]
 emplaceChoices g = emplaceChoicesForced $ recoverGraph $ force $ makeBoundaryState g where
 
   emplaceChoicesForced:: Tgraph -> [Tgraph]
   emplaceChoicesForced g0 | nullGraph g' = chooseUnknowns [(unknowns $ getDartWingInfo g0, g0)]
-                          | otherwise    = forceDecomp <$> emplaceChoicesForced g'
+                          | otherwise    = (force . decompose) <$> emplaceChoicesForced g'
                           where g' = compose g0
 
   chooseUnknowns :: [([Vertex],Tgraph)] -> [Tgraph]

@@ -45,7 +45,7 @@ module Tgraphs
   , compForce
   , allCompForce
   , maxCompForce
-  , forceDecomp
+--  , forceDecomp
   , allForceDecomps
     -- * Boundary Covering and Empires
   , forcedBoundaryECovering
@@ -69,6 +69,8 @@ module Tgraphs
   , superForce
   , trySuperForce
   , singleChoiceEdges
+    -- * Boundary face graph
+  , tryBoundaryFaceGraph 
     -- * Boundary loops
   , boundaryLoopsG
   , boundaryLoops
@@ -262,17 +264,16 @@ composeK g = runTry $ tryConnectedNoCross newfaces where
     compositions = composedFaceGroups changedInfo
     newfaces = map fst compositions
 
--- |compForce does a force then compose.
--- It omits the check for connected, and no crossing boundaries because the argument is forced first.
+-- |compForce is semantically equivalent to (compose . force), i.e it does a force then compose (raising an error if the force fails with an incorrect Tgraph).
+-- However it is more efficient because it omits the check for connected, and no crossing boundaries.
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
--- It may raise an error if the initial force fails with an incorrect Tgraph.
+-- (We also have a proof that the result must be a forced Tgraph when the initial force succeeds.)
 compForce:: Tgraph -> Tgraph
 compForce = uncheckedCompose . force 
         
--- |allCompForce g produces a list of the non-null iterated forced compositions of g.
+-- |allCompForce g produces a list of the non-null iterated (forced) compositions of force g.
 -- It will raise an error if the initial force fails with an incorrect Tgraph.
--- The list will be [] if g is the emptyTgraph.
--- The list will be [force g] if the first composition of force g is the emptyTgraph but g is not the emptyTgraph.
+-- The list will be [] if g is the emptyTgraph, otherwise the list begins with force g (when the force succeeds).
 -- The definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
 allCompForce:: Tgraph -> [Tgraph]
@@ -285,13 +286,16 @@ maxCompForce:: Tgraph -> Tgraph
 maxCompForce g | nullGraph g = g
                | otherwise = last $ allCompForce g
 
--- |force after a decomposition
+{-
+-- |force after a decomposition (raising an error if the force fails with an incorrect Tgraph)
 forceDecomp:: Tgraph -> Tgraph
 forceDecomp = force . decompose
+-}
 
--- | allForceDecomps g - produces an infinite list of forced decompositions of g
+-- | allForceDecomps g - produces an infinite list (starting with g) 
+-- of forced decompositions of g (raising an error if a force fails with an incorrect Tgraph).
 allForceDecomps:: Tgraph -> [Tgraph]
-allForceDecomps = iterate forceDecomp
+allForceDecomps = iterate (force . decompose)
 
 {-| forcedBoundaryECovering g - produces a list of all boundary covers of force g, each of which
 extends force g to cover the entire boundary directed edges in (force g).
@@ -535,6 +539,11 @@ singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary
                      id
                      (faceForEdge e efmap)
       
+-- |Tries to create a new Tgraph from all faces with a boundary vertex in a Tgraph.
+-- The resulting faces could have a crossing boundary and also could be disconnected if there is a hole in the starting Tgraph
+-- so these conditions are checked for, producing a Try result.
+tryBoundaryFaceGraph :: Tgraph -> Try Tgraph
+tryBoundaryFaceGraph = tryConnectedNoCross . boundaryFaces . makeBoundaryState
 
 
 -- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
@@ -691,8 +700,8 @@ drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList
     To draw a TrackedTgraph rotated.
     Same as drawTrackedTgraph but with additional angle argument for the rotation.
     This is useful when labels are being drawn.
-    The angle argument is used to rotate the common vertex location map before drawing
-    (to ensure labels are not rotated).
+    The angle argument is used to rotate the common vertex location map (anticlockwise) before drawing
+    to ensure labels are not rotated.
 
     When a specific Backend B is in scope, drawTrackedTgraphRotated:: [VPatch -> Diagram B] -> Angle Double -> TrackedTgraph -> Diagram B
 -}
@@ -704,8 +713,8 @@ drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawLi
 
 {-|
     To draw a TrackedTgraph aligned.
-    Same as drawTrackedTgraph but with additional vertex pair argument for the (x-axis) aligment.
-    This is useful for when labels are being drawn.
+    Same as drawTrackedTgraph but with additional vertex pair argument for the (x-axis) alignment.
+    This is useful when labels are being drawn.
     The vertex pair argument is used to align the common vertex location map before drawing
     (to ensure labels are not rotated).
     This will raise an error if either of the pair of vertices is not a vertex of (the tgraph of) the TrackedTgraph

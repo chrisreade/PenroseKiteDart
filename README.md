@@ -10,7 +10,7 @@ See LICENSE file
 
 Penrose\'s kite and dart tiles have the property that they can tile the entire plane aperiodicly.
 There are rules to ensure legal tilings with the kites and darts.
-Tilings can still get stuck (so cannot be continued to cover the entire plane) - these are called incorrect.
+Legal tilings can still get stuck (so cannot be continued to cover the entire plane) - these are called incorrect.
 
 This package is a Haskell library of tools to build, draw and explore finite tilings with kites and darts, making use of the 
 Haskell Diagrams package.
@@ -74,7 +74,7 @@ To produce a diagram, we simply draw the `Tgraph`
 
 ## Modules
 
-Module `PKD` is the main module which imports and rexports `Tgraphs` and `TileLib`.
+Module `PKD` is the main module which imports and re-exports `Tgraphs` and `TileLib`.
 `Tgraphs` imports and re-exports the contents of the other Tgraph modules, namely 
 `Tgraph.Compose`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Relabelling`, `Tgraph.Prelude`.
 `TileLib` contains underlying drawing tools for tiles.

@@ -3,25 +3,22 @@
 
 ## 1.1.0 -- 2024-06-12
 
-No longer exported: differing, changeVFMap.
+No longer exported: differing, changeVFMap, forcedDecomp (= force . decompose).
 
 Moved makeTgraph to Tgraph.Prelude.
-
 Moved emplaceChoices to TgraphExamples and added example.
-
 Moved module Tgraph.Try out of Tgraph (so now module Try).
 
-Added graphBoundaryVs to Tgraph.Prelude.
+tryStepForceWith now raises an error for negative number of steps.
 
-Changed dash sizes for join edges (in dashjOnly).
+Added graphBoundaryVs to Tgraph.Prelude.
+Added tryBoundaryFaceGraph to Tgraphs
 
 Made ForceState an instance of Show.
 
 Improved haddock comments in Tgraph.Force.
 
-tryStepForceWith now raises an error for negative number of steps.
-
-Added boundaryFaceGraph to Tgraph.Force.
+Changed dash sizes for join edges (in dashjOnly).
 
 ## 1.0.0 -- 2024-04-08
 

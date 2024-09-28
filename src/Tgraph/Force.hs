@@ -51,7 +51,6 @@ module Tgraph.Force
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
   , boundaryFaces
-  , tryBoundaryFaceGraph
     -- *  Auxiliary Functions for a force step
   , affectedBoundary
 --  , mustFind
@@ -224,13 +223,6 @@ boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
     bvs = fmap fst $ boundary bd
 -- boundaryFaces = nub . concat . VMap.elems . bvFacesMap 
 -- relies on the map containing no extra info for non boundary vertices
-
--- |Tries to create a new Tgraph from all faces with a boundary vertex in a Tgraph.
--- The resulting faces could be disconnected or have a crossing boundary if there is a hole in the starting Tgraph
--- so this is checked to produce a Try result.
-tryBoundaryFaceGraph :: Tgraph -> Try Tgraph
-tryBoundaryFaceGraph = tryConnectedNoCross . boundaryFaces . makeBoundaryState
-
 
 -- |An Update is either safe or unsafe.
 -- A safe update has a new face involving 3 existing vertices.
