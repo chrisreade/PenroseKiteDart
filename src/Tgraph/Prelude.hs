@@ -180,7 +180,7 @@ import Data.Maybe (mapMaybe) -- edgeNbrs
 import qualified Data.Set as Set  (fromList,member,null,delete)-- used for locateVertices
 
 import Diagrams.Prelude hiding (union,mapping)
-import Diagrams.TwoD.Text (Text)
+-- import Diagrams.TwoD.Text (Text)
 
 import TileLib
 import HalfTile
@@ -982,11 +982,9 @@ instance Drawable Tgraph where
 -- So labelColourSize c m  modifies a Patch drawing function to add labels (of colour c and size measure m).
 -- Measures are defined in Diagrams. In particular: tiny, verySmall, small, normal, large, veryLarge, huge.
 class DrawableLabelled a where
--- | When a specific Backend B is in scope, 
---
 -- labelColourSize :: DrawableLabelled a => Colour Double -> Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
-  labelColourSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b) => 
-                     Colour Double -> Measure Double -> (Patch -> Diagram2D b) -> a -> Diagram2D b
+  labelColourSize :: OKBackend b => 
+                     Colour Double -> Measure Double -> (Patch -> Diagram b) -> a -> Diagram b
 -- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
 
 
@@ -1001,17 +999,13 @@ instance DrawableLabelled Tgraph where
   labelColourSize c r d = labelColourSize c r d . makeVP
 
 -- | Default Version of labelColourSize with colour red. Example usage: labelSize tiny draw a , labelSize normal drawj a
---
--- When a specific Backend B is in scope, labelSize :: DrawableLabelled a => Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
-labelSize :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
-             Measure Double -> (Patch -> Diagram2D b) -> a -> Diagram2D b
+labelSize :: (OKBackend b, DrawableLabelled a) => 
+             Measure Double -> (Patch -> Diagram b) -> a -> Diagram b
 labelSize = labelColourSize red
 
 -- | Default Version of labelColourSize using red and small (rather than normal label size). Example usage: labelled draw a , labelled drawj a
---
--- When a specific Backend B is in scope, labelled :: DrawableLabelled a => (Patch -> Diagram B) -> a -> Diagram B
-labelled :: (Renderable (Path V2 Double) b, Renderable (Text Double) b, DrawableLabelled a) => 
-            (Patch -> Diagram2D b) -> a -> Diagram2D b
+labelled :: (OKBackend b, DrawableLabelled a) => 
+            (Patch -> Diagram b) -> a -> Diagram b
 labelled = labelColourSize red small --(normalized 0.023)
 
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
@@ -1070,34 +1064,26 @@ makeAlignedVP = alignBefore id
 
 -- |produce a diagram of a list of edges (given a VPatch)
 -- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
---
--- When a specific Backend B is in scope, drawEdgesVP :: VPatch -> [Dedge] -> Diagram B
-drawEdgesVP :: Renderable (Path V2 Double) b =>
-               VPatch -> [Dedge] -> Diagram2D b
+drawEdgesVP :: OKBackend b =>
+               VPatch -> [Dedge] -> Diagram b
 drawEdgesVP = drawEdges . vLocs --foldMap (drawEdgeVP vp)
 
 -- |produce a diagram of a single edge (given a VPatch)
 -- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
---
--- When a specific Backend B is in scope, drawEdgeVP :: VPatch -> Dedge -> Diagram B
-drawEdgeVP:: Renderable (Path V2 Double) b =>
-               VPatch -> Dedge -> Diagram2D b
+drawEdgeVP:: OKBackend b =>
+               VPatch -> Dedge -> Diagram b
 drawEdgeVP = drawEdge . vLocs
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
 -- Will raise an error if any vertex of the edges is not a key in the mapping.
---
--- When a specific Backend B is in scope, drawEdges :: VertexLocMap -> [Dedge] -> Diagram B
-drawEdges :: Renderable (Path V2 Double) b =>
-             VertexLocMap -> [Dedge] -> Diagram2D b
+drawEdges :: OKBackend b =>
+             VertexLocMap -> [Dedge] -> Diagram b
 drawEdges = foldMap . drawEdge
 
 -- |produce a diagram of a single edge (given a mapping of vertices to locations).
 -- Will raise an error if either vertex of the edge is not a key in the mapping.
---
--- When a specific Backend B is in scope, drawEdge :: VertexLocMap -> Dedge -> Diagram B
-drawEdge :: Renderable (Path V2 Double) b =>
-            VertexLocMap -> Dedge -> Diagram2D b
+drawEdge :: OKBackend b =>
+            VertexLocMap -> Dedge -> Diagram b
 drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error $ "drawEdge: location not found for one or both vertices "++ show(a,b) ++ "\n"
