@@ -116,10 +116,8 @@ import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lo
 -- smart (labelled draw) g
 --
 -- smart (labelSize normal draw) g
---
---  When a specific Backend B is in scope, smart :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
-smart :: Renderable (Path V2 Double) b => 
-         (VPatch -> Diagram2D b) -> Tgraph -> Diagram2D b
+smart :: OKBackend b => 
+         (VPatch -> Diagram b) -> Tgraph -> Diagram b
 smart dr g = drawJoinsFor (boundaryJoinFaces g) vp <> dr vp
   where vp = makeVP g
 
@@ -130,25 +128,19 @@ boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
     bdry = makeBoundaryState g
 
 -- |given a list of faces and a VPatch with suitable locations, draw just the dashed joins for those faces.
--- 
---  When a specific Backend B is in scope,  drawJoinsFor:: [TileFace] -> VPatch -> Diagram B
-drawJoinsFor::  Renderable (Path V2 Double) b => 
-                [TileFace] -> VPatch -> Diagram2D b
+drawJoinsFor::  OKBackend b => 
+                [TileFace] -> VPatch -> Diagram b
 drawJoinsFor fcs vp = drawWith dashjOnly (subVP vp fcs)
 
 -- |same as draw except adding dashed lines on boundary join edges. 
--- 
---  When a specific Backend B is in scope,  smartdraw :: Tgraph -> Diagram B
-smartdraw :: Renderable (Path V2 Double) b => Tgraph -> Diagram2D b
+smartdraw :: OKBackend b => Tgraph -> Diagram b
 smartdraw = smart draw
 
 -- |restrictSmart g dr vp - assumes vp has locations for vertices in g.
 -- It uses the VPatch drawing function dr to draw g and adds dashed boundary joins.
 -- This can be used instead of smart when an appropriate vp is already available.
--- 
---  When a specific Backend B is in scope, restrictSmart:: Tgraph -> (VPatch -> Diagram B) -> VPatch -> Diagram B
-restrictSmart :: Renderable (Path V2 Double) b =>
-                 Tgraph -> (VPatch -> Diagram2D b) -> VPatch -> Diagram2D b
+restrictSmart :: OKBackend b =>
+                 Tgraph -> (VPatch -> Diagram b) -> VPatch -> Diagram b
 restrictSmart g dr vp = drawJoinsFor (boundaryJoinFaces g) rvp <> dr rvp
                         where rvp = restrictVP vp $ faces g
 
@@ -156,30 +148,24 @@ restrictSmart g dr vp = drawJoinsFor (boundaryJoinFaces g) rvp <> dr rvp
 -- Uses vfun to produce a Diagram after converting g to a rotated VPatch but also adds the dashed boundary join edges of g.
 --
 -- Example: smartRotateBefore (labelled draw) angle g
---
---  When a specific Backend B is in scope,  smartRotateBefore::  (VPatch -> Diagram B) -> Angle Double -> Tgraph -> Diagram B
-smartRotateBefore :: Renderable (Path V2 Double) b =>
-                     (VPatch -> Diagram2D b) -> Angle Double -> Tgraph -> Diagram2D b
+smartRotateBefore :: OKBackend b =>
+                     (VPatch -> Diagram b) -> Angle Double -> Tgraph -> Diagram b
 smartRotateBefore vfun angle g = rotateBefore (restrictSmart g vfun) angle g
 
 -- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with alignBefore.
 -- Uses vfun to produce a Diagram after converting g to n aligned VPatch but also adds the dashed boundary join edges of g.
 -- 
 -- Example: smartAlignBefore (labelled draw) (a,b) g
---
---  When a specific Backend B is in scope,  smartAlignBefore::  (VPatch -> Diagram B) -> (Vertex,Vertex) -> Tgraph -> Diagram B
-smartAlignBefore :: Renderable (Path V2 Double) b =>
-                    (VPatch -> Diagram2D b) -> (Vertex,Vertex) -> Tgraph -> Diagram2D b
+smartAlignBefore :: OKBackend b =>
+                    (VPatch -> Diagram b) -> (Vertex,Vertex) -> Tgraph -> Diagram b
 smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
 
 
 
 -- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
--- 
---  When a specific Backend B is in scope,  drawPCompose ::  Tgraph -> Diagram B
-drawPCompose :: Renderable (Path V2 Double) b =>
-                Tgraph -> Diagram2D b
+drawPCompose :: OKBackend b =>
+                Tgraph -> Diagram b
 drawPCompose g = 
     restrictSmart g' draw vp
     <> drawj (subVP vp remainder) # lw medium # lc lime
@@ -188,10 +174,8 @@ drawPCompose g =
 
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g
 -- It adds dashed join edges on the boundary of g
--- 
---  When a specific Backend B is in scope,  drawForce:: Tgraph -> Diagram B
-drawForce :: Renderable (Path V2 Double) b =>
-             Tgraph -> Diagram2D b
+drawForce :: OKBackend b =>
+             Tgraph -> Diagram b
 drawForce g = 
     restrictSmart g draw vp # lc red # lw medium 
     <> draw vp
@@ -200,10 +184,8 @@ drawForce g =
 -- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
 -- overlaid on superForce g in blue.
 -- It adds dashed join edges on the boundary of g.
--- 
---  When a specific Backend B is in scope,  drawSuperForce:: Tgraph -> Diagram B
-drawSuperForce :: Renderable (Path V2 Double) b =>
-                  Tgraph -> Diagram2D b
+drawSuperForce :: OKBackend b =>
+                  Tgraph -> Diagram b
 drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     fg = force g
     sfg = superForce fg
@@ -214,10 +196,8 @@ drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
 
 -- | drawWithMax g - draws g and overlays the maximal composition of force g in red.
 -- This relies on g and all compositions of force g having vertices in force g.
--- 
---  When a specific Backend B is in scope, drawWithMax :: Tgraph -> Diagram B
-drawWithMax :: Renderable (Path V2 Double) b =>
-              Tgraph -> Diagram2D b
+drawWithMax :: OKBackend b =>
+              Tgraph -> Diagram b
 drawWithMax g =  (dmax # lc red # lw medium) <> dg where
     vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
     dg = restrictSmart g draw vp
@@ -225,27 +205,21 @@ drawWithMax g =  (dmax # lc red # lw medium) <> dg where
     dmax = draw $ subVP vp (faces maxg)
 
 -- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with f).
--- 
---  When a specific Backend B is in scope,  addBoundaryAfter :: (VPatch -> Diagram B) -> Tgraph -> Diagram B
-addBoundaryAfter :: Renderable (Path V2 Double) b =>
-                    (VPatch ->  Diagram2D b) -> Tgraph ->  Diagram2D b
+addBoundaryAfter :: OKBackend b =>
+                    (VPatch ->  Diagram b) -> Tgraph ->  Diagram b
 addBoundaryAfter f g =  (drawEdgesVP vp edges # lc lime) <> f vp where
     vp = makeVP g
     edges = graphBoundary g
 
 -- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces (g1,e1) (g2,e2) to find the common faces
 -- and emphasizes them on the background g1.
--- 
---  When a specific Backend B is in scope, drawCommonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram B
-drawCommonFaces :: Renderable (Path V2 Double) b =>
-                   (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram2D b
+drawCommonFaces :: OKBackend b =>
+                   (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram b
 drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g1
 
 -- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background g.
--- 
---  When a specific Backend B is in scope, emphasizeFaces:: [TileFace] -> Tgraph -> Diagram B
-emphasizeFaces :: Renderable (Path V2 Double) b =>
-                  [TileFace] -> Tgraph -> Diagram2D b
+emphasizeFaces :: OKBackend b =>
+                  [TileFace] -> Tgraph -> Diagram b
 emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) where
     vp = makeVP g
     emphvp = subVP vp (fcs `intersect` faces g)
@@ -394,10 +368,8 @@ tryDartAndKite de b =
 
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g.
--- 
---  When a specific Backend B is in scope,  drawFBCovering:: Tgraph -> Diagram B
-drawFBCovering :: Renderable (Path V2 Double) b =>
-                  Tgraph -> Diagram2D b
+drawFBCovering :: OKBackend b =>
+                  Tgraph -> Diagram b
 drawFBCovering g = lw ultraThin $ vsep 1 (draw <$> forcedBoundaryVCovering g)
 
 -- | empire1 g - produces a TrackedTgraph representing the level 1 empire of g.
@@ -453,10 +425,8 @@ empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
 -- as calcultaed by e.g. empire1 or empire2 or empire2Plus.
 -- The diagram draws the underlying Tgraph, with the first tracked faces - the starting Tgraph shown red, and emphasising the second tracked faces
 -- - the common  faces.
--- 
---  When a specific Backend B is in scope, drawEmpire:: TrackedTgraph -> Diagram B
-drawEmpire :: Renderable (Path V2 Double) b =>
-               TrackedTgraph -> Diagram2D b
+drawEmpire :: OKBackend b =>
+               TrackedTgraph -> Diagram b
 drawEmpire = 
     drawTrackedTgraph  [ lw ultraThin . draw
                        , lw thin . fillDK lightgrey lightgrey
@@ -465,18 +435,14 @@ drawEmpire =
 
 -- | showEmpire1 g - produces a diagram emphasising the common faces of all boundary covers of force g.
 -- This is drawn over one of the possible boundary covers and the faces of g are shown in red.
--- 
---  When a specific Backend B is in scope, showEmpire1:: Tgraph -> Diagram B
-showEmpire1 :: Renderable (Path V2 Double) b =>
-               Tgraph -> Diagram2D b
+showEmpire1 :: OKBackend b =>
+               Tgraph -> Diagram b
 showEmpire1 = drawEmpire . empire1
 
 -- | showEmpire2 g - produces a diagram emphasising the common faces of a doubly-extended boundary cover of force g.
 -- This is drawn over one of the possible doubly-extended boundary covers and the faces of g are shown in red.
--- 
---  When a specific Backend B is in scope, showEmpire2:: Tgraph -> Diagram B
-showEmpire2 :: Renderable (Path V2 Double) b =>
-               Tgraph -> Diagram2D b
+showEmpire2 :: OKBackend b =>
+               Tgraph -> Diagram b
 showEmpire2 = drawEmpire . empire2
 
 -- |superForce g - after forcing g this looks for single choice boundary edges.
@@ -687,10 +653,8 @@ decomposeTracked ttg =
     Each diagram is beneath later ones in the list, with the diagram for the untracked VPatch at the bottom.
     The VPatches are all restrictions of a single VPatch for the Tgraph, so consistent.
     (Any extra draw functions are applied to the VPatch for the main tgraph and the results placed atop.)
- 
-    When a specific Backend B is in scope, drawTrackedTgraph:: [VPatch -> Diagram B] -> TrackedTgraph -> Diagram B
 -}
-drawTrackedTgraph :: [VPatch -> Diagram2D b] -> TrackedTgraph -> Diagram2D b
+drawTrackedTgraph :: OKBackend b => [VPatch -> Diagram b] -> TrackedTgraph -> Diagram b
 drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeVP (tgraph ttg)
     untracked = vpFaces vp \\ concat (tracked ttg)
@@ -702,10 +666,8 @@ drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList
     This is useful when labels are being drawn.
     The angle argument is used to rotate the common vertex location map (anticlockwise) before drawing
     to ensure labels are not rotated.
-
-    When a specific Backend B is in scope, drawTrackedTgraphRotated:: [VPatch -> Diagram B] -> Angle Double -> TrackedTgraph -> Diagram B
 -}
-drawTrackedTgraphRotated :: [VPatch -> Diagram2D b] -> Angle Double -> TrackedTgraph -> Diagram2D b
+drawTrackedTgraphRotated :: OKBackend b => [VPatch -> Diagram b] -> Angle Double -> TrackedTgraph -> Diagram b
 drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = rotate a $ makeVP (tgraph ttg)
     untracked = vpFaces vp \\ concat (tracked ttg)
@@ -718,10 +680,8 @@ drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawLi
     The vertex pair argument is used to align the common vertex location map before drawing
     (to ensure labels are not rotated).
     This will raise an error if either of the pair of vertices is not a vertex of (the tgraph of) the TrackedTgraph
-
-    When a specific Backend B is in scope, drawTrackedTgraphAligned:: [VPatch -> Diagram B] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram B
 -}
-drawTrackedTgraphAligned :: [VPatch -> Diagram2D b] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram2D b
+drawTrackedTgraphAligned :: OKBackend b => [VPatch -> Diagram b] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram b
 drawTrackedTgraphAligned drawList (a,b) ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeAlignedVP (a,b) (tgraph ttg)
     untracked = vpFaces vp \\ concat (tracked ttg)

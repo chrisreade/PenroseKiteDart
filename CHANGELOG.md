@@ -1,7 +1,13 @@
 # Revision history for PenroseKiteDart
 
 
-## 1.1.0 -- 2024-06-12
+## 1.2.0 -- 2024-09-28
+
+Added class OKBackend as a synonym for constraints on a suitable Backend.
+Changed many types involving a backend b to use this constraint (and no longer using Diagram2D)
+Removed type synonym: type Diagram2D b = QDiagram b V2 Double Any
+
+## 1.1.0 -- 2024-06-28
 
 No longer exported: differing, changeVFMap, forcedDecomp (= force . decompose).
 
