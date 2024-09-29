@@ -37,6 +37,7 @@ library:
   source-dirs: src
   exposed-modules:  
     - PKD
+    - CheckBackend
     - HalfTile
     - TileLib
     - Try

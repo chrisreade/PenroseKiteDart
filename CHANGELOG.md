@@ -1,15 +1,16 @@
 # Revision history for PenroseKiteDart
 
 
-## 1.2.0 -- 2024-09-28
+## 1.1.0 -- 2024-09-28
 
-Added class OKBackend as a synonym for constraints on a suitable Backend.
-Changed many types involving a backend b to use this constraint (and no longer using Diagram2D)
-Removed type synonym: type Diagram2D b = QDiagram b V2 Double Any
+Release candidate: 
 
-## 1.1.0 -- 2024-06-28
+Added module CheckBackend with class OKBackend. This is really a class synonym for the constraints on a suitable Backend
+for drawing tilings. Most types involving a backend b now have a constraint OKBackend b => ...
 
-No longer exported: differing, changeVFMap, forcedDecomp (= force . decompose).
+Removed type synonym: type Diagram2D b = QDiagram b V2 Double Any (no longer needed with the above constraint).
+
+No longer exporting: differing, changeVFMap, forcedDecomp (= force . decompose).
 
 Moved makeTgraph to Tgraph.Prelude.
 Moved emplaceChoices to TgraphExamples and added example.

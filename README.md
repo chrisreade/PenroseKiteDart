@@ -80,6 +80,9 @@ Module `PKD` is the main module which imports and re-exports `Tgraphs` and `Tile
 `TileLib` contains underlying drawing tools for tiles.
 `Try` is imported and re-exported by `Tgraph.Prelude` - used for results of partial functions.
 `HalfTile` is imported and re-exported by `Tgraph.Prelude` -  (with the constructors `LD`,`RD`,`LK`,`RK`).
+`CheckBackend` is imported by `TileLib` which rexports class `OKBackend`.
+(The constraint `OKBackend b =>` is used extensively in the library to abstract types from any particular Backend).
+`TgraphExamples` contains example Tgraphs and Diagrams.
 
 ## Further Information
 

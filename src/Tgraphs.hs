@@ -16,7 +16,6 @@ It also defines experimental TrackedTgraphs (used for tracking subsets of faces 
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
--- {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
 
 module Tgraphs
   ( module Tgraph.Prelude

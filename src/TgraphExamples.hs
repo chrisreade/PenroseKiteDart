@@ -93,8 +93,6 @@ module TgraphExamples
   ) where
 
 import Diagrams.Prelude
--- import Diagrams.TwoD.Text (Text)
--- import ChosenBackend (B)
 import TileLib
 import Tgraphs
 
@@ -102,7 +100,8 @@ import Data.List (intersect,find)      -- for emplaceChoices
 
 
 -- |used for most diagrams to give border padding
-padBorder :: OKBackend b => Diagram b -> Diagram b
+padBorder :: OKBackend b => 
+             Diagram b -> Diagram b
 padBorder = pad 1.2 . centerXY
 
 -- |chunks n l -  split a list l into chunks of length n (n>0)
@@ -116,12 +115,14 @@ chunks n
 -- |arrangeRowsGap s n diags - arranges diags into n per row, centering each row horizontally,
 -- with a seperation gap (horizontally and vertically) of s.
 -- The result is a single diagram.
-arrangeRowsGap :: OKBackend b => Double -> Int -> [Diagram b] -> Diagram b
+arrangeRowsGap :: OKBackend b => 
+                  Double -> Int -> [Diagram b] -> Diagram b
 arrangeRowsGap s n = centerY . vsep s . fmap (centerX . hsep s) . chunks n
 
 -- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
 -- The result is a single diagram (seperation is 1 unit vertically and horizontally).
-arrangeRows :: OKBackend b => Int -> [Diagram b] -> Diagram b
+arrangeRows :: OKBackend b => 
+               Int -> [Diagram b] -> Diagram b
 arrangeRows = arrangeRowsGap 1.0
 
 -- |add a given label at a given point offset from the centre of the given diagram.

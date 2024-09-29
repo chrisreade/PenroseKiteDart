@@ -1071,7 +1071,7 @@ drawEdgesVP = drawEdges . vLocs --foldMap (drawEdgeVP vp)
 -- |produce a diagram of a single edge (given a VPatch)
 -- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
 drawEdgeVP:: OKBackend b =>
-               VPatch -> Dedge -> Diagram b
+             VPatch -> Dedge -> Diagram b
 drawEdgeVP = drawEdge . vLocs
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)

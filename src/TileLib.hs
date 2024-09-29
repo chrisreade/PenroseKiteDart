@@ -9,6 +9,7 @@ Stability   : experimental
 This module introduces Pieces and Patches for drawing finite tilings using Penrose's Dart and Kite tiles.
 It includes several primitives for drawing half tiles (Pieces), a class Drawable with instance Patch
 and commonly used operations for the Drawable class (draw, drawj, fillDK,..).
+It also introduces class OKBackend to summarise constraints on a Backend for drawing.
 There is also a decompose operation for Patches (decompPatch) and sun and star example Patches.
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -18,16 +19,15 @@ There is also a decompose operation for Patches (decompPatch) and sun and star e
 {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
 
 module TileLib 
-  ( -- * Pieces
-    Piece
+  ( OKBackend
+  -- * Pieces
+  , Piece
   , joinVector
   , ldart
   , rdart
   , lkite
   , rkite
     -- * Drawing Pieces
-  , OKBackend
-  , Diagram
   , phi
   , ttangle
   , pieceEdges
@@ -76,8 +76,9 @@ module TileLib
   ) where
 
 import Diagrams.Prelude
-import Diagrams.TwoD.Text (Text) -- used only for declaration of OKBackend
+--import Diagrams.TwoD.Text (Text) -- now in CheckBackend
 
+import CheckBackend
 import HalfTile
 
 {-| Piece type for tile halves: Left Dart, Right Dart, Left Kite, Right Kite
@@ -135,9 +136,11 @@ wholeTileEdges (RD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (
 wholeTileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (RK v))
 wholeTileEdges (RK v) = wholeTileEdges (LK v)
 
+{-
 -- |Class OKBackend is a synonym for suitable constraints on a Backend
 class (V b ~ V2, N b ~ Double, Renderable (Path V2 Double) b, Renderable (Text Double) b)
       => OKBackend b where {}
+-}
 
 {-
 -- | Abbreviation for 2D diagrams for any Backend b.
