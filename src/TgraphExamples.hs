@@ -283,26 +283,46 @@ vertexTypesFig = padBorder $ hsep 1 lTypeFigs
 jackGraph,kingGraph,queenGraph,aceGraph,deuceGraph,starGraph::Tgraph
 -- |Tgraph for vertex type jack.
 jackGraph = makeTgraph
+  [LK (7,8,1),RK (7,1,5),LD (9,8,10),RD (9,1,8),LK (1,9,11)
+  ,RK (1,11,2),RD (4,6,5),LD (4,5,1),RK (1,3,4),LK (1,2,3)
+  ] -- centre 1
+{-
   [LK (1,9,11),RK (1,11,2),LK (7,8,1),RD (9,1,8),RK (1,3,4)
   ,LK (1,2,3),RK (7,1,5),LD (4,5,1),LD (9,8,10),RD (4,6,5)
   ] -- centre 1
+-}
 -- |Tgraph for vertex type king.
 kingGraph = makeTgraph
+  [LD (1,10,11),RD (1,9,10),RK (9,7,8),LK (9,1,7),LK (5,6,7)
+  ,RK (5,7,1),LD (1,4,5),RD (1,3,4),RD (1,11,2),LD (1,2,3)
+  ] -- centre 1
+{-
   [LD (1,2,3),RD (1,11,2),LD (1,4,5),RD (1,3,4),LD (1,10,11)
   ,RD (1,9,10),LK (9,1,7),RK (9,7,8),RK (5,7,1),LK (5,6,7)
   ] -- centre 1
+-}
 -- |Tgraph for vertex type queen.
 queenGraph = makeTgraph
+  [RK (11,9,10),LK (11,1,9),LK (7,8,9),RK (7,9,1),RK (7,5,6)
+  ,LK (7,1,5),LK (3,4,5),RK (3,5,1),RD (1,11,2),LD (1,2,3)
+  ] -- centre 1
+{-
   [LK (7,1,5),RK (3,5,1),LD (1,2,3),RK (7,9,1),LK (11,1,9)
   ,RD (1,11,2),RK (7,5,6),LK (7,8,9),LK (3,4,5),RK (11,9,10)
   ] -- centre 1
+-}
 -- |Tgraph for vertex type ace (same as fool).
 aceGraph = fool -- centre 3
 -- |Tgraph for vertextype deuce.
 deuceGraph = makeTgraph
+  [LK (7,8,2),RK (7,2,6),LK (5,6,2),RK (5,2,4)
+  ,LD (1,8,9),RD (1,2,8),RD (1,3,4),LD (1,4,2)
+  ] -- centre 2
+{-
   [LK (7,8,2),RK (7,2,6),RK (5,2,4),LK (5,6,2),LD (1,4,2)
   ,RD (1,2,8),RD (1,3,4),LD (1,8,9)
   ] -- centre 2
+-}
 -- |Tgraph for vertex type star.
 starGraph = makeTgraph
   [LD (1,2,3),RD (1,11,2),LD (1,10,11),RD (1,9,10),LD (1,8,9)

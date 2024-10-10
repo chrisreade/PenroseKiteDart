@@ -270,13 +270,13 @@ fillDK, fillKD :: (Drawable a, OKBackend b) =>
 fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 
 -- |fillKD kcol dcol a - draws and fills a with colour kcol for kites and dcol for darts.
--- Note the order D K.
+-- Note the order K D.
 fillKD c1 c2 = fillDK c2 c1
     
 -- |fillMaybeDK c1 c2 a - draws a and maybe fills as well:
 -- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
 -- Nothing indicates no fill for either darts or kites or both
--- Note the order K D .
+-- Note the order D K.
 fillMaybeDK :: (Drawable a, OKBackend b) =>
                Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram b
 fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
