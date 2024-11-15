@@ -1,6 +1,13 @@
 # Revision history for PenroseKiteDart
 
 
+## 1.1.1 -- 2024-11-15
+
+Exposed combineUpdateGenerators in Tgraph.Force
+
+Reordered lists of faces in some basic example Tgraphs
+(to ensure tails of the list are also valid as Tgraphs)
+
 ## 1.1.0 -- 2024-09-28
 
 Release candidate: 

@@ -69,10 +69,11 @@ module Tgraph.Force
     -- * Forcing Rules and Update Generators
     -- $rules
     
-    -- *  Main All Update Generators
+    -- *  Combined Update Generators
   , defaultAllUGen
+  , combineUpdateGenerators
   , allUGenerator
-    -- * Update Generators and Finders for Rules.
+    -- * Update Generators and Finders for each Rule.
   , wholeTileUpdates
   , incompleteHalves
   , aceKiteUpdates
@@ -721,25 +722,30 @@ sun, star, jack, queen, king, ace (fool), deuce
 
 -}
            
-{-------------------  FORCING RULES and Generators --------------------------
+{-------------------  FORCING RULES and Update Generators --------------------------
 7 vertex types are:
 sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, star
 -}
 
-{-| allUGenerator was the original generator for all updates. It combines the individual update generators for each of the 10 rules.
-    They are combined in sequence, keeping the rule order (after applying each to the
-    supplied BoundaryState and a focus edge list). (See also defaultAllUGen).
-    This version returns a Left..(fail report) for the first generator that produces a Left..(fail report).
--}
-allUGenerator :: UpdateGenerator 
-allUGenerator bd focus =
-  do  (_ , umap) <- foldl' addGen (Right (focus,Map.empty)) generators
+-- combineUpdateGenerators combines a list of update generators into a single update generator.
+-- When used, the generators are tried in order on each boundary edge (in the supplied focus edges),
+-- and will return a Left..(fail report) for the first generator that produces a Left..(fail report) if any.
+combineUpdateGenerators :: [UpdateGenerator] -> UpdateGenerator
+combineUpdateGenerators gens bd focus =
+  do  (_ , umap) <- foldl' addGen (Right (focus,Map.empty)) gens
       return umap
   where
     addGen (Right (es,umap)) gen = do umap' <- gen bd es
                                       let es' = es \\ Map.keys umap'
                                       return (es',Map.union umap' umap) 
     addGen other _  = other  -- fails with first failing generator
+
+{-| allUGenerator was the original generator for all updates.
+    It combines the individual update generators for each of the 10 rules in sequence using combineUpdateGenerators
+    (See also defaultAllUGen which is defined without using combineUpdateGenerators)
+-}
+allUGenerator :: UpdateGenerator 
+allUGenerator = combineUpdateGenerators generators where
     generators = [ wholeTileUpdates          -- (rule 1)
                  , aceKiteUpdates            -- (rule 2)
                  , queenOrKingUpdates        -- (rule 3)
@@ -751,6 +757,7 @@ allUGenerator bd focus =
                  , queenDartUpdates          -- (rule 9)
                  , queenKiteUpdates          -- (rule 10)
                  ]
+
 
 -- |UFinder (Update case finder functions). Given a BoundaryState and a list of (focus) boundary directed edges,
 -- such a function returns each focus edge satisfying the particular update case paired with the tileface
