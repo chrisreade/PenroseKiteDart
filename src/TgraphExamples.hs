@@ -21,7 +21,7 @@ module TgraphExamples
   , arrangeRows
   , labelAt
     -- *  Tgraphs for 7 vertex types
-  , sunGraph 
+  , sunGraph
   , jackGraph
   , kingGraph
   , queenGraph
@@ -38,8 +38,8 @@ module TgraphExamples
   , sunDs
   , kiteDs
   , dartDs
-  , dartD4  
-  , sun3Dart 
+  , dartD4
+  , sun3Dart
     -- *  Some Simple Figures
   , foolFig
   , foolAndFoolD
@@ -82,14 +82,14 @@ module TgraphExamples
  , boundaryVCoveringFigs
  , boundaryECoveringFigs
  , kingECoveringFig
- , kingVCoveringFig 
+ , kingVCoveringFig
  , kingEmpiresFig
  , kingEmpire1Fig
  , kingEmpire2Fig
     -- *  Emplace Choices
  , emplaceChoices
  , emplaceChoicesFig
- 
+
   ) where
 
 import Diagrams.Prelude
@@ -100,7 +100,7 @@ import Data.List (intersect,find)      -- for emplaceChoices
 
 
 -- |used for most diagrams to give border padding
-padBorder :: OKBackend b => 
+padBorder :: OKBackend b =>
              Diagram b -> Diagram b
 padBorder = pad 1.2 . centerXY
 
@@ -115,18 +115,18 @@ chunks n
 -- |arrangeRowsGap s n diags - arranges diags into n per row, centering each row horizontally,
 -- with a seperation gap (horizontally and vertically) of s.
 -- The result is a single diagram.
-arrangeRowsGap :: OKBackend b => 
+arrangeRowsGap :: OKBackend b =>
                   Double -> Int -> [Diagram b] -> Diagram b
 arrangeRowsGap s n = centerY . vsep s . fmap (centerX . hsep s) . chunks n
 
 -- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
 -- The result is a single diagram (seperation is 1 unit vertically and horizontally).
-arrangeRows :: OKBackend b => 
+arrangeRows :: OKBackend b =>
                Int -> [Diagram b] -> Diagram b
 arrangeRows = arrangeRowsGap 1.0
 
 -- |add a given label at a given point offset from the centre of the given diagram.
-labelAt :: OKBackend b => 
+labelAt :: OKBackend b =>
            Point V2 Double -> String -> Diagram b -> Diagram b
 labelAt p l d = baselineText l # fontSize (output 15) # moveTo p <> d
 --labelAt p l d = baselineText l # fontSize (normalized 0.02) # moveTo p <> d
@@ -256,7 +256,7 @@ badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, v
 -- |figure showing the result of removing incomplete tiles (those that do not have their matching halftile)
 -- to a 3 times decomposed sun.
 removeIncompletesFig :: OKBackend b => Diagram b
-removeIncompletesFig = padBorder $ drawj $ removeFaces (boundaryJoinFaces g) g where 
+removeIncompletesFig = padBorder $ drawj $ removeFaces (boundaryJoinFaces g) g where
     g = sunDs !! 3
 
 
@@ -388,7 +388,7 @@ boundaryGap5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) drawj 
 boundaryVCoveringFigs :: OKBackend b =>
                          BoundaryState -> [Diagram b]
 boundaryVCoveringFigs bd =
-    fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryVCovering bd
+    lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph <$> boundaryVCovering bd
       where redg = lc red $ draw g --alignBefore draw alig g
             alig = defaultAlignment g
             g = recoverGraph bd
@@ -398,7 +398,7 @@ boundaryVCoveringFigs bd =
 boundaryECoveringFigs :: OKBackend b =>
                          BoundaryState -> [Diagram b]
 boundaryECoveringFigs bd =
-    fmap (lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph) $ boundaryECovering bd
+    lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph <$> boundaryECovering bd
       where redg = lc red $ draw g
             alig = defaultAlignment g
             g = recoverGraph bd
@@ -440,7 +440,7 @@ emplaceChoices g = emplaceChoicesForced $ recoverGraph $ force $ makeBoundarySta
               remainingunks startunks g' = (startunks `intersect` graphBoundaryVs g', g')
 
   findDartLongForWing :: Vertex -> BoundaryState -> Dedge
-  findDartLongForWing v bd 
+  findDartLongForWing v bd
       = case find isDart (facesAtBV bd v) of
         Just d -> longE d
         Nothing -> error $ "findDartLongForWing: dart not found for dart wing vertex " ++ show v

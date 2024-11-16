@@ -96,13 +96,13 @@ module Tgraph.Prelude
   , wingV
   , oppV
   , indexV
-  , nextV 
+  , nextV
   , prevV
   , isAtV
   , hasVIn
     -- * Other Edge Operations
   , faceDedges
-  , facesDedges 
+  , facesDedges
   , reverseD
   , joinE
   , shortE
@@ -247,9 +247,9 @@ tryMakeTgraph :: [TileFace] -> Try Tgraph
 tryMakeTgraph fcs =
  do g <- tryTgraphProps fcs -- must be checked first
     let touchVs = touchingVertices (faces g)
-    if null touchVs 
-    then Right g 
-    else Left ("Found touching vertices: " 
+    if null touchVs
+    then Right g
+    else Left ("Found touching vertices: "
                ++ show touchVs
                ++ "\nwith faces:\n"
                ++ show fcs
@@ -263,8 +263,8 @@ tryMakeTgraph fcs =
     the renumbering need not be 1-1 (hence Relabelling is not used)      
 -}
 tryCorrectTouchingVs ::  [TileFace] -> Try Tgraph
-tryCorrectTouchingVs fcs = 
-    onFail ("tryCorrectTouchingVs:\n" ++ show touchVs) $ 
+tryCorrectTouchingVs fcs =
+    onFail ("tryCorrectTouchingVs:\n" ++ show touchVs) $
     tryTgraphProps $ nub $ renumberFaces touchVs fcs
         -- renumberFaces allows for a non 1-1 relabelling represented by a list 
     where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
@@ -278,12 +278,12 @@ renumberFaces prs = fmap renumberFace where
     all3 f (a,b,c) = (f a,f b,f c)
     renumber v = VMap.findWithDefault v v mapping
     differing = filter $ uncurry (/=)
- 
+
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. Use makeTgraph (defined in Tgraphs module) or checkedTgraph to perform checks.
 -- This is intended for use only when checks are known to be redundant (the data constructor Tgraph is hidden).
 makeUncheckedTgraph:: [TileFace] -> Tgraph
-makeUncheckedTgraph fcs = Tgraph fcs
+makeUncheckedTgraph = Tgraph
 
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
 and producing an error if a check fails.
@@ -308,7 +308,7 @@ Returns Right g where g is a Tgraph on passing checks.
 Returns Left lines if a test fails, where lines describes the problem found.
 -}
 tryTgraphProps:: [TileFace] -> Try Tgraph
-tryTgraphProps []       =  Right emptyTgraph 
+tryTgraphProps []       =  Right emptyTgraph
 tryTgraphProps fcs
       | hasEdgeLoops fcs  =  Left $ "tryTgraphProps: Non-valid tile-face(s)\n" ++
                                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
@@ -320,7 +320,7 @@ tryTgraphProps fcs
       | otherwise         = let vs = facesVSet fcs
                             in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
                                then Left $ "tryTgraphProps: Vertex numbers not all >0: " ++ show (IntSet.toList vs) ++ "\n"
-                               else tryConnectedNoCross fcs 
+                               else tryConnectedNoCross fcs
 
 -- |Checks a list of faces for no crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected).
@@ -332,7 +332,7 @@ tryConnectedNoCross:: [TileFace] -> Try Tgraph
 tryConnectedNoCross fcs
   | not (connected fcs) =    Left $ "tryConnectedNoCross: Non-valid Tgraph (Not connected)\n" ++ show fcs ++ "\n"
   | crossingBoundaries fcs = Left $ "tryConnectedNoCross: Non-valid Tgraph\n" ++
-                                  "Crossing boundaries found at " ++ show (crossingBVs fcs) 
+                                  "Crossing boundaries found at " ++ show (crossingBVs fcs)
                                   ++ "\nwith faces\n" ++ show fcs
   | otherwise            = Right (Tgraph fcs)
 
@@ -367,8 +367,8 @@ conflictingDedges = duplicates . facesDedges
 edgeType:: Dedge -> TileFace -> EdgeType
 edgeType d f | d == longE f  = Long
              | d == shortE f = Short
-             | d == joinE f  = Join 
-             | otherwise = error $ "edgeType: directed edge " ++ show d ++ 
+             | d == joinE f  = Join
+             | otherwise = error $ "edgeType: directed edge " ++ show d ++
                                    " not found in face " ++ show f ++ "\n"
 
 -- |For a list of tile faces fcs this produces a list of tuples of the form (f1,etpe1,f2,etype2)
@@ -376,7 +376,7 @@ edgeType d f | d == longE f  = Long
 -- etype2 is the type of the shared edge in f2.
 -- This list can then be checked for inconsistencies / illegal pairings (using legal).
 sharedEdges:: [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
-sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2) 
+sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
                    | f1 <- fcs
                    , d1 <- faceDedges f1
                    , let d2 = reverseD d1
@@ -386,8 +386,8 @@ sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
 -- |A version of sharedEdges comparing a single face against a list of faces.
 -- This does not look at shared edges within the list, but just the new face against the list.
 newSharedEdges:: TileFace -> [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
-newSharedEdges face fcs = 
-    [(face, edgeType d1 face, fc', edgeType d2 fc') 
+newSharedEdges face fcs =
+    [(face, edgeType d1 face, fc', edgeType d2 fc')
      | d1 <- faceDedges face
      , let d2 = reverseD d1
      , fc' <- filter (`hasDedge` d2) fcs
@@ -409,9 +409,9 @@ noNewConflictFull face fcs = null (faceDedges face `intersect` facesDedges fcs) 
 
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   
-legal:: (TileFace,EdgeType,TileFace,EdgeType) -> Bool                
-legal (LK _, e1,    RK _ , e2    ) = e1 == e2 
-legal (RK _, e1,    LK _ , e2    ) = e1 == e2 
+legal:: (TileFace,EdgeType,TileFace,EdgeType) -> Bool
+legal (LK _, e1,    RK _ , e2    ) = e1 == e2
+legal (RK _, e1,    LK _ , e2    ) = e1 == e2
 legal (LK _, Short, RD _ , Short) = True
 legal (RD _, Short, LK _ , Short) = True
 legal (LK _, Long,  RD _ , Long ) = True
@@ -424,7 +424,7 @@ legal (LD _, Short, RK _ , Short) = True
 legal (RK _, Short, LD _ , Short) = True
 legal (LD _, Long,  RK _ , Long ) = True
 legal (RK _, Long,  LD _ , Long ) = True
-legal _ = False               
+legal _ = False
 
 -- | Returns a list of illegal face parings of the form (f1,e1,f2,e2) where f1 and f2 share an edge
 -- and e1 is the type of this edge in f1, and e2 is the type of this edge in f2.
@@ -440,7 +440,7 @@ illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fc
 -- |crossingBVs fcs returns a list of vertices with crossing boundaries
 -- (which should be null).               
 crossingBVs :: [TileFace] -> [Vertex]
-crossingBVs = crossingVertices . facesBoundary 
+crossingBVs = crossingVertices . facesBoundary
 
 -- |Given a list of directed boundary edges, crossingVertices returns a list of vertices occurring
 -- more than once at the start of the directed edges in the list.
@@ -467,17 +467,17 @@ connected fcs = null (snd $ connectedBy (facesEdges fcs) (IntSet.findMin vs) vs)
 -- This version creates an IntMap to represent edges (Vertex to [Vertex])
 -- and uses IntSets for the search algorithm arguments.
 connectedBy :: [Dedge] -> Vertex -> VertexSet -> ([Vertex],[Vertex])
-connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.delete v verts) where 
+connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.delete v verts) where
   nextMap = VMap.fromListWith (++) $ map (\(a,b)->(a,[b])) edges
 -- search arguments (sets):  done (=processed), visited, unvisited.
-  search done visited unvisited 
+  search done visited unvisited
     | IntSet.null unvisited = (IntSet.toList visited ++ IntSet.toList done,[])
     | IntSet.null visited = (IntSet.toList done, IntSet.toList unvisited)  -- any unvisited are not connected
     | otherwise =
         search (IntSet.insert x done) (IntSet.union newVs visited') (unvisited IntSet.\\ newVs)
         where x = IntSet.findMin visited
               visited' = IntSet.deleteMin visited
-              newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x 
+              newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x
 
 
 
@@ -505,7 +505,7 @@ rdarts = filter isRD . faces
 -- | selecting left kites from a Tgraph
 lkites = filter isLK . faces
 -- | selecting right kites from a Tgraph
-rkites = filter isRK . faces 
+rkites = filter isRK . faces
 -- | selecting half kites from a Tgraph
 kites = filter isKite . faces
 -- | selecting half darts from a Tgraph
@@ -567,7 +567,7 @@ phiEdges = bothDir . concatMap facePhiEdges . faces
 -- |nonPhiEdges returns a list of the shorter edges of a Tgraph (including dart joins).
 -- This includes both directions of each edge.
 nonPhiEdges :: Tgraph -> [Dedge]
-nonPhiEdges = bothDir . concatMap faceNonPhiEdges . faces 
+nonPhiEdges = bothDir . concatMap faceNonPhiEdges . faces
 
 -- | graphEFMap g - is a mapping associating with each directed edge of g, the unique TileFace with that directed edge.
 -- This is more efficient than using dedgesFacesMap for the complete mapping.
@@ -632,7 +632,7 @@ oppV (RK(_,b,_)) = b
 indexV :: Vertex -> TileFace -> Int
 indexV v face = case elemIndex v (faceVList face) of
                   Just i -> i
-                  _      -> error ("indexV: " ++ show v ++ " not found in " ++ show face)                
+                  _      -> error ("indexV: " ++ show v ++ " not found in " ++ show face)
 
 -- |nextV returns the next vertex in a face going clockwise from v
 -- where v must be a vertex of the face
@@ -652,14 +652,14 @@ prevV v face = case indexV v face of
                     _ -> error "prevV: index error"
 
 -- |isAtV v f asks if a face f has v as a vertex
-isAtV:: Vertex -> TileFace -> Bool           
+isAtV:: Vertex -> TileFace -> Bool
 isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (LK(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RK(a,b,c))  =  v==a || v==b || v==c
 
 -- |hasVIn vs f - asks if face f has an element of vs as a vertex
-hasVIn:: [Vertex] -> TileFace -> Bool           
+hasVIn:: [Vertex] -> TileFace -> Bool
 hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
 
@@ -714,7 +714,7 @@ shortE (RK(_,b,c)) = (b,c)
 -- This is the non-join long edge for kites.
 longE (LD(a,_,c)) = (c,a)
 longE (RD(a,b,_)) = (a,b)
-longE (LK(a,b,_)) = (a,b) 
+longE (LK(a,b,_)) = (a,b)
 longE (RK(a,_,c)) = (c,a)
 
 -- |The join edge of a face directed from the origin (not clockwise for RD and LK)
@@ -725,7 +725,7 @@ facePhiEdges, faceNonPhiEdges::  TileFace -> [Dedge]
 -- which is long edges for darts, and join and long edges for kites
 facePhiEdges face@(RD _) = [e, reverseD e] where e = longE face
 facePhiEdges face@(LD _) = [e, reverseD e] where e = longE face
-facePhiEdges face        = [e, reverseD e, j, reverseD j] 
+facePhiEdges face        = [e, reverseD e, j, reverseD j]
                          where e = longE face
                                j = joinE face
 
@@ -789,7 +789,7 @@ missingRevs es = revUnmatched es where
     seekR (a,b) = case VMap.lookup b vmap of
                    Nothing -> False
                    Just vs -> a `elem` vs
-                    
+
     revUnmatched [] = []
     revUnmatched (e@(a,b):more) | seekR e = revUnmatched more
                                 | otherwise = (b,a):revUnmatched more
@@ -824,7 +824,7 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
    vfMap = vertexFacesMap vs fcs
    assocFaces [] = []
    assocFaces (d@(a,b):more) = case (VMap.lookup a vfMap, VMap.lookup b vfMap) of
-      (Just fcs1, Just fcs2) -> case filter (`hasDedge` d) $ fcs1 `intersect` fcs2 of 
+      (Just fcs1, Just fcs2) -> case filter (`hasDedge` d) $ fcs1 `intersect` fcs2 of
                                    [face] -> (d,face):assocFaces more
                                    []   -> assocFaces more
                                    _   -> error $ "dedgesFacesMap: more than one Tileface has the same directed edge: "
@@ -899,7 +899,7 @@ type instance N VPatch = Double
 
 
 -- |Make VPatch Transformable.
-instance Transformable VPatch where 
+instance Transformable VPatch where
     transform t vp = vp {vLocs = VMap.map (transform t) (vLocs vp)}
 
 
@@ -917,14 +917,14 @@ makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces
 -- and also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
 -- The vertex location map is not changed (see also relevantVP and restrictVP).
 subVP:: VPatch -> [TileFace] -> VPatch
-subVP vp fcs = vp {vpFaces  = fcs} 
+subVP vp fcs = vp {vpFaces  = fcs}
 
 -- | removes locations for vertices not used in the faces of a VPatch.
 -- (Useful when restricting which labels get drawn).
 -- relevantVP vp will raise an error if any vertex in the faces of vp is not a key in the location map of vp.
 relevantVP :: VPatch -> VPatch
-relevantVP vp 
-  | null diffList = vp{vLocs = locVs}   
+relevantVP vp
+  | null diffList = vp{vLocs = locVs}
   | otherwise = error $ "relevantVP: missing locations for: " ++
                                     show diffList ++ "\n"
   where
@@ -970,7 +970,7 @@ dropLabels vp = fmap convert (vpFaces vp) where
   locations = vLocs vp
   convert face = case (VMap.lookup (originV face) locations , VMap.lookup (oppV face) locations) of
     (Just p, Just p') -> fmap (const (p' .-. p)) face `at` p -- using HalfTile functor fmap
-    _ -> error $ "dropLabels: Vertex location not found for some vertices:\n    " 
+    _ -> error $ "dropLabels: Vertex location not found for some vertices:\n    "
                 ++ show (faceVList face \\ VMap.keys locations)  ++ "\n"
 
 -- |Tgraphs are Drawable
@@ -983,7 +983,7 @@ instance Drawable Tgraph where
 -- Measures are defined in Diagrams. In particular: tiny, verySmall, small, normal, large, veryLarge, huge.
 class DrawableLabelled a where
 -- labelColourSize :: DrawableLabelled a => Colour Double -> Measure Double -> (Patch -> Diagram B) -> a -> Diagram B
-  labelColourSize :: OKBackend b => 
+  labelColourSize :: OKBackend b =>
                      Colour Double -> Measure Double -> (Patch -> Diagram b) -> a -> Diagram b
 -- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
 
@@ -999,12 +999,12 @@ instance DrawableLabelled Tgraph where
   labelColourSize c r d = labelColourSize c r d . makeVP
 
 -- | Default Version of labelColourSize with colour red. Example usage: labelSize tiny draw a , labelSize normal drawj a
-labelSize :: (OKBackend b, DrawableLabelled a) => 
+labelSize :: (OKBackend b, DrawableLabelled a) =>
              Measure Double -> (Patch -> Diagram b) -> a -> Diagram b
 labelSize = labelColourSize red
 
 -- | Default Version of labelColourSize using red and small (rather than normal label size). Example usage: labelled draw a , labelled drawj a
-labelled :: (OKBackend b, DrawableLabelled a) => 
+labelled :: (OKBackend b, DrawableLabelled a) =>
             (Patch -> Diagram b) -> a -> Diagram b
 labelled = labelColourSize red small --(normalized 0.023)
 
@@ -1016,7 +1016,7 @@ rotateBefore vfun angle = vfun . rotate angle . makeVP
 
 -- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
 centerOn :: Vertex -> VPatch -> VPatch
-centerOn a vp = 
+centerOn a vp =
     case findLoc a vp of
         Just loca -> translate (origin .-. loca) vp
         _ -> error $ "centerOn: vertex not found (Vertex " ++ show a ++ ")\n"
@@ -1024,10 +1024,10 @@ centerOn a vp =
 -- |alignXaxis takes a vertex pair (a,b) and a VPatch vp
 -- for centering vp on a and rotating the result so that b is on the positive X axis.
 -- (Raises an error if either a or b are not in the VPatch vertices)
-alignXaxis :: (Vertex, Vertex) -> VPatch -> VPatch    
+alignXaxis :: (Vertex, Vertex) -> VPatch -> VPatch
 alignXaxis (a,b) vp =  rotate angle newvp
   where newvp = centerOn a vp
-        angle = signedAngleBetweenDirs (direction unitX) (direction (locb .-. origin)) 
+        angle = signedAngleBetweenDirs (direction unitX) (direction (locb .-. origin))
         locb = case findLoc b newvp of
                 Just l -> l
                 Nothing -> error $ "alignXaxis: second alignment vertex not found (Vertex " ++ show b ++ ")\n"
@@ -1036,7 +1036,7 @@ alignXaxis (a,b) vp =  rotate angle newvp
 -- For a pair (a,b) the corresponding VPatch is centered on a then b is aligned along the positive x axis. 
 -- The vertex pair list can be shorter than the list of VPatch - the remaining VPatch are left as they are.
 -- (Raises an error if either vertex in a pair is not in the corresponding VPatch vertices)
-alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]     
+alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]
 alignments [] vps = vps
 alignments _  [] = error "alignments: Too many alignment pairs.\n"  -- non-null list of pairs
 alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
@@ -1045,7 +1045,7 @@ alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 -- provided both vertices a and b exist in each VPatch in vpList, the VPatch are all aligned
 -- centred on a, with b on the positive x axis.
 -- An error is raised if any VPatch does not contain both a and b vertices.
-alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]     
+alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]
 alignAll (a,b) = fmap (alignXaxis (a,b))
 
 -- |alignBefore vfun (a,b) g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
@@ -1058,7 +1058,7 @@ alignBefore vfun vs = vfun . alignXaxis vs . makeVP
 
 -- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligned on the x-axis.
 -- Will raise an error if either a or b is not a vertex in g.
-makeAlignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch        
+makeAlignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch
 makeAlignedVP = alignBefore id
 
 
@@ -1086,7 +1086,7 @@ drawEdge :: OKBackend b =>
             VertexLocMap -> Dedge -> Diagram b
 drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
-                         _ -> error $ "drawEdge: location not found for one or both vertices "++ show(a,b) ++ "\n"
+                         _ -> error $ "drawEdge: location not found for one or both vertices "++ show (a,b) ++ "\n"
 
 
 
@@ -1112,7 +1112,7 @@ The second argument Set of faces (fcOther) are faces that have not yet been adde
 and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
-    fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap 
+    fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap
     fastAddVPoints [] fcOther _ = error $ "locateVertices (fastAddVPoints): Faces not tile-connected: "
                                           ++ show fcOther ++ "/n"
     fastAddVPoints (face:fs) fcOther vpMap = fastAddVPoints (fs++nbs) fcOther' vpMap' where
@@ -1128,7 +1128,7 @@ The third argument is the mapping of vertices to points.
 -- It is possible that a newly added location is already in the range of the map (creating a touching vertices),
 -- so this needs to be checked for.
 addVPoint:: TileFace -> VertexLocMap -> VertexLocMap
-addVPoint face vpMap = 
+addVPoint face vpMap =
   case thirdVertexLoc face vpMap of
     Just (v,p) -> VMap.insert v p vpMap
     Nothing -> vpMap
@@ -1137,14 +1137,14 @@ addVPoint face vpMap =
 -- initialises a vertex to point mapping with locations for the join edge vertices of face
 -- with originV face at the origin and aligned along the x axis with unit length for a half dart
 -- and length phi for a half kite. (Used to initialise locateVertices)
-axisJoin::TileFace -> VertexLocMap                
-axisJoin face = 
-  VMap.insert (originV face) origin $ VMap.insert (oppV face) (p2(x,0)) VMap.empty where
+axisJoin::TileFace -> VertexLocMap
+axisJoin face =
+  VMap.insert (originV face) origin $ VMap.insert (oppV face) (p2 (x,0)) VMap.empty where
     x = if isDart face then 1 else phi
 
 -- |lookup 3 vertex locations in a vertex to point map.
 find3Locs::(Vertex,Vertex,Vertex) -> VertexLocMap
-             -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))              
+             -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))
 find3Locs (v1,v2,v3) vpMap = (VMap.lookup v1 vpMap, VMap.lookup v2 vpMap, VMap.lookup v3 vpMap)
 
 {-| thirdVertexLoc face vpMap,  where face is a tileface and vpMap associates points with vertices (positions).
@@ -1157,7 +1157,7 @@ New Version: This assumes all edge lengths are 1 or phi.
 It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
 (Requires ttangle and phi from TileLib).
 -}
-thirdVertexLoc:: TileFace -> VertexLocMap -> Maybe (Vertex, Point V2 Double)        
+thirdVertexLoc:: TileFace -> VertexLocMap -> Maybe (Vertex, Point V2 Double)
 thirdVertexLoc face@(LD _) vpMap = case find3Locs (faceVs face) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV face, loc2 .+^ v) where v = signorm (rotate (ttangle 7) (loc3 .-. loc2))
@@ -1171,14 +1171,14 @@ thirdVertexLoc face@(RD _) vpMap = case find3Locs (faceVs face) vpMap of
   (Just loc1, Nothing, Just loc3) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
- 
+
 thirdVertexLoc face@(LK _) vpMap = case find3Locs (faceVs face) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (oppV face, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV face, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
   (Just loc1, Nothing, Just loc3) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
- 
+
 thirdVertexLoc face@(RK _) vpMap = case find3Locs (faceVs face) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
   (Nothing, Just loc2, Just loc3) -> Just (originV face, loc2 .+^ v) where v = phi*^signorm (rotate (ttangle 8) (loc3 .-. loc2))
@@ -1249,7 +1249,7 @@ The second argument Set of faces (fcOther) are faces that have not yet been adde
 and may not yet have known vertex locations.
 The third argument is the mapping of vertices to points.
 -}
-    fastAddVPointsGen [] fcOther vpMap | Set.null fcOther = vpMap 
+    fastAddVPointsGen [] fcOther vpMap | Set.null fcOther = vpMap
     fastAddVPointsGen [] fcOther _ = error $ "fastAddVPointsGen: Faces not tile-connected " ++ show fcOther ++ "\n"
     fastAddVPointsGen (f:fs) fcOther vpMap = fastAddVPointsGen (fs++nbs) fcOther' vpMap' where
         nbs = filter (`Set.member` fcOther) (edgeNbsGen f)
@@ -1265,7 +1265,7 @@ The third argument is the mapping of vertices to points.
 -- edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
     edgeNbsGen f = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen
-      edges = fmap reverseD (faceDedges f) 
+      edges = fmap reverseD (faceDedges f)
 {-
     edgeNbsGen efMapGen f = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen
@@ -1273,6 +1273,6 @@ The third argument is the mapping of vertices to points.
 -}
 
 
- 
+
 
 
