@@ -1,5 +1,8 @@
 # Revision history for PenroseKiteDart
 
+## 1.2 -- 2024-11-18
+
+Made UpdateGenerator a newtype in Tgraph.Force
 
 ## 1.1.1 -- 2024-11-15
 

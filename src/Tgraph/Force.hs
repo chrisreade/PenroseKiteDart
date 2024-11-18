@@ -42,7 +42,7 @@ module Tgraph.Force
   , BoundaryChange(..)
   , Update(..)
   , UpdateMap
-  , UpdateGenerator  
+  , UpdateGenerator(..)  
   , UFinder
   , UChecker
     -- *  BoundaryState operations
@@ -112,7 +112,8 @@ module Tgraph.Force
   , mustbeQueen
   , kiteWingCount
   , mustbeJack
-   -- * Tools for making update generators
+   -- * Other tools for making new update generators
+  , newUpdateGenerator
   , makeGenerator 
   , boundaryFilter
   , makeUpdate
@@ -247,13 +248,13 @@ data ForceState = ForceState
                    , updateMap:: UpdateMap 
                    } deriving (Show)
 
-{-|UpdateGenerator abbreviates the type of functions which capture one or more of the forcing rules.
-They produce a (Try) UpdateMap when given a BoundaryState and a focus list of particular directed boundary edges.  
+{-|UpdateGenerator is a newtype for functions which capture one or more of the forcing rules.
+The functions can be applied using the unwrapper applyUG
+and produce a (Try) UpdateMap when given a BoundaryState and a focus list of particular directed boundary edges.  
 Each forcing rule has a particular UpdateGenerator,
 but they can also be combined (e.g in sequence - allUGenerator or otherwise - defaultAllUGenerator).
 -}
-type UpdateGenerator = BoundaryState -> [Dedge] -> Try UpdateMap
-
+newtype UpdateGenerator = UpdateGenerator {applyUG :: BoundaryState -> [Dedge] -> Try UpdateMap}
 
 
 -- | Forcible class has operations to (indirectly) implement forcing and single step forcing
@@ -297,7 +298,7 @@ instance Forcible BoundaryState where
         fs' <- f fs
         return $ boundaryState fs'
     tryInitFSWith ugen bd = do
-        umap <- ugen bd (boundary bd)
+        umap <- applyUG ugen bd (boundary bd)
         return $ ForceState { boundaryState = bd , updateMap = umap }
     tryChangeBoundaryWith _ f bd = do -- update generator not used
         bdC <- f bd
@@ -523,7 +524,7 @@ mustFind p ls dflt
 tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
 tryReviseUpdates uGen bdChange umap = 
   do let umap' = foldr Map.delete umap (removedEdges bdChange)
-     umap'' <- uGen (newBoundaryState bdChange) (revisedEdges bdChange) 
+     umap'' <- applyUG uGen (newBoundaryState bdChange) (revisedEdges bdChange) 
      return (Map.union umap'' umap')
 
 -- |tryReviseFSWith ugen bdC fs tries to revise fs after a boundary change (bdC) by calculating
@@ -731,14 +732,15 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
 -- When used, the generators are tried in order on each boundary edge (in the supplied focus edges),
 -- and will return a Left..(fail report) for the first generator that produces a Left..(fail report) if any.
 combineUpdateGenerators :: [UpdateGenerator] -> UpdateGenerator
-combineUpdateGenerators gens bd focus =
-  do  (_ , umap) <- foldl' addGen (Right (focus,Map.empty)) gens
-      return umap
-  where
-    addGen (Right (es,umap)) gen = do umap' <- gen bd es
-                                      let es' = es \\ Map.keys umap'
-                                      return (es',Map.union umap' umap) 
-    addGen other _  = other  -- fails with first failing generator
+combineUpdateGenerators gens = UpdateGenerator genf where
+  genf bd focus =
+    do let addGen (Right (es,umap)) gen = 
+             do umap' <- applyUG gen bd es
+                let es' = es \\ Map.keys umap'
+                return (es',Map.union umap' umap) 
+           addGen other _  = other  -- fails with first failing generator
+       (_ , umap) <- foldl' addGen (Right (focus,Map.empty)) gens
+       return umap
 
 {-| allUGenerator was the original generator for all updates.
     It combines the individual update generators for each of the 10 rules in sequence using combineUpdateGenerators
@@ -864,22 +866,25 @@ hasAnyMatchingE :: [Dedge] -> Bool
 hasAnyMatchingE ((x,y):more) = (y,x) `elem` more || hasAnyMatchingE more
 hasAnyMatchingE [] = False
 
-{-| makeGenerator combines an update case finder (UFinder) with its corresponding update checker (UChecker)
-    to produce an update generator function.
+{-| newUpdateGenerator combines an update case finder (UFinder) with its corresponding update checker (UChecker)
+    to produce an update generator.
     This is used to make each of the 10 update generators corresponding to 10 rules. 
     
-    When the generator is given a BoundaryState and list of focus edges,
+    When the generator is applied (with applyUG) to a BoundaryState and list of focus edges,
     the finder produces a list of pairs of dedge and face,
     the checker is used to convert the face in each pair to an update (which can fail with a Left report),
-    and the new updates are returned as a map (with the dedges as key) in a Right result.
+    and the new updates are returned as a map (with the dedges as keys) in a Right result.
 -}
+newUpdateGenerator :: UChecker -> UFinder -> UpdateGenerator
+newUpdateGenerator checker finder = UpdateGenerator genf where
+  genf bd edges = foldr addU (Right Map.empty) (finder bd edges) where
+     addU _      (Left x) = Left x 
+     addU (e,fc) (Right ump) = do u <- checker bd fc
+                                  return (Map.insert e u ump)
+     
+{-| makeGenerator (deprecated) this is renamed as newUpdateGenerator. -}
 makeGenerator :: UChecker -> UFinder -> UpdateGenerator
-makeGenerator checker finder = gen where
-  gen bd edges = foldr addU (Right Map.empty) (finder bd edges) where
-                 addU _      (Left x) = Left x 
-                 addU (e,fc) (Right ump) = do u <- checker bd fc
-                                              return (Map.insert e u ump)
-
+makeGenerator = newUpdateGenerator
                          
 --   Ten Update Generators (with corresponding Finders)
 
@@ -1132,36 +1137,38 @@ anglesForShortRK = (2,2)
 -- If there are any Left..(fail reports) for the given
 -- boundary edges the result is a sigle Left.. concatenating all the failure reports (unlike allUGenerator).
 defaultAllUGen :: UpdateGenerator
-defaultAllUGen bd es = combine $ fmap decide es  where -- Either String is a monoid as well as Map
-  decide e = decider (e,f,etype) where (f,etype) = inspectBDedge bd e
+defaultAllUGen = UpdateGenerator gen where
+  gen bd es = combine $ fmap decide es where -- Either String is a monoid as well as Map
+      decide e = decider (e,f,etype) where (f,etype) = inspectBDedge bd e
 
-  decider (e,f,Join)  = mapItem e (completeHalf bd f) -- rule 1
-  decider (e,f,Short) 
-    | isDart f = mapItem e (addKiteShortE bd f) -- rule 2
-    | otherwise = kiteShortDecider e f 
-  decider (e,f,Long)  
-    | isDart f = dartLongDecider e f
-    | otherwise = kiteLongDecider e f 
+      decider (e,f,Join)  = mapItem e (completeHalf bd f) -- rule 1
+      decider (e,f,Short) 
+        | isDart f = mapItem e (addKiteShortE bd f) -- rule 2
+        | otherwise = kiteShortDecider e f 
+      decider (e,f,Long)  
+        | isDart f = dartLongDecider e f
+        | otherwise = kiteLongDecider e f 
 
-  dartLongDecider e f
-    | mustbeStar bd (originV f) = mapItem e (completeSunStar bd f)
-    | mustbeKing bd (originV f) = mapItem e (addDartLongE bd f)
-    | mustbeJack bd (wingV f) = mapItem e (addKiteLongE bd f)
-    | otherwise = Right Map.empty
+      dartLongDecider e f
+        | mustbeStar bd (originV f) = mapItem e (completeSunStar bd f)
+        | mustbeKing bd (originV f) = mapItem e (addDartLongE bd f)
+        | mustbeJack bd (wingV f) = mapItem e (addKiteLongE bd f)
+        | otherwise = Right Map.empty
 
-  kiteLongDecider e f
-    | mustbeSun bd (originV f) = mapItem e (completeSunStar bd f)
-    | mustbeQueen bd (wingV f) = mapItem e (addDartLongE bd f)
-    | otherwise = Right Map.empty
+      kiteLongDecider e f
+        | mustbeSun bd (originV f) = mapItem e (completeSunStar bd f)
+        | mustbeQueen bd (wingV f) = mapItem e (addDartLongE bd f)
+        | otherwise = Right Map.empty
 
-  kiteShortDecider e f
-    | mustbeDeuce bd (oppV f) || mustbeJack bd (oppV f) = mapItem e (addDartShortE bd f)
-    | mustbeQueen bd (wingV f) || isDartOrigin bd (wingV f) = mapItem e (addKiteShortE bd f)
-    | otherwise = Right Map.empty
+      kiteShortDecider e f
+        | mustbeDeuce bd (oppV f) || mustbeJack bd (oppV f) = mapItem e (addDartShortE bd f)
+        | mustbeQueen bd (wingV f) || isDartOrigin bd (wingV f) = mapItem e (addKiteShortE bd f)
+        | otherwise = Right Map.empty
 
-  mapItem e = fmap (\u -> Map.insert e u Map.empty)
-  combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
-                                       -- otherwise combines the update maps with mconcat
+      mapItem e = fmap (\u -> Map.insert e u Map.empty)
+      combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
+                                           -- otherwise combines the update maps with mconcat
+
 
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
