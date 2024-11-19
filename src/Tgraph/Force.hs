@@ -222,7 +222,7 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
 -- |return a list of faces which have a boundary vertex from a BoundaryState
 boundaryFaces :: BoundaryState -> [TileFace]
 boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
-    bvs = fmap fst $ boundary bd
+    bvs = fst <$> boundary bd
 -- boundaryFaces = nub . concat . VMap.elems . bvFacesMap 
 -- relies on the map containing no extra info for non boundary vertices
 
@@ -665,7 +665,7 @@ tryUpdate bd u@(UnsafeUpdate _) =
 recalculateBVLocs :: BoundaryState -> BoundaryState
 recalculateBVLocs bd = bd {bvLocMap = newlocs} where
     newlocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ allFaces bd
-    bvs = fmap fst $ boundary bd
+    bvs = fst <$> boundary bd
 
 -- |A version of tryForce that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
 -- This is needed to limit accumulated inaccuracies when large numbers of faces are added in forcing.
@@ -891,7 +891,7 @@ makeGenerator = newUpdateGenerator
 
 -- |Update generator for rule (1)
 wholeTileUpdates:: UpdateGenerator
-wholeTileUpdates = makeGenerator completeHalf incompleteHalves
+wholeTileUpdates = newUpdateGenerator completeHalf incompleteHalves
 
 -- |Find faces with missing opposite face (mirror face)  
 incompleteHalves :: UFinder 
@@ -901,7 +901,7 @@ incompleteHalves = boundaryFilter boundaryJoin where
 
 -- |Update generator for rule (2)
 aceKiteUpdates :: UpdateGenerator
-aceKiteUpdates = makeGenerator addKiteShortE nonKDarts
+aceKiteUpdates = newUpdateGenerator addKiteShortE nonKDarts
 
 -- |Find half darts with boundary short edge
 nonKDarts :: UFinder            
@@ -912,7 +912,7 @@ nonKDarts = boundaryFilter bShortDarts where
 -- |Update generator for rule (3)
  -- queen and king vertices add a missing kite half (on a boundary kite short edge)
 queenOrKingUpdates :: UpdateGenerator
-queenOrKingUpdates = makeGenerator addKiteShortE kitesWingDartOrigin
+queenOrKingUpdates = newUpdateGenerator addKiteShortE kitesWingDartOrigin
 
 -- |Find kites with boundary short edge where the wing is also a dart origin
 kitesWingDartOrigin :: UFinder              
@@ -928,7 +928,7 @@ kitesWingDartOrigin = boundaryFilter kiteWDO where
      These need a dart adding on the short edge.
 -}
 deuceDartUpdates :: UpdateGenerator
-deuceDartUpdates = makeGenerator addDartShortE kiteGaps
+deuceDartUpdates = newUpdateGenerator addDartShortE kiteGaps
 
 -- |Find kite halves with a short edge on the boundary (a,b) 
 -- where there are 2 other kite halves sharing a short edge
@@ -942,7 +942,7 @@ kiteGaps = boundaryFilter kiteGap where
 -- |Update generator for rule (5)
 -- jackDartUpdates - jack vertex add a missing second dart
 jackDartUpdates :: UpdateGenerator
-jackDartUpdates = makeGenerator addDartShortE noTouchingDart
+jackDartUpdates = newUpdateGenerator addDartShortE noTouchingDart
 
 -- |Find kite halves with a short edge on the boundary (a,b) where oppV must be a jack vertex
 -- (oppV is a for left kite and b for right kite).
@@ -961,7 +961,7 @@ completeSunStar will add a new face of the same type (dart/kite)
 sharing the long edge.
 -}
 sunStarUpdates :: UpdateGenerator
-sunStarUpdates = makeGenerator completeSunStar almostSunStar
+sunStarUpdates = newUpdateGenerator completeSunStar almostSunStar
 
 -- |Find a boundary long edge of either
 -- a dart where there are at least 7 dart origins, or
@@ -977,7 +977,7 @@ almostSunStar = boundaryFilter multiples57 where
 -- jack vertices with dart long edge on the boundary - add missing kite top.
 -- The function mustbeJack finds if a vertex must be a jack.
 jackKiteUpdates :: UpdateGenerator
-jackKiteUpdates = makeGenerator addKiteLongE jackMissingKite
+jackKiteUpdates = newUpdateGenerator addKiteLongE jackMissingKite
 
 -- |Find jack vertices with dart long edge on the boundary.
 -- The function mustbeJack finds if a vertex must be a jack
@@ -989,7 +989,7 @@ jackMissingKite = boundaryFilter dartsWingDB where
 -- |Update generator for rule (8)
 -- king vertices with 2 of the 3 darts  - add another half dart on a boundary long edge of existing darts
 kingDartUpdates :: UpdateGenerator
-kingDartUpdates = makeGenerator addDartLongE kingMissingThirdDart
+kingDartUpdates = newUpdateGenerator addDartLongE kingMissingThirdDart
 
 -- |Find king vertices with a dart long edge on the boundary
 -- and 2 of the 3 darts at its origin plus a kite wing at its origin
@@ -1002,7 +1002,7 @@ kingMissingThirdDart = boundaryFilter predicate where
 -- |Update generator for rule (9)
 -- queen vertices (more than 2 kite wings) with a boundary kite long edge - add a half dart
 queenDartUpdates :: UpdateGenerator
-queenDartUpdates = makeGenerator addDartLongE queenMissingDarts
+queenDartUpdates = newUpdateGenerator addDartLongE queenMissingDarts
 
 -- |Find queen vertices (more than 2 kite wings) with a boundary kite long edge
 queenMissingDarts :: UFinder                      
@@ -1016,7 +1016,7 @@ queenMissingDarts = boundaryFilter predicate where
 -- |Update generator for rule (10)
 -- queen vertices with more than 2 kite wings -- add missing half kite on a boundary kite short edge
 queenKiteUpdates :: UpdateGenerator
-queenKiteUpdates = makeGenerator addKiteShortE queenMissingKite
+queenKiteUpdates = newUpdateGenerator addKiteShortE queenMissingKite
 
 -- |Find queen vertices (2 or more kite wings) and a kite short edge on the boundary
 queenMissingKite :: UFinder                        

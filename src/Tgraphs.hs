@@ -69,7 +69,7 @@ module Tgraphs
   , trySuperForce
   , singleChoiceEdges
     -- * Boundary face graph
-  , tryBoundaryFaceGraph 
+  , tryBoundaryFaceGraph
     -- * Boundary loops
   , boundaryLoopsG
   , boundaryLoops
@@ -99,7 +99,7 @@ import Tgraph.Relabelling
 import Diagrams.Prelude hiding (union)
 import TileLib
 
-import Data.List (intersect, union, (\\), find, foldl', transpose)      
+import Data.List (intersect, union, (\\), find, foldl', transpose)
 import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
@@ -115,7 +115,7 @@ import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lo
 -- smart (labelled draw) g
 --
 -- smart (labelSize normal draw) g
-smart :: OKBackend b => 
+smart :: OKBackend b =>
          (VPatch -> Diagram b) -> Tgraph -> Diagram b
 smart dr g = drawJoinsFor (boundaryJoinFaces g) vp <> dr vp
   where vp = makeVP g
@@ -127,7 +127,7 @@ boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
     bdry = makeBoundaryState g
 
 -- |given a list of faces and a VPatch with suitable locations, draw just the dashed joins for those faces.
-drawJoinsFor::  OKBackend b => 
+drawJoinsFor::  OKBackend b =>
                 [TileFace] -> VPatch -> Diagram b
 drawJoinsFor fcs vp = drawWith dashjOnly (subVP vp fcs)
 
@@ -165,7 +165,7 @@ smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 drawPCompose :: OKBackend b =>
                 Tgraph -> Diagram b
-drawPCompose g = 
+drawPCompose g =
     restrictSmart g' draw vp
     <> drawj (subVP vp remainder) # lw medium # lc lime
     where (remainder,g') = partCompose g
@@ -175,8 +175,8 @@ drawPCompose g =
 -- It adds dashed join edges on the boundary of g
 drawForce :: OKBackend b =>
              Tgraph -> Diagram b
-drawForce g = 
-    restrictSmart g draw vp # lc red # lw medium 
+drawForce g =
+    restrictSmart g draw vp # lc red # lw medium
     <> draw vp
     where vp = makeVP $ force g
 
@@ -188,7 +188,7 @@ drawSuperForce :: OKBackend b =>
 drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     fg = force g
     sfg = superForce fg
-    vp = makeVP $ sfg
+    vp = makeVP sfg
     dfg = draw $ selectFacesVP vp (faces fg \\ faces g) -- restrictSmart (force g) draw vp
     dg = restrictSmart g draw vp
     dsfg = draw $ selectFacesVP vp (faces sfg \\ faces fg)
@@ -224,7 +224,7 @@ emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) whe
     emphvp = subVP vp (fcs `intersect` faces g)
 
 
- 
+
 
 -- | An unsound version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
@@ -242,8 +242,8 @@ composeK g = runTry $ tryConnectedNoCross newfaces where
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
 -- (We also have a proof that the result must be a forced Tgraph when the initial force succeeds.)
 compForce:: Tgraph -> Tgraph
-compForce = uncheckedCompose . force 
-        
+compForce = uncheckedCompose . force
+
 -- |allCompForce g produces a list of the non-null iterated (forced) compositions of force g.
 -- It will raise an error if the initial force fails with an incorrect Tgraph.
 -- The list will be [] if g is the emptyTgraph, otherwise the list begins with force g (when the force succeeds).
@@ -303,7 +303,7 @@ boundaryECovering:: BoundaryState -> [BoundaryState]
 boundaryECovering bstate = covers [(bstate, boundaryEdgeSet bstate)] where
   covers:: [(BoundaryState, Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
-  covers ((bs,es):opens) 
+  covers ((bs,es):opens)
     | Set.null es = bs:covers opens -- bs is a completed cover
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
@@ -329,11 +329,11 @@ boundaryVCovering bd = covers [(bd, startbds)] where
   startbvs = boundaryVertexSet bd
 --covers:: [(BoundaryState,Set.Set Dedge)] -> [BoundaryState]
   covers [] = []
-  covers ((open,es):opens) 
+  covers ((open,es):opens)
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
         Just dedge -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKiteForced dedge open) ++opens
-    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced de open) ++opens  
+    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced de open) ++opens
                    where (de,des) = Set.deleteFindMin es
 
 -- | returns the set of boundary vertices of a BoundaryState
@@ -344,24 +344,24 @@ boundaryVertexSet bd = IntSet.fromList $ fmap fst (boundary bd)
 internalVertexSet :: BoundaryState -> VertexSet
 internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet bd
 
-                  
+
 -- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b and then tries forcing. Each of the results is a Try.
 tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try a]
-tryDartAndKiteForced de b = 
-    [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $ 
+tryDartAndKiteForced de b =
+    [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
         tryAddHalfDart de b >>= tryForce
-    , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $ 
+    , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
         tryAddHalfKite de b >>= tryForce
     ]
 
 -- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b. Each of the results is a Try.
 tryDartAndKite:: Forcible a => Dedge -> a -> [Try a]
-tryDartAndKite de b = 
-    [ onFail ("tryDartAndKite: Dart on edge: " ++ show de ++ "\n") $ 
+tryDartAndKite de b =
+    [ onFail ("tryDartAndKite: Dart on edge: " ++ show de ++ "\n") $
         tryAddHalfDart de b
-    , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $ 
+    , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $
         tryAddHalfKite de b
     ]
 
@@ -394,7 +394,7 @@ empire1 g = makeTrackedTgraph g0 [fcs,faces g] where
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> TrackedTgraph
 empire2 g = makeTrackedTgraph g0 [fcs, faces g] where
-    covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
+    covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
               $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryECovering covers1
 --    (g0:others) = fmap recoverGraph covers2
@@ -409,7 +409,7 @@ empire2 g = makeTrackedTgraph g0 [fcs, faces g] where
 -- similar to empire2, but using boundaryVCovering insrtead of boundaryECovering.
 empire2Plus:: Tgraph -> TrackedTgraph
 empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
-    covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n" 
+    covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
               $ tryForce $ makeBoundaryState g
     covers2 = concatMap boundaryVCovering covers1
 --    (g0:others) = fmap recoverGraph covers2
@@ -426,7 +426,7 @@ empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
 -- - the common  faces.
 drawEmpire :: OKBackend b =>
                TrackedTgraph -> Diagram b
-drawEmpire = 
+drawEmpire =
     drawTrackedTgraph  [ lw ultraThin . draw
                        , lw thin . fillDK lightgrey lightgrey
                        , lw thin . lc red . draw
@@ -462,7 +462,7 @@ trySuperForce:: Forcible a => a -> Try a
 trySuperForce = tryFSOp trySuperForceFS where
     -- |trySuperForceFS - implementation of trySuperForce for force states only
     trySuperForceFS :: ForceState -> Try ForceState
-    trySuperForceFS fs = 
+    trySuperForceFS fs =
         do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
                        tryForce fs
            case singleChoiceEdges $ boundaryState forcedFS of
@@ -476,7 +476,7 @@ trySuperForce = tryFSOp trySuperForceFS where
 -- The result is a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
 singleChoiceEdges :: BoundaryState -> [(Dedge,HalfTileLabel)]
-singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary bstate)  
+singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary bstate)
   where
 -- |commonToCovering bds edgeList - when bds are all the boundary edge covers of some forced Tgraph
 -- whose boundary edges were edgeList, this looks for edges in edgeList that have the same tile label added in all covers.
@@ -488,10 +488,10 @@ singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary
       common [] [] = []
       common [] (_:_) = error "singleChoiceEdges:commonToCovering: label list is longer than edge list"
       common (_:_) [] = error "singleChoiceEdges:commonToCovering: label list is shorter than edge list"
-      common (e:more) (ls:lls) = if matchingLabels ls 
+      common (e:more) (ls:lls) = if matchingLabels ls
                                  then (e,head ls):common more lls
                                  else common more lls
-      matchingLabels [] = error "singleChoiceEdges:commonToCovering: empty list of labels" 
+      matchingLabels [] = error "singleChoiceEdges:commonToCovering: empty list of labels"
       matchingLabels (l:ls) = all (==l) ls
 
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
@@ -503,7 +503,7 @@ singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary
       getf e = maybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
                      id
                      (faceForEdge e efmap)
-      
+
 -- |Tries to create a new Tgraph from all faces with a boundary vertex in a Tgraph.
 -- The resulting faces could have a crossing boundary and also could be disconnected if there is a hole in the starting Tgraph
 -- so these conditions are checked for, producing a Try result.
@@ -515,7 +515,7 @@ tryBoundaryFaceGraph = tryConnectedNoCross . boundaryFaces . makeBoundaryState
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
 -- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
 -- The trails will have disjoint sets of vertices because of the no-crossing-boundaries condition of Tgraphs.
-boundaryLoopsG:: Tgraph -> [[Vertex]] 
+boundaryLoopsG:: Tgraph -> [[Vertex]]
 boundaryLoopsG = findLoops . graphBoundary
 
 -- | Returns a list of (looping) vertex trails for a BoundaryState.
@@ -539,18 +539,18 @@ findLoops = collectLoops . VMap.fromList where
     -- This is repeated until the map is empty, to collect all boundary trials.
    collectLoops vmap -- 
      | VMap.null vmap = []
-     | otherwise = chase startV vmap [startV] 
+     | otherwise = chase startV vmap [startV]
          where
          (startV,_) = VMap.findMin vmap
          chase a vm sofar -- sofar is the collected trail in reverse order.
             = case VMap.lookup a vm of
                 Just b -> chase b (VMap.delete a vm) (b:sofar)
-                Nothing -> if a == startV 
+                Nothing -> if a == startV
                            then reverse sofar: collectLoops vm -- look for more loops
                            else error $ "findLoops (collectLoops): non looping boundary component, starting at "
                                         ++show startV++
                                         " and finishing at "
-                                        ++ show a ++ 
+                                        ++ show a ++
                                         "\nwith loop vertices "++ show (reverse sofar) ++"\n"
 
 
@@ -558,7 +558,7 @@ findLoops = collectLoops . VMap.fromList where
 -- this will return a (Diagrams) Path for the boundary.  It will raise an error if any vertex listed is not a map key.
 -- (The resulting path can be filled when converted to a diagram.)
 pathFromBoundaryLoops:: VertexLocMap -> [[Vertex]] -> Path V2 Double
-pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!)) loops where 
+pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!)) loops where
     locateLoop pts = (`at` head pts) $ glueTrail $ trailFromVertices pts
 
 
@@ -608,7 +608,7 @@ instance Forcible TrackedTgraph where
         g' <- tryChangeBoundaryWith ugen f $ tgraph ttg
         return ttg{ tgraph = g' }
 --    getBoundaryState = getBoundaryState . tgraph
-              
+
 -- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfDartTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
@@ -632,9 +632,9 @@ addHalfKiteTracked e ttg =
 -- |decompose a TrackedTgraph - applies decomposition to all tracked subsets as well as the full Tgraph.
 -- Tracked subsets get the same numbering of new vertices as the main Tgraph. 
 decomposeTracked :: TrackedTgraph -> TrackedTgraph
-decomposeTracked ttg = 
+decomposeTracked ttg =
   TrackedTgraph{ tgraph = g' , tracked = tlist}
-  where 
+  where
 --    makeTrackedTgraph g' tlist where
     g = tgraph ttg
     g' = makeUncheckedTgraph newFaces
@@ -643,7 +643,7 @@ decomposeTracked ttg =
     tlist = fmap (concatMap (decompFace newVFor)) (tracked ttg)
 
 {-*  Drawing TrackedTgraphs
--}                                          
+-}
 
 {-|
     To draw a TrackedTgraph, we use a list of functions each turning a VPatch into a diagram.
@@ -688,4 +688,3 @@ drawTrackedTgraphAligned drawList (a,b) ttg = mconcat $ reverse $ zipWith ($) dr
 
 
 
- 

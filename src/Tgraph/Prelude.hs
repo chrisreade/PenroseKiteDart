@@ -396,7 +396,7 @@ newSharedEdges face fcs =
 -- | noNewConflict face fcs returns True if face has an illegal shared edge with fcs.
 -- It does not check for illegal cases within the fcs.
 noNewConflict :: TileFace -> [TileFace] -> Bool
-noNewConflict face fcs = null $ filter (not . legal) shared where
+noNewConflict face fcs = all legal shared where
     shared = newSharedEdges face fcs
 
 {-
@@ -850,7 +850,7 @@ faceForEdge = Map.lookup
 edgeNbs:: TileFace -> Map.Map Dedge TileFace -> [TileFace]
 edgeNbs face efMap = mapMaybe getNbr edges where
     getNbr e = Map.lookup e efMap
-    edges = fmap reverseD $ faceDedges face
+    edges = reverseD <$> faceDedges face
 
 -- |For a non-empty list of tile faces
 -- find the face with lowest originV (and then lowest oppV).

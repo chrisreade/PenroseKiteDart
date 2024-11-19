@@ -11,7 +11,7 @@ Stability   : experimental
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TupleSections             #-}
+
 
 module TgraphExamples
   (-- * Some Layout tools
@@ -250,7 +250,7 @@ badlyBrokenDartFig :: OKBackend b => Diagram b
 badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, vpComp, vpFailed] where
     vp = makeVP badlyBrokenDart
     comp = compose badlyBrokenDart
-    vpComp = restrictVP vp $ faces $ comp
+    vpComp = restrictVP vp $ faces comp
     vpFailed  = restrictVP vp $ composedFaces comp
 
 -- |figure showing the result of removing incomplete tiles (those that do not have their matching halftile)
@@ -427,13 +427,13 @@ emplaceChoices g = emplaceChoicesForced $ recoverGraph $ force $ makeBoundarySta
 
   emplaceChoicesForced:: Tgraph -> [Tgraph]
   emplaceChoicesForced g0 | nullGraph g' = chooseUnknowns [(unknowns $ getDartWingInfo g0, g0)]
-                          | otherwise    = (force . decompose) <$> emplaceChoicesForced g'
+                          | otherwise    = force . decompose <$> emplaceChoicesForced g'
                           where g' = compose g0
 
   chooseUnknowns :: [([Vertex],Tgraph)] -> [Tgraph]
   chooseUnknowns [] = []
   chooseUnknowns (([],g0):more) = g0:chooseUnknowns more
-  chooseUnknowns (((u:unks),g0): more)
+  chooseUnknowns ((u:unks,g0): more)
      =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
         where newgs = map recoverGraph $ atLeastOne $ tryDartAndKiteForced (findDartLongForWing u bd) bd
               bd = makeBoundaryState g0
