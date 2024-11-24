@@ -2,6 +2,8 @@
 
 ## 1.2 -- 2024-11-18
 
+Added StrictData to module Force (significantly reduced heap size for force)
+
 Made UpdateGenerator a newtype in Tgraph.Force
 
 ## 1.1.1 -- 2024-11-15

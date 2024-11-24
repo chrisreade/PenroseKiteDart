@@ -9,8 +9,9 @@ Stability   : experimental
 -}
 {-# LANGUAGE TypeFamilies              #-} -- needed for Transformable Instance
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Instance
+-- {-# LANGUAGE BangPatterns              #-}
 
-module HalfTile 
+module HalfTile
   ( HalfTile(..)
   , tileRep
   , isLD
@@ -23,8 +24,9 @@ module HalfTile
   , tileLabel
   , isMatched
   ) where
-    
+
 import Diagrams.Prelude (V,N, Transformable(..)) -- needed to make HalfTile a Transformable when a is Transformable
+import qualified Control.Monad (void) -- used for tileLabel
 
 {-|
 Representing Half Tile Pieces Polymorphicly.
@@ -41,7 +43,8 @@ data HalfTile rep = LD rep -- ^ Left Dart
 -- | Note this ignores the tileLabels when comparing.
 -- However we should never have 2 different HalfTiles with the same rep
 instance Ord rep => Ord (HalfTile rep) where
-    compare t1 t2 = compare (tileRep t1) (tileRep t2)
+-- compare !t1 !t2 = compare (tileRep t1) (tileRep t2)
+   compare t1 t2 = compare (tileRep t1) (tileRep t2)
 
 -- |Make Halftile a Functor
 instance Functor HalfTile where
@@ -88,7 +91,7 @@ isKite x = isLK x || isRK x
 type HalfTileLabel = HalfTile ()
 -- |convert a half tile to its label (HalfTileLabel can be compared for equality)
 tileLabel :: HalfTile a -> HalfTileLabel
-tileLabel = fmap $ const () -- functor HalfTile
+tileLabel = Control.Monad.void -- functor HalfTile (replaces rep value with ())
 
 -- | isMatched t1 t2 is True if t1 and t2 have the same HalfTileLabel 
 -- (i.e. use the same constructor - both LD or both RD or both LK or both RK)
