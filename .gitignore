@@ -2,3 +2,5 @@
 *~
 .DS*
 stack.yaml.lock
+*bench.eventlog*
+*bench.hp
