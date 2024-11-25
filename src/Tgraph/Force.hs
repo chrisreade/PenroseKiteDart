@@ -50,6 +50,7 @@ module Tgraph.Force
     -- *  BoundaryState operations
   , makeBoundaryState
   , recoverGraph
+  , boundary
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
   , boundaryFaces
@@ -155,6 +156,8 @@ import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys
 import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
             -- used for BoundaryState locations AND faces at boundary vertices
 import qualified Data.Maybe(fromMaybe)
+import qualified Data.Set as Set (Set,fromList,toList,union,member,(\\),intersection)
+
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
 
@@ -180,7 +183,7 @@ and the next vertex label to be used when adding a new vertex.
 -}
 data BoundaryState
    = BoundaryState
-     { boundary:: [Dedge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
+     { boundaryEdgeSet:: Set.Set Dedge  -- ^ boundary directed edges (face on LHS, exterior on RHS)
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex.
      , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex.
      , allFaces:: [TileFace] -- ^ all the tile faces
@@ -197,7 +200,7 @@ makeBoundaryState g =
   in if not $ null $ crossingVertices bdes then error $ "makeBoundaryState: found crossing boundary in faces:\n"++show (faces g)++"\n"
      else
       BoundaryState
-      { boundary = bdes
+      { boundaryEdgeSet = Set.fromList bdes
       , bvFacesMap = vertexFacesMap bvs (faces g)
       , bvLocMap = bvLocs
       , allFaces = faces g
@@ -207,6 +210,9 @@ makeBoundaryState g =
 -- |Converts a BoundaryState back to a Tgraph
 recoverGraph:: BoundaryState -> Tgraph
 recoverGraph bd = makeUncheckedTgraph (allFaces bd)
+
+boundary :: BoundaryState -> [Dedge]
+boundary bd = Set.toList $ boundaryEdgeSet bd
 
 -- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
@@ -224,7 +230,7 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
 -- |return a list of faces which have a boundary vertex from a BoundaryState
 boundaryFaces :: BoundaryState -> [TileFace]
 boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
-    bvs = fst <$> boundary bd
+    bvs = fst <$> boundary bd -- now a vertex set
 -- boundaryFaces = nub . concat . VMap.elems . bvFacesMap 
 -- relies on the map containing no extra info for non boundary vertices
 
@@ -413,7 +419,7 @@ tryAddHalfKite = tryChangeBoundary . tryAddHalfKiteBoundary where
 -- |tryAddHalfKiteBoundary implements tryAddHalfKite as a BoundaryState change
 -- tryAddHalfKiteBoundary :: Dedge -> BoundaryState -> Try BoundaryChange
     tryAddHalfKiteBoundary e bd =
-      do de <- case [e, reverseD e] `intersect` boundary bd of
+      do de <- case filter (`Set.member` boundaryEdgeSet bd) [e, reverseD e]  of
                  [de] -> Right de
                  _ -> Left $ "tryAddHalfKite:  on non-boundary edge " ++ show e ++ "\n"
          let (fc,etype) = inspectBDedge bd de
@@ -442,7 +448,7 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
 -- |tryAddHalfDartBoundary implements tryAddHalfDart as a BoundaryState change
 -- tryAddHalfDartBoundary :: Dedge -> BoundaryState -> Try BoundaryChange
     tryAddHalfDartBoundary e bd =
-      do de <- case [e, reverseD e] `intersect` boundary bd of
+      do de <- case filter (`Set.member` boundaryEdgeSet bd) [e, reverseD e]  of
                 [de] -> Right de
                 _ -> Left $ "tryAddHalfDart:  on non-boundary edge " ++ show e  ++ "\n"
          let (fc,etype) = inspectBDedge bd de
@@ -498,15 +504,15 @@ data BoundaryChange = BoundaryChange
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bd [(a,b)] = [(x,a),(a,b),(b,y)] where
-           bdry = boundary bd
+           bdry = boundaryEdgeSet bd
            (x,_) = mustFind ((==a).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a ++ "\n")
            (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b ++ "\n")
 affectedBoundary bd [(a,b),(c,d)] | b==c = [(x,a),(a,b),(c,d),(d,y)] where
-           bdry = boundary bd
+           bdry = boundaryEdgeSet bd
            (x,_) = mustFind ((==a).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a ++ "\n")
            (_,y) = mustFind ((==d).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show d ++ "\n")
 affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
-           bdry = boundary bd
+           bdry = boundaryEdgeSet bd
            (x,_) = mustFind ((==c).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show c ++ "\n")
            (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b ++ "\n")
 affectedBoundary _ [] = []
@@ -583,7 +589,9 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
        resultBd = BoundaryState
-                    { boundary = newDedges ++ (boundary bd \\ matchedDedges)
+                    { boundaryEdgeSet = Set.fromList newDedges `Set.union`
+                                        (boundaryEdgeSet bd Set.\\ Set.fromList matchedDedges)
+
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newface:allFaces bd
@@ -612,12 +620,14 @@ trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
 trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
-       matchedDedges = fDedges `intersect` boundary bd -- list of 2 or 3
+       matchedDedges = Set.toList (Set.fromList fDedges `Set.intersection` boundaryEdgeSet bd) -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
-                   { boundary = newDedges ++ (boundary bd \\ matchedDedges)
+                   { boundaryEdgeSet = Set.fromList newDedges `Set.union`
+                                       (boundaryEdgeSet bd Set.\\ Set.fromList matchedDedges)
+
                    , bvFacesMap = foldr VMap.delete (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                    , allFaces = newface:allFaces bd
