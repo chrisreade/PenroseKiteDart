@@ -1,8 +1,10 @@
 # Revision history for PenroseKiteDart
 
-## 1.2 -- 2024-11-18
+## 1.2 -- 2024-11-28
 
-Added StrictData to module Force (significantly reduced heap size for force)
+Significant improvement on space usage (fixing leaks)
+     Added StrictData to modules Tgraph.HalfTile, Tgraph.Compose, Tgraph.Force
+     Improved getDartWingInfo (in Tgraph.Compose) using sets 
 
 Made UpdateGenerator a newtype in Tgraph.Force
 

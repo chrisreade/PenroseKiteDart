@@ -16,6 +16,7 @@ It also defines experimental TrackedTgraphs (used for tracking subsets of faces 
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
+{-# LANGUAGE TupleSections             #-}
 
 module Tgraphs
   ( module Tgraph.Prelude
@@ -103,6 +104,7 @@ import Data.List (intersect, union, (\\), find, foldl', transpose)
 import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
+import qualified Data.Maybe (fromMaybe)
 
 
 
@@ -224,8 +226,6 @@ emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) whe
     emphvp = subVP vp (fcs `intersect` faces g)
 
 
-
-
 -- | An unsound version of composition which defaults to kites when there are choices (unknowns).
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 composeK :: Tgraph -> Tgraph
@@ -332,7 +332,7 @@ boundaryVCovering bd = covers [(bd, startbds)] where
   covers ((open,es):opens)
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
-        Just dedge -> covers $ fmap (\b -> (b, es))  (atLeastOne $ tryDartAndKiteForced dedge open) ++opens
+        Just dedge -> covers $ fmap (,es) (atLeastOne $ tryDartAndKiteForced dedge open) ++opens
     | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced de open) ++opens
                    where (de,des) = Set.deleteFindMin es
 
@@ -500,9 +500,8 @@ singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary
     reportCover bd des = fmap (tileLabel . getf) des where
       efmap = dedgesFacesMap des (allFaces bd) -- more efficient than using graphEFMap?
 --      efmap = graphEFMap (recoverGraph bd)
-      getf e = maybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
-                     id
-                     (faceForEdge e efmap)
+      getf e = Data.Maybe.fromMaybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
+                                    (faceForEdge e efmap)
 
 -- |Tries to create a new Tgraph from all faces with a boundary vertex in a Tgraph.
 -- The resulting faces could have a crossing boundary and also could be disconnected if there is a hole in the starting Tgraph
