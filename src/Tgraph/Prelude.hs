@@ -18,7 +18,6 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
-{-# LANGUAGE StrictData                #-} 
 
 module Tgraph.Prelude
   ( module HalfTile
@@ -39,6 +38,7 @@ module Tgraph.Prelude
 --  , renumberFaces
 --  , differing
   , makeUncheckedTgraph
+  , evalFaces
   , checkedTgraph
   , tryTgraphProps
   , tryConnectedNoCross
@@ -282,9 +282,14 @@ renumberFaces prs = fmap renumberFace where
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. Use makeTgraph (defined in Tgraphs module) or checkedTgraph to perform checks.
--- This is intended for use only when checks are known to be redundant (the data constructor Tgraph is hidden).
+-- This is intended for use only when checks are known to be redundant (the data constructor Tgraph is not exported).
 makeUncheckedTgraph:: [TileFace] -> Tgraph
-makeUncheckedTgraph = Tgraph
+makeUncheckedTgraph fcs = Tgraph (evalFaces fcs)
+
+-- |force evaluation of a list of faces.
+evalFaces :: [TileFace] -> [TileFace]
+evalFaces fcs = facesMaxV fcs `seq` fcs
+
 
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
 and producing an error if a check fails.

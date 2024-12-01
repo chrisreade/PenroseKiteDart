@@ -619,10 +619,9 @@ trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
 trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
-      
-      --  localRevDedges =  [(b,a) | v <- faceVList newface, f <- bvFacesMap bd VMap.! v, (a,b) <- faceDedges f]
-      --  matchedDedges = fDedges `intersect` localRevDedges -- list of 2 or 3
-       matchedDedges = fDedges `intersect` boundary bd -- list of 2 or 3
+       localRevDedges =  [(b,a) | v <- faceVList newface, f <- bvFacesMap bd VMap.! v, (a,b) <- faceDedges f]
+       matchedDedges = fDedges `intersect` localRevDedges -- list of 2 or 3
+       -- matchedDedges = fDedges `intersect` boundary bd -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs

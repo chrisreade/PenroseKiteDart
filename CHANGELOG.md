@@ -1,12 +1,14 @@
 # Revision history for PenroseKiteDart
 
-## 1.2 -- 2024-11-28
+## version 1.2 -- 2024-12-1
 
+Release candidate:
 Introduced getDartInfoForced and improved performance of uncheckedPartCompose and uncheckedCompose
 removed: composedFaces = snd . partComposeFaces  (all in Tgraph.Compose)
 
 Significant improvement on space usage (fixing leaks)
-adding StrictData to modules Tgraph.HalfTile, Tgraph.Compose, Tgraph.Force
+adding StrictData to modules Tgraph.HalfTile, Tgraph.Compose, Tgraph.Force.
+forcing full evaluation of faces passed to makeUncheckedTgraph
 
 Made UpdateGenerator a newtype in Tgraph.Force
 
