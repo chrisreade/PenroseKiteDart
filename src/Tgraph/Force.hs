@@ -204,9 +204,10 @@ makeBoundaryState g =
       , nextVertex = 1+ maxV g
       }
 
+
 -- |Converts a BoundaryState back to a Tgraph
 recoverGraph:: BoundaryState -> Tgraph
-recoverGraph bd = makeUncheckedTgraph (allFaces bd)
+recoverGraph = makeUncheckedTgraph . allFaces
 
 -- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]

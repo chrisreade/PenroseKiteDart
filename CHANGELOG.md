@@ -2,9 +2,11 @@
 
 ## 1.2 -- 2024-11-28
 
+Introduced getDartInfoForced and improved performance of uncheckedPartCompose and uncheckedCompose
+removed: composedFaces = snd . partComposeFaces  (all in Tgraph.Compose)
+
 Significant improvement on space usage (fixing leaks)
-     Added StrictData to modules Tgraph.HalfTile, Tgraph.Compose, Tgraph.Force
-     Improved getDartWingInfo (in Tgraph.Compose) using sets 
+adding StrictData to modules Tgraph.HalfTile, Tgraph.Compose, Tgraph.Force
 
 Made UpdateGenerator a newtype in Tgraph.Force
 
