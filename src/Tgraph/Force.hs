@@ -210,6 +210,12 @@ recoverGraph bd = makeUncheckedTgraph (allFaces bd)
 
 -- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
+{- changeVFMap f vfm = h x1 (h x2 (h x3 vfm)) where
+    (x1,x2,x3) = faceVs f
+    h = VMap.alter consf
+    consf Nothing = Just [f]
+    consf (Just fs) = Just (f:fs)
+ -}
 changeVFMap f vfm = foldl' insertf vfm (faceVList f) where
    insertf vmap v = VMap.alter consf v vmap
    consf Nothing = Just [f]
@@ -612,6 +618,9 @@ trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
 trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
+      
+      --  localRevDedges =  [(b,a) | v <- faceVList newface, f <- bvFacesMap bd VMap.! v, (a,b) <- faceDedges f]
+      --  matchedDedges = fDedges `intersect` localRevDedges -- list of 2 or 3
        matchedDedges = fDedges `intersect` boundary bd -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
@@ -663,7 +672,7 @@ tryUpdate bd u@(UnsafeUpdate _) =
        Nothing ->  Left "tryUpdate: crossing boundary (touching vertices).\n"
 
 -- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateVertices.
--- (Used at intervals in tryRecalibrateForce and recalibrateForce).
+-- (Used at intervals in tryRecalibratingForce and recalibratingForce).
 recalculateBVLocs :: BoundaryState -> BoundaryState
 recalculateBVLocs bd = bd {bvLocMap = newlocs} where
     newlocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ allFaces bd

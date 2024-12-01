@@ -18,6 +18,7 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE StrictData                #-} 
 
 module Tgraph.Prelude
   ( module HalfTile
@@ -812,7 +813,14 @@ vertexFacesMap vs = foldl' insertf startVF where
     insertf vfmap f = foldr (VMap.alter addf) vfmap (faceVList f)
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
-
+{- 
+    insertf vfmap f = h x1 (h x2 (h x3 vfmap)) where
+      (x1,x2,x3) = faceVs f
+      h = VMap.alter addf
+      addf Nothing = Nothing
+      addf (Just fs) = Just (f:fs)
+ -}
+ 
 -- | dedgesFacesMap des fcs - Produces an edge-face map. Each directed edge in des is associated with
 -- a unique TileFace in fcs that has that directed edge (if there is one).
 -- It will report an error if more than one TileFace in fcs has the same directed edge in des. 

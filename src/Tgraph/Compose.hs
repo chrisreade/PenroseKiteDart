@@ -10,7 +10,6 @@ This module includes the main composition operations compose, partCompose, tryPa
 getDartWingInfo (and type DartWingInfo) and composedFaceGroups for debugging and experimenting.
 -}
 {-# LANGUAGE StrictData             #-} 
- 
 
 module Tgraph.Compose 
   ( compose
@@ -79,8 +78,8 @@ partComposeFaces:: Tgraph -> ([TileFace],[TileFace])
 partComposeFaces g = (remainder,newfaces) where
   compositions = composedFaceGroups $ getDartWingInfo g
   newfaces = map fst compositions
-  groups = map snd compositions
-  remainder = faces g \\ concat groups
+  -- groups = map snd compositions
+  remainder = faces g \\ concatMap snd compositions
 
 -- |composedFaces g produces the composed faces of g (which may or may not constitute faces of a valid Tgraph).
 composedFaces:: Tgraph -> [TileFace]
@@ -110,6 +109,7 @@ getDartWingInfo g =  DartWingInfo { largeKiteCentres = IntSet.toList allKcs
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing tips
+-- processD now uses a triple of IntSets rather than lists
   processD (kcs, dbs, unks) rd@(RD (orig, w, _)) = -- classify wing tip w
     if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else-- already classified
     let
@@ -189,7 +189,7 @@ getDartWingInfo g =  DartWingInfo { largeKiteCentres = IntSet.toList allKcs
                               find (matchingJoinE rk)  (filter isLK fcs)
   findFarK _ _ = error "getDartWingInfo: findFarK applied to non-dart face"
 
--- | Auxiliary function for uncheckedPartCompose.
+-- | Auxiliary function for partComposeFaces.
 -- Creates a list of new composed faces, each paired with a list of old faces (components of the new face)
 -- using dart wing information.
 composedFaceGroups :: DartWingInfo -> [(TileFace,[TileFace])]
