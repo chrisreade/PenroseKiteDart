@@ -238,7 +238,8 @@ composeK g = runTry $ tryConnectedNoCross newfaces where
     newfaces = map fst compositions
 
 -- |compForce is semantically equivalent to (compose . force), i.e it does a force then compose (raising an error if the force fails with an incorrect Tgraph).
--- However it is more efficient because it omits the check for connected, and no crossing boundaries.
+-- However it is more efficient because it omits the check for connected, and no crossing boundaries
+-- (and uses getDartWingInfoForced instead of getDartWingInfo)
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
 -- (We also have a proof that the result must be a forced Tgraph when the initial force succeeds.)
 compForce:: Tgraph -> Tgraph

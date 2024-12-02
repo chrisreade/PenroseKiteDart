@@ -7,7 +7,7 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 This module includes the main composition operations compose, partCompose, tryPartCompose but also exposes 
-getDartWingInfo (and type DartWingInfo) and composedFaceGroups for debugging and experimenting.
+getDartWingInfo, getDartWingInfoForced (and type DartWingInfo) and composedFaceGroups for debugging and experimenting.
 -}
 {-# LANGUAGE StrictData             #-} 
 
@@ -48,12 +48,13 @@ compose = snd . partCompose
 
 -- |This does the same as compose but more efficiently because it assumes the given Tgraph is forced.
 -- It uses getDartWingInfoForced and it does not perform checks for connectedness and no crossing boundaries in the result.
--- We have a proof that the checks are not needed for forced Tgraphs and also that the result is a forced Tgraph.
+-- This relies on a proof that the checks are not needed for forced Tgraphs.
+-- (The result is a forced Tgraph.)
 uncheckedCompose:: Tgraph -> Tgraph
 uncheckedCompose = snd . uncheckedPartCompose
 
 -- |partCompose g produces a pair consisting of remainder faces (faces from g which will not compose) 
--- and a composed Tgraph. It does not assume the given Tgraph is forced and is inefficient on large Tgraphs.
+-- and a composed Tgraph. It does not assume the given Tgraph is forced and can be inefficient on large Tgraphs.
 -- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
 partCompose:: Tgraph -> ([TileFace],Tgraph)
 partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
@@ -70,8 +71,8 @@ tryPartCompose g =
      return (remainder,checked)
 
 -- |uncheckedPartCompose g - assumes g is forced. It produces a pair of the remainder faces (faces from g which will not compose)
--- and a Tgraph made from the composed faces without checking that the Tgraph is valid.
--- I.e. it does NOT check the composition Tgraph for connectedness and no crossing boundaries, since this is not needed for a forced Tgraph.
+-- and a Tgraph made from the composed faces without checking for connectedness and no crossing boundaries.
+-- This relies on a proof that the result of composing a forced Tgraph does not require these checks.
 uncheckedPartCompose:: Tgraph -> ([TileFace],Tgraph)
 uncheckedPartCompose g = (remainder, makeUncheckedTgraph newfaces) where
   (remainder,newfaces) = partComposeFacesWith getDartWingInfoForced g
@@ -215,7 +216,7 @@ getDWIassumeF isForced g =
                               find (matchingJoinE rk)  (filter isLK fcs)
   findFarK _ _ = error "getDartWingInfo: findFarK applied to non-dart face"
 
--- | Auxiliary function for partComposeFaces.
+-- | Auxiliary function for partComposeFacesWith.
 -- Creates a list of new composed faces, each paired with a list of old faces (components of the new face)
 -- using dart wing information.
 composedFaceGroups :: DartWingInfo -> [(TileFace,[TileFace])]

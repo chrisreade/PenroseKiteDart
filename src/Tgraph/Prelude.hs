@@ -39,6 +39,7 @@ module Tgraph.Prelude
 --  , differing
   , makeUncheckedTgraph
   , evalFaces
+  -- , evalFace
   , checkedTgraph
   , tryTgraphProps
   , tryConnectedNoCross
@@ -188,6 +189,7 @@ import HalfTile
 import Try
 
 
+
 {---------------------
 *********************
 Tgraphs
@@ -282,7 +284,8 @@ renumberFaces prs = fmap renumberFace where
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. Use makeTgraph (defined in Tgraphs module) or checkedTgraph to perform checks.
--- This is intended for use only when checks are known to be redundant (the data constructor Tgraph is not exported).
+-- This is intended for use only when checks are known to be redundant.
+-- It also fully evaluates the list of faces (to reduce space leaks).
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph fcs = Tgraph (evalFaces fcs)
 
@@ -290,6 +293,10 @@ makeUncheckedTgraph fcs = Tgraph (evalFaces fcs)
 evalFaces :: [TileFace] -> [TileFace]
 evalFaces fcs = facesMaxV fcs `seq` fcs
 
+{- -- |force evaluation of a face.
+evalFace ::TileFace -> TileFace
+evalFace face = oppV face `seq` wingV face `seq` originV face `seq` face
+ -}
 
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
 and producing an error if a check fails.

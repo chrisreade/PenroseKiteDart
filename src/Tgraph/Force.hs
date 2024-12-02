@@ -739,7 +739,7 @@ sun, star, jack, queen, king, ace (fool), deuce
 sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, star
 -}
 
--- combineUpdateGenerators combines a list of update generators into a single update generator.
+-- |combineUpdateGenerators combines a list of update generators into a single update generator.
 -- When used, the generators are tried in order on each boundary edge (in the supplied focus edges),
 -- and will return a Left..(fail report) for the first generator that produces a Left..(fail report) if any.
 combineUpdateGenerators :: [UpdateGenerator] -> UpdateGenerator
@@ -810,6 +810,8 @@ boundaryFilter predF bd focus =
 -- |makeUpdate f x constructs a safe update if x is Just .. and an unsafe update if x is Nothing
 makeUpdate:: (Vertex -> TileFace) -> Maybe Vertex ->  Update
 makeUpdate f (Just v) = SafeUpdate (f v)
+                        -- let newf = evalFace $ f v
+                        -- in SafeUpdate newf -- fully evaluate new face
 makeUpdate f Nothing  = UnsafeUpdate f
 
 

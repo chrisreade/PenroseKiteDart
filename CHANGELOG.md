@@ -8,7 +8,7 @@ removed: composedFaces = snd . partComposeFaces  (all in Tgraph.Compose)
 
 Significant improvement on space usage (fixing leaks)
 adding StrictData to modules Tgraph.HalfTile, Tgraph.Compose, Tgraph.Force.
-forcing full evaluation of faces passed to makeUncheckedTgraph
+makeUncheckedTgraph now strictly evaluates its argument list of faces.
 
 Made UpdateGenerator a newtype in Tgraph.Force
 
