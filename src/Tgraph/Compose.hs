@@ -9,7 +9,7 @@ Stability   : experimental
 This module includes the main composition operations compose, partCompose, tryPartCompose but also exposes 
 getDartWingInfo, getDartWingInfoForced (and type DartWingInfo) and composedFaceGroups for debugging and experimenting.
 -}
-{-# LANGUAGE StrictData             #-} 
+-- {-# LANGUAGE StrictData             #-} 
 
 module Tgraph.Compose 
   ( compose
@@ -74,7 +74,7 @@ tryPartCompose g =
 -- and a Tgraph made from the composed faces without checking for connectedness and no crossing boundaries.
 -- This relies on a proof that the result of composing a forced Tgraph does not require these checks.
 uncheckedPartCompose:: Tgraph -> ([TileFace],Tgraph)
-uncheckedPartCompose g = (remainder, makeUncheckedTgraph newfaces) where
+uncheckedPartCompose g = (remainder, makeUncheckedTgraph $! evalFaces newfaces) where
   (remainder,newfaces) = partComposeFacesWith getDartWingInfoForced g
 
 -- |partComposeFaces g - produces a pair of the remainder faces (faces from g which will not compose)
@@ -103,9 +103,9 @@ composedFaces = snd . partComposeFaces
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.
 data DartWingInfo =  DartWingInfo 
-     { largeKiteCentres  :: [Vertex]
-     , largeDartBases  :: [Vertex]
-     , unknowns :: [Vertex]
+     { largeKiteCentres  :: ![Vertex]
+     , largeDartBases  :: ![Vertex]
+     , unknowns :: ![Vertex]
      , faceMap :: VMap.IntMap [TileFace] 
      } deriving Show
 
@@ -222,38 +222,38 @@ getDWIassumeF isForced g =
 composedFaceGroups :: DartWingInfo -> [(TileFace,[TileFace])]
 composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ faceGroupLKs where
 
-    faceGroupRDs = fmap (\gp -> (makeRD gp,gp)) groupRDs 
+    faceGroupRDs = fmap (\gp -> (makenewRD gp,gp)) groupRDs 
     groupRDs = mapMaybe groupRD (largeDartBases dwInfo)
-    makeRD [rd,lk] = RD(originV lk, originV rd, oppV lk) 
-    makeRD _       = error "composedFaceGroups: RD case"
+    makenewRD [rd,lk] = makeRD (originV lk) (originV rd) (oppV lk) 
+    makenewRD _       = error "composedFaceGroups: RD case"
     groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
                     return [rd,lk]
 
-    faceGroupLDs = fmap (\gp -> (makeLD gp,gp)) groupLDs 
+    faceGroupLDs = fmap (\gp -> (makenewLD gp,gp)) groupLDs 
     groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
-    makeLD [ld,rk] = LD(originV rk, oppV rk, originV ld)
-    makeLD _       = error "composedFaceGroups: LD case"
+    makenewLD [ld,rk] = makeLD (originV rk) (oppV rk) (originV ld)
+    makenewLD _       = error "composedFaceGroups: LD case"
     groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
                     return [ld,rk]
 
-    faceGroupRKs = fmap (\gp -> (makeRK gp,gp)) groupRKs 
+    faceGroupRKs = fmap (\gp -> (makenewRK gp,gp)) groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
-    makeRK [rd,_,rk] = RK(originV rd, wingV rk, originV rk)
-    makeRK _         = error "composedFaceGroups: RK case"
+    makenewRK [rd,_,rk] = makeRK (originV rd) (wingV rk) (originV rk)
+    makenewRK _         = error "composedFaceGroups: RK case"
     groupRK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
                     rk <- find (matchingJoinE lk) fcs
                     return [rd,lk,rk]
 
-    faceGroupLKs = fmap (\gp -> (makeLK gp,gp)) groupLKs 
+    faceGroupLKs = fmap (\gp -> (makenewLK gp,gp)) groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
-    makeLK [ld,_,lk] = LK(originV ld, originV lk, wingV lk)
-    makeLK _         = error "composedFaceGroups: LK case"
+    makenewLK [ld,_,lk] = makeLK (originV ld) (originV lk) (wingV lk)
+    makenewLK _         = error "composedFaceGroups: LK case"
     groupLK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs

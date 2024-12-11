@@ -9,7 +9,7 @@ Stability   : experimental
 -}
 {-# LANGUAGE TypeFamilies              #-} -- needed for Transformable Instance
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Instance
-{-# LANGUAGE StrictData                #-}
+-- {-# LANGUAGE StrictData                #-}
 
 module HalfTile
   ( HalfTile(..)
@@ -34,10 +34,10 @@ Common code for both graphs and vector representations of tilings.
 For Pieces - rep is V2 Double
 For TileFaces (in Tgraphs) rep is (Vertex,Vertex,Vertex)
 -}
-data HalfTile rep = LD rep -- ^ Left Dart
-                  | RD rep -- ^ Right Dart
-                  | LK rep -- ^ Left Kite
-                  | RK rep -- ^ Right Kite
+data HalfTile rep = LD !rep -- ^ Left Dart
+                  | RD !rep -- ^ Right Dart
+                  | LK !rep -- ^ Left Kite
+                  | RK !rep -- ^ Right Kite
                   deriving (Show,Eq)
 
 -- | Note this ignores the tileLabels when comparing.

@@ -18,6 +18,7 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE BangPatterns              #-}
 
 module Tgraph.Prelude
   ( module HalfTile
@@ -86,6 +87,10 @@ module Tgraph.Prelude
   , graphEFMap
   , defaultAlignment
     -- * Other Face/Vertex Operations
+  , makeRD
+  , makeLD
+  , makeRK
+  , makeLK
   , faceVs
   , faceVList
   , faceVSet
@@ -269,10 +274,10 @@ tryCorrectTouchingVs ::  [TileFace] -> Try Tgraph
 tryCorrectTouchingVs fcs =
     onFail ("tryCorrectTouchingVs:\n" ++ show touchVs) $
     tryTgraphProps $ nub $ renumberFaces touchVs fcs
-        -- renumberFaces allows for a non 1-1 relabelling represented by a list 
+        -- renumberFaces allows for a many to 1 relabelling represented by a list 
     where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
 
--- |renumberFaces allows for a non 1-1 relabelling represented by a list of pairs.
+-- |renumberFaces allows for a many to 1 relabelling represented by a list of pairs.
 -- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result 
 renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
 renumberFaces prs = fmap renumberFace where
@@ -283,20 +288,15 @@ renumberFaces prs = fmap renumberFace where
     differing = filter $ uncurry (/=)
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
--- It does not perform checks on the faces. Use makeTgraph (defined in Tgraphs module) or checkedTgraph to perform checks.
+-- It does not perform checks on the faces. Use makeTgraph or checkedTgraph to perform checks.
 -- This is intended for use only when checks are known to be redundant.
--- It also fully evaluates the list of faces (to reduce space leaks).
 makeUncheckedTgraph:: [TileFace] -> Tgraph
-makeUncheckedTgraph fcs = Tgraph (evalFaces fcs)
+makeUncheckedTgraph = Tgraph -- . evalFaces
 
 -- |force evaluation of a list of faces.
 evalFaces :: [TileFace] -> [TileFace]
-evalFaces fcs = facesMaxV fcs `seq` fcs
-
-{- -- |force evaluation of a face.
-evalFace ::TileFace -> TileFace
-evalFace face = oppV face `seq` wingV face `seq` originV face `seq` face
- -}
+evalFaces fcs = find (has0 . tileRep) fcs `seq` fcs where
+    has0 (x,y,z) = x==0 || y==0 || z==0
 
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
 and producing an error if a check fails.
@@ -594,11 +594,24 @@ defaultAlignment :: Tgraph -> (Vertex,Vertex)
 defaultAlignment g | nullGraph g = error "defaultAlignment: applied to empty Tgraph\n"
                    | otherwise = lowestJoin $ faces g
 
+makeRD,makeLD,makeRK,makeLK :: Vertex -> Vertex -> Vertex -> TileFace
+-- |make an RD (strict in arguments)
+makeRD !x !y !z = RD(x,y,z)
+-- |make an LD (strict in arguments)
+makeLD !x !y !z = LD(x,y,z)
+-- |make an RK (strict in arguments)
+makeRK !x !y !z = RK(x,y,z)
+-- |make an LK (strict in arguments)
+makeLK !x !y !z = LK(x,y,z)
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
+{-# Inline faceVs #-}
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
 faceVs = tileRep
-
+{- faceVs f = let tr = tileRep f
+               (x,y,z) = tr
+           in x `seq` y `seq` z `seq` tr
+ -}
 -- |list of (three) face vertices in order clockwise starting with origin
 faceVList::TileFace -> [Vertex]
 faceVList = (\(x,y,z) -> [x,y,z]) . faceVs

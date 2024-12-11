@@ -1,5 +1,8 @@
 # Revision history for PenroseKiteDart
 
+added (strict) makeRD, makeLD, makeRK, makeLK to Tgraph.Prelude
+
+
 ## version 1.2 -- 2024-12-1
 
 Release candidate:
