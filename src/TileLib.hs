@@ -181,24 +181,26 @@ drawJoin :: OKBackend b =>
 drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 
 -- |fillOnlyPiece col piece - fills piece with colour col without drawing any lines.
-fillOnlyPiece :: OKBackend b =>
-                 Colour Double -> Piece -> Diagram b
-fillOnlyPiece col piece  = drawRoundPiece piece # fc col # lw none
+-- Can be used with both Colour and AlphaColour
+fillOnlyPiece :: (OKBackend b, Color c) =>
+                  c -> Piece -> Diagram b
+fillOnlyPiece col piece  = drawRoundPiece piece # fillColor col # lw none
 
 -- |fillPieceDK dcol kcol piece - draws and fills the half-tile piece
 -- with colour dcol for darts and kcol for kites.
 -- Note the order D K.
-fillPieceDK :: OKBackend b =>
-               Colour Double -> Colour Double -> HalfTile (V2 Double) -> Diagram b
-fillPieceDK dcol kcol piece = drawPiece piece <> fillOnlyPiece col piece where
-    col = case piece of (LD _) -> dcol
-                        (RD _) -> dcol
-                        (LK _) -> kcol
-                        (RK _) -> kcol
+-- Can be used with both Colour and AlphaColour
+fillPieceDK :: (OKBackend b, Color c1, Color c2) =>
+                c1 -> c2 -> HalfTile (V2 Double) -> Diagram b
+fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
+  filledPiece = case piece of
+     (LD _) -> fillOnlyPiece dcol piece
+     (RD _) -> fillOnlyPiece dcol piece
+     (LK _) -> fillOnlyPiece kcol piece
+     (RK _) -> fillOnlyPiece kcol piece
 
--- |fillMaybePieceDK d k piece - draws the half-tile piece and possibly fills as well:
--- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
--- Nothing indicates no fill for either darts or kites or both.
+-- |fillMaybePieceDK  *Deprecated* 
+-- (use fillPieceDK which works with AlphaColours as well as Colours)
 fillMaybePieceDK :: OKBackend b =>
                     Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram b
 fillMaybePieceDK d k piece = drawPiece piece <> filler where
@@ -213,11 +215,12 @@ fillMaybePieceDK d k piece = drawPiece piece <> filler where
 -- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.
 -- (Right half-tiles produce nothing, so whole tiles are not drawn twice).
-leftFillPieceDK :: OKBackend b =>
-                   Colour Double -> Colour Double -> HalfTile (V2 Double) -> Diagram b
+-- Works with AlphaColours as well as Colours.
+leftFillPieceDK :: (OKBackend b, Color c1, Color c2) =>
+                   c1 -> c2 -> HalfTile (V2 Double) -> Diagram b
 leftFillPieceDK dcol kcol pc =
-     case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc dcol
-                (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fc kcol
+     case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fillColor dcol
+                (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fillColor kcol
                 _      -> mempty
         
 -- |experiment uses a different rule for drawing half tiles.
@@ -263,20 +266,20 @@ drawj :: (Drawable a, OKBackend b) =>
          a -> Diagram b
 drawj = drawWith dashjPiece
 
-fillDK, fillKD :: (Drawable a, OKBackend b) =>
-                   Colour Double -> Colour Double -> a -> Diagram b
+fillDK, fillKD :: (Drawable a, OKBackend b, Color c1, Color c2) =>
+                  c1 -> c2 -> a -> Diagram b
 -- |fillDK dcol kcol a - draws and fills a with colour dcol for darts and kcol for kites.
 -- Note the order D K.
+-- Works with AlphaColours as well as Colours.
 fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 
 -- |fillKD kcol dcol a - draws and fills a with colour kcol for kites and dcol for darts.
 -- Note the order K D.
+-- Works with AlphaColours as well as Colours.
 fillKD c1 c2 = fillDK c2 c1
     
--- |fillMaybeDK c1 c2 a - draws a and maybe fills as well:
--- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
--- Nothing indicates no fill for either darts or kites or both
--- Note the order D K.
+-- |fillMaybeDK *Deprecated*
+-- (Use fillDK which works with AlphaColors as well as Colours).
 fillMaybeDK :: (Drawable a, OKBackend b) =>
                Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram b
 fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
@@ -284,22 +287,18 @@ fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
 -- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
-colourDKG :: (Drawable a, OKBackend b) =>
-             (Colour Double, Colour Double, Colour Double) -> a -> Diagram b
-colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lc c3
+-- Can be used with both Colour and AlphaColour
+colourDKG :: (Drawable a, OKBackend b, Color c1, Color c2, Color c3) =>
+             (c1,c2,c3) -> a -> Diagram b
+colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lineColor c3
 
--- |colourMaybeDKG (d,k,g) a - draws a and possibly fills as well:
--- darts with dcol if d = Just dcol, kites with kcol if k = Just kcol
--- Nothing indicates no fill for either darts or kites or both
--- The g argument is for grout - i.e the non-join edges round tiles.
--- Edges are drawn with gcol if g  = Just gcol and not drawn if g = Nothing.
+-- |colourMaybeDKG *Deprecated*
+-- (Use colourDKG which works with AlphaColor as well as Colour)
 colourMaybeDKG:: (Drawable a, OKBackend b) =>
                  (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> a -> Diagram b
 colourMaybeDKG (d,k,g) a = fillMaybeDK d k a # maybeGrout g where
     maybeGrout (Just c) = lc c
     maybeGrout Nothing = lw none
-
-
 
 {-|
 Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch.

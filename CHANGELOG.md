@@ -1,5 +1,11 @@
 # Revision history for PenroseKiteDart
 
+## version 1.2.1 -- 2025-1-28
+
+Generalised colourDKG, fillDK, fillKD, fillPieceDK, fillOnlyPiece
+to work with AlphaColors as well as Colours
+Deprecating: colourMaybeDKG, fillMaybeDK, fillMaybePieceDK
+
 added (strict) makeRD, makeLD, makeRK, makeLK to Tgraph.Prelude
 
 
