@@ -27,6 +27,7 @@ module Tgraphs
     -- * Smart drawing of Tgraphs
   , smart
   , boundaryJoinFaces
+  , drawBoundaryJoins
   , drawJoinsFor
   , smartdraw
   , restrictSmart
@@ -119,7 +120,7 @@ import qualified Data.Maybe (fromMaybe)
 -- smart (labelSize normal draw) g
 smart :: OKBackend b =>
          (VPatch -> Diagram b) -> Tgraph -> Diagram b
-smart dr g = drawJoinsFor (boundaryJoinFaces g) vp <> dr vp
+smart dr g = drawBoundaryJoins g vp <> dr vp
   where vp = makeVP g
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
@@ -127,6 +128,10 @@ smart dr g = drawJoinsFor (boundaryJoinFaces g) vp <> dr vp
 boundaryJoinFaces :: Tgraph -> [TileFace]
 boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
     bdry = makeBoundaryState g
+
+-- draw boundary join edges of a Tgraph using a given VPatch
+drawBoundaryJoins :: OKBackend b => Tgraph -> VPatch -> Diagram b
+drawBoundaryJoins g vp = drawEdgesVP vp (map joinE $ boundaryJoinFaces g) # joinDashing
 
 -- |given a list of faces and a VPatch with suitable locations, draw just the dashed joins for those faces.
 drawJoinsFor::  OKBackend b =>
@@ -142,7 +147,7 @@ smartdraw = smart draw
 -- This can be used instead of smart when an appropriate vp is already available.
 restrictSmart :: OKBackend b =>
                  Tgraph -> (VPatch -> Diagram b) -> VPatch -> Diagram b
-restrictSmart g dr vp = drawJoinsFor (boundaryJoinFaces g) rvp <> dr rvp
+restrictSmart g dr vp = drawBoundaryJoins g rvp <> dr rvp
                         where rvp = restrictVP vp $ faces g
 
 -- |smartRotateBefore vfun a g - a tricky combination of smart with rotateBefore.

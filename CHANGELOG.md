@@ -1,12 +1,18 @@
 # Revision history for PenroseKiteDart
 
-## version 1.2.1 -- 2025-1-28
+## version 1.2.1 -- 2025-4-2
 
-Generalised colourDKG, fillDK, fillKD, fillPieceDK, fillOnlyPiece
-to work with AlphaColors as well as Colours
+Added: drawBoundaryJoins, joinDashing
+
+Renamed: drawEdge, drawEdges as drawLocatedEdge, drawLocatedEdges
+Depracating: drawEdge, drawEdges
+
+Generalised: colourDKG, fillDK, fillKD, fillPieceDK, fillOnlyPiece
+to work with AlphaColours as well as Colours
+
 Deprecating: colourMaybeDKG, fillMaybeDK, fillMaybePieceDK
 
-added (strict) makeRD, makeLD, makeRK, makeLK to Tgraph.Prelude
+Added (strict) makeRD, makeLD, makeRK, makeLK to Tgraph.Prelude
 
 
 ## version 1.2 -- 2024-12-1

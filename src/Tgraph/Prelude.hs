@@ -164,8 +164,8 @@ module Tgraph.Prelude
     -- *  Drawing Edges with a VPatch or a VertexLocationMap
   , drawEdgesVP
   , drawEdgeVP
-  , drawEdges
-  , drawEdge
+  , drawLocatedEdges
+  , drawLocatedEdge
     -- * Vertex Location and Touching Vertices
   , locateVertices
   , addVPoint
@@ -176,6 +176,8 @@ module Tgraph.Prelude
   , touching
   , touchingVerticesGen
   , locateVerticesGen
+  , drawEdges
+  , drawEdge
   ) where
 
 import Data.List ((\\), intersect, union, elemIndex,foldl',find,nub)
@@ -1099,28 +1101,38 @@ makeAlignedVP = alignBefore id
 -- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
 drawEdgesVP :: OKBackend b =>
                VPatch -> [Dedge] -> Diagram b
-drawEdgesVP = drawEdges . vLocs --foldMap (drawEdgeVP vp)
+drawEdgesVP = drawLocatedEdges . vLocs --foldMap (drawEdgeVP vp)
 
 -- |produce a diagram of a single edge (given a VPatch)
 -- Will raise an error if either vertex of the edge is not a key in the vertex to location mapping of the VPatch.
 drawEdgeVP:: OKBackend b =>
              VPatch -> Dedge -> Diagram b
-drawEdgeVP = drawEdge . vLocs
+drawEdgeVP = drawLocatedEdge . vLocs
 
 -- |produce a diagram of a list of edges (given a mapping of vertices to locations)
 -- Will raise an error if any vertex of the edges is not a key in the mapping.
-drawEdges :: OKBackend b =>
+drawLocatedEdges :: OKBackend b =>
              VertexLocMap -> [Dedge] -> Diagram b
-drawEdges = foldMap . drawEdge
+drawLocatedEdges = foldMap . drawLocatedEdge
+
 
 -- |produce a diagram of a single edge (given a mapping of vertices to locations).
 -- Will raise an error if either vertex of the edge is not a key in the mapping.
-drawEdge :: OKBackend b =>
-            VertexLocMap -> Dedge -> Diagram b
-drawEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
+drawLocatedEdge :: OKBackend b =>
+                   VertexLocMap -> Dedge -> Diagram b
+drawLocatedEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error $ "drawEdge: location not found for one or both vertices "++ show (a,b) ++ "\n"
 
+-- |deprecated (use drawLocatedEdges)
+drawEdges :: OKBackend b =>
+             VertexLocMap -> [Dedge] -> Diagram b
+drawEdges = drawLocatedEdges
+
+-- |deprecated (use drawLocatedEdge)
+drawEdge :: OKBackend b =>
+            VertexLocMap -> Dedge -> Diagram b
+drawEdge = drawLocatedEdge
 
 
 {-| locateVertices: processes a list of faces to associate points for each vertex using a default scale and orientation.

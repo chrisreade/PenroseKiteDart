@@ -73,6 +73,7 @@ module TileLib
   , scales
   , phiScales
   , phiScaling
+  , joinDashing
   ) where
 
 import Diagrams.Prelude
@@ -167,8 +168,12 @@ dashjPiece piece = drawPiece piece <> dashjOnly piece
 dashjOnly :: OKBackend b =>
              Piece -> Diagram b
 -- dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lw ultraThin -- # lc grey 
-dashjOnly piece = drawJoin piece # dashing [dashmeasure,dashmeasure] 0 # lw ultraThin
-                  where dashmeasure = normalized 0.003  `atLeast` output 0.5
+dashjOnly piece = drawJoin piece # joinDashing
+
+-- changes line style to ultraThin dashed lines (for drawing join edges)
+joinDashing :: (HasStyle c, N c ~ Double) => c -> c
+joinDashing = dashing [dashmeasure,dashmeasure] 0 . lw ultraThin
+                     where dashmeasure = normalized 0.003  `atLeast` output 0.5
 
 -- |same as drawPiece but with added join edge (also fillable as a loop).
 drawRoundPiece :: OKBackend b =>
@@ -200,7 +205,7 @@ fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
      (RK _) -> fillOnlyPiece kcol piece
 
 -- |fillMaybePieceDK  *Deprecated* 
--- (use fillPieceDK which works with AlphaColours as well as Colours)
+-- (use fillPieceDK which works with AlphaColours such as transparent as well as Colours)
 fillMaybePieceDK :: OKBackend b =>
                     Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram b
 fillMaybePieceDK d k piece = drawPiece piece <> filler where
@@ -279,7 +284,7 @@ fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 fillKD c1 c2 = fillDK c2 c1
     
 -- |fillMaybeDK *Deprecated*
--- (Use fillDK which works with AlphaColors as well as Colours).
+-- (Use fillDK which works with AlphaColours such as transparent as well as Colours).
 fillMaybeDK :: (Drawable a, OKBackend b) =>
                Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram b
 fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
@@ -293,7 +298,7 @@ colourDKG :: (Drawable a, OKBackend b, Color c1, Color c2, Color c3) =>
 colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lineColor c3
 
 -- |colourMaybeDKG *Deprecated*
--- (Use colourDKG which works with AlphaColor as well as Colour)
+-- (Use colourDKG which works with AlphaColours such as transparent as well as Colours)
 colourMaybeDKG:: (Drawable a, OKBackend b) =>
                  (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> a -> Diagram b
 colourMaybeDKG (d,k,g) a = fillMaybeDK d k a # maybeGrout g where
