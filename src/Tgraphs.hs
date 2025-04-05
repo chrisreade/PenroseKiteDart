@@ -129,14 +129,15 @@ boundaryJoinFaces :: Tgraph -> [TileFace]
 boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
     bdry = makeBoundaryState g
 
--- draw boundary join edges of a Tgraph using a given VPatch
+-- |draw boundary join edges of a Tgraph using a given VPatch
 drawBoundaryJoins :: OKBackend b => Tgraph -> VPatch -> Diagram b
 drawBoundaryJoins g vp = drawEdgesVP vp (map joinE $ boundaryJoinFaces g) # joinDashing
 
--- |given a list of faces and a VPatch with suitable locations, draw just the dashed joins for those faces.
+-- |Given a list of faces and a VPatch with suitable locations, draw just the dashed joins for those faces.
+-- Will raise an error if any vertex in the faces does not have a location in the VPatch.
 drawJoinsFor::  OKBackend b =>
                 [TileFace] -> VPatch -> Diagram b
-drawJoinsFor fcs vp = drawWith dashjOnly (subVP vp fcs)
+drawJoinsFor fcs vp = drawWith dashjOnly (restrictVP vp fcs)
 
 -- |same as draw except adding dashed lines on boundary join edges. 
 smartdraw :: OKBackend b => Tgraph -> Diagram b
