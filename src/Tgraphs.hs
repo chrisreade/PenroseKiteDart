@@ -382,7 +382,7 @@ drawFBCovering g = lw ultraThin $ vsep 1 (draw <$> forcedBoundaryVCovering g)
 -- The tgraph of the result is the first boundary vertex cover of force g,
 -- and the tracked list of the result has the common faces of all the boundary vertex covers (of force g)
 -- at the head, followed by the original faces of g.
-empire1:: Tgraph -> TrackedTgraph
+{- empire1:: Tgraph -> TrackedTgraph
 empire1 g = makeTrackedTgraph g0 [fcs,faces g] where
     covers = forcedBoundaryVCovering g
     g0 = head covers
@@ -390,6 +390,15 @@ empire1 g = makeTrackedTgraph g0 [fcs,faces g] where
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
+ -}
+empire1 :: Tgraph -> TrackedTgraph
+empire1 g = 
+    case forcedBoundaryVCovering g of
+     [] -> error "empire1 : no forced boundary covers found\n"
+     (g0:others) -> makeTrackedTgraph g0 [fcs,faces g] where
+          fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
+          de = defaultAlignment g
+          g0Intersect g1 = commonFaces (g0,de) (g1,de)
 
 -- | empire2 g - produces a TrackedTgraph representing the level 2 empire of g.
 -- NB since very large graphs can be generated with boundary vertex covers, we use boundary edge covers only.
@@ -399,7 +408,7 @@ empire1 g = makeTrackedTgraph g0 [fcs,faces g] where
 -- The tgraph of the result is the first (doubly-extended) boundary edge cover (of force g),
 -- and the tracked list of the result has the common faces of all the (doubly-extended) boundary edge covers
 -- at the head, followed by the original faces of g.
-empire2:: Tgraph -> TrackedTgraph
+{- empire2:: Tgraph -> TrackedTgraph
 empire2 g = makeTrackedTgraph g0 [fcs, faces g] where
     covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
               $ tryForce $ makeBoundaryState g
@@ -411,10 +420,24 @@ empire2 g = makeTrackedTgraph g0 [fcs, faces g] where
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
+ -}
+empire2:: Tgraph -> TrackedTgraph
+empire2 g = 
+  case fmap recoverGraph covers2 of
+    [] -> error "empire2: empty list of secondary boundary covers found"
+    (g0:others) -> makeTrackedTgraph g0 [fcs, faces g]
+      where fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
+            g0Intersect g1 = commonFaces (g0,de) (g1,de)
+  where
+     covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
+              $ tryForce $ makeBoundaryState g
+     covers2 = concatMap boundaryECovering covers1
+     de = defaultAlignment g
+     
 
 -- | empire2Plus g - produces a TrackedTgraph representing an extended level 2 empire of g
--- similar to empire2, but using boundaryVCovering insrtead of boundaryECovering.
-empire2Plus:: Tgraph -> TrackedTgraph
+-- similar to empire2, but using boundaryVCovering instead of boundaryECovering.
+{- empire2Plus:: Tgraph -> TrackedTgraph
 empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
     covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
               $ tryForce $ makeBoundaryState g
@@ -426,6 +449,20 @@ empire2Plus g = makeTrackedTgraph g0 [fcs, faces g] where
     fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
     de = defaultAlignment g
     g0Intersect g1 = commonFaces (g0,de) (g1,de)
+ -}
+empire2Plus:: Tgraph -> TrackedTgraph
+empire2Plus g = 
+  case fmap recoverGraph covers2 of
+    [] -> error "empire2: empty list of secondary boundary covers found"
+    (g0:others) -> makeTrackedTgraph g0 [fcs, faces g]
+      where fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
+            g0Intersect g1 = commonFaces (g0,de) (g1,de)
+  where
+     covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
+              $ tryForce $ makeBoundaryState g
+     covers2 = concatMap boundaryVCovering covers1
+     de = defaultAlignment g
+     
 
 -- | drawEmpire e - produces a diagram for an empire e represented as a TrackedTgraph
 -- as calcultaed by e.g. empire1 or empire2 or empire2Plus.
@@ -490,7 +527,7 @@ singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary
 -- This indicates there is a single choice for such an edge (the other choice is incorrect).
 -- The result is a list of pairs: edge and a common tile label.
 -- commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
-    commonToCovering bds edgeList = common edgeList (transpose labellists) where
+{-     commonToCovering bds edgeList = common edgeList (transpose labellists) where
       labellists = fmap (`reportCover` edgeList) bds
       common [] [] = []
       common [] (_:_) = error "singleChoiceEdges:commonToCovering: label list is longer than edge list"
@@ -500,7 +537,17 @@ singleChoiceEdges bstate = commonToCovering (boundaryECovering bstate) (boundary
                                  else common more lls
       matchingLabels [] = error "singleChoiceEdges:commonToCovering: empty list of labels"
       matchingLabels (l:ls) = all (==l) ls
-
+ -}
+    commonToCovering bds edgeList = common edgeList (transpose labellists) where
+      labellists = fmap (`reportCover` edgeList) bds
+      common [] [] = []
+      common [] (_:_) = error "singleChoiceEdges:commonToCovering: label list is longer than edge list"
+      common (_:_) [] = error "singleChoiceEdges:commonToCovering: label list is shorter than edge list"
+      common (_:_) ([]:_) = error "singleChoiceEdges:commonToCovering: empty list of labels"
+      common (e:more) ((l:ls):lls) = if all (==l) ls
+                                     then (e,l):common more lls
+                                     else common more lls
+      
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
 -- reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
@@ -565,7 +612,8 @@ findLoops = collectLoops . VMap.fromList where
 -- (The resulting path can be filled when converted to a diagram.)
 pathFromBoundaryLoops:: VertexLocMap -> [[Vertex]] -> Path V2 Double
 pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!)) loops where
-    locateLoop pts = (`at` head pts) $ glueTrail $ trailFromVertices pts
+    locateLoop [] = error "pathFromBoundaryLoops: empty loop found\n"
+    locateLoop (p:pts) = (`at` p) $ glueTrail $ trailFromVertices (p:pts)
 
 
 -- * TrackedTgraphs

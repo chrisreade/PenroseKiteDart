@@ -204,6 +204,7 @@ fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
      (LK _) -> fillOnlyPiece kcol piece
      (RK _) -> fillOnlyPiece kcol piece
 
+{-# DEPRECATED fillMaybePieceDK "Use fillPieceDK which now works with AlphaColours such as transparent" #-}
 -- |fillMaybePieceDK  *Deprecated* 
 -- (use fillPieceDK which works with AlphaColours such as transparent as well as Colours)
 fillMaybePieceDK :: OKBackend b =>
@@ -282,7 +283,8 @@ fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 -- Note the order K D.
 -- Works with AlphaColours as well as Colours.
 fillKD c1 c2 = fillDK c2 c1
-    
+
+{-# DEPRECATED fillMaybeDK "Use fillDK which now works with AlphaColours such as transparent" #-}
 -- |fillMaybeDK *Deprecated*
 -- (Use fillDK which works with AlphaColours such as transparent as well as Colours).
 fillMaybeDK :: (Drawable a, OKBackend b) =>
@@ -297,6 +299,7 @@ colourDKG :: (Drawable a, OKBackend b, Color c1, Color c2, Color c3) =>
              (c1,c2,c3) -> a -> Diagram b
 colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lineColor c3
 
+{-# DEPRECATED colourMaybeDKG "Use colourDKG which now wor with AlphaColours such as transparent" #-}
 -- |colourMaybeDKG *Deprecated*
 -- (Use colourDKG which works with AlphaColours such as transparent as well as Colours)
 colourMaybeDKG:: (Drawable a, OKBackend b) =>

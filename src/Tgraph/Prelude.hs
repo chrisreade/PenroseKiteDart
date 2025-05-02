@@ -1124,6 +1124,7 @@ drawLocatedEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error $ "drawEdge: location not found for one or both vertices "++ show (a,b) ++ "\n"
 
+{-# DEPRECATED drawEdge, drawEdges "Use drawLocatedEdge, drawLocatedEdges instead" #-}
 -- |deprecated (use drawLocatedEdges)
 drawEdges :: OKBackend b =>
              VertexLocMap -> [Dedge] -> Diagram b
