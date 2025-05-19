@@ -1,5 +1,5 @@
 {-|
-Module      : Tgraph.Try
+Module      : Try
 Description : Result types for partial functions
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
@@ -37,17 +37,18 @@ import Data.Either(fromRight, lefts, rights, isLeft)
 type Try a = Either String a
 
 -- | onFail s exp - inserts s at the front of failure report if exp fails with Left report
+-- but does nothing otherwise.
 onFail:: String -> Try a -> Try a
 onFail s = either (Left . (s++)) Right
 
--- | Converts a Maybe Result into a Try result by treating Nothing as a failure
+-- | nothingFail a s - Converts a Maybe Result (a) into a Try result by treating Nothing as a failure
 -- (the string s is the failure report on failure).
 -- Usually used as infix (exp `nothingFail` s)
 nothingFail :: Maybe b -> String -> Try b
 nothingFail a s = maybe (Left s) Right a
 
 -- |Extract the (Right) result from a Try, producing an error if the Try is Left s.
--- The failure report is passed to error for an error report.
+-- The failure report (s) is passed to error for an error report.
 runTry:: Try a -> a
 runTry = either error id
 
@@ -62,7 +63,7 @@ isFail = isLeft
 -- |Combines a list of Trys into a single Try with failure overriding success.
 -- It concatenates all failure reports if there are any and returns a single Left r.
 -- Otherwise it produces Right rs where rs is the list of all (successful) results.
--- In particular, concatFails [] = Right []
+-- In particular, concatFails [] = Right [] (so is NOT a fail)
 concatFails:: [Try a] -> Try [a]
 concatFails ls = case lefts ls of
                  [] -> Right $ rights ls
@@ -78,9 +79,10 @@ ignoreFails = rights
 atLeastOne:: [Try a] -> [a]
 atLeastOne [] = error "atLeastOne: applied to empty list.\n"
 atLeastOne results = case ignoreFails results of
-                 [] -> runTry $ onFail "atLeastOne: no successful results.\n" $ concatFails results
+                 [] -> runTry $ onFail "atLeastOne: no successful results.\nCounter Example Found?\n" $ concatFails results
                  other -> other 
 
+{-# DEPRECATED noFails "Use (runTry . concatFails) instead" #-}
 -- | noFails rs - returns the list of successes when all cases succeed, but fails with
 -- an error and a concatenated failure report of all failures if there is at least one failure.
 -- In particular, noFails [] = []

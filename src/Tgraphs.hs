@@ -160,7 +160,7 @@ smartRotateBefore :: OKBackend b =>
 smartRotateBefore vfun angle g = rotateBefore (restrictSmart g vfun) angle g
 
 -- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with alignBefore.
--- Uses vfun to produce a Diagram after converting g to n aligned VPatch but also adds the dashed boundary join edges of g.
+-- Uses vfun to produce a Diagram after converting g to an aligned VPatch but also adds the dashed boundary join edges of g.
 -- 
 -- Example: smartAlignBefore (labelled draw) (a,b) g
 smartAlignBefore :: OKBackend b =>
@@ -211,7 +211,7 @@ drawWithMax g =  (dmax # lc red # lw medium) <> dg where
     maxg = maxCompForce g
     dmax = draw $ subVP vp (faces maxg)
 
--- |displaying the boundary of a Tgraph in lime (overlaid on the Tgraph drawn with f).
+-- |addBoundaryAfter f g - displaying the boundary of a Tgraph g in lime (overlaid on g drawn with f).
 addBoundaryAfter :: OKBackend b =>
                     (VPatch ->  Diagram b) -> Tgraph ->  Diagram b
 addBoundaryAfter f g =  (drawEdgesVP vp edges # lc lime) <> f vp where
@@ -224,7 +224,7 @@ drawCommonFaces :: OKBackend b =>
                    (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram b
 drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g1
 
--- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background g.
+-- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background draw g.
 emphasizeFaces :: OKBackend b =>
                   [TileFace] -> Tgraph -> Diagram b
 emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) where

@@ -286,10 +286,6 @@ class Forcible a where
     -- | tryChangeBoundaryWith when given an update generator, converts a (try) BoundaryState changing operation to a (try) Forcible operation.
     -- The update generator is only used when the instance is a ForceState (to revise the update map in the result).
     tryChangeBoundaryWith :: UpdateGenerator -> (BoundaryState -> Try BoundaryChange) -> a -> Try a
-{-
-    -- | construct or recover the BoundaryState from a Forcible
-    getBoundaryState :: a -> BoundaryState
--}
 
 -- |ForceStates are Forcible
 instance Forcible ForceState where
@@ -1148,9 +1144,9 @@ anglesForShortRK = (2,2)
 -- |The default all update generator (see also allUGenerator). It uses the 10 rules (and the same UCheckers as allUGenerator),
 -- but makes decisions based on the EdgeType of a boundary edge (instead of trying each UFinder in turn).
 -- If there are any Left..(fail reports) for the given
--- boundary edges the result is a sigle Left.. concatenating all the failure reports (unlike allUGenerator).
+-- boundary edges the result is a single Left, concatenating all the failure reports (unlike allUGenerator).
 defaultAllUGen :: UpdateGenerator
-defaultAllUGen = UpdateGenerator gen where
+defaultAllUGen = UpdateGenerator { applyUG = gen } where
   gen bd es = combine $ fmap decide es where -- Either String is a monoid as well as Map
       decide e = decider (e,f,etype) where (f,etype) = inspectBDedge bd e
 

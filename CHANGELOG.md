@@ -1,5 +1,8 @@
 # Revision history for PenroseKiteDart
 
+Deprecating noFails
+Added warnings in PKD for makeUncheckedTgraph, uncheckedCompose, uncheckedPartCompose
+
 ## version 1.2.1 -- 2025-4-2
 
 Added: drawBoundaryJoins, joinDashing

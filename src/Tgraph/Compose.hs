@@ -40,9 +40,9 @@ COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
 ---------------------------------------------------------------------------}
 
 -- |The main compose function which simply drops the remainder faces from partCompose to return just
--- the composed Tgraph.  It will raise an error if the result is not a valid Tgraph
--- (i.e. if it fails the connectedness, no crossing boundary check)
--- It does not assume the given Tgraph is forced and is inefficient on large Tgraphs
+-- the composed Tgraph.  It is a partial function and will raise an error if the result is not a valid Tgraph
+-- (i.e. if it fails the connectedness, no crossing boundary check).
+-- It does not assume the given Tgraph is forced.
 compose:: Tgraph -> Tgraph
 compose = snd . partCompose
 
@@ -53,7 +53,7 @@ compose = snd . partCompose
 uncheckedCompose:: Tgraph -> Tgraph
 uncheckedCompose = snd . uncheckedPartCompose
 
--- |partCompose g produces a pair consisting of remainder faces (faces from g which will not compose) 
+-- |partCompose g is a partial function producing a pair consisting of remainder faces (faces from g which will not compose) 
 -- and a composed Tgraph. It does not assume the given Tgraph is forced and can be inefficient on large Tgraphs.
 -- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
 partCompose:: Tgraph -> ([TileFace],Tgraph)
@@ -63,7 +63,7 @@ partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
 -- It checks the resulting new faces for connectedness and no crossing boundaries.
 -- If the check is OK it produces Right (remainder, g') where g' is the composed Tgraph and remainder is a list
 -- of faces from g which will not compose.  If the check fails it produces Left s where s is a failure report.
--- It does not assume the given Tgraph is forced and is inefficient on large Tgraphs.
+-- It does not assume the given Tgraph is forced.
 tryPartCompose:: Tgraph -> Try ([TileFace],Tgraph)
 tryPartCompose g = 
   do let (remainder,newFaces) = partComposeFaces g
@@ -92,13 +92,6 @@ partComposeFacesWith getdwi g = (remainder,newfaces) where
   compositions = composedFaceGroups $ getdwi g
   newfaces = map fst compositions
   remainder = faces g \\ concatMap snd compositions
-
-
-{- 
--- |composedFaces g produces the composed faces of g (which may or may not constitute faces of a valid Tgraph).
-composedFaces:: Tgraph -> [TileFace]
-composedFaces = snd . partComposeFaces
- -}
 
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.

@@ -22,7 +22,7 @@ description:  Library to explore Penrose's Kite and Dart Tilings using Haskell D
 dependencies:
 - base >= 4.7 && < 5
 - diagrams-lib >= 1.4.6 && < 1.5
-- containers >= 0.6.7 && < 0.8 # added for Data.Map
+- containers >= 0.6.7 && < 0.7 # added for Data.Map
 ghc-options:
 - -Wall
 - -Wcompat

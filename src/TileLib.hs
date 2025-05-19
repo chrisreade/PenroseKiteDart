@@ -299,7 +299,7 @@ colourDKG :: (Drawable a, OKBackend b, Color c1, Color c2, Color c3) =>
              (c1,c2,c3) -> a -> Diagram b
 colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lineColor c3
 
-{-# DEPRECATED colourMaybeDKG "Use colourDKG which now wor with AlphaColours such as transparent" #-}
+{-# DEPRECATED colourMaybeDKG "Use colourDKG which now works with AlphaColours such as transparent" #-}
 -- |colourMaybeDKG *Deprecated*
 -- (Use colourDKG which works with AlphaColours such as transparent as well as Colours)
 colourMaybeDKG:: (Drawable a, OKBackend b) =>
