@@ -170,7 +170,7 @@ dashjOnly :: OKBackend b =>
 -- dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lw ultraThin -- # lc grey 
 dashjOnly piece = drawJoin piece # joinDashing
 
--- changes line style to ultraThin dashed lines (for drawing join edges)
+-- |changes line style to ultraThin dashed lines (for drawing join edges)
 joinDashing :: (HasStyle c, N c ~ Double) => c -> c
 joinDashing = dashing [dashmeasure,dashmeasure] 0 . lw ultraThin
                      where dashmeasure = normalized 0.003  `atLeast` output 0.5

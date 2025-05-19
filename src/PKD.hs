@@ -21,9 +21,9 @@ module PKD ( module Tgraphs
            , makeUncheckedTgraph
            ) where
 
-
 import TileLib
-import Tgraphs hiding (makeUncheckedTgraph, Forced(Forced))
+import Tgraphs hiding (makeUncheckedTgraph, Forced(..)) -- hides data constructor
+import Tgraphs (Forced) -- import Type only
 import qualified Tgraphs as Unchecked (makeUncheckedTgraph)
 
 {-# WARNING makeUncheckedTgraph "Bypasses checks for required Tgraph properties. Use makeTgraph instead" #-}

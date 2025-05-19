@@ -31,7 +31,8 @@ module Tgraph.Force
   , tryInitFS
   , tryChangeBoundary
     -- *  Forced
-  , Forced(..)
+  , Forced(Forced)
+  , forgetForced
   , tryForceF
   , forceF
     -- *  Force Related
@@ -362,7 +363,7 @@ tryFSOp = tryFSOpWith defaultAllUGen
 tryForce:: Forcible a => a -> Try a
 tryForce = tryForceWith defaultAllUGen
 
--- |The main force function using defaultAllUGen representing all 10 rules for updates.
+-- |The main force (partial) function using defaultAllUGen representing all 10 rules for updates.
 -- This raises an error on discovering a stuck/incorrect Forcible.
 force:: Forcible a => a -> a
 force = runTry . tryForce
@@ -372,6 +373,7 @@ wholeTiles:: Forcible a => a -> a
 wholeTiles = forceWith wholeTileUpdates
 
 -- | forceWith ugen: force using the given UpdateGenerator
+-- This raises an error on discovering a stuck/incorrect Forcible.
 forceWith:: Forcible a => UpdateGenerator -> a -> a
 forceWith ugen = runTry . tryForceWith ugen
 
@@ -401,16 +403,24 @@ stepForce n = runTry . tryStepForce n
 tryChangeBoundary:: Forcible a => (BoundaryState -> Try BoundaryChange) -> a -> Try a
 tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 
--- | Forced a explicitly indicates that (a Forcible) a is Forced.
--- This is intended to enable restricting some functions which are only total on a forced forcible.
--- (Similar to the way Data.List.NonEmpty is used to explicitly indicate non-empty lists)
--- Use _forced :: Forced a -> a to access the forcible.
+-- |Forced a explicitly indicates that a is Forced.
+-- This is to enable restricting some functions which are only total on a Forced forcible.
+-- (Similar to the way Data.List.NonEmpty is used to explicitly indicate a non-empty list)
+--
+-- To access the forcible use:  forgetForced :: Forced a -> a
+--
 -- Create using forceF or tryForceF
-newtype Forced a = Forced { _forced :: a}
-   deriving Show
+newtype Forced a = Forced { _forced :: a -- _forced is not exported (use forgetForced)
+                          }
+   deriving (Show)
 
 instance Functor Forced where
     fmap f (Forced a) = Forced (f a)
+
+-- |unwraps a Forced
+forgetForced :: Forced a -> a
+forgetForced = _forced
+
 
 -- |tryForceF is the same as tryForce except that
 -- the successful result is explitly indicated as Forced.
@@ -710,6 +720,7 @@ tryRecalibratingForce = tryFSOp recalibrating where
 
 -- |A version of force that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
 -- This is needed to limit accumulation of errors when large numbers of faces are added in forcing.
+-- This raises an error on discovering a stuck/incorrect Forcible.
 recalibratingForce :: Forcible c => c -> c
 recalibratingForce = runTry . tryRecalibratingForce
 

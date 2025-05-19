@@ -27,12 +27,13 @@ Other changes:
 (New)
 Introduced Forced (an explicitly Forced newtype operator)
 to enable restricting functions which require a forced argument.
-(For Forcible a) Forced a is an explicitly forced version of a.
-_forced (to unwrap explicitly Forced)
+Forced a is an explicitly forced version of a.
+
+forgetForced :: Forced a -> a (to unwrap explicitly Forced)
 tryForceF (to create explicitly Forced)
 forceF (to create explicitly Forced)
-composeForced:: Forced Tgraph -> Forced Tgraph
-partComposeForced:: Forced Tgraph -> ([TileFace], Forced Tgraph)
+composeForced :: Forced Tgraph -> Forced Tgraph
+partComposeForced :: Forced Tgraph -> ([TileFace], Forced Tgraph)
 
 Added warning in PKD for makeUncheckedTgraph
 

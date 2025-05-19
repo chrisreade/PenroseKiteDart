@@ -355,7 +355,6 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
    fmap drawSuperForce decomps where
       decomps = take 4 $ decompositions sun3Dart
 
-
 boundaryFDart4, boundaryFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph (dartDs!!4)
 boundaryFDart4 = makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
@@ -382,26 +381,25 @@ boundaryGap4Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryGapFDa
 -- |figure for the boundary gap graph boundaryGapFDart5.
 boundaryGap5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) drawj boundaryGapFDart5
 
-
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
 -- (with the Tgraph represented by bd shown in red in each case).
 boundaryVCoveringFigs :: OKBackend b =>
                          Forced BoundaryState -> [Diagram b]
 boundaryVCoveringFigs bd =
-    lw ultraThin . (redg <>) . alignBefore draw alig . (recoverGraph . _forced) <$> boundaryVCovering bd
+    lw ultraThin . (redg <>) . alignBefore draw alig . (recoverGraph . forgetForced) <$> boundaryVCovering bd
       where redg = lc red $ draw g --alignBefore draw alig g
             alig = defaultAlignment g
-            g = recoverGraph $ _forced bd
+            g = recoverGraph $ forgetForced bd
 
 -- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
 -- (with the Tgraph represented by bd shown in red in each case).
 boundaryECoveringFigs :: OKBackend b =>
                          Forced BoundaryState -> [Diagram b]
 boundaryECoveringFigs bd =
-    lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph . _forced  <$> boundaryECovering bd
+    lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph . forgetForced  <$> boundaryECovering bd
       where redg = lc red $ draw g
             alig = defaultAlignment g
-            g = recoverGraph $ _forced bd
+            g = recoverGraph $ forgetForced bd
 
 kingECoveringFig,kingVCoveringFig :: OKBackend b => Diagram b
 -- | diagram showing the boundaryECovering of a forced kingGraph.

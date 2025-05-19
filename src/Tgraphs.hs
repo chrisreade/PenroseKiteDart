@@ -209,7 +209,7 @@ drawWithMax g =  (dmax # lc red # lw medium) <> dg where
     vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
     dg = restrictSmart g draw vp
     maxg = maxCompForce g
-    dmax = draw $ subVP vp $ faces $ _forced maxg
+    dmax = draw $ subVP vp $ faces $ forgetForced maxg
 
 -- |addBoundaryAfter f g - displaying the boundary of a Tgraph g in lime (overlaid on g drawn with f).
 addBoundaryAfter :: OKBackend b =>
@@ -263,7 +263,7 @@ compForce = uncheckedCompose . force
 -- The definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
 allCompForce:: Tgraph -> [Forced Tgraph]
-allCompForce = takeWhile (not . nullGraph . _forced) . iterate composeForced . forceF
+allCompForce = takeWhile (not . nullGraph . forgetForced) . iterate composeForced . forceF
 
 {- allCompForce:: Tgraph -> [Tgraph]
 allCompForce = takeWhile (not . nullGraph) . iterate uncheckedCompose . force
@@ -386,7 +386,7 @@ tryDartAndKite de b =
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g.
 drawFBCovering :: OKBackend b =>
                   Tgraph -> Diagram b
-drawFBCovering g = lw ultraThin $ vsep 1 (draw . _forced <$> forcedBoundaryVCovering g)
+drawFBCovering g = lw ultraThin $ vsep 1 (draw . forgetForced <$> forcedBoundaryVCovering g)
 
 
 -- | empire1 g - produces a TrackedTgraph representing the level 1 empire of g.
@@ -399,10 +399,10 @@ empire1 g =
     case forcedBoundaryVCovering g of
      [] -> error "empire1 : no forced boundary covers found\n"
      (fg0:others) -> makeTrackedTgraph g0 [fcs,faces g] where
-          g0 = _forced fg0
+          g0 = forgetForced fg0
           fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
           de = defaultAlignment g
-          g0Intersect fg1 = commonFaces (g0,de) (_forced fg1,de)
+          g0Intersect fg1 = commonFaces (g0,de) (forgetForced fg1,de)
 
 -- | empire2 g - produces a TrackedTgraph representing the level 2 empire of g.
 -- Raises an error if force g fails with a stuck/incorrect Tgraph.
@@ -415,7 +415,7 @@ empire1 g =
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> TrackedTgraph
 empire2 g = 
-  case fmap (recoverGraph . _forced) covers2 of
+  case fmap (recoverGraph . forgetForced) covers2 of
     [] -> error "empire2: empty list of secondary boundary covers found"
     (g0:others) -> makeTrackedTgraph g0 [fcs, faces g]
       where fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
@@ -432,7 +432,7 @@ empire2 g =
 -- Raises an error if force g fails with a stuck/incorrect Tgraph.
 empire2Plus:: Tgraph -> TrackedTgraph
 empire2Plus g = 
-  case fmap (recoverGraph . _forced) covers2 of
+  case fmap (recoverGraph . forgetForced) covers2 of
     [] -> error "empire2: empty list of secondary boundary covers found"
     (g0:others) -> makeTrackedTgraph g0 [fcs, faces g]
       where fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
@@ -490,8 +490,8 @@ trySuperForce = tryFSOp trySuperForceFS where
         do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
                        tryForceF fs
            case singleChoiceEdges $ fmap boundaryState forcedFS of
-              [] -> return $ _forced forcedFS
-              (elpr:_) -> do extended <- addSingle elpr $ _forced forcedFS
+              [] -> return $ forgetForced forcedFS
+              (elpr:_) -> do extended <- addSingle elpr $ forgetForced forcedFS
                              trySuperForceFS extended
     addSingle (e,l) fs = if isDart l then tryAddHalfDart e fs else tryAddHalfKite e fs
 
@@ -500,7 +500,7 @@ trySuperForce = tryFSOp trySuperForceFS where
 -- The result is a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
 singleChoiceEdges :: Forced BoundaryState -> [(Dedge,HalfTileLabel)]
-singleChoiceEdges bstate = commonToCovering (_forced <$> boundaryECovering bstate) (boundary $ _forced bstate)
+singleChoiceEdges bstate = commonToCovering (forgetForced <$> boundaryECovering bstate) (boundary $ forgetForced bstate)
   where
 -- commonToCovering bds edgeList - when bds are all the boundary edge covers of some forced Tgraph
 -- whose boundary edges were edgeList, this looks for edges in edgeList that have the same tile label added in all covers.
