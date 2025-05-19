@@ -14,11 +14,13 @@ getDartWingInfo, getDartWingInfoForced (and type DartWingInfo) and composedFaceG
 module Tgraph.Compose 
   ( compose
   , partCompose
+  , partComposeForced
+  , composeForced
   , tryPartCompose
-  , uncheckedCompose
-  , uncheckedPartCompose
-  , partComposeFaces
-  -- , partComposeFacesWith
+  -- , uncheckedCompose
+  -- , uncheckedPartCompose
+  , partComposeFaces 
+ -- , partComposeFacesWith
  -- , composedFaces
   , DartWingInfo(..)
   , getDartWingInfo
@@ -32,7 +34,7 @@ import Data.Maybe (mapMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)
 
 import Tgraph.Prelude
-
+import Tgraph.Force ( Forced(..) )
 {-------------------------------------------------------------------------
 ***************************************************************************              
 COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
@@ -46,13 +48,13 @@ COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
 compose:: Tgraph -> Tgraph
 compose = snd . partCompose
 
--- |This does the same as compose but more efficiently because it assumes the given Tgraph is forced.
+{- -- |This does the same as compose but more efficiently because it assumes the given Tgraph is forced.
 -- It uses getDartWingInfoForced and it does not perform checks for connectedness and no crossing boundaries in the result.
 -- This relies on a proof that the checks are not needed for forced Tgraphs.
 -- (The result is a forced Tgraph.)
 uncheckedCompose:: Tgraph -> Tgraph
 uncheckedCompose = snd . uncheckedPartCompose
-
+ -}
 -- |partCompose g is a partial function producing a pair consisting of remainder faces (faces from g which will not compose) 
 -- and a composed Tgraph. It does not assume the given Tgraph is forced and can be inefficient on large Tgraphs.
 -- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
@@ -70,20 +72,39 @@ tryPartCompose g =
      checked <- onFail "tryPartCompose:/n" $ tryConnectedNoCross newFaces
      return (remainder,checked)
 
--- |uncheckedPartCompose g - assumes g is forced. It produces a pair of the remainder faces (faces from g which will not compose)
+{- -- |uncheckedPartCompose g - assumes g is forced. It produces a pair of the remainder faces (faces from g which will not compose)
 -- and a Tgraph made from the composed faces without checking for connectedness and no crossing boundaries.
 -- This relies on a proof that the result of composing a forced Tgraph does not require these checks.
 uncheckedPartCompose:: Tgraph -> ([TileFace],Tgraph)
 uncheckedPartCompose g = (remainder, makeUncheckedTgraph $! evalFaces newfaces) where
   (remainder,newfaces) = partComposeFacesWith getDartWingInfoForced g
-
+ -}
 -- |partComposeFaces g - produces a pair of the remainder faces (faces from g which will not compose)
 -- and the composed faces (which may or may not constitute faces of a valid Tgraph).
 -- It does not assume that g is forced.
 partComposeFaces:: Tgraph -> ([TileFace],[TileFace])
-partComposeFaces = partComposeFacesWith getDartWingInfo
+partComposeFaces g = (remainder,newfaces) where
+  compositions = composedFaceGroups $ getDartWingInfo g
+  newfaces = map fst compositions
+  remainder = faces g \\ concatMap snd compositions
 
--- |partComposeFacesWith gtdwi g, 
+{- -- |partComposeFaces g - produces a pair of the remainder faces (faces from g which will not compose)
+-- and the composed faces (which may or may not constitute faces of a valid Tgraph).
+-- It does not assume that g is forced.
+partComposeFaces:: Tgraph -> ([TileFace],[TileFace])
+partComposeFaces = partComposeFacesWith getDartWingInfo
+ -}
+
+-- |partComposeFacesForced (does the same as partComposeFaces for a Forced Tgraph).
+-- It produces a pair of the remainder faces (faces which will not compose)
+-- and the composed faces.
+partComposeFacesForced :: Forced Tgraph -> ([TileFace],[TileFace])
+partComposeFacesForced fg = (remainder,newfaces) where
+  compositions = composedFaceGroups $ getDartWingInfoForced fg
+  newfaces = map fst compositions
+  remainder = faces (_forced fg) \\ concatMap snd compositions
+
+{- -- |partComposeFacesWith gtdwi g, 
 -- (where gtdwi gets dart wing info from g - either getDartWingInfo or getDartWingInfoForced)
 -- produces a pair of the remainder faces (faces from the original which will not compose)
 -- and the composed faces (which may or may not constitute faces of a valid Tgraph).
@@ -92,6 +113,23 @@ partComposeFacesWith getdwi g = (remainder,newfaces) where
   compositions = composedFaceGroups $ getdwi g
   newfaces = map fst compositions
   remainder = faces g \\ concatMap snd compositions
+ -}
+
+ -- |partComposeForced fg - produces a pair consisting of remainder faces (faces from fg which will not compose) 
+-- and a composed (Forced) Tgraph.
+-- Since fg is a forced Tgraph it does not need a check for validity of the composed Tgraph.
+-- The fact that the result is also Forced relies on a theorem.
+partComposeForced:: Forced Tgraph -> ([TileFace], Forced Tgraph)
+partComposeForced fg = (remainder, Forced $ makeUncheckedTgraph $! evalFaces newfaces) where
+  (remainder,newfaces) = partComposeFacesForced fg
+
+-- |composeForced - produces a composed Forced Tgraph from a Forced Tgraph.
+-- Since the argument is a forced Tgraph it does not need a check for validity of the composed Tgraph.
+-- The fact that the function is total and the result is also Forced relies on theorems
+-- established for composing.
+composeForced:: Forced Tgraph -> Forced Tgraph
+composeForced = snd . partComposeForced
+
 
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.
@@ -107,10 +145,17 @@ data DartWingInfo =  DartWingInfo
 getDartWingInfo:: Tgraph -> DartWingInfo
 getDartWingInfo = getDWIassumeF False
 
+-- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg and calculates a faceMap for each dart wing,
+-- returning as DartWingInfo.
+getDartWingInfoForced :: Forced Tgraph -> DartWingInfo
+getDartWingInfoForced fg = getDWIassumeF True ( _forced fg)
+
+{- 
 -- | getDartWingInfoForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,
 -- returning as DartWingInfo. It assume g is forced.
 getDartWingInfoForced :: Tgraph -> DartWingInfo
 getDartWingInfoForced = getDWIassumeF True
+ -}
 
 -- | getDWIassumeF isForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,
 -- returning as DartWingInfo. The boolean isForced is used to decide if g can be assumed to be forced.

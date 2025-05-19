@@ -24,7 +24,7 @@ module Try
   , concatFails
   , ignoreFails
   , atLeastOne
-  , noFails
+  -- , noFails
   ) where
 
 import Data.Either(fromRight, lefts, rights, isLeft)
@@ -82,9 +82,10 @@ atLeastOne results = case ignoreFails results of
                  [] -> runTry $ onFail "atLeastOne: no successful results.\nCounter Example Found?\n" $ concatFails results
                  other -> other 
 
-{-# DEPRECATED noFails "Use (runTry . concatFails) instead" #-}
+{- {-# DEPRECATED noFails "Use (runTry . concatFails) instead" #-}
 -- | noFails rs - returns the list of successes when all cases succeed, but fails with
 -- an error and a concatenated failure report of all failures if there is at least one failure.
 -- In particular, noFails [] = []
 noFails:: [Try a] -> [a]
 noFails = runTry . concatFails
+ -}

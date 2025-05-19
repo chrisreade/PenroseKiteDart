@@ -1,7 +1,41 @@
 # Revision history for PenroseKiteDart
 
-Deprecating noFails
-Added warnings in PKD for makeUncheckedTgraph, uncheckedCompose, uncheckedPartCompose
+## version 1.3 -- 2025-5-19
+
+Breaking changes:
+
+Removed: 
+uncheckedCompose (use new composeForced with explicitly Forced Tgraph)
+uncheckedPartCompose (use new partComposeForced with explicitly Forced Tgraph)
+
+Changed types (to make use of Forced) for:
+compForce
+allCompForce
+maxCompForce
+boundaryVCovering
+boundaryECovering
+singleChoiceEdges
+
+Removed deprecated: 
+noFails (use runTry . concatFails)
+colourMaybeDKG (use colourDKG with alphaColors)
+fillMaybeDK (use fillDK with alphaColors)
+fillMaybePieceDK (use fillPieceDK with alphaColors)
+
+Other changes:
+
+(New)
+Introduced Forced (an explicitly Forced newtype operator)
+to enable restricting functions which require a forced argument.
+(For Forcible a) Forced a is an explicitly forced version of a.
+_forced (to unwrap explicitly Forced)
+tryForceF (to create explicitly Forced)
+forceF (to create explicitly Forced)
+composeForced:: Forced Tgraph -> Forced Tgraph
+partComposeForced:: Forced Tgraph -> ([TileFace], Forced Tgraph)
+
+Added warning in PKD for makeUncheckedTgraph
+
 
 ## version 1.2.1 -- 2025-4-2
 

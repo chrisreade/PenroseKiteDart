@@ -39,7 +39,7 @@ module TileLib
   , drawJoin
   , fillOnlyPiece
   , fillPieceDK
-  , fillMaybePieceDK
+  -- , fillMaybePieceDK
   , leftFillPieceDK
   , experiment
     -- * Patches and Drawable Class
@@ -49,9 +49,9 @@ module TileLib
   , drawj
   , fillDK
   , fillKD
-  , fillMaybeDK
+  -- , fillMaybeDK
   , colourDKG
-  , colourMaybeDKG
+    -- , colourMaybeDKG
     -- * Patch Decomposition and Compose choices
   , decompPatch
   , decompositionsP
@@ -204,7 +204,7 @@ fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
      (LK _) -> fillOnlyPiece kcol piece
      (RK _) -> fillOnlyPiece kcol piece
 
-{-# DEPRECATED fillMaybePieceDK "Use fillPieceDK which now works with AlphaColours such as transparent" #-}
+{- {-# DEPRECATED fillMaybePieceDK "Use fillPieceDK which now works with AlphaColours such as transparent" #-}
 -- |fillMaybePieceDK  *Deprecated* 
 -- (use fillPieceDK which works with AlphaColours such as transparent as well as Colours)
 fillMaybePieceDK :: OKBackend b =>
@@ -216,7 +216,7 @@ fillMaybePieceDK d k piece = drawPiece piece <> filler where
                            (RD _) -> maybeFill d
                            (LK _) -> maybeFill k
                            (RK _) -> maybeFill k
-
+ -}
 
 -- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.
@@ -284,13 +284,13 @@ fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 -- Works with AlphaColours as well as Colours.
 fillKD c1 c2 = fillDK c2 c1
 
-{-# DEPRECATED fillMaybeDK "Use fillDK which now works with AlphaColours such as transparent" #-}
+{- {-# DEPRECATED fillMaybeDK "Use fillDK which now works with AlphaColours such as transparent" #-}
 -- |fillMaybeDK *Deprecated*
 -- (Use fillDK which works with AlphaColours such as transparent as well as Colours).
 fillMaybeDK :: (Drawable a, OKBackend b) =>
                Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram b
 fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
-
+ -}
 -- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
@@ -299,7 +299,7 @@ colourDKG :: (Drawable a, OKBackend b, Color c1, Color c2, Color c3) =>
              (c1,c2,c3) -> a -> Diagram b
 colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lineColor c3
 
-{-# DEPRECATED colourMaybeDKG "Use colourDKG which now works with AlphaColours such as transparent" #-}
+{- {-# DEPRECATED colourMaybeDKG "Use colourDKG which now works with AlphaColours such as transparent" #-}
 -- |colourMaybeDKG *Deprecated*
 -- (Use colourDKG which works with AlphaColours such as transparent as well as Colours)
 colourMaybeDKG:: (Drawable a, OKBackend b) =>
@@ -307,6 +307,7 @@ colourMaybeDKG:: (Drawable a, OKBackend b) =>
 colourMaybeDKG (d,k,g) a = fillMaybeDK d k a # maybeGrout g where
     maybeGrout (Just c) = lc c
     maybeGrout Nothing = lw none
+ -}
 
 {-|
 Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch.

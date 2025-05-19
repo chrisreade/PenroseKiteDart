@@ -30,6 +30,10 @@ module Tgraph.Force
   , initFS
   , tryInitFS
   , tryChangeBoundary
+    -- *  Forced
+  , Forced(..)
+  , tryForceF
+  , forceF
     -- *  Force Related
   , addHalfKite
   , tryAddHalfKite
@@ -397,6 +401,26 @@ stepForce n = runTry . tryStepForce n
 tryChangeBoundary:: Forcible a => (BoundaryState -> Try BoundaryChange) -> a -> Try a
 tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 
+-- | Forced a explicitly indicates that (a Forcible) a is Forced.
+-- This is intended to enable restricting some functions which are only total on a forced forcible.
+-- (Similar to the way Data.List.NonEmpty is used to explicitly indicate non-empty lists)
+-- Use _forced :: Forced a -> a to access the forcible.
+-- Create using forceF or tryForceF
+newtype Forced a = Forced { _forced :: a}
+   deriving Show
+
+instance Functor Forced where
+    fmap f (Forced a) = Forced (f a)
+
+-- |tryForceF is the same as tryForce except that
+-- the successful result is explitly indicated as Forced.
+tryForceF :: Forcible a => a -> Try (Forced a)
+tryForceF = fmap Forced . tryForce
+
+-- |forceF is the same partial function as force except that
+-- the (successful) result is explitly indicated as Forced.
+forceF:: Forcible a => a -> Forced a
+forceF = runTry . tryForceF
 
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
