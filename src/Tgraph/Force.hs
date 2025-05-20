@@ -31,8 +31,8 @@ module Tgraph.Force
   , tryInitFS
   , tryChangeBoundary
     -- *  Forced
-  , Forced(Forced)
-  , forgetForced
+  , Forced(..)
+  , forgetF
   , tryForceF
   , forceF
     -- *  Force Related
@@ -42,7 +42,7 @@ module Tgraph.Force
   , tryAddHalfDart
     -- *  One Step (for debugging)
   , tryOneStepWith
-  , tryOneStepF
+  , tryOneStepForce
 -- * Types for Forcing
   , ForceState(..)
   , BoundaryState(..)
@@ -407,20 +407,18 @@ tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 -- This is to enable restricting some functions which are only total on a Forced forcible.
 -- (Similar to the way Data.List.NonEmpty is used to explicitly indicate a non-empty list)
 --
--- To access the forcible use:  forgetForced :: Forced a -> a
+-- To access the forcible use:  forgetF :: Forced a -> a
 --
 -- Create using forceF or tryForceF
-newtype Forced a = Forced { _forced :: a -- _forced is not exported (use forgetForced)
-                          }
+newtype Forced a = Forced a                     
    deriving (Show)
 
 instance Functor Forced where
     fmap f (Forced a) = Forced (f a)
-
+    
 -- |unwraps a Forced
-forgetForced :: Forced a -> a
-forgetForced = _forced
-
+forgetF :: Forced a -> a
+forgetF (Forced a) = a
 
 -- |tryForceF is the same as tryForce except that
 -- the successful result is explitly indicated as Forced.
@@ -508,9 +506,9 @@ tryOneStepWith uGen fs =
                                return $ Just (fs',bdC)
                 Nothing  -> return Nothing           -- no more updates
 
--- |tryOneStepF is a special case of tryOneStepWith using defaultAllUGen (used for debugging).
-tryOneStepF :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
-tryOneStepF = tryOneStepWith defaultAllUGen
+-- |tryOneStepForce is a special case of tryOneStepWith using defaultAllUGen (used for debugging).
+tryOneStepForce :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
+tryOneStepForce = tryOneStepWith defaultAllUGen
 
 
 {-| After a face addition to a BoundaryState (by either trySafeUpdate or tryUnsafeUpdate), a BoundaryChange records

@@ -5,8 +5,8 @@
 Breaking changes:
 
 Removed: 
-uncheckedCompose (use new composeForced with explicitly Forced Tgraph)
-uncheckedPartCompose (use new partComposeForced with explicitly Forced Tgraph)
+uncheckedCompose (use new composeF with explicitly Forced Tgraph)
+uncheckedPartCompose (use new partComposeF with explicitly Forced Tgraph)
 
 Changed types (to make use of Forced) for:
 compForce
@@ -22,18 +22,21 @@ colourMaybeDKG (use colourDKG with alphaColors)
 fillMaybeDK (use fillDK with alphaColors)
 fillMaybePieceDK (use fillPieceDK with alphaColors)
 
+Renamed:
+tryOneStepF is now tryOneStepForce
+
 Other changes:
 
 (New)
-Introduced Forced (an explicitly Forced newtype operator)
+Introduced newtype operator Forced
 to enable restricting functions which require a forced argument.
 Forced a is an explicitly forced version of a.
 
-forgetForced :: Forced a -> a (to unwrap explicitly Forced)
+forgetF :: Forced a -> a (to unwrap explicitly Forced)
 tryForceF (to create explicitly Forced)
 forceF (to create explicitly Forced)
-composeForced :: Forced Tgraph -> Forced Tgraph
-partComposeForced :: Forced Tgraph -> ([TileFace], Forced Tgraph)
+composeF :: Forced Tgraph -> Forced Tgraph
+partComposeF :: Forced Tgraph -> ([TileFace], Forced Tgraph)
 
 Added warning in PKD for makeUncheckedTgraph
 

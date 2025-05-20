@@ -386,20 +386,20 @@ boundaryGap5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) drawj 
 boundaryVCoveringFigs :: OKBackend b =>
                          Forced BoundaryState -> [Diagram b]
 boundaryVCoveringFigs bd =
-    lw ultraThin . (redg <>) . alignBefore draw alig . (recoverGraph . forgetForced) <$> boundaryVCovering bd
+    lw ultraThin . (redg <>) . alignBefore draw alig . (recoverGraph . forgetF) <$> boundaryVCovering bd
       where redg = lc red $ draw g --alignBefore draw alig g
             alig = defaultAlignment g
-            g = recoverGraph $ forgetForced bd
+            g = recoverGraph $ forgetF bd
 
 -- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
 -- (with the Tgraph represented by bd shown in red in each case).
 boundaryECoveringFigs :: OKBackend b =>
                          Forced BoundaryState -> [Diagram b]
 boundaryECoveringFigs bd =
-    lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph . forgetForced  <$> boundaryECovering bd
+    lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph . forgetF  <$> boundaryECovering bd
       where redg = lc red $ draw g
             alig = defaultAlignment g
-            g = recoverGraph $ forgetForced bd
+            g = recoverGraph $ forgetF bd
 
 kingECoveringFig,kingVCoveringFig :: OKBackend b => Diagram b
 -- | diagram showing the boundaryECovering of a forced kingGraph.
