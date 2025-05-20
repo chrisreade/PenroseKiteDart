@@ -8,7 +8,7 @@ Stability   : experimental
 
 This is the main module to re-export both Tgraphs and TileLib (which includes Halftile) modules.
 However it does not export the data constructor Forced (only the newtype operator).
-Thers is a about using makeUncheckedTgraph.
+There is a warning about using makeUncheckedTgraph.
 -}
 
  

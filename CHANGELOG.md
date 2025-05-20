@@ -18,9 +18,9 @@ singleChoiceEdges
 
 Removed deprecated: 
 noFails (use runTry . concatFails)
-colourMaybeDKG (use colourDKG with alphaColors)
-fillMaybeDK (use fillDK with alphaColors)
-fillMaybePieceDK (use fillPieceDK with alphaColors)
+colourMaybeDKG (use colourDKG with transparent)
+fillMaybeDK (use fillDK with transparent)
+fillMaybePieceDK (use fillPieceDK with transparent)
 
 Renamed:
 tryOneStepF is now tryOneStepForce
