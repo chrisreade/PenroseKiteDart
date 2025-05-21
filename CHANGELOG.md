@@ -1,6 +1,28 @@
 # Revision history for PenroseKiteDart
 
+(After 1.3)
+Changed the type for Try to use ShowS instead of String
+(ShowS = String -> String)
+An instance of Show(ShowS) is provided in order to to show Try results
+
+New: failReport, failReports, tryAtLeastOne
+
+Breaking:
+   Occurrences of 
+        Left s :: Try a
+    need to be replaced by 
+        failReport s 
+    or
+        Left (s<>)
+
+An instance of Show(ShowS) is provided in order to to show Try results
+
 ## version 1.3 -- 2025-5-19
+
+(New)
+Introduced newtype operator Forced
+to enable restricting functions which require a forced argument.
+Forced a is an explicitly forced version of a.
 
 Breaking changes:
 
@@ -28,10 +50,6 @@ tryOneStepF is now tryOneStepForce
 Other changes:
 
 (New)
-Introduced newtype operator Forced
-to enable restricting functions which require a forced argument.
-Forced a is an explicitly forced version of a.
-
 forgetF :: Forced a -> a (to unwrap explicitly Forced)
 tryForceF (to create explicitly Forced)
 forceF (to create explicitly Forced)

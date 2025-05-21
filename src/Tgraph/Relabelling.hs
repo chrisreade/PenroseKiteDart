@@ -366,7 +366,11 @@ tryMatchFace face g = onFail "tryMatchFace:\n" $
     Nothing      -> Right Nothing
     Just corresp -> if twoVMatch corresp face
                     then Right $ Just corresp
-                    else Left $ "Found non matching faces " ++ show (corresp, face) ++ "\n"
+                    else failReports 
+                            ["Found non matching faces "
+                            ,show (corresp, face)
+                            ,"\n"
+                            ]
 
 -- |twoVMatch f1 f2 is True if the two tilefaces are the same except
 -- for a single vertex label possibly not matching.

@@ -450,12 +450,16 @@ tryAddHalfKite = tryChangeBoundary . tryAddHalfKiteBoundary where
     tryAddHalfKiteBoundary e bd =
       do de <- case [e, reverseD e] `intersect` boundary bd of
                  [de] -> Right de
-                 _ -> Left $ "tryAddHalfKite:  on non-boundary edge " ++ show e ++ "\n"
+                 _ ->  failReports
+                          ["tryAddHalfKite:  on non-boundary edge "
+                          ,show e
+                          ,"\n"
+                          ]
          let (fc,etype) = inspectBDedge bd de
          let tryU | etype == Long = addKiteLongE bd fc
                   | etype == Short = addKiteShortE bd fc
                   | etype == Join && isKite fc = completeHalf bd fc
-                  | otherwise = Left "tryAddHalfKite: applied to dart join (not possible).\n"
+                  | otherwise = failReport "tryAddHalfKite: applied to dart join (not possible).\n"
          u <- tryU
          tryUpdate bd u
 
@@ -479,12 +483,16 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
     tryAddHalfDartBoundary e bd =
       do de <- case [e, reverseD e] `intersect` boundary bd of
                 [de] -> Right de
-                _ -> Left $ "tryAddHalfDart:  on non-boundary edge " ++ show e  ++ "\n"
+                _ -> failReports
+                        ["tryAddHalfDart:  on non-boundary edge "
+                        ,show e
+                        ,"\n"
+                        ]
          let (fc,etype) = inspectBDedge bd de
          let tryU | etype == Long = addDartLongE bd fc
                   | etype == Short && isKite fc = addDartShortE bd fc
                   | etype == Join && isDart fc = completeHalf bd fc
-                  | otherwise = Left "tryAddHalfDart: applied to short edge of dart or to kite join (not possible).\n"
+                  | otherwise = failReport "tryAddHalfDart: applied to short edge of dart or to kite join (not possible).\n"
          u <- tryU
          tryUpdate bd u
 
@@ -591,9 +599,15 @@ tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
   -- the integer records how many blocked cases have been found so far
   checkBlocked:: Int -> [Update]  -> Try (Maybe BoundaryChange)
   checkBlocked 0 [] = return Nothing
-  checkBlocked n [] = Left $ "tryUnsafes: There are " ++ show n++ " unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n"
-                             ++ "This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
-                             ++ "Total number of faces is " ++ show (length $ allFaces bd) ++ "\n"
+  checkBlocked n [] = failReports 
+                        ["tryUnsafes: There are "
+                        ,show n
+                        ," unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n"
+                        ,"This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
+                        ,"Total number of faces is "
+                        ,show (length $ allFaces bd)
+                        ,"\n"
+                        ]
   checkBlocked n (u: more) = case checkUnsafeUpdate bd u of
                                Nothing -> checkBlocked (n+1) more
                                other -> return other
@@ -670,11 +684,13 @@ trySafeUpdate bd (SafeUpdate newface) =
                    }
    in if noNewConflict newface nbrFaces
       then Right bdChange
-      else Left $ "trySafeUpdate:(incorrect tiling)\nConflicting new face  "
-                   ++ show newface
-                   ++ "\nwith neighbouring faces\n"
-                   ++ show nbrFaces
-                   ++ "\n"
+      else failReports
+              ["trySafeUpdate:(incorrect tiling)\nConflicting new face  "
+              ,show newface
+              ,"\nwith neighbouring faces\n"
+               ,show nbrFaces
+               ,"\n"
+              ]
 
 
 -- | given 2 consecutive directed edges (not necessarily in the right order),
@@ -697,7 +713,7 @@ tryUpdate bd u@(SafeUpdate _) = trySafeUpdate bd u
 tryUpdate bd u@(UnsafeUpdate _) =
   case checkUnsafeUpdate bd u of
        Just bdC -> return bdC
-       Nothing ->  Left "tryUpdate: crossing boundary (touching vertices).\n"
+       Nothing ->  failReport "tryUpdate: crossing boundary (touching vertices).\n"
 
 -- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateVertices.
 -- (Used at intervals in tryRecalibratingForce and recalibratingForce).
@@ -1263,31 +1279,71 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
     aAngle = externalAngle bd a
     bAngle = externalAngle bd b
     maybeV | aAngle <1 || aAngle >9
-                = Left $ "tryFindThirdV: vertex: " ++ show a ++ " has (tt) external angle " ++ show aAngle
-                          ++ "\nwhen adding to boundary directed edge: " ++ show (a,b)
-                          ++ "\nwith faces at " ++ show a ++ ":\n" ++ show (bvFacesMap bd VMap.! a)
-                          ++ "\nand faces at " ++ show b ++ ":\n" ++ show (bvFacesMap bd VMap.! b)
-                          ++ "\nand a total of " ++ show (length $ allFaces bd) ++ " faces.\n"
+                = failReports 
+                   ["tryFindThirdV: vertex: "
+                   ,show a
+                   ," has (tt) external angle "
+                   ,show aAngle
+                   ,"\nwhen adding to boundary directed edge: "
+                   ,show (a,b)
+                   ,"\nwith faces at "
+                   ,show a
+                   ,":\n"
+                   ,show (bvFacesMap bd VMap.! a)
+                   ,"\nand faces at "
+                   ,show b
+                   ,":\n"
+                   ,show (bvFacesMap bd VMap.! b), 
+                   "\nand a total of "
+                   ,show (length $ allFaces bd)
+                   ," faces.\n"
+                   ]
            | bAngle <1 || bAngle >9
-                = Left $ "tryFindThirdV: vertex: " ++ show b ++ " has (tt) external angle " ++ show bAngle
-                          ++ "\nwhen adding to boundary directed edge: " ++ show (a,b)
-                          ++ "\nwith faces at " ++ show a ++ ":\n" ++ show (bvFacesMap bd VMap.! a)
-                          ++ "\nand faces at " ++ show b ++ ":\n" ++ show (bvFacesMap bd VMap.! b)
-                          ++ "\nand a total of " ++ show (length $ allFaces bd) ++ " faces.\n"
+                = failReports
+                    ["tryFindThirdV: vertex: "
+                    ,show b
+                    ," has (tt) external angle "
+                    ,show bAngle
+                    ,"\nwhen adding to boundary directed edge: "
+                    ,show (a,b)
+                    ,"\nwith faces at "
+                    ,show a
+                    ,":\n"
+                    ,show (bvFacesMap bd VMap.! a)
+                    ,"\nand faces at "
+                    ,show b
+                    ,":\n"
+                    ,show (bvFacesMap bd VMap.! b)
+                    ,"\nand a total of "
+                    ,show (length $ allFaces bd)
+                    ," faces.\n"
+                    ]
            | aAngle < n
-                = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: "
-                         ++ show (a,b) ++ "\n"
+                = failReports
+                    ["tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: "
+                    ,show (a,b)
+                    ,"\n"
+                    ]
            | bAngle < m
-                = Left $ "tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: "
-                         ++ show (a,b) ++ "\n"
+                = failReports
+                    ["tryFindThirdV: Found incorrect graph (stuck tiling)\nConflict at edge: "
+                    ,show (a,b)
+                    ,"\n"
+                    ]
            | aAngle == n = case find ((==a) . snd) (boundary bd) of
                              Just pr -> Right $ Just (fst pr)
-                             Nothing -> Left $ "tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
-                                               ++ show (a,b) ++ "\n"
+                             Nothing -> failReports
+                                          ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
+                                          ,show (a,b)
+                                          ,"\n"
+                                          ]
            | bAngle == m = case find ((==b) . fst) (boundary bd) of
                              Just pr -> Right $ Just (snd pr)
-                             Nothing -> Left $ "tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
-                                               ++ show (a,b) ++ "\n"
+                             Nothing -> failReports
+                                           ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
+                                           ,show (a,b)
+                                           ,"\n"
+                                           ]
            | otherwise =   Right  Nothing
 
 -- |externalAngle bd v - calculates the external angle at boundary vertex v in BoundaryState bd as an

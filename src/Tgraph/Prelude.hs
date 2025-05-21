@@ -259,7 +259,7 @@ tryMakeTgraph fcs =
     let touchVs = touchingVertices (faces g)
     if null touchVs
     then Right g
-    else Left ("Found touching vertices: "
+    else failReport ("Found touching vertices: "
                ++ show touchVs
                ++ "\nwith faces:\n"
                ++ show fcs
@@ -325,16 +325,24 @@ Returns Left lines if a test fails, where lines describes the problem found.
 tryTgraphProps:: [TileFace] -> Try Tgraph
 tryTgraphProps []       =  Right emptyTgraph
 tryTgraphProps fcs
-      | hasEdgeLoops fcs  =  Left $ "tryTgraphProps: Non-valid tile-face(s)\n" ++
-                                      "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | illegalTiling fcs =  Left $ "tryTgraphProps: Non-legal tiling\n" ++
-                                      "Conflicting face directed edges (non-planar tiling): "
-                                      ++ show (conflictingDedges fcs) ++
-                                      "\nIllegal tile juxtapositions: "
-                                      ++ show (illegals fcs) ++ "\n"
+      | hasEdgeLoops fcs  =  
+         failReport $ "tryTgraphProps: Non-valid tile-face(s)\n" ++
+                      "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
+      | illegalTiling fcs =  failReports
+                               ["tryTgraphProps: Non-legal tiling\n"
+                               ,"Conflicting face directed edges (non-planar tiling): "
+                               ,show (conflictingDedges fcs)
+                               ,"\nIllegal tile juxtapositions: "
+                               ,show (illegals fcs)
+                               ,"\n"
+                               ]
       | otherwise         = let vs = facesVSet fcs
                             in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
-                               then Left $ "tryTgraphProps: Vertex numbers not all >0: " ++ show (IntSet.toList vs) ++ "\n"
+                               then failReports
+                                        ["tryTgraphProps: Vertex numbers not all >0: "
+                                        ,show (IntSet.toList vs)
+                                        ,"\n"
+                                        ]
                                else tryConnectedNoCross fcs
 
 -- |Checks a list of faces for no crossing boundaries and connectedness.
@@ -345,10 +353,19 @@ tryTgraphProps fcs
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
 tryConnectedNoCross:: [TileFace] -> Try Tgraph
 tryConnectedNoCross fcs
-  | not (connected fcs) =    Left $ "tryConnectedNoCross: Non-valid Tgraph (Not connected)\n" ++ show fcs ++ "\n"
-  | crossingBoundaries fcs = Left $ "tryConnectedNoCross: Non-valid Tgraph\n" ++
-                                  "Crossing boundaries found at " ++ show (crossingBVs fcs)
-                                  ++ "\nwith faces\n" ++ show fcs
+  | not (connected fcs) = failReports
+                              ["tryConnectedNoCross: Non-valid Tgraph (Not connected)\n"
+                              ,show fcs
+                              ,"\n"
+                              ]
+  | crossingBoundaries fcs = failReports
+                                ["tryConnectedNoCross: Non-valid Tgraph\n"
+                                ,"Crossing boundaries found at "
+                                ,show (crossingBVs fcs)
+                                ,"\nwith faces\n"
+                                ,show fcs
+                                ,"\n"
+                                ]
   | otherwise            = Right (Tgraph fcs)
 
 -- |Returns any repeated vertices within each TileFace for a list of TileFaces.
@@ -1160,7 +1177,7 @@ The third argument is the mapping of vertices to points.
 -}
     fastAddVPoints [] fcOther vpMap | Set.null fcOther = vpMap
     fastAddVPoints [] fcOther _ = error $ "locateVertices (fastAddVPoints): Faces not tile-connected: "
-                                          ++ show fcOther ++ "/n"
+                                          ++ show fcOther ++ "\n"
     fastAddVPoints (face:fs) fcOther vpMap = fastAddVPoints (fs++nbs) fcOther' vpMap' where
         nbs = filter (`Set.member` fcOther) (edgeNbs face efMap)
         fcOther' = foldl' (flip Set.delete) fcOther nbs
