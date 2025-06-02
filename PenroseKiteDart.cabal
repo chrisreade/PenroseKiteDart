@@ -32,7 +32,6 @@ library
       HalfTile
       TileLib
       Try
-      Tgraphs
       Tgraph.Prelude
       Tgraph.Decompose
       Tgraph.Compose
@@ -48,7 +47,7 @@ library
       base >=4.7 && <5
     , containers >=0.6.7 && <0.7
     , diagrams-lib >=1.4.6 && <1.5
-  default-language: Haskell2010
+  default-language: GHC2021
 
 test-suite PenroseKiteDart-test
   type: exitcode-stdio-1.0
@@ -64,7 +63,7 @@ test-suite PenroseKiteDart-test
     , containers >=0.6.7 && <0.7
     , diagrams-lib >=1.4.6 && <1.5
     , hspec >=2.10.10 && <2.12
-  default-language: Haskell2010
+  default-language: GHC2021
 
 benchmark PenroseKiteDart-bench
   type: exitcode-stdio-1.0
@@ -79,4 +78,4 @@ benchmark PenroseKiteDart-bench
     , base >=4.7 && <5
     , containers >=0.6.7 && <0.7
     , diagrams-lib >=1.4.6 && <1.5
-  default-language: Haskell2010
+  default-language: GHC2021

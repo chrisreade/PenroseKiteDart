@@ -1,4 +1,4 @@
-import Tgraphs
+import PKD
 import TgraphExamples
 import Debug.Trace (traceMarkerIO)
 import Control.Concurrent (threadDelay)
@@ -18,15 +18,15 @@ main =
      _ <- traceMarkerIO "finished decomposing" 
      wait
      _ <- traceMarkerIO "starting force" 
-     let fkD = {-# SCC "forcingKD" #-} force kD
+     let fkD = {-# SCC "forcingKD" #-} forceF kD
      putStrLn $ "Number of faces of force (" ++ sn ++ " times decomposed King) is " 
-                            ++ show (length (faces fkD))
+                            ++ show (length $ faces $ forgetF fkD)
      putStrLn $ "Max vertex of force (" ++ sn ++ " times decomposed King) is " 
-                            ++ show (maxV fkD)
+                            ++ show (maxV $ forgetF fkD)
      _ <- traceMarkerIO "finished force" 
      wait
      _ <- traceMarkerIO "starting (unchecked) composing" 
-     let cfkD = {-# SCC "composing" #-} forgetF $ last $ takeWhile (not . nullGraph . forgetF) $ iterate composeF $ Forced fkD
+     let cfkD = {-# SCC "composing" #-} forgetF $ last $ takeWhile (not . nullGraph . forgetF) $ iterate composeF fkD
      -- let cfkD = {-# SCC "composing" #-} last $ takeWhile (not . nullGraph) $ iterate uncheckedCompose fkD
      putStrLn $ "Number of faces of recomposed force (" ++ sn ++ " times decomposed King) is " 
                             ++ show (length (faces cfkD))

@@ -19,6 +19,8 @@ category:  Graphics
 # common to point users to the README.md file.
 description:  Library to explore Penrose's Kite and Dart Tilings using Haskell Diagrams. Please see README.md
 
+language: GHC2021 # newly added
+
 dependencies:
 - base >= 4.7 && < 5
 - diagrams-lib >= 1.4.6 && < 1.5
@@ -41,7 +43,6 @@ library:
     - HalfTile
     - TileLib
     - Try
-    - Tgraphs
     - Tgraph.Prelude
     - Tgraph.Decompose
     - Tgraph.Compose

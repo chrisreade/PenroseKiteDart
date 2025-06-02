@@ -32,7 +32,7 @@ module Tgraph.Force
   , tryChangeBoundary
     -- *  Forced
   , Forced(..)
-  , forgetF
+  --, forgetF
   , tryForceF
   , forceF
     -- *  Force Related
@@ -410,16 +410,14 @@ tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 -- To access the forcible use:  forgetF :: Forced a -> a
 --
 -- Create using forceF or tryForceF
-newtype Forced a = Forced a                     
+newtype Forced a = Forced {
+                          forgetF :: a  -- ^ forget the explicit Forced labelling
+                          }                    
    deriving (Show)
 
 instance Functor Forced where
-    fmap f (Forced a) = Forced (f a)
+    fmap f (Forced a) = Forced { forgetF = f a }
     
--- |unwraps a Forced
-forgetF :: Forced a -> a
-forgetF (Forced a) = a
-
 -- |tryForceF is the same as tryForce except that
 -- the successful result is explitly indicated as Forced.
 tryForceF :: Forcible a => a -> Try (Forced a)

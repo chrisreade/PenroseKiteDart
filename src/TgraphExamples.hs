@@ -93,9 +93,8 @@ module TgraphExamples
   ) where
 
 import Diagrams.Prelude
-import TileLib
-import Tgraphs
-
+import PKD
+import Tgraph.Prelude as NoWarn (makeUncheckedTgraph)
 import Data.List (intersect,find)      -- for emplaceChoices
 
 
@@ -357,9 +356,9 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 
 boundaryFDart4, boundaryFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph (dartDs!!4)
-boundaryFDart4 = makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
+boundaryFDart4 = NoWarn.makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
 -- |graph of the boundary faces only of a forced graph (dartDs!!5)
-boundaryFDart5 = makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
+boundaryFDart5 = NoWarn.makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
 
 boundaryFDart4Fig,boundaryFDart5Fig :: OKBackend b => Diagram b
 -- |figure of the boundary faces only of a forced graph (dartDs!!4).

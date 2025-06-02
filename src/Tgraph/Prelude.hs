@@ -24,7 +24,7 @@ module Tgraph.Prelude
   ( module HalfTile
   , module Try
     -- * Types for Tgraphs, Faces, Vertices, Directed Edges
-  , Tgraph -- not Data Constructor
+  , Tgraph(faces)-- not Data Constructor
   , TileFace
   , Vertex
   , VertexSet
@@ -62,7 +62,7 @@ module Tgraph.Prelude
   , connected
 --  , connectedBy
     -- * Basic Tgraph operations
-  , faces
+--  , faces
   , emptyTgraph
   , nullGraph
   , maxV
@@ -222,9 +222,13 @@ type TileFace = HalfTile (Vertex,Vertex,Vertex)
 -- All vertex labels should be positive, so 0 is not used as a vertex label.
 -- Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
 -- The data constructor Tgraph is not exported (but see also makeUncheckedTgraph).
-newtype Tgraph = Tgraph [TileFace]
+newtype Tgraph = Tgraph {faces ::[TileFace]}
                  deriving (Show)
 
+{- -- |Retrieve the faces of a Tgraph
+faces :: Tgraph -> [TileFace]
+faces (Tgraph fcs) = fcs
+ -}
 -- | type used to classify edges of faces 
 data EdgeType = Short | Long | Join deriving (Show,Eq)
 
@@ -513,9 +517,6 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
 
 
 
--- |Retrieve the faces of a Tgraph
-faces :: Tgraph -> [TileFace]
-faces (Tgraph fcs) = fcs
 
 -- |The empty Tgraph
 emptyTgraph :: Tgraph

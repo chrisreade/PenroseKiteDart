@@ -1,9 +1,10 @@
 # Revision history for PenroseKiteDart
 
 (After 1.3)
+Coalesced modules PKD and Tgraphs, so now only PKD module is used.
+
 Changed the type for Try to use ShowS instead of String
 (ShowS = String -> String)
-An instance of Show(ShowS) is provided in order to to show Try results
 
 New: failReport, failReports, tryAtLeastOne
 
@@ -16,6 +17,7 @@ Breaking:
         Left (s<>)
 
 An instance of Show(ShowS) is provided in order to to show Try results
+
 
 ## version 1.3 -- 2025-5-19
 
