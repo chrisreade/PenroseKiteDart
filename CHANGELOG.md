@@ -1,8 +1,7 @@
 # Revision history for PenroseKiteDart
 
 (After 1.3)
-Coalesced modules PKD and Tgraphs, so now only PKD module is used.
-Removed warning pragma for makeUncheckedTgraph
+Coalesced modules PKD and Tgraphs as PKD (then removed Tgraphs module).
 
 Changed the type for Try to use ShowS instead of String
 (ShowS = String -> String)
@@ -17,8 +16,12 @@ Breaking:
     or
         Left (s<>)
 
-An instance of Show(ShowS) is provided in order to to show Try results
+An instance of Show(ShowS) is provided in order to show Try results
 
+Changed type of tryDartAndKiteForced (to explicitly show Forced results)
+(Use map (fmap forgetF) to convert [Try (Forced a)] to [Try a])
+
+Removed warning pragma for makeUncheckedTgraph
 
 ## version 1.3 -- 2025-5-19
 

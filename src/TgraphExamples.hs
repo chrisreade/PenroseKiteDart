@@ -420,7 +420,7 @@ kingEmpire2Fig = showEmpire2 kingGraph
 -- It then repeatedly applies (force . decompose) back to the starting level to return a list of Tgraphs.
 -- This version relies on compForce theorem and related theorems
 emplaceChoices:: Tgraph -> [Tgraph]
-emplaceChoices g = emplaceChoicesForced $ recoverGraph $ force $ makeBoundaryState g where
+emplaceChoices = emplaceChoicesForced . force  where
 
   emplaceChoicesForced:: Tgraph -> [Tgraph]
   emplaceChoicesForced g0 | nullGraph g' = chooseUnknowns [(unknowns $ getDartWingInfo g0, g0)]
@@ -432,7 +432,7 @@ emplaceChoices g = emplaceChoicesForced $ recoverGraph $ force $ makeBoundarySta
   chooseUnknowns (([],g0):more) = g0:chooseUnknowns more
   chooseUnknowns ((u:unks,g0): more)
      =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
-        where newgs = map recoverGraph $ atLeastOne $ tryDartAndKiteForced (findDartLongForWing u bd) bd
+        where newgs = map recoverGraph $ atLeastOne $ fmap forgetF <$> tryDartAndKiteForced (findDartLongForWing u bd) bd
               bd = makeBoundaryState g0
               remainingunks startunks g' = (startunks `intersect` graphBoundaryVs g', g')
 

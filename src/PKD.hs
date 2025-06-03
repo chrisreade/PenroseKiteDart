@@ -340,7 +340,7 @@ boundaryECovering fbs = covers [(bstate, boundaryEdgeSet bstate)] where
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
              newcases = fmap (\b -> (b, commonBdry des b))
-                             (atLeastOne $ tryDartAndKiteForced de bs)
+                             (atLeastOne $ fmap forgetF <$> tryDartAndKiteForced de bs)
 
 
 -- |Make a set of the directed boundary edges of a BoundaryState
@@ -365,8 +365,8 @@ boundaryVCovering fbd = covers [(bd, startbds)] where
   covers ((open,es):opens)
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
         Nothing -> Forced open:covers opens
-        Just dedge -> covers $ fmap (,es) (atLeastOne $ tryDartAndKiteForced dedge open) ++opens
-    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $ tryDartAndKiteForced de open) ++opens
+        Just dedge -> covers $ fmap (,es) (atLeastOne $ fmap forgetF <$> tryDartAndKiteForced dedge open) ++opens
+    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $  fmap forgetF <$> tryDartAndKiteForced de open) ++opens
                    where (de,des) = Set.deleteFindMin es
 
 -- | returns the set of boundary vertices of a BoundaryState
@@ -380,12 +380,12 @@ internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet b
 
 -- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b and then tries forcing. Each of the results is a Try.
-tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try a]
+tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try (Forced a)]
 tryDartAndKiteForced de b =
     [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
-        tryAddHalfDart de b >>= tryForce
+        tryAddHalfDart de b >>= tryForceF
     , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
-        tryAddHalfKite de b >>= tryForce
+        tryAddHalfKite de b >>= tryForceF
     ]
 
 -- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
