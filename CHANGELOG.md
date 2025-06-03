@@ -21,6 +21,10 @@ An instance of Show(ShowS) is provided in order to show Try results
 Changed type of tryDartAndKiteForced (to explicitly show Forced results)
 (Use map (fmap forgetF) to convert [Try (Forced a)] to [Try a])
 
+Forced is no longer a Functor
+Instead introduced safe cases for changing a Forced Forcible
+(recoverGraphF,boundaryStateF,makeBoundaryStateF,initFSF)
+
 Removed warning pragma for makeUncheckedTgraph
 
 ## version 1.3 -- 2025-5-19

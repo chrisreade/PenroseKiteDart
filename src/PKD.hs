@@ -309,7 +309,7 @@ The common faces of the covers constitute the empire (level 1) of g.
 This will raise an error if the initial force fails with a stuck graph.
 -}
 forcedBoundaryECovering:: Tgraph -> [Forced Tgraph]
-forcedBoundaryECovering g = fmap recoverGraph <$> boundaryECovering gforcedBdry where
+forcedBoundaryECovering g = recoverGraphF <$> boundaryECovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryECovering:Initial force failed (incorrect Tgraph)\n" $
                              tryForceF $ makeBoundaryState g
 
@@ -318,7 +318,7 @@ forcedBoundaryECovering g but covering all boundary vertices rather than just bo
 This will raise an error if the initial force fails with a stuck graph.                        
 -}
 forcedBoundaryVCovering:: Tgraph -> [Forced Tgraph]
-forcedBoundaryVCovering g = fmap recoverGraph <$> boundaryVCovering gforcedBdry where
+forcedBoundaryVCovering g = recoverGraphF <$> boundaryVCovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryVCovering:Initial force failed (incorrect Tgraph)\n" $
                              tryForceF $ makeBoundaryState g
 
@@ -378,16 +378,6 @@ internalVertexSet :: BoundaryState -> VertexSet
 internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet bd
 
 
--- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de of a Forcible b and then tries forcing. Each of the results is a Try.
-tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try (Forced a)]
-tryDartAndKiteForced de b =
-    [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
-        tryAddHalfDart de b >>= tryForceF
-    , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
-        tryAddHalfKite de b >>= tryForceF
-    ]
-
 -- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b. Each of the results is a Try.
 tryDartAndKite:: Forcible a => Dedge -> a -> [Try a]
@@ -398,6 +388,17 @@ tryDartAndKite de b =
         tryAddHalfKite de b
     ]
 
+-- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
+-- to edge de of a Forcible b and then tries forcing.
+-- Each of the results is a Try of an explicitly Forced type.
+-- (Use map (fmap forgetF) to remove the explicit forcing)
+tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try (Forced a)]
+tryDartAndKiteForced de b =
+    [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
+        tryAddHalfDart de b >>= tryForceF
+    , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
+        tryAddHalfKite de b >>= tryForceF
+    ]
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g.
 drawFBCovering :: OKBackend b =>
@@ -505,7 +506,7 @@ trySuperForce = tryFSOp trySuperForceFS where
     trySuperForceFS fs =
         do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
                        tryForceF fs
-           case singleChoiceEdges $ fmap boundaryState forcedFS of
+           case singleChoiceEdges $ boundaryStateF forcedFS of
               [] -> return $ forgetF forcedFS
               (elpr:_) -> do extended <- addSingle elpr $ forgetF forcedFS
                              trySuperForceFS extended

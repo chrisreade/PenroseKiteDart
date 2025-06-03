@@ -30,17 +30,21 @@ module Tgraph.Force
   , initFS
   , tryInitFS
   , tryChangeBoundary
-    -- *  Forced
+    -- *  Explicitly Forced
   , Forced(..)
   --, forgetF
   , tryForceF
   , forceF
+  , recoverGraphF
+  , boundaryStateF
+  , makeBoundaryStateF
+  , initFSF
     -- *  Force Related
   , addHalfKite
   , tryAddHalfKite
   , addHalfDart
   , tryAddHalfDart
-    -- *  One Step (for debugging)
+    -- *  One Step Forcing
   , tryOneStepWith
   , tryOneStepForce
 -- * Types for Forcing
@@ -58,7 +62,7 @@ module Tgraph.Force
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
   , boundaryFaces
-    -- *  Auxiliary Functions for a force step
+    -- *  Auxilliary Functions for a force step
   , affectedBoundary
 --  , mustFind
   , tryReviseUpdates
@@ -415,9 +419,11 @@ newtype Forced a = Forced { -- | forget the explicit Forced labelling
                           }                    
    deriving (Show)
 
+{- Unsafe
 instance Functor Forced where
     fmap f (Forced a) = Forced { forgetF = f a }
-    
+ -}  
+
 -- |tryForceF is the same as tryForce except that
 -- the successful result is explitly indicated as Forced.
 tryForceF :: Forcible a => a -> Try (Forced a)
@@ -428,6 +434,21 @@ tryForceF = fmap Forced . tryForce
 forceF:: Forcible a => a -> Forced a
 forceF = runTry . tryForceF
 
+-- | recoverGraphF is an explicitly forced version of recoverGraph
+recoverGraphF :: Forced BoundaryState -> Forced Tgraph
+recoverGraphF (Forced bs) = Forced (recoverGraph bs)
+
+-- | boundaryStateF is an explicitly forced version of boundaryState
+boundaryStateF :: Forced ForceState -> Forced BoundaryState
+boundaryStateF (Forced fs) = Forced (boundaryState fs)
+
+-- | makeBoundaryStateF is an explicitly forced version of makeBoundaryState
+makeBoundaryStateF :: Forced Tgraph -> Forced BoundaryState
+makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
+
+-- | initFSF is an explicitly forced version of initFS
+initFSF :: Forcible a => Forced a -> Forced ForceState
+initFSF (Forced a) = Forced (initFS a)
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as
