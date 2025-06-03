@@ -3,6 +3,7 @@
 (After 1.3)
 Coalesced modules PKD and Tgraphs as PKD (then removed Tgraphs module).
 
+### Try changed
 Changed the type for Try to use ShowS instead of String
 (ShowS = String -> String)
 
@@ -18,12 +19,18 @@ Breaking:
 
 An instance of Show(ShowS) is provided in order to show Try results
 
-Changed type of tryDartAndKiteForced (to explicitly show Forced results)
-(Use map (fmap forgetF) to convert [Try (Forced a)] to [Try a])
-
+### Changes to Forced
 Forced is no longer a Functor
-Instead introduced safe cases for changing a Forced Forcible
-(recoverGraphF,boundaryStateF,makeBoundaryStateF,initFSF)
+Instead, 4 specific safe cases for changing a Forced Forcible
+(New)
+recoverGraphF,boundaryStateF,makeBoundaryStateF,initFSF
+
+Data constructor Forced is no longer exported but
+(New)
+labelAsForced is introduced instead
+
+Changed type of tryDartAndKiteForced (to explicitly show Forced results)
+(Use map (fmap forgetF) to convert [Try (Forced a)] to [Try a]).
 
 Removed warning pragma for makeUncheckedTgraph
 

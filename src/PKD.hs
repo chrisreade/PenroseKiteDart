@@ -292,7 +292,7 @@ allCompForce = takeWhile (not . nullGraph . forgetF) . iterate composeF . forceF
 -- and just the emptyTgraph otherwise.
 -- It will raise an error if the initial force fails with an incorrect Tgraph.
 maxCompForce:: Tgraph -> Forced Tgraph
-maxCompForce g | nullGraph g = Forced g
+maxCompForce g | nullGraph g = labelAsForced g
                | otherwise = last $ allCompForce g
 
 
@@ -336,7 +336,7 @@ boundaryECovering fbs = covers [(bstate, boundaryEdgeSet bstate)] where
   covers:: [(BoundaryState, Set.Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((bs,es):opens)
-    | Set.null es = Forced bs:covers opens -- bs is a completed cover
+    | Set.null es = labelAsForced bs:covers opens -- bs is a completed cover
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
              newcases = fmap (\b -> (b, commonBdry des b))
@@ -364,7 +364,7 @@ boundaryVCovering fbd = covers [(bd, startbds)] where
   covers [] = []
   covers ((open,es):opens)
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
-        Nothing -> Forced open:covers opens
+        Nothing -> labelAsForced open:covers opens
         Just dedge -> covers $ fmap (,es) (atLeastOne $ fmap forgetF <$> tryDartAndKiteForced dedge open) ++opens
     | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $  fmap forgetF <$> tryDartAndKiteForced de open) ++opens
                    where (de,des) = Set.deleteFindMin es

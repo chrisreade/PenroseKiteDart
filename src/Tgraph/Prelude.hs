@@ -295,8 +295,10 @@ renumberFaces prs = fmap renumberFace where
     differing = filter $ uncurry (/=)
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
--- It does not perform checks on the faces. Use makeTgraph or checkedTgraph to perform checks.
+-- It does not perform checks on the faces. 
+--
 -- WARNING: This is intended for use only when checks are known to be redundant.
+-- Consider using makeTgraph, tryMakeTgraph or checkedTgraph instead to perform checks.
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph = Tgraph
 

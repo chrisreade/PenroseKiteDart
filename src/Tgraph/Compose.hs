@@ -32,7 +32,7 @@ import Data.Maybe (mapMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)
 
 import Tgraph.Prelude
-import Tgraph.Force ( Forced(..), forgetF )
+import Tgraph.Force ( Forced(), forgetF, labelAsForced )
 {-------------------------------------------------------------------------
 ***************************************************************************              
 COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
@@ -86,7 +86,7 @@ partComposeFacesF fg = (remainder,newfaces) where
 -- Since fg is a forced Tgraph it does not need a check for validity of the composed Tgraph.
 -- The fact that the result is also Forced relies on a theorem.
 partComposeF:: Forced Tgraph -> ([TileFace], Forced Tgraph)
-partComposeF fg = (remainder, Forced $ makeUncheckedTgraph $! evalFaces newfaces) where
+partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph $! evalFaces newfaces) where
   (remainder,newfaces) = partComposeFacesF fg
 
 -- |composeF - produces a composed Forced Tgraph from a Forced Tgraph.

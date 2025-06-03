@@ -22,7 +22,6 @@ module Tgraph.Force
   , forceWith
   , tryForce
   , tryForceWith
-  , wholeTiles
   , stepForce
   , tryStepForce
   , tryStepForceWith
@@ -30,11 +29,13 @@ module Tgraph.Force
   , initFS
   , tryInitFS
   , tryChangeBoundary
-    -- *  Explicitly Forced
-  , Forced(..)
-  --, forgetF
+  , wholeTiles
+  -- *  Explicitly Forced
+  , Forced()
+  , forgetF
   , tryForceF
   , forceF
+  , labelAsForced
   , recoverGraphF
   , boundaryStateF
   , makeBoundaryStateF
@@ -44,7 +45,7 @@ module Tgraph.Force
   , tryAddHalfKite
   , addHalfDart
   , tryAddHalfDart
-    -- *  One Step Forcing
+    -- *  Debug Step Forcing
   , tryOneStepWith
   , tryOneStepForce
 -- * Types for Forcing
@@ -62,7 +63,7 @@ module Tgraph.Force
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
   , boundaryFaces
-    -- *  Auxilliary Functions for a force step
+    -- *  Auxiliary Functions for a force step
   , affectedBoundary
 --  , mustFind
   , tryReviseUpdates
@@ -407,22 +408,28 @@ stepForce n = runTry . tryStepForce n
 tryChangeBoundary:: Forcible a => (BoundaryState -> Try BoundaryChange) -> a -> Try a
 tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 
--- |Forced a explicitly indicates that a is Forced.
--- This is to enable restricting some functions which are only total on a Forced forcible.
--- (Similar to the way Data.List.NonEmpty is used to explicitly indicate a non-empty list)
+-- |Forced a is a newtype (for a) to explicitly indicate that a is fully forced.
+-- This enables restriction of some functions that should only be applied to a fully forced Forcible.
 --
--- To access the forcible use:  forgetF :: Forced a -> a
+-- To access the Forcible use:  forgetF :: Forced a -> a
 --
--- Create using forceF or tryForceF
+-- Create an explicitly Forced Forcible using forceF or tryForceF
 newtype Forced a = Forced { -- | forget the explicit Forced labelling
                             forgetF :: a  
-                          }                    
+                          }                 
    deriving (Show)
 
 {- Unsafe
 instance Functor Forced where
     fmap f (Forced a) = Forced { forgetF = f a }
- -}  
+ -}
+
+-- | Constructs an explicitly Forced type.
+--
+-- WARNING: this should only be used when the argument is known to be a fully forced Forcible.
+-- Consider using forceF or tryForceF instead for safety reasons.
+labelAsForced :: a -> Forced a
+labelAsForced = Forced
 
 -- |tryForceF is the same as tryForce except that
 -- the successful result is explitly indicated as Forced.
@@ -436,19 +443,19 @@ forceF = runTry . tryForceF
 
 -- | recoverGraphF is an explicitly forced version of recoverGraph
 recoverGraphF :: Forced BoundaryState -> Forced Tgraph
-recoverGraphF (Forced bs) = Forced (recoverGraph bs)
+recoverGraphF (Forced bs) = labelAsForced (recoverGraph bs)
 
 -- | boundaryStateF is an explicitly forced version of boundaryState
 boundaryStateF :: Forced ForceState -> Forced BoundaryState
-boundaryStateF (Forced fs) = Forced (boundaryState fs)
+boundaryStateF (Forced fs) = labelAsForced (boundaryState fs)
 
 -- | makeBoundaryStateF is an explicitly forced version of makeBoundaryState
 makeBoundaryStateF :: Forced Tgraph -> Forced BoundaryState
-makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
+makeBoundaryStateF (Forced g) = labelAsForced (makeBoundaryState g)
 
 -- | initFSF is an explicitly forced version of initFS
 initFSF :: Forcible a => Forced a -> Forced ForceState
-initFSF (Forced a) = Forced (initFS a)
+initFSF (Forced a) = labelAsForced (initFS a)
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as
