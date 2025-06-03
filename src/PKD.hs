@@ -15,7 +15,6 @@ boundaryECovering, boundaryVCovering, empire1, empire2, superForce, boundaryLoop
 
 It also defines experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
 
-However for the type Forced, it does not export the data constructor Forced.
 There is a warning about using makeUncheckedTgraph.
 -}
 
@@ -26,13 +25,14 @@ There is a warning about using makeUncheckedTgraph.
 {-# LANGUAGE TupleSections             #-}
 
 module PKD
-  ( module TileLib
+  ( -- * Pieces, Patches and Drawable Class
+    module TileLib
+    -- * Tgraphs, TileFaces, VPatches ...HalfTiles and Try functions
   , module Tgraph.Prelude
   , module Tgraph.Decompose
   , module Tgraph.Compose
   , module Tgraph.Force
   , module Tgraph.Relabelling
-  , makeUncheckedTgraph
     -- * Smart drawing of Tgraphs
   , smart
   , boundaryJoinFaces
@@ -102,16 +102,19 @@ module PKD
   , drawTrackedTgraphAligned
   ) where
 
-
-import Tgraph.Prelude hiding (makeUncheckedTgraph)
-import qualified Tgraph.Prelude as Unchecked (makeUncheckedTgraph)
+import TileLib
+import Tgraph.Prelude
 import Tgraph.Decompose
 import Tgraph.Compose
-import Tgraph.Force hiding (Forced(Forced)) -- hides data constructor for export
-import Tgraph.Force (Forced())
-import Tgraph.Force as Local (Forced(Forced))
 import Tgraph.Relabelling
-import TileLib
+import Tgraph.Force
+
+-- import Tgraph.Prelude hiding (makeUncheckedTgraph)
+-- import qualified Tgraph.Prelude as Unchecked (makeUncheckedTgraph)
+-- import Tgraph.Force hiding (Forced(Forced)) -- hides data constructor for export
+-- import Tgraph.Force (Forced())
+-- import qualified Tgraph.Force as Local (Forced(Forced))
+
 
 import Diagrams.Prelude hiding (union)
 import Data.List (intersect, union, (\\), find, foldl', transpose)
@@ -120,11 +123,11 @@ import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary ve
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 import qualified Data.Maybe (fromMaybe)
 
-{-# WARNING makeUncheckedTgraph "Bypasses checks for required Tgraph properties. Use makeTgraph instead" #-}
+{- {-# WARNING makeUncheckedTgraph "Bypasses checks for required Tgraph properties. Use makeTgraph instead" #-}
 -- |Now has a warning.
 makeUncheckedTgraph :: [TileFace] -> Tgraph
-makeUncheckedTgraph = Unchecked.makeUncheckedTgraph
-
+makeUncheckedTgraph = Tgraph.Prelude.makeUncheckedTgraph
+ -}
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
@@ -220,6 +223,7 @@ drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
 
 -- | drawWithMax g - draws g and overlays the maximal composition of force g in red.
 -- This relies on g and all compositions of force g having vertices in force g.
+-- It will raise an error if forcing fails (g is an incorrect Tgraph).
 drawWithMax :: OKBackend b =>
                Tgraph -> Diagram b
 drawWithMax g =  (dmax # lc red # lw medium) <> dg where
@@ -268,6 +272,7 @@ composeK g = runTry $ tryConnectedNoCross newfaces where
 -- (and uses getDartWingInfoForced instead of getDartWingInfo)
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
 -- (We also have a proof that the result must be a forced Tgraph when the initial force succeeds.)
+-- This will raise an error if the initial force fails with an incorrect Tgraph.
 compForce:: Tgraph -> Forced Tgraph
 compForce = composeF . forceF
 
@@ -282,9 +287,6 @@ compForce = uncheckedCompose . force
 allCompForce:: Tgraph -> [Forced Tgraph]
 allCompForce = takeWhile (not . nullGraph . forgetF) . iterate composeF . forceF
 
-{- allCompForce:: Tgraph -> [Tgraph]
-allCompForce = takeWhile (not . nullGraph) . iterate uncheckedCompose . force
- -}
 
 -- |maxCompForce g produces the maximally composed (non-null) Tgraph starting from force g, provided g is not the emptyTgraph
 -- and just the emptyTgraph otherwise.
@@ -293,11 +295,6 @@ maxCompForce:: Tgraph -> Forced Tgraph
 maxCompForce g | nullGraph g = Forced g
                | otherwise = last $ allCompForce g
 
-{-
--- |force after a decomposition (raising an error if the force fails with an incorrect Tgraph)
-forceDecomp:: Tgraph -> Tgraph
-forceDecomp = force . decompose
--}
 
 -- | allForceDecomps g - produces an infinite list (starting with g) 
 -- of forced decompositions of g (raising an error if a force fails with an incorrect Tgraph).

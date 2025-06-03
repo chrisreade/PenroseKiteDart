@@ -24,7 +24,12 @@ module Tgraph.Prelude
   ( module HalfTile
   , module Try
     -- * Types for Tgraphs, Faces, Vertices, Directed Edges
-  , Tgraph(faces)-- not Data Constructor
+  , Tgraph() -- not Data Constructor Tgraph
+  , faces
+  , makeTgraph
+  , tryMakeTgraph
+  , checkedTgraph
+  , makeUncheckedTgraph
   , TileFace
   , Vertex
   , VertexSet
@@ -33,17 +38,11 @@ module Tgraph.Prelude
   , Dedge
   , EdgeType(..)
    -- * Property Checking for Tgraphs
-  , makeTgraph
-  , tryMakeTgraph
-  , tryCorrectTouchingVs
 --  , renumberFaces
 --  , differing
-  , makeUncheckedTgraph
-  , evalFaces
-  -- , evalFace
-  , checkedTgraph
   , tryTgraphProps
   , tryConnectedNoCross
+  , tryCorrectTouchingVs
 --  , findEdgeLoops
   , hasEdgeLoops
   , duplicates
@@ -65,6 +64,7 @@ module Tgraph.Prelude
 --  , faces
   , emptyTgraph
   , nullGraph
+  , evalFaces
   , maxV
   , ldarts
   , rdarts
@@ -218,17 +218,18 @@ type VertexSet = IntSet.IntSet
 -- Usually referred to as a face.
 type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
--- |A Tgraph is a list of faces (TileFaces).
--- All vertex labels should be positive, so 0 is not used as a vertex label.
--- Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
--- The data constructor Tgraph is not exported (but see also makeUncheckedTgraph).
-newtype Tgraph = Tgraph {faces ::[TileFace]}
+{- | A Tgraph is newtype for a list of faces (that is [TileFace]).
+   All vertex labels should be positive, so 0 is not used as a vertex label.
+   Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
+   The data constructor Tgraph is not exported (but see also makeUncheckedTgraph).
+
+   Use faces :: Tgraph -> [TileFace] to retrieve the faces of a Tgraph.
+-}
+newtype Tgraph = Tgraph { -- | Retrieve the faces of a Tgraph
+                         faces ::[TileFace] -- ^ Retrieve the faces of a Tgraph
+                        }
                  deriving (Show)
 
-{- -- |Retrieve the faces of a Tgraph
-faces :: Tgraph -> [TileFace]
-faces (Tgraph fcs) = fcs
- -}
 -- | type used to classify edges of faces 
 data EdgeType = Short | Long | Join deriving (Show,Eq)
 
@@ -295,9 +296,9 @@ renumberFaces prs = fmap renumberFace where
 
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. Use makeTgraph or checkedTgraph to perform checks.
--- This is intended for use only when checks are known to be redundant.
+-- WARNING: This is intended for use only when checks are known to be redundant.
 makeUncheckedTgraph:: [TileFace] -> Tgraph
-makeUncheckedTgraph = Tgraph -- . evalFaces
+makeUncheckedTgraph = Tgraph
 
 -- |force evaluation of a list of faces.
 evalFaces :: [TileFace] -> [TileFace]

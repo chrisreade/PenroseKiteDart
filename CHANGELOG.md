@@ -2,6 +2,7 @@
 
 (After 1.3)
 Coalesced modules PKD and Tgraphs, so now only PKD module is used.
+Removed warning pragma for makeUncheckedTgraph
 
 Changed the type for Try to use ShowS instead of String
 (ShowS = String -> String)

@@ -410,8 +410,8 @@ tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 -- To access the forcible use:  forgetF :: Forced a -> a
 --
 -- Create using forceF or tryForceF
-newtype Forced a = Forced {
-                          forgetF :: a  -- ^ forget the explicit Forced labelling
+newtype Forced a = Forced { -- | forget the explicit Forced labelling
+                            forgetF :: a  
                           }                    
    deriving (Show)
 
