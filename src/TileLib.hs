@@ -64,7 +64,7 @@ module TileLib
   , suns
   , sun5
   , sun6
-    -- * Diagrams of Patches
+    -- * Example Diagrams of Patches
   , sun6Fig
   , leftFilledSun6
   , filledSun6
@@ -82,12 +82,12 @@ import Diagrams.Prelude
 import CheckBackend
 import HalfTile
 
-{-| Piece type for tile halves: Left Dart, Right Dart, Left Kite, Right Kite
-with a vector from their origin along the join edge where
+{-| Piece is a type for (scaled and oriented) tile halves: Left Dart, Right Dart, Left Kite, Right Kite
+represented by a vector from their origin along the join edge where
 origin for a dart is the tip, origin for a kite is the vertex with smallest internal angle.
-Using Imported polymorphic HalfTile.
+This specialises polymorphic HalfTiles.
 
-Pieces are Transformable
+Pieces are Transformable (but not translatable until they are located).
 -}
 type Piece = HalfTile (V2 Double)
 
@@ -247,7 +247,7 @@ experiment piece = emph piece <> (drawRoundPiece piece # dashingN [0.003,0.003] 
 
 
 -- |A patch is a list of Located pieces (the point associated with each piece locates its originV)
--- Patches are Transformable
+-- Patches are Transformable (including translatable)
 type Patch = [Located Piece]
 
 -- | A class for things that can be turned to diagrams when given a function to draw pieces.

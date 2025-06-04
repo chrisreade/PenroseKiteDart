@@ -1,7 +1,7 @@
 # Revision history for PenroseKiteDart
 
 (After 1.3)
-Coalesced modules PKD and Tgraphs as PKD (then removed Tgraphs module).
+Changed module Tgraphs to module Tgraph.Extras
 
 ### Try changed
 Changed the type for Try to use ShowS instead of String

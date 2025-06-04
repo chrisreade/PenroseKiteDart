@@ -37,6 +37,7 @@ library
       Tgraph.Compose
       Tgraph.Force
       Tgraph.Relabelling
+      Tgraph.Extras
       TgraphExamples
   other-modules:
       Paths_PenroseKiteDart
