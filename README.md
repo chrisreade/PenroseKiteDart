@@ -2,7 +2,7 @@
 
 Author: Chris Reade
 
-March 2021 - 2024
+March 2021 - 2025
 
 See LICENSE file
 
@@ -10,7 +10,7 @@ See LICENSE file
 
 Penrose\'s kite and dart tiles have the property that they can tile the entire plane aperiodicly.
 There are rules to ensure legal tilings with the kites and darts.
-Legal tilings can still get stuck (so cannot be continued to cover the entire plane) - these are called incorrect.
+Legal tilings can still get stuck (so cannot be continued to cover the entire plane) - these are called incorrect tilings.
 
 This package is a Haskell library of tools to build, draw and explore finite tilings with kites and darts, making use of the 
 Haskell Diagrams package.
@@ -74,14 +74,17 @@ To produce a diagram, we simply draw the `Tgraph`
 
 ## Modules
 
-Module `PKD` is the main module which imports and re-exports `Tgraphs` and `TileLib`.
-`Tgraphs` imports and re-exports the contents of the other Tgraph modules, namely 
-`Tgraph.Compose`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Relabelling`, `Tgraph.Prelude`.
-`TileLib` contains underlying drawing tools for tiles.
-`Try` is imported and re-exported by `Tgraph.Prelude` - used for results of partial functions.
-`HalfTile` is imported and re-exported by `Tgraph.Prelude` -  (with the constructors `LD`,`RD`,`LK`,`RK`).
+Module `PKD` is the main module which imports and re-exports everything.
+That is, module `TileLib` and the Tgraph modules
+`Tgraph.Compose`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Relabelling`, `Tgraph.Prelude`, `Tgraph.Extras`.
+
+`Try` is imported and re-exported by `Tgraph.Prelude` (used for results of partial functions).
+
+`HalfTile` is imported and re-exported by `Tgraph.Prelude` (with the constructors `LD`,`RD`,`LK`,`RK`).
+
 `CheckBackend` is imported by `TileLib` which rexports class `OKBackend`.
 (The constraint `OKBackend b =>` is used extensively in the library to abstract types from any particular Backend).
+
 `TgraphExamples` contains example Tgraphs and Diagrams.
 
 ## Further Information

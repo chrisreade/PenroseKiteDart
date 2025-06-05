@@ -10,7 +10,6 @@ This module defines several functions for producing overlaid diagrams for Tgraph
 (including smart drawing) and combinations such as compForce,
 experimental combinations such as
 boundaryECovering, boundaryVCovering, empire1, empire2, superForce, boundaryLoopsG.
-It also introduces TrackedTgraphs.
 
 It also defines experimental TrackedTgraphs (used for tracking subsets of faces of a Tgraph).
 
@@ -57,6 +56,7 @@ module Tgraph.Extras
   , internalVertexSet
   , tryDartAndKiteForced
   , tryDartAndKite
+  , tryDKFCounter
   , drawFBCovering
   , empire1
   , empire2
@@ -163,8 +163,9 @@ smartAlignBefore :: OKBackend b =>
                     (VPatch -> Diagram b) -> (Vertex,Vertex) -> Tgraph -> Diagram b
 smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
 
--- |applies partCompose to a Tgraph g, then draws the composed graph with the remainder faces (in lime).
+-- |applies partCompose to a Tgraph g, then draws the composed graph along with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
+-- This will raise an error if the composed faces have a crossing boundary or are disconnected.
 drawPCompose :: OKBackend b =>
                 Tgraph -> Diagram b
 drawPCompose g =
@@ -173,8 +174,9 @@ drawPCompose g =
     where (remainder,g') = partCompose g
           vp = makeVP g
 
--- |drawForce g is a diagram showing the argument g in red overlayed on force g
--- It adds dashed join edges on the boundary of g
+-- |drawForce g is a diagram showing the argument g in red overlayed on force g.
+-- It adds dashed join edges on the boundary of g.
+-- It will raise an error if the force fails with an incorrect/stuck Tgraph
 drawForce :: OKBackend b =>
              Tgraph -> Diagram b
 drawForce g =
@@ -185,6 +187,7 @@ drawForce g =
 -- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
 -- overlaid on superForce g in blue.
 -- It adds dashed join edges on the boundary of g.
+-- It will raise an error if the initial force fails with an incorrect/stuck Tgraph
 drawSuperForce :: OKBackend b =>
                   Tgraph -> Diagram b
 drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
@@ -227,8 +230,10 @@ emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) whe
     emphvp = subVP vp (fcs `intersect` faces g)
 
 
--- | An unsound version of composition which defaults to kites when there are choices (unknowns).
+-- | For illustrating an unsound version of composition which defaults to kites when there are unknown
+-- dart wings on the boundary.
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
+-- E.g. when applied to force queenGraph.
 composeK :: Tgraph -> Tgraph
 composeK g = runTry $ tryConnectedNoCross newfaces where
     dwInfo = getDartWingInfo g
@@ -237,7 +242,6 @@ composeK g = runTry $ tryConnectedNoCross newfaces where
                         }
     compositions = composedFaceGroups changedInfo
     newfaces = map fst compositions
-
 
 -- |compForce is a partial function similar to (compose . force),
 -- i.e it does a force then compose (raising an error if the force fails with an incorrect Tgraph).
@@ -250,9 +254,7 @@ composeK g = runTry $ tryConnectedNoCross newfaces where
 compForce:: Tgraph -> Forced Tgraph
 compForce = composeF . forceF
 
-{- compForce:: Tgraph -> Tgraph
-compForce = uncheckedCompose . force
- -}
+
 -- |allCompForce g produces a list of the non-null iterated (forced) compositions of force g.
 -- It will raise an error if the initial force fails with an incorrect Tgraph.
 -- The list will be [] if g is the emptyTgraph, otherwise the list begins with force g (when the force succeeds).
@@ -275,12 +277,13 @@ maxCompForce g | nullGraph g = labelAsForced g
 allForceDecomps:: Tgraph -> [Tgraph]
 allForceDecomps = iterate (force . decompose)
 
-{-| forcedBoundaryECovering g - produces a list of all boundary covers of force g, each of which
-extends force g to cover the entire boundary directed edges in (force g).
-(So the boundary of force g is entirely internal edges in each cover).
-The covers include all possible ways faces can be added on the boundary that are correct.
-The common faces of the covers constitute the empire (level 1) of g.
-This will raise an error if the initial force fails with a stuck graph.
+{-| forcedBoundaryECovering g - produces a list of all boundary covers of force g.
+Each boundary cover is a forced Tgraph that extends force g and covers the entire boundary directed edges of force g.
+(So the boundary of force g is entirely internal edges in each boundary cover).
+The covers include all possible ways faces can be added on the boundary of force g
+except combinations which are found to be incorrect.
+The common faces of the covers constitute an empire (level 1) of g.
+This will raise an error if the initial force fails with an incorrect/stuck Tgraph.
 -}
 forcedBoundaryECovering:: Tgraph -> [Forced Tgraph]
 forcedBoundaryECovering g = recoverGraphF <$> boundaryECovering gforcedBdry where
@@ -289,7 +292,7 @@ forcedBoundaryECovering g = recoverGraphF <$> boundaryECovering gforcedBdry wher
 
 {-| forcedBoundaryVCovering g - produces a list of all boundary covers of force g as with
 forcedBoundaryECovering g but covering all boundary vertices rather than just boundary edges.
-This will raise an error if the initial force fails with a stuck graph.                        
+This will raise an error if the initial force fails with an incorrect/stuck Tgraph.                      
 -}
 forcedBoundaryVCovering:: Tgraph -> [Forced Tgraph]
 forcedBoundaryVCovering g = recoverGraphF <$> boundaryVCovering gforcedBdry where
@@ -303,18 +306,20 @@ Extensions are made by repeatedly adding a face to any edge on the original boun
 and forcing, repeating this until the orignal boundary is all internal edges.
 The resulting covers account for all possible ways the boundary can be extended.
 This can raise an error if both choices on a boundary edge fail when forced (using atLeastOne).
+
+In which case, fbd represents an important counter example to the hypothesis that
+successfully forced forcibles are correct.
 -}
 boundaryECovering:: Forced BoundaryState -> [Forced BoundaryState]
-boundaryECovering fbs = covers [(bstate, boundaryEdgeSet bstate)] where
-  bstate = forgetF fbs
-  covers:: [(BoundaryState, Set.Set Dedge)] -> [Forced BoundaryState]
+boundaryECovering forcedbs = covers [(forcedbs, boundaryEdgeSet (forgetF forcedbs))] where
+  covers:: [(Forced BoundaryState, Set.Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
-  covers ((bs,es):opens)
-    | Set.null es = labelAsForced bs:covers opens -- bs is a completed cover
+  covers ((fbs,es):opens)
+    | Set.null es = fbs:covers opens -- bs is a completed cover
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
-             newcases = fmap (\b -> (b, commonBdry des b))
-                             (atLeastOne $ fmap forgetF <$> tryDartAndKiteForced de bs)
+             newcases = fmap (\b -> (b, commonBdry des (forgetF b)))
+                             (runTry $ tryDKFCounter de fbs)
 
 
 -- |Make a set of the directed boundary edges of a BoundaryState
@@ -330,18 +335,18 @@ commonBdry des b = des `Set.intersection` boundaryEdgeSet b
     This can raise an error if both choices on a boundary edge fail when forced (using atLeastOne).
  -}
 boundaryVCovering:: Forced BoundaryState -> [Forced BoundaryState]
-boundaryVCovering fbd = covers [(bd, startbds)] where
-  bd = forgetF fbd
-  startbds = boundaryEdgeSet bd
-  startbvs = boundaryVertexSet bd
---covers:: [(BoundaryState,Set.Set Dedge)] -> [BoundaryState]
+boundaryVCovering fbd = covers [(fbd, startbds)] where
+  startbds = boundaryEdgeSet $ forgetF fbd
+  startbvs = boundaryVertexSet $ forgetF fbd
+--covers:: [(Forced BoundaryState,Set.Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((open,es):opens)
-    | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
-        Nothing -> labelAsForced open:covers opens
-        Just dedge -> covers $ fmap (,es) (atLeastOne $ fmap forgetF <$> tryDartAndKiteForced dedge open) ++opens
-    | otherwise =  covers $ fmap (\b -> (b, commonBdry des b)) (atLeastOne $  fmap forgetF <$> tryDartAndKiteForced de open) ++opens
+    | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary $ forgetF open) of
+        Nothing -> open:covers opens
+        Just dedge -> covers $ fmap (,es) (runTry $ tryDKFCounter dedge open) ++opens
+    | otherwise =  covers $ fmap (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteForced de open) ++opens
                    where (de,des) = Set.deleteFindMin es
+
 
 -- | returns the set of boundary vertices of a BoundaryState
 boundaryVertexSet :: BoundaryState -> VertexSet
@@ -363,16 +368,40 @@ tryDartAndKite de b =
     ]
 
 -- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de of a Forcible b and then tries forcing.
+-- to edge de of an explicitly Forced Forcible b and then tries forcing.
 -- Each of the results is a Try of an explicitly Forced type.
--- (Use map (fmap forgetF) to remove the explicit forcing)
-tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try (Forced a)]
-tryDartAndKiteForced de b =
+-- (Use map (fmap forgetF) to remove the explicit Forced)
+tryDartAndKiteForced:: Forcible a => Dedge -> Forced a -> [Try (Forced a)]
+tryDartAndKiteForced de fb =
     [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
-        tryAddHalfDart de b >>= tryForceF
+        tryAddHalfDart de (forgetF fb) >>= tryForceF
     , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
-        tryAddHalfKite de b >>= tryForceF
+        tryAddHalfKite de (forgetF fb) >>= tryForceF
     ]
+
+-- | tryDKFCounter dedge fb (where fb is an explicitly forced BoundaryState
+-- and dedge is a directed boundary edge of fb) tries to add both a half kite and a half dart to the edge
+-- then tries forcing each result. It normally returns the list of up to 2 successful results.
+-- However, if there no successes, this may be an important counter example 
+-- and it will return Left with a failure report describing the counter example
+-- to the following
+--
+-- Hypothesis: A successfully forced Tgraph must be correct (a correct tiling).
+--
+-- (If both legal additions to a boundary edge are incorrect,
+-- then the Tgraph/BoundaryState is incorrect)
+tryDKFCounter :: Dedge -> Forced BoundaryState -> Try [Forced BoundaryState]
+tryDKFCounter dedge fb = 
+    onFail ("tryDKFCounter: <<< Counter Example Found!! >>>\n"
+            ++ "\nBoth legal extensions to directed edge " ++ show dedge
+            ++ "are incorrrect for a successfully forced Forcible.\n"
+            ++ "This shows a successfully forced forcible can still be incorrect\n"
+            ++ "which is a counter example to the hypothesis that successful forcing\n"
+            ++ "returns correct tilings.\n\n"
+            ++ "The incorrect but forced forcible is:\n"
+            ++ show (recoverGraph $ forgetF fb)
+           )
+    $ tryAtLeastOne $ tryDartAndKiteForced dedge fb
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g.
 drawFBCovering :: OKBackend b =>

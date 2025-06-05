@@ -28,6 +28,7 @@ module Try
   , isFail
   , concatFails
   , ignoreFails
+  , tryAtLeastOne
   , atLeastOne
   -- , noFails
   ) where

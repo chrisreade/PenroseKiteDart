@@ -31,6 +31,9 @@ labelAsForced is introduced instead
 
 Changed type of tryDartAndKiteForced (to explicitly show Forced results)
 (Use map (fmap forgetF) to convert [Try (Forced a)] to [Try a]).
+and added special case 
+(New)
+tryDKFCounter  (to report any counter example found.)
 
 Removed warning pragma for makeUncheckedTgraph
 
