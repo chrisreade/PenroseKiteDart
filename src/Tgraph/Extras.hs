@@ -55,6 +55,7 @@ module Tgraph.Extras
   , boundaryVertexSet
   , internalVertexSet
   , tryDartAndKiteForced
+  , tryDartAndKiteF
   , tryDartAndKite
   , tryDKFCounter
   , drawFBCovering
@@ -344,7 +345,7 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary $ forgetF open) of
         Nothing -> open:covers opens
         Just dedge -> covers $ fmap (,es) (runTry $ tryDKFCounter dedge open) ++opens
-    | otherwise =  covers $ fmap (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteForced de open) ++opens
+    | otherwise =  covers $ fmap (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de open) ++opens
                    where (de,des) = Set.deleteFindMin es
 
 
@@ -367,30 +368,42 @@ tryDartAndKite de b =
         tryAddHalfKite de b
     ]
 
--- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
+-- | tryDartAndKiteF de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of an explicitly Forced Forcible b and then tries forcing.
 -- Each of the results is a Try of an explicitly Forced type.
 -- (Use map (fmap forgetF) to remove the explicit Forced)
-tryDartAndKiteForced:: Forcible a => Dedge -> Forced a -> [Try (Forced a)]
-tryDartAndKiteForced de fb =
-    [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
+tryDartAndKiteF:: Forcible a => Dedge -> Forced a -> [Try (Forced a)]
+tryDartAndKiteF de fb =
+    [ onFail ("tryDartAndKiteF: Dart on edge: " ++ show de ++ "\n") $
         tryAddHalfDart de (forgetF fb) >>= tryForceF
-    , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
+    , onFail ("tryDartAndKiteF: Kite on edge: " ++ show de ++ "\n") $
         tryAddHalfKite de (forgetF fb) >>= tryForceF
     ]
 
--- | tryDKFCounter dedge fb (where fb is an explicitly forced BoundaryState
+-- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
+-- to edge de of a Forcible b and then tries forcing.
+-- Each of the results is a Try .
+tryDartAndKiteForced:: Forcible a => Dedge -> Forced a -> [Try a]
+tryDartAndKiteForced de fb =
+    [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
+        tryAddHalfDart de (forgetF fb) >>= tryForce
+    , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
+        tryAddHalfKite de (forgetF fb) >>= tryForce
+    ]
+ 
+-- | tryDKFCounter dedge fb (where fb is an explicitly forced Forcible
 -- and dedge is a directed boundary edge of fb) tries to add both a half kite and a half dart to the edge
--- then tries forcing each result. It normally returns the list of up to 2 successful results.
--- However, if there no successes, this may be an important counter example 
+-- then tries forcing each result.
+-- It returns the list of only the successful results provided there is at least one.
+-- If there no successes, this may be an important counter example 
 -- and it will return Left with a failure report describing the counter example
 -- to the following
 --
 -- Hypothesis: A successfully forced Tgraph must be correct (a correct tiling).
 --
 -- (If both legal additions to a boundary edge are incorrect,
--- then the Tgraph/BoundaryState is incorrect)
-tryDKFCounter :: Dedge -> Forced BoundaryState -> Try [Forced BoundaryState]
+-- then the (Forced) Forcible must be incorrect)
+tryDKFCounter :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
 tryDKFCounter dedge fb = 
     onFail ("tryDKFCounter: <<< Counter Example Found!! >>>\n"
             ++ "\nBoth legal extensions to directed edge " ++ show dedge
@@ -399,9 +412,9 @@ tryDKFCounter dedge fb =
             ++ "which is a counter example to the hypothesis that successful forcing\n"
             ++ "returns correct tilings.\n\n"
             ++ "The incorrect but forced forcible is:\n"
-            ++ show (recoverGraph $ forgetF fb)
+            ++ show fb
            )
-    $ tryAtLeastOne $ tryDartAndKiteForced dedge fb
+    $ tryAtLeastOne $ tryDartAndKiteF dedge fb
 
 -- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g.
 drawFBCovering :: OKBackend b =>

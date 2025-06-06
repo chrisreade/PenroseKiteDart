@@ -434,7 +434,7 @@ emplaceChoices = emplaceChoicesForced . forceF  where
   chooseUnknowns (([],g0):more) = g0:chooseUnknowns more
   chooseUnknowns ((u:unks,g0): more)
      =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
-        where newgs = map recoverGraph $ atLeastOne $ fmap forgetF <$> tryDartAndKiteForced (findDartLongForWing u bd) (labelAsForced bd)
+        where newgs = map recoverGraph $ atLeastOne $ fmap forgetF <$> tryDartAndKiteF (findDartLongForWing u bd) (labelAsForced bd)
               bd = makeBoundaryState g0
               remainingunks startunks g' = (startunks `intersect` graphBoundaryVs g', g')
 

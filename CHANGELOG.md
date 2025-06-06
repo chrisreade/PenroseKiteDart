@@ -29,11 +29,9 @@ Data constructor Forced is no longer exported but
 (New)
 labelAsForced is introduced instead
 
-Changed type of tryDartAndKiteForced (to explicitly show Forced results)
-(Use map (fmap forgetF) to convert [Try (Forced a)] to [Try a]).
-and added special case 
 (New)
-tryDKFCounter  (to report any counter example found.)
+tryDartAndKiteF  (explicit Forced version tryDartAndKiteForced)
+tryDKFCounter  (special case to report any counter example found.)
 
 Removed warning pragma for makeUncheckedTgraph
 
