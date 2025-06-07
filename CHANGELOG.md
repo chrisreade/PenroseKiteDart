@@ -30,8 +30,8 @@ Data constructor Forced is no longer exported but
 labelAsForced is introduced instead
 
 (New)
-tryDartAndKiteF  (explicit Forced version tryDartAndKiteForced)
-tryDKFCounter  (special case to report any counter example found.)
+tryDartAndKiteF  (version of tryDartAndKiteForced with explicitly forced results)
+tryCheckCounterExample  (special case to report any counter example found.)
 
 Removed warning pragma for makeUncheckedTgraph
 

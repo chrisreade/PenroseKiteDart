@@ -49,15 +49,15 @@ module Tgraph.Extras
   , forcedBoundaryECovering
   , forcedBoundaryVCovering
   , boundaryECovering
-  , boundaryEdgeSet
-  , commonBdry
   , boundaryVCovering
-  , boundaryVertexSet
-  , internalVertexSet
+  , tryDartAndKite
   , tryDartAndKiteForced
   , tryDartAndKiteF
-  , tryDartAndKite
-  , tryDKFCounter
+  , tryCheckCounterExample
+  , boundaryEdgeSet
+  , commonBdry
+  , boundaryVertexSet
+  , internalVertexSet
   , drawFBCovering
   , empire1
   , empire2
@@ -320,7 +320,7 @@ boundaryECovering forcedbs = covers [(forcedbs, boundaryEdgeSet (forgetF forcedb
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
              newcases = fmap (\b -> (b, commonBdry des (forgetF b)))
-                             (runTry $ tryDKFCounter de fbs)
+                             (runTry $ tryCheckCounterExample de fbs)
 
 
 -- |Make a set of the directed boundary edges of a BoundaryState
@@ -344,8 +344,8 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
   covers ((open,es):opens)
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary $ forgetF open) of
         Nothing -> open:covers opens
-        Just dedge -> covers $ fmap (,es) (runTry $ tryDKFCounter dedge open) ++opens
-    | otherwise =  covers $ fmap (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de open) ++opens
+        Just dedge -> covers $ fmap (,es) (runTry $ tryCheckCounterExample dedge open) ++opens
+    | otherwise =  covers $ fmap (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de (forgetF open)) ++opens
                    where (de,des) = Set.deleteFindMin es
 
 
@@ -369,54 +369,54 @@ tryDartAndKite de b =
     ]
 
 -- | tryDartAndKiteF de b - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de of an explicitly Forced Forcible b and then tries forcing.
+-- to edge de of a Forcible b and then tries forcing.
 -- Each of the results is a Try of an explicitly Forced type.
--- (Use map (fmap forgetF) to remove the explicit Forced)
-tryDartAndKiteF:: Forcible a => Dedge -> Forced a -> [Try (Forced a)]
-tryDartAndKiteF de fb =
+tryDartAndKiteF:: Forcible a => Dedge -> a -> [Try (Forced a)]
+tryDartAndKiteF de b =
     [ onFail ("tryDartAndKiteF: Dart on edge: " ++ show de ++ "\n") $
-        tryAddHalfDart de (forgetF fb) >>= tryForceF
+        tryAddHalfDart de b >>= tryForceF
     , onFail ("tryDartAndKiteF: Kite on edge: " ++ show de ++ "\n") $
-        tryAddHalfKite de (forgetF fb) >>= tryForceF
+        tryAddHalfKite de b >>= tryForceF
     ]
 
 -- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b and then tries forcing.
--- Each of the results is a Try .
-tryDartAndKiteForced:: Forcible a => Dedge -> Forced a -> [Try a]
-tryDartAndKiteForced de fb =
+-- Each of the results is a Try.
+tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try a]
+tryDartAndKiteForced de b = 
     [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
-        tryAddHalfDart de (forgetF fb) >>= tryForce
+        tryAddHalfDart de b >>= tryForce
     , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
-        tryAddHalfKite de (forgetF fb) >>= tryForce
+        tryAddHalfKite de b >>= tryForce
     ]
- 
--- | tryDKFCounter dedge fb (where fb is an explicitly forced Forcible
+
+-- | tryCheckCounterExample dedge fb (where fb is an explicitly forced Forcible
 -- and dedge is a directed boundary edge of fb) tries to add both a half kite and a half dart to the edge
 -- then tries forcing each result.
--- It returns the list of only the successful results provided there is at least one.
--- If there no successes, this may be an important counter example 
+-- It returns the list of only the successful results provided there is AT LEAST ONE.
+-- If there are no successes, this may be an important counter example 
 -- and it will return Left with a failure report describing the counter example
--- to the following
+-- to the following:
 --
--- Hypothesis: A successfully forced Tgraph must be correct (a correct tiling).
+-- Hypothesis: A successfully forced Tgraph is correct (a correct tiling).
 --
 -- (If both legal additions to a boundary edge are incorrect,
--- then the (Forced) Forcible must be incorrect)
-tryDKFCounter :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
-tryDKFCounter dedge fb = 
-    onFail ("tryDKFCounter: <<< Counter Example Found!! >>>\n"
+-- then the (Forced) Forcible must be incorrect).
+tryCheckCounterExample :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
+tryCheckCounterExample dedge fb = 
+    onFail ("tryCheckCounterExample: <<< Counter Example Found!! >>>\n"
             ++ "\nBoth legal extensions to directed edge " ++ show dedge
-            ++ "are incorrrect for a successfully forced Forcible.\n"
+            ++ " \nare incorrrect for a successfully forced Forcible.\n"
             ++ "This shows a successfully forced forcible can still be incorrect\n"
             ++ "which is a counter example to the hypothesis that successful forcing\n"
             ++ "returns correct tilings.\n\n"
             ++ "The incorrect but forced forcible is:\n"
             ++ show fb
            )
-    $ tryAtLeastOne $ tryDartAndKiteF dedge fb
+    $ tryAtLeastOne $ tryDartAndKiteF dedge (forgetF fb)
 
--- | test function to draw a column of the list of graphs resulting from forcedBoundaryVCovering g.
+-- |A test function to draw (as a column) the list of covers resulting from forcedBoundaryVCovering
+-- for a given Tgraph.
 drawFBCovering :: OKBackend b =>
                   Tgraph -> Diagram b
 drawFBCovering g = lw ultraThin $ vsep 1 (draw . forgetF <$> forcedBoundaryVCovering g)
@@ -424,7 +424,8 @@ drawFBCovering g = lw ultraThin $ vsep 1 (draw . forgetF <$> forcedBoundaryVCove
 
 -- | empire1 g - produces a TrackedTgraph representing the level 1 empire of g.
 -- Raises an error if force g fails with a stuck/incorrect Tgraph.
--- The tgraph of the result is the first boundary vertex cover of force g,
+-- The tgraph of the result is the first boundary vertex cover of force g
+-- which is arbitrarily chosen amongst the covers as the background setting,
 -- and the tracked list of the result has the common faces of all the boundary vertex covers (of force g)
 -- at the head, followed by the original faces of g.
 empire1 :: Tgraph -> TrackedTgraph
@@ -437,13 +438,13 @@ empire1 g =
           de = defaultAlignment g
           g0Intersect fg1 = commonFaces (g0,de) (forgetF fg1,de)
 
--- | empire2 g - produces a TrackedTgraph representing the level 2 empire of g.
+-- | empire2 g - produces a TrackedTgraph representing a level 2 empire of g.
 -- Raises an error if force g fails with a stuck/incorrect Tgraph.
--- NB since very large graphs can be generated with boundary vertex covers, we use boundary edge covers only.
--- That is, after finding all boundary edge covers of force g, 
+-- After finding all boundary edge covers of force g, 
 -- boundary edge covers are then found for each boundary edge cover to form a list of doubly-extended
 -- boundary edge covers.
--- The tgraph of the result is the first (doubly-extended) boundary edge cover (of force g),
+-- The tgraph of the result is the first (doubly-extended) boundary edge cover (of force g)
+-- which is arbitrarily chosen amongst the (doubly-extended) covers as the background setting,
 -- and the tracked list of the result has the common faces of all the (doubly-extended) boundary edge covers
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> TrackedTgraph
@@ -479,8 +480,9 @@ empire2Plus g =
 
 -- | drawEmpire e - produces a diagram for an empire e represented as a TrackedTgraph
 -- as calcultaed by e.g. empire1 or empire2 or empire2Plus.
--- The diagram draws the underlying Tgraph, with the first tracked faces - the starting Tgraph shown red, and emphasising the second tracked faces
--- - the common  faces.
+-- The diagram draws the underlying Tgraph (the background setting), with the first tracked faces
+-- (the starting Tgraph) shown red, and emphasising the second tracked faces
+-- (the common  faces).
 drawEmpire :: OKBackend b =>
                TrackedTgraph -> Diagram b
 drawEmpire =

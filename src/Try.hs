@@ -97,7 +97,7 @@ ignoreFails = rights
 tryAtLeastOne:: [Try a] -> Try [a]
 tryAtLeastOne [] = failReport "atLeastOne: applied to empty list.\n"
 tryAtLeastOne results = case ignoreFails results of
-                 [] -> onFail "atLeastOne: no successful results.\nCounter Example Found?\n" $ concatFails results
+                 [] -> onFail "atLeastOne: no successful results.\n" $ concatFails results
                  other -> Right other
 
 -- | atLeastOne rs - returns the list of successful results if there are any, but fails with an error otherwise.
