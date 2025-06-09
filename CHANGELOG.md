@@ -20,18 +20,20 @@ Breaking:
 An instance of Show(ShowS) is provided in order to show Try results
 
 ### Changes to Forced
-Forced is no longer a Functor
+Forced is no longer a Functor.
 Instead, 4 specific safe cases for changing a Forced Forcible
 (New)
 recoverGraphF,boundaryStateF,makeBoundaryStateF,initFSF
 
 Data constructor Forced is no longer exported but
 (New)
-labelAsForced is introduced instead
+labelAsForced :: a -> Forced a (for use only when the argument is known to be forced)
 
 (New)
-tryDartAndKiteF  (version of tryDartAndKiteForced with explicitly forced results)
-tryCheckCounterExample  (special case to report any counter example found.)
+tryDartAndKiteF - version of tryDartAndKiteForced with explicitly forced results.
+tryCheckCasesDKF and checkCasesDKF - special case to report any counter example found
+when trying to add a dart and kite to a boundary edge of an explicitly Forced forcible.
+ 
 
 Removed warning pragma for makeUncheckedTgraph
 

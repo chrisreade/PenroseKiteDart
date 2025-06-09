@@ -1,6 +1,6 @@
 {-|
 Module      : PKD
-Description : The main module which re-exports TileLib and all the Tgraph modules
+Description : The main module which re-exports everything except TgraphExamples
 Copyright   : (c) Chris Reade, 2024
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
