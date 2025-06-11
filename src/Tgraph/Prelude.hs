@@ -78,7 +78,6 @@ module Tgraph.Prelude
   , removeFaces
   , removeVertices
   , selectVertices
-  , graphBoundaryVs
   , internalEdges
   , phiEdges
   , nonPhiEdges
@@ -162,15 +161,15 @@ module Tgraph.Prelude
     -- * Vertex Location and Touching Vertices
   , locateVertices
   , addVPoint
-  , axisJoin
+--  , axisJoin
 --  , find3Locs
 --  , thirdVertexLoc
   , touchingVertices
   , touching
   , touchingVerticesGen
   , locateVerticesGen
-  , drawEdges
-  , drawEdge
+  --, drawEdges
+  --, drawEdge
   ) where
 
 import Data.List ((\\), intersect, union, elemIndex,foldl',find,nub)
@@ -564,7 +563,7 @@ instance HasFaces [TileFace] where
 
 -- |Tgraph is in class HasFaces
 instance HasFaces Tgraph where
-    faces (Tgraph fcs) = fcs
+    faces  = getFaces
     dedges = dedges . faces
     boundary = boundary . faces
     vertexSet = vertexSet . faces
@@ -611,18 +610,18 @@ removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
 selectVertices :: [Vertex] -> Tgraph -> Tgraph
 selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 
--- |list of vertices that are on the boundary of a Tgraph
+{- -- |list of vertices that are on the boundary of a Tgraph
 graphBoundaryVs :: Tgraph -> [Vertex]
 graphBoundaryVs = map fst . boundary
-
+ -}
 {- -- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
 graphEdges :: Tgraph -> [Dedge]
 graphEdges = completeEdges . faces
  -}
 -- |internal edges are shared by two faces = all edges except boundary edges
 internalEdges :: HasFaces a => a -> [Dedge]
-internalEdges g =  des \\ fmap reverseD (missingRevs des) where
-    des = dedges g
+internalEdges a =  des \\ fmap reverseD (missingRevs des) where
+    des = dedges a
 
 -- |phiEdges returns a list of the longer (phi-length) edges of a Tgraph (including kite joins).
 -- This includes both directions of each edge.
@@ -1164,7 +1163,7 @@ drawLocatedEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error $ "drawEdge: location not found for one or both vertices "++ show (a,b) ++ "\n"
 
-{-# DEPRECATED drawEdge, drawEdges "Use drawLocatedEdge, drawLocatedEdges instead" #-}
+{- {-# DEPRECATED drawEdge, drawEdges "Use drawLocatedEdge, drawLocatedEdges instead" #-}
 -- |deprecated (use drawLocatedEdges)
 drawEdges :: OKBackend b =>
              VertexLocMap -> [Dedge] -> Diagram b
@@ -1174,7 +1173,7 @@ drawEdges = drawLocatedEdges
 drawEdge :: OKBackend b =>
             VertexLocMap -> Dedge -> Diagram b
 drawEdge = drawLocatedEdge
-
+ -}
 
 {-| locateVertices: processes a list of faces to associate points for each vertex using a default scale and orientation.
 The default scale is 1 unit for short edges (phi units for long edges).

@@ -74,7 +74,7 @@ module Tgraph.Extras
   , tryBoundaryFaceGraph
     -- * Boundary loops
   , boundaryLoops
-  , findLoops
+  -- , findLoops
   , pathFromBoundaryLoops
     -- * TrackedTgraphs
   , TrackedTgraph(..)

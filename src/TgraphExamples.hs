@@ -436,7 +436,7 @@ emplaceChoices = emplaceChoicesForced . forceF  where
      =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
         where newgs = map recoverGraph $ atLeastOne $ fmap forgetF <$> tryDartAndKiteF (findDartLongForWing u bd) bd
               bd = makeBoundaryState g0
-              remainingunks startunks g' = (startunks `intersect` graphBoundaryVs g', g')
+              remainingunks startunks g' = (startunks `intersect` boundaryVs g', g')
 
   findDartLongForWing :: Vertex -> BoundaryState -> Dedge
   findDartLongForWing v bd

@@ -3,9 +3,9 @@
 (After 1.3)
 Changed module Tgraphs to module Tgraph.Extras
 
-### HasFaces class
+### New HasFaces class
 
-Introduced to make common functions for 
+Introduced to define common functions for 
 [TileList], Tgraph, VPatch, BoundaryState, Forced
 
 Breaking Name Changes for
@@ -21,10 +21,8 @@ Breaking Name Changes for
     facesEdges -> completeEdges
     graphEdges -> completeEdges
     boundaryLoopsG -> boundaryLoops
-    graphEdges -> completeEdges
-    facesEdges -> completeEdges
     graphEFMap -> buildEFMap
-    Also changed selector for BoundaryState to boundaryDedges (but note boundary generalised)
+    Also changed selector in BoundaryState to boundaryDedges (but note boundary generalised)
 
 Generalised (to use HasFaces)
     boundary
@@ -57,7 +55,10 @@ Generalised (to use HasFaces)
     findEdgeLoops
     hasEdgeLoops
     conflictingDedges
-    
+
+No longer exported:
+findLoops, axisJoin, drawEdge (use drawLocatedEdge), drawEdges (use drawLocatedEdges)
+
 ### Try changed
 Changed the type for Try to use ShowS instead of String
 (ShowS = String -> String)
