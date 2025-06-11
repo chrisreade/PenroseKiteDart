@@ -59,6 +59,7 @@ module Tgraph.Force
   , UChecker
     -- *  BoundaryState operations
   , makeBoundaryState
+  , getBoundary
   , recoverGraph
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
@@ -190,7 +191,7 @@ and the next vertex label to be used when adding a new vertex.
 -}
 data BoundaryState
    = BoundaryState
-     { boundary:: [Dedge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
+     { boundaryDedges:: [Dedge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex.
      , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex.
      , allFaces:: [TileFace] -- ^ all the tile faces
@@ -207,13 +208,16 @@ makeBoundaryState g =
   in if not $ null $ crossingVertices bdes then error $ "makeBoundaryState: found crossing boundary in faces:\n"++show (faces g)++"\n"
      else
       BoundaryState
-      { boundary = bdes
+      { boundaryDedges = bdes
       , bvFacesMap = vertexFacesMap bvs (faces g)
       , bvLocMap = bvLocs
       , allFaces = faces g
       , nextVertex = 1+ maxV g
       }
 
+-- |TEMP
+getBoundary :: BoundaryState -> [Dedge]
+getBoundary = boundaryDedges
 
 -- |Converts a BoundaryState back to a Tgraph
 recoverGraph:: BoundaryState -> Tgraph
@@ -241,7 +245,7 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
 -- |return a list of faces which have a boundary vertex from a BoundaryState
 boundaryFaces :: BoundaryState -> [TileFace]
 boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
-    bvs = fst <$> boundary bd
+    bvs = fst <$> getBoundary bd
 -- boundaryFaces = nub . concat . VMap.elems . bvFacesMap 
 -- relies on the map containing no extra info for non boundary vertices
 
@@ -313,12 +317,11 @@ instance Forcible BoundaryState where
         fs' <- f fs
         return $ boundaryState fs'
     tryInitFSWith ugen bd = do
-        umap <- applyUG ugen bd (boundary bd)
+        umap <- applyUG ugen bd (getBoundary bd)
         return $ ForceState { boundaryState = bd , updateMap = umap }
     tryChangeBoundaryWith _ f bd = do -- update generator not used
         bdC <- f bd
         return $ newBoundaryState bdC
---    getBoundaryState = id
 
 -- | Tgraphs are Forcible    
 instance Forcible Tgraph where
@@ -474,7 +477,7 @@ tryAddHalfKite = tryChangeBoundary . tryAddHalfKiteBoundary where
 -- |tryAddHalfKiteBoundary implements tryAddHalfKite as a BoundaryState change
 -- tryAddHalfKiteBoundary :: Dedge -> BoundaryState -> Try BoundaryChange
     tryAddHalfKiteBoundary e bd =
-      do de <- case [e, reverseD e] `intersect` boundary bd of
+      do de <- case [e, reverseD e] `intersect` getBoundary bd of
                  [de] -> Right de
                  _ ->  failReports
                           ["tryAddHalfKite:  on non-boundary edge "
@@ -507,7 +510,7 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
 -- |tryAddHalfDartBoundary implements tryAddHalfDart as a BoundaryState change
 -- tryAddHalfDartBoundary :: Dedge -> BoundaryState -> Try BoundaryChange
     tryAddHalfDartBoundary e bd =
-      do de <- case [e, reverseD e] `intersect` boundary bd of
+      do de <- case [e, reverseD e] `intersect` getBoundary bd of
                 [de] -> Right de
                 _ -> failReports
                         ["tryAddHalfDart:  on non-boundary edge "
@@ -567,15 +570,15 @@ data BoundaryChange = BoundaryChange
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bd [(a,b)] = [(x,a),(a,b),(b,y)] where
-           bdry = boundary bd
+           bdry = getBoundary bd
            (x,_) = mustFind ((==a).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a ++ "\n")
            (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b ++ "\n")
 affectedBoundary bd [(a,b),(c,d)] | b==c = [(x,a),(a,b),(c,d),(d,y)] where
-           bdry = boundary bd
+           bdry = getBoundary bd
            (x,_) = mustFind ((==a).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a ++ "\n")
            (_,y) = mustFind ((==d).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show d ++ "\n")
 affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
-           bdry = boundary bd
+           bdry = getBoundary bd
            (x,_) = mustFind ((==c).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show c ++ "\n")
            (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b ++ "\n")
 affectedBoundary _ [] = []
@@ -658,7 +661,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
        resultBd = BoundaryState
-                    { boundary = newDedges ++ (boundary bd \\ matchedDedges)
+                    { boundaryDedges = newDedges ++ (getBoundary bd \\ matchedDedges)
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newface:allFaces bd
@@ -694,7 +697,7 @@ trySafeUpdate bd (SafeUpdate newface) =
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
-                   { boundary = newDedges ++ (boundary bd \\ matchedDedges)
+                   { boundaryDedges = newDedges ++ (boundaryDedges bd \\ matchedDedges)
                    , bvFacesMap = foldr VMap.delete (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                    , allFaces = newface:allFaces bd
@@ -746,7 +749,7 @@ tryUpdate bd u@(UnsafeUpdate _) =
 recalculateBVLocs :: BoundaryState -> BoundaryState
 recalculateBVLocs bd = bd {bvLocMap = newlocs} where
     newlocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ allFaces bd
-    bvs = fst <$> boundary bd
+    bvs = fst <$> getBoundary bd
 
 -- |A version of tryForce that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
 -- This is needed to limit accumulated inaccuracies when large numbers of faces are added in forcing.
@@ -1356,14 +1359,14 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                     ,show (a,b)
                     ,"\n"
                     ]
-           | aAngle == n = case find ((==a) . snd) (boundary bd) of
+           | aAngle == n = case find ((==a) . snd) (getBoundary bd) of
                              Just pr -> Right $ Just (fst pr)
                              Nothing -> failReports
                                           ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
                                           ,show (a,b)
                                           ,"\n"
                                           ]
-           | bAngle == m = case find ((==b) . fst) (boundary bd) of
+           | bAngle == m = case find ((==b) . fst) (getBoundary bd) of
                              Just pr -> Right $ Just (snd pr)
                              Nothing -> failReports
                                            ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "

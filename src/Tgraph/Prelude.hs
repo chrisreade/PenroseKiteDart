@@ -921,7 +921,7 @@ extractLowestJoin fcs
           b = minimum (fmap oppV aFaces)
           face = case find (((a,b)==) . joinOfTile) aFaces of
                   Just f -> f
-                  Nothing -> error $ "extractLowestJoin: no face fond at "
+                  Nothing -> error $ "extractLowestJoin: no face found at "
                                      ++ show a ++ " with opp vertex at " ++ show b ++ "\n"
 --          (face: _) = filter (((a,b)==) . joinOfTile) aFaces
 

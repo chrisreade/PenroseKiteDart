@@ -124,7 +124,7 @@ smart dr g = drawBoundaryJoins g vp <> dr vp
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
 boundaryJoinFaces :: Tgraph -> [TileFace]
-boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
+boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ getBoundary bdry where
     bdry = makeBoundaryState g
 
 -- |draw boundary join edges of a Tgraph using a given VPatch
@@ -326,7 +326,7 @@ boundaryECovering forcedbs = covers [(forcedbs, boundaryEdgeSet (forgetF forcedb
 
 -- |Make a set of the directed boundary edges of a BoundaryState
 boundaryEdgeSet:: BoundaryState -> Set.Set Dedge
-boundaryEdgeSet = Set.fromList . boundary
+boundaryEdgeSet = Set.fromList . getBoundary
 
 -- | commonBdry des b - returns those directed edges in des that are boundary directed edges of bd
 commonBdry:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
@@ -343,7 +343,7 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
 --covers:: [(Forced BoundaryState,Set.Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((open,es):opens)
-    | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary $ forgetF open) of
+    | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (getBoundary $ forgetF open) of
         Nothing -> open:covers opens
         Just dedge -> covers $ fmap (,es) (runTry $ tryCheckCasesDKF dedge open) ++opens
     | otherwise =  covers $ fmap (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de (forgetF open)) ++opens
@@ -352,7 +352,7 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
 
 -- | returns the set of boundary vertices of a BoundaryState
 boundaryVertexSet :: BoundaryState -> VertexSet
-boundaryVertexSet bd = IntSet.fromList $ fmap fst (boundary bd)
+boundaryVertexSet bd = IntSet.fromList $ fmap fst (getBoundary bd)
 
 -- | returns the set of internal vertices of a BoundaryState
 internalVertexSet :: BoundaryState -> VertexSet
@@ -551,7 +551,7 @@ trySuperForce = tryFSOp trySuperForceFS where
 -- The result is a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
 singleChoiceEdges :: Forced BoundaryState -> [(Dedge,HalfTileLabel)]
-singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstate) (boundary $ forgetF bstate)
+singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstate) (getBoundary $ forgetF bstate)
   where
 -- commonToCovering bds edgeList - when bds are all the boundary edge covers of some forced Tgraph
 -- whose boundary edges were edgeList, this looks for edges in edgeList that have the same tile label added in all covers.
@@ -596,7 +596,7 @@ boundaryLoopsG = findLoops . graphBoundary
 -- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
 -- The trails will have disjoint sets of vertices because of the no-crossing-boundaries condition of Tgraphs (and hence BoundaryStates).
 boundaryLoops:: BoundaryState -> [[Vertex]]
-boundaryLoops = findLoops . boundary
+boundaryLoops = findLoops . getBoundary
 
 -- | When applied to a boundary edge list this returns a list of (looping) vertex trails.
 -- I.e. if we follow the boundary edges of a Tgraph recording vertices visited as a list returning to the starting vertex
