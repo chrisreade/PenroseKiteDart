@@ -262,14 +262,14 @@ compForce = composeF . forceF
 -- The definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
 allCompForce:: Tgraph -> [Forced Tgraph]
-allCompForce = takeWhile (not . nullGraph . forgetF) . iterate composeF . forceF
+allCompForce = takeWhile (not . nullFaces . forgetF) . iterate composeF . forceF
 
 
 -- |maxCompForce g produces the maximally composed (non-null) Tgraph starting from force g, provided g is not the emptyTgraph
 -- and just the emptyTgraph otherwise.
 -- It will raise an error if the initial force fails with an incorrect Tgraph.
 maxCompForce:: Tgraph -> Forced Tgraph
-maxCompForce g | nullGraph g = labelAsForced g
+maxCompForce g | nullFaces g = labelAsForced g
                | otherwise = last $ allCompForce g
 
 

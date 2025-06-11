@@ -2,9 +2,14 @@
 
 (After 1.3)
 Changed module Tgraphs to module Tgraph.Extras
+
 ### HasFaces class
-(introduced to make common functions for [TileList] and Tgraph and VPatch and BoundaryState)
-Name Changes for
+
+Introduced to make common functions for 
+[TileList], Tgraph, VPatch, BoundaryState, Forced
+
+Breaking Name Changes for
+    nullGraph -> nullFaces
     graphBoundary -> boundary
     facesBoundary -> boundary
     graphDedges -> dedges
@@ -18,6 +23,9 @@ Name Changes for
     boundaryLoopsG -> boundaryLoops
     graphEdges -> completeEdges
     facesEdges -> completeEdges
+    graphEFMap -> buildEFMap
+    Also changed selector for BoundaryState to boundaryDedges (but note boundary generalised)
+
 Generalised (to use HasFaces)
     boundary
     faces
@@ -40,7 +48,16 @@ Generalised (to use HasFaces)
     boundaryVertexSet
     internalVertexSet
     boundaryLoops
-
+    evalFaces
+    ldarts,rdarts,lkites,rkites, kites, darts
+    crossingBVs
+    crossingBoundaries
+    connected
+    defaultAlignment
+    findEdgeLoops
+    hasEdgeLoops
+    conflictingDedges
+    
 ### Try changed
 Changed the type for Try to use ShowS instead of String
 (ShowS = String -> String)

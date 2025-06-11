@@ -35,12 +35,12 @@ module Tgraph.Force
   , forgetF
   , tryForceF
   , forceF
-  , labelAsForced
-  , recoverGraphF
+   , recoverGraphF
   , boundaryStateF
   , makeBoundaryStateF
   , initFSF
-    -- *  Force Related
+  , labelAsForced
+   -- *  Force Related
   , addHalfKite
   , tryAddHalfKite
   , addHalfDart
@@ -253,7 +253,7 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
 -- |return a list of faces which have a boundary vertex from a BoundaryState
 boundaryFaces :: BoundaryState -> [TileFace]
 boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
-    bvs = fst <$> boundary bd
+    bvs = boundaryVs bd
 -- boundaryFaces = nub . concat . VMap.elems . bvFacesMap 
 -- relies on the map containing no extra info for non boundary vertices
 
@@ -430,10 +430,13 @@ newtype Forced a = Forced { -- | forget the explicit Forced labelling
                           }                 
    deriving (Show)
 
-{- Unsafe
-instance Functor Forced where
-    fmap f (Forced a) = Forced { forgetF = f a }
- -}
+-- |Extend HasFaces ops from a to Forced a
+instance HasFaces a => HasFaces (Forced a) where
+    faces = faces . forgetF
+    dedges = dedges . forgetF
+    boundary = boundary . forgetF
+    vertexSet = vertexSet . forgetF
+    maxV = maxV . forgetF
 
 -- | Constructs an explicitly Forced type.
 --

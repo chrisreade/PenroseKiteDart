@@ -423,7 +423,7 @@ emplaceChoices:: Tgraph -> [Tgraph]
 emplaceChoices = emplaceChoicesForced . forceF  where
 
   emplaceChoicesForced:: Forced Tgraph -> [Tgraph]
-  emplaceChoicesForced fg | nullGraph g' = chooseUnknowns [(unknowns $ getDartWingInfo g0, g0)]
+  emplaceChoicesForced fg | nullFaces g' = chooseUnknowns [(unknowns $ getDartWingInfo g0, g0)]
                           | otherwise    = force . decompose <$> emplaceChoicesForced fg'
                           where g0 = forgetF fg
                                 fg' = composeF fg
