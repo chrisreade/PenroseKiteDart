@@ -73,7 +73,6 @@ module Tgraph.Extras
     -- * Boundary face graph
   , tryBoundaryFaceGraph
     -- * Boundary loops
-  , boundaryLoopsG
   , boundaryLoops
   , findLoops
   , pathFromBoundaryLoops
@@ -124,7 +123,7 @@ smart dr g = drawBoundaryJoins g vp <> dr vp
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
 boundaryJoinFaces :: Tgraph -> [TileFace]
-boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ getBoundary bdry where
+boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
     bdry = makeBoundaryState g
 
 -- |draw boundary join edges of a Tgraph using a given VPatch
@@ -216,7 +215,7 @@ addBoundaryAfter :: OKBackend b =>
                     (VPatch ->  Diagram b) -> Tgraph ->  Diagram b
 addBoundaryAfter f g =  (drawEdgesVP vp edges # lc lime) <> f vp where
     vp = makeVP g
-    edges = graphBoundary g
+    edges = boundary g
 
 -- |drawCommonFaces (g1,e1) (g2,e2) uses commonFaces (g1,e1) (g2,e2) to find the common faces
 -- and emphasizes them on the background g1.
@@ -324,13 +323,13 @@ boundaryECovering forcedbs = covers [(forcedbs, boundaryEdgeSet (forgetF forcedb
                              (runTry $ tryCheckCasesDKF de fbs)
 
 
--- |Make a set of the directed boundary edges of a BoundaryState
-boundaryEdgeSet:: BoundaryState -> Set.Set Dedge
-boundaryEdgeSet = Set.fromList . getBoundary
+-- |Make a set of the directed boundary edges from tilefaces
+boundaryEdgeSet:: HasFaces a => a -> Set.Set Dedge
+boundaryEdgeSet = Set.fromList . boundary
 
--- | commonBdry des b - returns those directed edges in des that are boundary directed edges of bd
-commonBdry:: Set.Set Dedge -> BoundaryState -> Set.Set Dedge
-commonBdry des b = des `Set.intersection` boundaryEdgeSet b
+-- | commonBdry des a - returns those directed edges in des that are boundary directed edges of a
+commonBdry:: HasFaces a => Set.Set Dedge -> a -> Set.Set Dedge
+commonBdry des a = des `Set.intersection` boundaryEdgeSet a
 
 {-| boundaryVCovering fbd - similar to boundaryECovering, but produces a list of all possible covers of 
     the boundary vertices in fbd (rather than just boundary edges).
@@ -343,20 +342,20 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
 --covers:: [(Forced BoundaryState,Set.Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((open,es):opens)
-    | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (getBoundary $ forgetF open) of
+    | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary $ forgetF open) of
         Nothing -> open:covers opens
         Just dedge -> covers $ fmap (,es) (runTry $ tryCheckCasesDKF dedge open) ++opens
     | otherwise =  covers $ fmap (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de (forgetF open)) ++opens
                    where (de,des) = Set.deleteFindMin es
 
 
--- | returns the set of boundary vertices of a BoundaryState
-boundaryVertexSet :: BoundaryState -> VertexSet
-boundaryVertexSet bd = IntSet.fromList $ fmap fst (getBoundary bd)
+-- | returns the set of boundary vertices of a tilefaces
+boundaryVertexSet :: HasFaces a => a -> VertexSet
+boundaryVertexSet = IntSet.fromList . boundaryVs
 
--- | returns the set of internal vertices of a BoundaryState
-internalVertexSet :: BoundaryState -> VertexSet
-internalVertexSet bd = vertexSet (recoverGraph bd) IntSet.\\ boundaryVertexSet bd
+-- | returns the set of internal vertices of a tilefaces
+internalVertexSet :: HasFaces a => a -> VertexSet
+internalVertexSet a = vertexSet a IntSet.\\ boundaryVertexSet a
 
 
 -- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
@@ -551,7 +550,7 @@ trySuperForce = tryFSOp trySuperForceFS where
 -- The result is a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
 singleChoiceEdges :: Forced BoundaryState -> [(Dedge,HalfTileLabel)]
-singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstate) (getBoundary $ forgetF bstate)
+singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstate) (boundary $ forgetF bstate)
   where
 -- commonToCovering bds edgeList - when bds are all the boundary edge covers of some forced Tgraph
 -- whose boundary edges were edgeList, this looks for edges in edgeList that have the same tile label added in all covers.
@@ -584,19 +583,19 @@ tryBoundaryFaceGraph :: Tgraph -> Try Tgraph
 tryBoundaryFaceGraph = tryConnectedNoCross . boundaryFaces . makeBoundaryState
 
 
--- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
+{- -- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
 -- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
 -- The trails will have disjoint sets of vertices because of the no-crossing-boundaries condition of Tgraphs.
 boundaryLoopsG:: Tgraph -> [[Vertex]]
-boundaryLoopsG = findLoops . graphBoundary
-
+boundaryLoopsG = findLoops . boundary
+ -}
 -- | Returns a list of (looping) vertex trails for a BoundaryState.
 -- There will usually be a single trail, but more than one indicates the presence of boundaries round holes.
 -- Each trail starts with the lowest numbered vertex in that trail, and ends with the same vertex.
 -- The trails will have disjoint sets of vertices because of the no-crossing-boundaries condition of Tgraphs (and hence BoundaryStates).
-boundaryLoops:: BoundaryState -> [[Vertex]]
-boundaryLoops = findLoops . getBoundary
+boundaryLoops:: HasFaces a => a -> [[Vertex]]
+boundaryLoops = findLoops . boundary
 
 -- | When applied to a boundary edge list this returns a list of (looping) vertex trails.
 -- I.e. if we follow the boundary edges of a Tgraph recording vertices visited as a list returning to the starting vertex
@@ -681,7 +680,7 @@ instance Forcible TrackedTgraph where
     tryChangeBoundaryWith ugen f ttg = do
         g' <- tryChangeBoundaryWith ugen f $ tgraph ttg
         return ttg{ tgraph = g' }
---    getBoundaryState = getBoundaryState . tgraph
+--    boundaryState = boundaryState . tgraph
 
 -- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.

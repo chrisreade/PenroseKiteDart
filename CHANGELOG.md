@@ -2,6 +2,44 @@
 
 (After 1.3)
 Changed module Tgraphs to module Tgraph.Extras
+### HasFaces class
+(introduced to make common functions for [TileList] and Tgraph and VPatch and BoundaryState)
+Name Changes for
+    graphBoundary -> boundary
+    facesBoundary -> boundary
+    graphDedges -> dedges
+    facesDedges  -> dedges
+    facesVSet -> vertexSet
+    facesMaxV -> maxV
+    graphBoundaryVs -> boundaryVs
+    boundaryVertexSet -> vertexSet
+    facesEdges -> completeEdges
+    graphEdges -> completeEdges
+    boundaryLoopsG -> boundaryLoops
+    graphEdges -> completeEdges
+    facesEdges -> completeEdges
+Generalised (to use HasFaces)
+    boundary
+    faces
+    maxV
+    vertexSet
+    boundaryVs
+    internalEdges
+    phiEdges
+    nonPhiEdges
+    vertexFacesMap
+    dedgesFacesMap
+    buildEFMap
+    extractLowestJoin
+    lowestJoin
+    locateVertices
+    locateVerticesGen
+    touchingVertices
+    boundaryEdgeSet
+    commonBdry
+    boundaryVertexSet
+    internalVertexSet
+    boundaryLoops
 
 ### Try changed
 Changed the type for Try to use ShowS instead of String
