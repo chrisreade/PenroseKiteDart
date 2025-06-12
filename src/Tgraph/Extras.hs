@@ -658,7 +658,7 @@ makeTrackedTgraph g trackedlist = TrackedTgraph{ tgraph = g, tracked = fmap (`in
 
 -- |trackFaces ttg - pushes the maingraph tilefaces onto the stack of tracked subsets of ttg
 trackFaces:: TrackedTgraph -> TrackedTgraph
-trackFaces ttg = ttg{ tracked = faces (tgraph ttg):tracked ttg }
+trackFaces ttg = ttg{ tracked = faces ttg : tracked ttg }
 
 -- |unionTwoTracked ttg - combines the top two lists of tracked tilefaces replacing them with the list union.
 unionTwoTracked:: TrackedTgraph -> TrackedTgraph
@@ -682,25 +682,31 @@ instance Forcible TrackedTgraph where
         return ttg{ tgraph = g' }
 --    boundaryState = boundaryState . tgraph
 
+-- |TrackedTgraph is in class HasFaces
+instance HasFaces TrackedTgraph where
+    faces  = faces . tgraph
+    boundary = boundary . faces . tgraph
+    maxV = maxV . faces . tgraph
+
 -- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfDartTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
 addHalfDartTracked e ttg =
-  TrackedTgraph{ tgraph = g' , tracked = fcs:tracked ttg}
+  TrackedTgraph{ tgraph = g' , tracked = newfcs:tracked ttg}
   where
     g = tgraph ttg
     g' = addHalfDart e g
-    fcs = faces g' \\ faces g
+    newfcs = faces g' \\ faces g
 
 -- |addHalfKiteTracked ttg e - add a half kite to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfKiteTracked:: Dedge -> TrackedTgraph -> TrackedTgraph
 addHalfKiteTracked e ttg =
-  TrackedTgraph{ tgraph = g' , tracked = fcs:tracked ttg}
+  TrackedTgraph{ tgraph = g' , tracked = newfcs:tracked ttg}
   where
     g = tgraph ttg
     g' = addHalfKite e g
-    fcs = faces g' \\ faces g
+    newfcs = faces g' \\ faces g
 
 -- |decompose a TrackedTgraph - applies decomposition to all tracked subsets as well as the full Tgraph.
 -- Tracked subsets get the same numbering of new vertices as the main Tgraph. 
@@ -729,7 +735,7 @@ decomposeTracked ttg =
 drawTrackedTgraph :: OKBackend b => [VPatch -> Diagram b] -> TrackedTgraph -> Diagram b
 drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeVP (tgraph ttg)
-    untracked = vpFaces vp \\ concat (tracked ttg)
+    untracked = faces vp \\ concat (tracked ttg)
     vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 {-|
@@ -742,7 +748,7 @@ drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList
 drawTrackedTgraphRotated :: OKBackend b => [VPatch -> Diagram b] -> Angle Double -> TrackedTgraph -> Diagram b
 drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = rotate a $ makeVP (tgraph ttg)
-    untracked = vpFaces vp \\ concat (tracked ttg)
+    untracked = faces vp \\ concat (tracked ttg)
     vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 {-|
@@ -756,7 +762,7 @@ drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawLi
 drawTrackedTgraphAligned :: OKBackend b => [VPatch -> Diagram b] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram b
 drawTrackedTgraphAligned drawList (a,b) ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeAlignedVP (a,b) (tgraph ttg)
-    untracked = vpFaces vp \\ concat (tracked ttg)
+    untracked = faces vp \\ concat (tracked ttg)
     vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 

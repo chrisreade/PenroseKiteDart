@@ -57,7 +57,8 @@ Generalised (to use HasFaces)
     conflictingDedges
 
 No longer exported:
-findLoops, axisJoin, drawEdge (use drawLocatedEdge), drawEdges (use drawLocatedEdges)
+findLoops, axisJoin, drawEdge (use drawLocatedEdge), drawEdges (use drawLocatedEdges),
+crossingVertices, tryFindThirdV, externalAngle
 
 ### Try changed
 Changed the type for Try to use ShowS instead of String

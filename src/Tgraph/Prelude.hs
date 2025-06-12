@@ -36,7 +36,9 @@ module Tgraph.Prelude
   , tryMakeTgraph
   , checkedTgraph
   , makeUncheckedTgraph
-  , HasFaces(..)
+  , HasFaces(..) -- faces, boundary, maxV
+  , dedges
+  , vertexSet
   , vertices
   , boundaryVs
    -- * Property Checking for Tgraphs
@@ -58,8 +60,8 @@ module Tgraph.Prelude
 --  , legal
 --  , illegals
   , illegalTiling
---  , crossingBVs
-  , crossingVertices
+  , crossingBVs
+ -- , crossingVertices
   , crossingBoundaries
   , connected
 --  , connectedBy
@@ -74,14 +76,15 @@ module Tgraph.Prelude
   , rkites
   , kites
   , darts
-  , selectFaces
-  , removeFaces
-  , removeVertices
-  , selectVertices
   , internalEdges
   , phiEdges
   , nonPhiEdges
   , defaultAlignment
+  , selectFaces
+  , removeFaces
+  , removeVertices
+  , selectVertices
+  , vertexFacesMap
     -- * Other Face/Vertex Operations
   , makeRD
   , makeLD
@@ -122,7 +125,6 @@ module Tgraph.Prelude
 --   , missingRevs
     -- * Other Face Operations
   , edgeNb
-  , vertexFacesMap
   , dedgesFacesMap
   , buildEFMap
   , faceForEdge
@@ -199,7 +201,7 @@ Tgraphs
 
 -- Types for Tgraphs, Vertices, Directed Edges, Faces
 
--- |Tgraph vertex labels (must be positive)
+-- |Vertex labels are integers. They must be positive for a Tgraph (Checked by makeTgraph).
 type Vertex = Int
 -- | directed edge
 type Dedge = (Vertex,Vertex)
@@ -207,22 +209,25 @@ type Dedge = (Vertex,Vertex)
 type VertexSet = IntSet.IntSet
 
 -- |A TileFace is a HalfTile with 3 vertex labels (clockwise starting with the origin vertex).
--- Usually referred to as a face.
+-- Usually referred to simply as a face.
+--
+-- For example a right dart: RD(1,2,3) or a left kite: LK(1,5,6)
 type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
-{- | A Tgraph is newtype for a list of faces (that is [TileFace]).
+{- | A Tgraph is a newtype for a list of faces (that is [TileFace]).
    All vertex labels should be positive, so 0 is not used as a vertex label.
    Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
    The data constructor Tgraph is not exported (but see also makeUncheckedTgraph).
 
-   Use faces :: Tgraph -> [TileFace] to retrieve the faces of a Tgraph.
+   Use faces to retrieve the list of faces of a Tgraph.
 -}
-newtype Tgraph = Tgraph { -- | Retrieve the faces of a Tgraph
+newtype Tgraph = Tgraph { -- | getFaces is not exported (use faces)
                          getFaces ::[TileFace] -- ^ Retrieve the faces of a Tgraph
                         }
                  deriving (Show)
 
--- | type used to classify edges of faces 
+-- |A type used to classify edges of faces.
+-- Each (halftile) face has a long edge, a short edge and a join edge. 
 data EdgeType = Short | Long | Join deriving (Show,Eq)
 
 -- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
@@ -381,10 +386,9 @@ findEdgeLoop = duplicates . faceVList
 hasEdgeLoops:: HasFaces a => a  -> Bool
 hasEdgeLoops = not . null . findEdgeLoops
 
-
--- |duplicates finds duplicated items in a list (reverses order but unique results)
+-- |duplicates finds any duplicated items in a list (unique results).
 duplicates :: Eq a => [a] -> [a]
-duplicates = fst . foldl' check ([],[]) where
+duplicates = reverse . fst . foldl' check ([],[]) where
  check (dups,seen) x | x `elem` dups = (dups,seen)
                      | x `elem` seen = (x:dups,seen)
                      | otherwise = (dups,x:seen)
@@ -473,24 +477,17 @@ illegals = filter (not . legal) .  sharedEdges
 illegalTiling:: [TileFace] -> Bool
 illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fcs))
 
--- |crossingBVs fcs returns a list of vertices with crossing boundaries
--- (which should be null).               
+-- |crossingBVs fcs returns a list of vertices where there are crossing boundaries
+-- (which should be null for Tgraphs, VPatches, BoundaryStates, Forced, TrackedTgraph).               
 crossingBVs :: HasFaces a => a -> [Vertex]
-crossingBVs = crossingVertices . boundary
-
--- |Given a list of directed boundary edges, crossingVertices returns a list of vertices occurring
--- more than once at the start of the directed edges in the list.
--- Used for finding crossing boundary vertices when the boundary is already calculated.
-crossingVertices:: [Dedge] -> [Vertex]
-crossingVertices des = duplicates (fmap fst des) -- OR duplicates (fmap snd des)
+crossingBVs = duplicates . boundaryVs
 
 -- |There are crossing boundaries if vertices occur more than once
--- at the start of all boundary directed edges
--- (or more than once at the end of all boundary directed edges).
+-- in the boundary vertices.
 crossingBoundaries :: HasFaces a => a  -> Bool
 crossingBoundaries = not . null . crossingBVs
 
--- |Predicate to check a Tgraph is a connected graph.
+-- |Predicate to check if the faces are connected (in graph theory sense).
 connected:: HasFaces a => a -> Bool
 connected = conn . faces where
     conn [] =  True
@@ -523,69 +520,65 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
 emptyTgraph :: Tgraph
 emptyTgraph = Tgraph []
 
--- |is the Tgraph empty?
+-- |are there no faces?
 nullFaces:: HasFaces a => a -> Bool
 nullFaces = null . faces
 
 -- |Class HasFaces for operations using (a list of) TileFaces.
 -- 
--- Used to for common ops on [TileFace], Tgraph, VPatch, Force.BoundaryState
+-- Used to define common functions on [TileFace], Tgraph, VPatch, BoundaryState, Forced, TrackedTgraph
 class HasFaces a where
     -- |get the tileface list
     faces :: a -> [TileFace]
-    -- |get the directed edges (directed clockwise round each face)
-    dedges :: a -> [Dedge]
-    -- |get the directed edges of the boundary (direction with a tileface on the left and exterior on right)
+    -- |get the directed edges of the boundary
+    -- (direction with a tileface on the left and exterior on right).
     boundary :: a -> [Dedge]
- -- |get the set of vertices
-    vertexSet :: a -> VertexSet
- -- |get the maximum vertex (0 if there are no vertices)
+    -- |get the maximum vertex in all faces (0 if there are no faces)
     maxV :: a -> Int
 
--- |An ascending list of the vertices
+-- |An ascending list of the vertices occuring in faces (without duplicates)
 vertices :: HasFaces a => a -> [Vertex]
 vertices = IntSet.elems . vertexSet
 
 -- |List of boundary vertices
 -- May have duplicates when applied to an arbitrary list of TileFace.
--- but no duplicates for Tgraph, VPatch, BoundaryState. 
+-- but no duplicates for Tgraph, VPatch, BoundaryState, Forced, TrackedTgraph. 
 boundaryVs :: HasFaces a => a -> [Vertex]
 boundaryVs = fmap fst . boundary
+
+-- |get all the directed edges (directed clockwise round each face)
+dedges :: HasFaces a => a -> [Dedge]
+dedges = concatMap faceDedges . faces
+
+-- |get the set of vertices in the faces
+vertexSet :: HasFaces a => a -> VertexSet
+vertexSet = mconcat . fmap faceVSet . faces
 
 -- |A list of tilefaces is in class HasFaces
 instance HasFaces [TileFace] where
     faces = id
-    dedges = concatMap faceDedges
     boundary = missingRevs . dedges
-    vertexSet = mconcat . fmap faceVSet
     maxV [] = 0
     maxV fcs = IntSet.findMax $ vertexSet fcs
 
 -- |Tgraph is in class HasFaces
 instance HasFaces Tgraph where
     faces  = getFaces
-    dedges = dedges . faces
     boundary = boundary . faces
-    vertexSet = vertexSet . faces
     maxV = maxV . faces
 
-
--- |find the maximum vertex number in a Tgraph, returning 0 for an empty Tgraph.
-{- maxV :: Tgraph -> Int
-maxV = facesMaxV . faces
- -}
 ldarts,rdarts,lkites,rkites, kites, darts :: HasFaces a => a -> [TileFace]
--- | selecting left darts from a Tgraph
+-- | selecting left darts from 
 ldarts = filter isLD . faces
--- | selecting right darts from a Tgraph
+-- | selecting right darts from the faces
 rdarts = filter isRD . faces
--- | selecting left kites from a Tgraph
+-- | selecting left kites from the faces
 lkites = filter isLK . faces
--- | selecting right kites from a Tgraph
+-- | selecting right kites from the faces
 rkites = filter isRK . faces
--- | selecting half kites from a Tgraph
+-- | selecting half kites from the faces
 kites = filter isKite . faces
--- | selecting half darts from a Tgraph
+-- | selecting half darts from the faces
 darts = filter isDart . faces
 
 -- |selects faces from a Tgraph (removing any not in the list),
@@ -599,42 +592,37 @@ removeFaces :: [TileFace] -> Tgraph -> Tgraph
 removeFaces fcs g = runTry $ tryConnectedNoCross $ faces g \\ fcs
 
 -- |removeVertices vs g - removes any vertex in the list vs from g
--- by removing all faces at those vertices. Resulting Tgraph is checked
--- for required properties  e.g. connectedness and no crossing boundaries.
+-- by removing all faces at those vertices. The resulting Tgraph is checked
+-- for required properties  e.g. connectedness and no crossing boundaries
+-- and will raise an error if these fail.
 removeVertices :: [Vertex] -> Tgraph -> Tgraph
 removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
 
 -- |selectVertices vs g - removes any face that does not have at least one vertex in the list vs from g.
 -- Resulting Tgraph is checked
--- for required properties  e.g. connectedness and no crossing boundaries.
+-- for required properties  e.g. connectedness and no crossing boundaries
+-- and will raise an error if these fail.
 selectVertices :: [Vertex] -> Tgraph -> Tgraph
 selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 
-{- -- |list of vertices that are on the boundary of a Tgraph
-graphBoundaryVs :: Tgraph -> [Vertex]
-graphBoundaryVs = map fst . boundary
- -}
-{- -- |graphEdges returns a list of all the edges of a Tgraph (both directions of each edge).
-graphEdges :: Tgraph -> [Dedge]
-graphEdges = completeEdges . faces
- -}
--- |internal edges are shared by two faces = all edges except boundary edges
+-- |internal edges are shared by two faces. That is, all edges except those at the boundary.
+-- Both directions of each internal directed edge will appear in the result.
 internalEdges :: HasFaces a => a -> [Dedge]
 internalEdges a =  des \\ fmap reverseD (missingRevs des) where
     des = dedges a
 
--- |phiEdges returns a list of the longer (phi-length) edges of a Tgraph (including kite joins).
--- This includes both directions of each edge.
+-- |phiEdges returns a list of the longer (phi-length) edges in the faces (including kite joins).
+-- The result includes both directions of each edge.
 phiEdges :: HasFaces a => a -> [Dedge]
 phiEdges = bothDir . concatMap facePhiEdges . faces
 
--- |nonPhiEdges returns a list of the shorter edges of a Tgraph (including dart joins).
--- This includes both directions of each edge.
+-- |nonPhiEdges returns a list of the shorter edges in the faces (including dart joins).
+-- The result includes both directions of each edge.
 nonPhiEdges :: HasFaces a => a -> [Dedge]
 nonPhiEdges = bothDir . concatMap faceNonPhiEdges . faces
 
--- |the default alignment of a non-empty Tgraph is (v1,v2) where v1 is the lowest numbered face origin,
--- and v2 is the lowest numbered opp vertex of faces with origin at v1. This is the lowest join of g.
+-- |the default alignment of non-empty faces is (v1,v2) where v1 is the lowest numbered face origin,
+-- and v2 is the lowest numbered opp vertex of faces with origin at v1. This is the lowest join edge.
 -- An error will be raised if the Tgraph is empty.
 defaultAlignment :: HasFaces a => a  -> (Vertex,Vertex)
 defaultAlignment g | nullFaces g = error "defaultAlignment: applied to null list of faces\n"
@@ -732,6 +720,7 @@ hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
 
 {- $Edges
+
 Representing Edges:
 
 For vertices a and b, (a,b) is regarded as a directed edge from a to b (a Dedge).
@@ -825,7 +814,7 @@ hasDedge f e = e `elem` faceDedges f
 hasDedgeIn :: TileFace -> [Dedge] -> Bool
 hasDedgeIn face es = not $ null $ es `intersect` faceDedges face
 
--- |completeEdges returns a list of all the edges of TileFaces (both directions of each edge).
+-- |completeEdges returns a list of all the edges of the faces (both directions of each edge).
 completeEdges :: HasFaces a => a -> [Dedge]
 completeEdges = bothDir . dedges
 
@@ -842,12 +831,6 @@ bothDir es = missingRevs es ++ es
 bothDirOneWay:: [Dedge] -> [Dedge]
 bothDirOneWay [] = []
 bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
-
-{- -- |facesBoundary fcs are missing reverse directed edges in facesDedges fcs (the result contains single directions only)
--- Direction is such that a face is on LHS and exterior is on RHS of each boundary directed edge.
-facesBoundary :: [TileFace] -> [Dedge]
-facesBoundary fcs = missingRevs $ facesDedges fcs
- -}
 
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
 missingRevs:: [Dedge] -> [Dedge]
@@ -870,9 +853,9 @@ edgeNb face = any (`elem` edges) . faceDedges where
 
 
 
-{-|vertexFacesMap vs fcs -
-For list of vertices vs and list of faces fcs,
-create an IntMap from each vertex in vs to a list of those faces in fcs that are at that vertex.
+{-|vertexFacesMap vs a -
+For list of vertices vs and faces from a,
+create an IntMap from each vertex in vs to a list of those faces in a that are at that vertex.
 -}
 vertexFacesMap:: HasFaces a => [Vertex] -> a-> VertexMap [TileFace]
 vertexFacesMap vs = foldl' insertf startVF . faces where
@@ -881,10 +864,10 @@ vertexFacesMap vs = foldl' insertf startVF . faces where
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
--- | dedgesFacesMap des fcs - Produces an edge-face map. Each directed edge in des is associated with
--- a unique TileFace in fcs that has that directed edge (if there is one).
--- It will report an error if more than one TileFace in fcs has the same directed edge in des. 
--- If the directed edges and faces are all those from a Tgraph, buildEFMap will be more efficient.
+-- | dedgesFacesMap des a - Produces an edge-face map. Each directed edge in des is associated with
+-- a unique face in a that has that directed edge (if there is one).
+-- It will report an error if more than one face in a has the same directed edge in des. 
+-- If the directed edges are all the ones in a, buildEFMap will be more efficient.
 -- dedgesFacesMap is intended for a relatively small subset of directed edges in a Tgraph.
 dedgesFacesMap:: HasFaces a => [Dedge] -> a -> Map.Map Dedge TileFace
 dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
@@ -900,7 +883,7 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
       _ -> assocFaces more
 
 
--- |Build a Map from directed edges to faces (the unique face containing the directed edge)
+-- |Build a Map from all directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: HasFaces a  => a -> Map.Map Dedge TileFace
 buildEFMap = Map.fromList . concatMap assignFace . faces where
   assignFace f = fmap (,f) (faceDedges f)
@@ -916,9 +899,10 @@ edgeNbs face efMap = mapMaybe getNbr edges where
     getNbr e = Map.lookup e efMap
     edges = reverseD <$> faceDedges face
 
--- |For a non-empty list of tile faces
+-- |For an argument with a non-empty list of faces,
 -- find the face with lowest originV (and then lowest oppV).
 -- Move this face to the front of the returned list of faces.
+-- This will raise an error if there are no faces.
 -- Used by locateVertices to determine the starting point for location calculation
 extractLowestJoin:: HasFaces a => a -> (TileFace,[TileFace])
 extractLowestJoin = getLJ . faces where
@@ -971,9 +955,7 @@ instance Transformable VPatch where
 -- |VPatch is in class HasFace
 instance HasFaces VPatch where
     faces = vpFaces
-    dedges = dedges . faces
     boundary = boundary . faces
-    vertexSet = vertexSet . faces
     maxV = maxV . faces
 
 

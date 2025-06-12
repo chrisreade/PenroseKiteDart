@@ -49,8 +49,8 @@ module Tgraph.Force
   , tryOneStepWith
   , tryOneStepForce
 -- * Types for Forcing
-  , ForceState(..)
   , BoundaryState(..)
+  , ForceState(..)
   , BoundaryChange(..)
   , Update(..)
   , UpdateMap
@@ -59,7 +59,7 @@ module Tgraph.Force
   , UChecker
     -- *  BoundaryState operations
   , makeBoundaryState
-  , boundary
+  -- , boundary (part of HasFaces class)
   , recoverGraph
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
@@ -131,30 +131,12 @@ module Tgraph.Force
   , boundaryFilter
   , makeUpdate
 --  , hasAnyMatchingE
-{-
-  , anglesForJoinRD
-  , anglesForJoinLD
-  , anglesForJoinRK
-  , anglesForJoinLK
-  , anglesForLongLD
-  , anglesForLongRD
-  , anglesForLongRK
-  , anglesForLongLK
-  , anglesForShortLD
-  , anglesForShortRD
-  , anglesForShortLK
-  , anglesForShortRK
--}
---   , inspectBDedge
+--  , inspectBDedge
     -- *  Auxiliary Functions for adding faces
     -- $Additions
-  , tryFindThirdV
-  , externalAngle
+  -- , tryFindThirdV
+  -- , externalAngle
 
-{-
-  , intAngleAt
-  , faceIntAngles
--}
   ,  touchCheck
 
   )  where
@@ -201,9 +183,7 @@ data BoundaryState
 -- |BoundaryState is in class HasFaces
 instance HasFaces BoundaryState where
     faces = allFaces
-    dedges = dedges . faces
     boundary = boundaryDedges
-    vertexSet = vertexSet . faces
     maxV bd = nextVertex bd - 1
 
 -- |Calculates BoundaryState information from a Tgraph
@@ -213,8 +193,7 @@ makeBoundaryState g =
   let bdes = boundary g
       bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ faces g
-  in if not $ null $ crossingVertices bdes then error $ "makeBoundaryState: found crossing boundary in faces:\n"++show (faces g)++"\n"
-     else
+  in 
       BoundaryState
       { boundaryDedges = bdes
       , bvFacesMap = vertexFacesMap bvs (faces g)
@@ -433,10 +412,8 @@ newtype Forced a = Forced { -- | forget the explicit Forced labelling
 -- |Extend HasFaces ops from a to Forced a
 instance HasFaces a => HasFaces (Forced a) where
     faces = faces . forgetF
-    dedges = dedges . forgetF
     boundary = boundary . forgetF
-    vertexSet = vertexSet . forgetF
-    maxV = maxV . forgetF
+    maxV = maxV . faces
 
 -- | Constructs an explicitly Forced type.
 --
