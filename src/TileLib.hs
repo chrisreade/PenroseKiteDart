@@ -32,8 +32,10 @@ module TileLib
   , ttangle
   , pieceEdges
   , wholeTileEdges
+  -- $OKBackend
   , drawPiece
   , dashjPiece
+  , joinDashing
   , dashjOnly
   , drawRoundPiece
   , drawJoin
@@ -43,8 +45,8 @@ module TileLib
   , leftFillPieceDK
   , experiment
     -- * Patches and Drawable Class
-  , Drawable(..)
   , Patch
+  , Drawable(..)
   , draw
   , drawj
   , fillDK
@@ -73,7 +75,6 @@ module TileLib
   , scales
   , phiScales
   , phiScaling
-  , joinDashing
   ) where
 
 import Diagrams.Prelude
@@ -84,8 +85,10 @@ import HalfTile
 
 {-| Piece is a type for (scaled and oriented) tile halves: Left Dart, Right Dart, Left Kite, Right Kite
 represented by a vector from their origin along the join edge where
-origin for a dart is the tip, origin for a kite is the vertex with smallest internal angle.
-This specialises polymorphic HalfTiles.
+origin for a dart is the tip, origin for a kite is the vertex opposite the vertex with
+largest internal angle.
+
+(This specialises polymorphic HalfTiles with 2D vectors).
 
 Pieces are Transformable (but not translatable until they are located).
 -}
@@ -95,16 +98,22 @@ type Piece = HalfTile (V2 Double)
 joinVector:: Piece -> V2 Double
 joinVector = tileRep
 
--- |ldart,rdart,lkite,rkite are the 4 pieces (with join edge oriented along the x axis, unit length for darts, length phi for kites).
 ldart,rdart,lkite,rkite:: Piece
+-- |ldart is a left dart at the origin with join edge oriented along the x axis, unit length.
 ldart = LD unitX
+-- |rdart is a right dartat the origin with join edge oriented along the x axis, unit length.
 rdart = RD unitX
+-- |lkite is a left kite at the origin with join edge oriented along the x axis, length phi.
 lkite = LK (phi*^unitX)
+-- |rkite  is a right kite at the origin with join edge oriented along the x axis, length phi.
 rkite = RK (phi*^unitX)
 
 -- |All edge lengths are powers of the golden ratio (phi).
--- We also have the interesting property of the golden ratio that phi^2 == phi + 1 and so 1/phi = phi-1
--- (also phi^3 = 2phi +1 and 1/phi^2 = 2-phi)
+-- We have the following roperties of the golden ratio 
+-- 
+-- phi^2 == phi + 1 and  1/phi = phi-1
+--
+-- phi^3 = 2phi + 1 and  1/phi^2 = 2-phi
 phi::Double
 phi = (1.0 + sqrt 5.0) / 2.0
 
@@ -115,10 +124,11 @@ ttangle:: Int -> Angle Double
 ttangle n = fromIntegral (n `mod` 10) *^tt
              where tt = 1/10 @@ turn
 
-{-|  produces a list of the two adjacent non-join tile directed edges of a piece starting from the origin.
+{-|This produces a list of the two adjacent non-join tile directed edges of a piece starting from the origin.
 
-Perhaps confusingly we regard left and right of a dart differently from left and right of a kite.
-This is in line with common sense view but darts are reversed from origin point of view.
+We consider left and right as viewed from the origin.
+This means that darts are reversed with respect to a view from the tail, but kites are
+in keeping with a common view (the kite tail being the origin).
 
 So for right dart and left kite the edges are directed and ordered clockwise from the piece origin, and for left dart and right kite these are
 directed and ordered anti-clockwise from the piece origin.
@@ -137,22 +147,10 @@ wholeTileEdges (RD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (
 wholeTileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (RK v))
 wholeTileEdges (RK v) = wholeTileEdges (LK v)
 
-{-
--- |Class OKBackend is a synonym for suitable constraints on a Backend
-class (V b ~ V2, N b ~ Double, Renderable (Path V2 Double) b, Renderable (Text Double) b)
-      => OKBackend b where {}
+{- $OKBackend 
+Note: Most functions for drawing will have constraint OKBackend b and result type Diagram b
 -}
-
-{-
--- | Abbreviation for 2D diagrams for any Backend b.
--- No longer used now class OKBackend is available
-type Diagram2D b = QDiagram b V2 Double Any
--}
-
-
-    
-    
-    
+   
 -- |drawing lines for the 2 non-join edges of a piece.
 drawPiece :: OKBackend b =>
              Piece -> Diagram b
@@ -203,20 +201,6 @@ fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
      (RD _) -> fillOnlyPiece dcol piece
      (LK _) -> fillOnlyPiece kcol piece
      (RK _) -> fillOnlyPiece kcol piece
-
-{- {-# DEPRECATED fillMaybePieceDK "Use fillPieceDK which now works with AlphaColours such as transparent" #-}
--- |fillMaybePieceDK  *Deprecated* 
--- (use fillPieceDK which works with AlphaColours such as transparent as well as Colours)
-fillMaybePieceDK :: OKBackend b =>
-                    Maybe (Colour Double) -> Maybe (Colour Double) -> Piece -> Diagram b
-fillMaybePieceDK d k piece = drawPiece piece <> filler where
-    maybeFill (Just c) = fillOnlyPiece c piece
-    maybeFill  Nothing = mempty
-    filler = case piece of (LD _) -> maybeFill d
-                           (RD _) -> maybeFill d
-                           (LK _) -> maybeFill k
-                           (RK _) -> maybeFill k
- -}
 
 -- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.

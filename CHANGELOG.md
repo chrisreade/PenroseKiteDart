@@ -1,6 +1,7 @@
 # Revision history for PenroseKiteDart
 
-(After 1.3)
+## version 1.4 -- 2025-6-12
+
 Changed module Tgraphs to module Tgraph.Extras
 
 ### New HasFaces class
@@ -22,6 +23,7 @@ Breaking Name Changes for
     graphEdges -> completeEdges
     boundaryLoopsG -> boundaryLoops
     graphEFMap -> buildEFMap
+
     Also changed selector in BoundaryState to boundaryDedges (but note boundary generalised)
 
 Generalised (to use HasFaces)
@@ -56,9 +58,9 @@ Generalised (to use HasFaces)
     hasEdgeLoops
     conflictingDedges
 
-No longer exported:
+Breaking: No longer exported:
 findLoops, axisJoin, drawEdge (use drawLocatedEdge), drawEdges (use drawLocatedEdges),
-crossingVertices, tryFindThirdV, externalAngle
+crossingVertices, tryFindThirdV, makeGenerator (use newUpdateGenerator)
 
 ### Try changed
 Changed the type for Try to use ShowS instead of String
@@ -77,7 +79,9 @@ Breaking:
 An instance of Show(ShowS) is provided in order to show Try results
 
 ### Changes to Forced
+
 Forced is no longer a Functor.
+
 Instead, 4 specific safe cases for changing a Forced Forcible
 (New)
 recoverGraphF,boundaryStateF,makeBoundaryStateF,initFSF
@@ -88,10 +92,9 @@ labelAsForced :: a -> Forced a (for use only when the argument is known to be fo
 
 (New)
 tryDartAndKiteF - version of tryDartAndKiteForced with explicitly forced results.
-tryCheckCasesDKF and checkCasesDKF - special case to report any counter example found
+tryCheckCasesDKF, checkCasesDKF - special case to report any counter example found
 when trying to add a dart and kite to a boundary edge of an explicitly Forced forcible.
  
-
 Removed warning pragma for makeUncheckedTgraph
 
 ## version 1.3 -- 2025-5-19

@@ -65,7 +65,7 @@ module Tgraph.Prelude
   , crossingBoundaries
   , connected
 --  , connectedBy
-    -- * Basic Tgraph operations
+    -- * Basic Tgraph and HasFaces operations
 --  , faces
   , emptyTgraph
   , nullFaces
@@ -438,14 +438,6 @@ newSharedEdges face fcs =
 noNewConflict :: TileFace -> [TileFace] -> Bool
 noNewConflict face fcs = all legal shared where
     shared = newSharedEdges face fcs
-
-{-
--- |noNewConflictFull face fcs  where face is a new face and fcs are neighbouring faces.
--- Checks for illegal shared edges using noNewConflict but also checks that face does not have a directed edge
--- in the same direction as a directed edge in fcs.
-noNewConflictFull :: TileFace -> [TileFace] -> Bool
-noNewConflictFull face fcs = null (faceDedges face `intersect` facesDedges fcs) && noNewConflict face fcs
--}
 
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   

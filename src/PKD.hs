@@ -6,7 +6,7 @@ License     : BSD-style
 Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
-This is the main module which re-exports
+This is the main module (PKD for PenroseKiteDart) which re-exports
     TileLib
 and all the Tgraph modules
     Tgraph.Prelude, 
@@ -16,6 +16,7 @@ and all the Tgraph modules
     Tgraph.Relabelling 
     Tgraph.Extras
 
+(Everything except TgraphExamples)
 -}
 
 
@@ -32,7 +33,7 @@ module PKD
   , module Tgraph.Force
     -- * Relabelling Tgraphs plus guided equality, union, common faces
   , module Tgraph.Relabelling
-    -- * Smart drawing of Tgraphs
+    -- * Smart drawing of Tgraphs and other extras 
   , module Tgraph.Extras
 
   ) where

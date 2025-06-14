@@ -14,10 +14,11 @@ getDartWingInfo, getDartWingInfoForced (and type DartWingInfo) and composedFaceG
 
 module Tgraph.Compose 
   ( compose
+  , composeF
   , partCompose
   , partComposeF
-  , composeF
   , tryPartCompose
+  -- * Exported auxiliary functions (and type)
   , partComposeFaces
  -- , partComposeFacesF
   , DartWingInfo(..)

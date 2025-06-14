@@ -127,7 +127,7 @@ module Tgraph.Force
   , mustbeJack
    -- * Other tools for making new update generators
   , newUpdateGenerator
-  , makeGenerator
+  -- , makeGenerator
   , boundaryFilter
   , makeUpdate
 --  , hasAnyMatchingE
@@ -135,7 +135,7 @@ module Tgraph.Force
     -- *  Auxiliary Functions for adding faces
     -- $Additions
   -- , tryFindThirdV
-  -- , externalAngle
+  , externalAngle
 
   ,  touchCheck
 
@@ -267,19 +267,24 @@ but they can also be combined (e.g in sequence - allUGenerator or otherwise - de
 newtype UpdateGenerator = UpdateGenerator {applyUG :: BoundaryState -> [Dedge] -> Try UpdateMap}
 
 
--- | Forcible class has operations to (indirectly) implement forcing and single step forcing
--- (tryForceWith, tryStepForceWith) for any Forcible. The class operations are more general to allow for other
--- force related operations to be generalised for use on any Forcible.
--- Both tryForceWith and tryStepForceWith are implemented using tryFSOpWith, and
--- tryAddHalfKite and tryAddHalfDart are implemented using tryChangeBoundaryWith.
+-- | Forcing a Tgraph requires conversion to a BoundaryState (which records extra data)
+-- and then to a ForceState (which keeps track of possible updates during forcing).
+-- Thus we introduce a Forcible class which will have Tgraph, BoundaryState, ForceState as instances.
 --
--- To improve performance of a sequence of force related operations, express each as a
--- ForceState -> Try ForceState, then use (<=<) or (>=>) to combine and pass to tryFSOpWith.
--- This ensures there are no unnecessary conversions between steps.
+-- Forcible class has operations to (indirectly) implement forcing and single step forcing
+-- for any Forcible. The class operations are more general to allow for other
+-- force related operations to be generalised for use on any Forcible.
+-- For example tryAddHalfKite and tryAddHalfDart are implemented using tryChangeBoundaryWith.
+--
+-- Note that these operations are parameterised on an UpdateGenerator, which encapsulates
+-- the forcing rules to be used.
 class Forcible a where
     -- | tryFSOpWith (try ForseState Operation with) when given an update generator, generalises a (try) ForceState operation to a (try) Forcible operation.
     -- The update generator is only used to initialise a ForceState when there is not one
     -- already available (i.e not used when the Forcible is a ForceState)
+    -- To improve performance of a sequence of force related operations, express each as a
+    -- ForceState -> Try ForceState, then use (<=<) or (>=>) to combine and pass to tryFSOpWith.
+    -- This ensures there are no unnecessary conversions between steps.
     tryFSOpWith :: UpdateGenerator -> (ForceState -> Try ForceState) -> a -> Try a
     -- | tryInitFSWith (try initialising a ForceState with) when given an update generator tries to create an initial ForceState (ready for forcing) from a Forcible.
     -- Again, the update generator is not used when the instance is a ForceState.
@@ -957,10 +962,10 @@ newUpdateGenerator checker finder = UpdateGenerator genf where
      addU (e,fc) (Right ump) = do u <- checker bd fc
                                   return (Map.insert e u ump)
 
-{-| makeGenerator (deprecated) this is renamed as newUpdateGenerator. -}
+{- {-| makeGenerator (deprecated) this is renamed as newUpdateGenerator. -}
 makeGenerator :: UChecker -> UFinder -> UpdateGenerator
 makeGenerator = newUpdateGenerator
-
+ -}
 --   Ten Update Generators (with corresponding Finders)
 
 

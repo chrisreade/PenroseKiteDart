@@ -25,7 +25,9 @@ import Diagrams.Prelude
 import Diagrams.TwoD.Text (Text)
 
 
--- |Class OKBackend is a class synonym for suitable constraints on Backends for drawing tilings.
+{-|Class OKBackend is a class synonym for a collection of constraints on a Backend b suitable for
+drawing tiles.  That is 2 dimensional with Real numbers (Double) able to render paths and text.
+-}
 class (V b ~ V2, N b ~ Double, Renderable (Path V2 Double) b, Renderable (Text Double) b) =>
       OKBackend b where {}
 

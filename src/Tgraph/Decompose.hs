@@ -14,6 +14,7 @@ two auxiliary functions for debugging and experimenting.
 module Tgraph.Decompose
   ( decompose
   , decompositions
+  -- * Exported auxiliary functions 
   , phiVMap
   , decompFace
   ) where
