@@ -26,8 +26,7 @@ main =
      _ <- traceMarkerIO "finished force" 
      wait
      _ <- traceMarkerIO "starting (unchecked) composing" 
-     let cfkD = {-# SCC "composing" #-} forgetF $ last $ takeWhile (not . nullGraph . forgetF) $ iterate composeF fkD
-     -- let cfkD = {-# SCC "composing" #-} last $ takeWhile (not . nullGraph) $ iterate uncheckedCompose fkD
+     let cfkD = {-# SCC "composing" #-} forgetF $ last $ takeWhile (not . nullFaces . forgetF) $ iterate composeF fkD
      putStrLn $ "Number of faces of recomposed force (" ++ sn ++ " times decomposed King) is " 
                             ++ show (length (faces cfkD))
      putStrLn $ "Max vertex of recomposed force (" ++ sn ++ " times decomposed King) is " 
