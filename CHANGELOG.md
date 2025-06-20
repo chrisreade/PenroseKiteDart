@@ -1,5 +1,10 @@
 # Revision history for PenroseKiteDart
 
+
+After 1.4 
+ForceState now in class HasFaces
+Introduced New boundaryEdgeFilter (UFinders simplified using this)
+
 ## version 1.4 -- 2025-6-12
 
 Changed module Tgraphs to module Tgraph.Extras
@@ -7,7 +12,7 @@ Changed module Tgraphs to module Tgraph.Extras
 ### New HasFaces class
 
 Introduced to define common functions for 
-[TileList], Tgraph, VPatch, BoundaryState, Forced
+[TileFace], Tgraph, VPatch, BoundaryState, Forced
 
 Breaking Name Changes for
     nullGraph -> nullFaces
