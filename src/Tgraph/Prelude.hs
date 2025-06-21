@@ -701,11 +701,14 @@ prevV v face = case indexV v face of
 
 -- |isAtV v f asks if a face f has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool
+isAtV v f = v==a || v==b || v==c
+     where (a,b,c) = faceVs f
+{-     
 isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (LK(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RK(a,b,c))  =  v==a || v==b || v==c
-
+ -}
 -- |hasVIn vs f - asks if face f has an element of vs as a vertex
 hasVIn:: [Vertex] -> TileFace -> Bool
 hasVIn vs face = not $ null $ faceVList face `intersect` vs
@@ -849,7 +852,7 @@ edgeNb face = any (`elem` edges) . faceDedges where
 For list of vertices vs and faces from a,
 create an IntMap from each vertex in vs to a list of those faces in a that are at that vertex.
 -}
-vertexFacesMap:: HasFaces a => [Vertex] -> a-> VertexMap [TileFace]
+vertexFacesMap:: HasFaces a => [Vertex] -> a -> VertexMap [TileFace]
 vertexFacesMap vs = foldl' insertf startVF . faces where
     startVF = VMap.fromList $ fmap (,[]) vs
     insertf vfmap f = foldr (VMap.alter addf) vfmap (faceVList f)
@@ -866,6 +869,16 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
    vs = fmap fst des `union` fmap snd des
    vfMap = vertexFacesMap vs fcs
    assocFaces [] = []
+   assocFaces (d@(a,b):more) = 
+       case filter (liftA2 (&&) (isAtV a) (`hasDedge` d)) (vfMap VMap.! b) of
+           [face] -> (d,face):assocFaces more
+           []   -> assocFaces more
+           _   -> error $ "dedgesFacesMap: more than one Tileface has the same directed edge: "
+                          ++ show d ++ "\n"
+{- dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
+   vs = fmap fst des `union` fmap snd des
+   vfMap = vertexFacesMap vs fcs
+   assocFaces [] = []
    assocFaces (d@(a,b):more) = case (VMap.lookup a vfMap, VMap.lookup b vfMap) of
       (Just fcs1, Just fcs2) -> case filter (`hasDedge` d) $ fcs1 `intersect` fcs2 of
                                    [face] -> (d,face):assocFaces more
@@ -873,7 +886,7 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
                                    _   -> error $ "dedgesFacesMap: more than one Tileface has the same directed edge: "
                                                   ++ show d ++ "\n"
       _ -> assocFaces more
-
+ -}
 
 -- |Build a Map from all directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: HasFaces a  => a -> Map.Map Dedge TileFace

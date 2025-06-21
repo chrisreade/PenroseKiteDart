@@ -1310,13 +1310,17 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
 inspectBDedge:: BoundaryState -> Dedge -> (TileFace, EdgeType)
-inspectBDedge bd e = (face,edgeType (reverseD e) face) where
-    face = case facesAtBV bd (fst e) `intersect` facesAtBV bd (snd e) of
+inspectBDedge bd (a,b) = (face,edgeType (b,a) face) where
+    face = mustFind (isAtV a) (facesAtBV bd b) 
+           (error $ "inspectBDedge: Not a boundary directed edge " ++ show (a,b) ++ "\n")
+{-     face = case facesAtBV bd (fst e) `intersect` facesAtBV bd (snd e) of
          [f] -> f
          _ -> error $ "inspectBDedge: Not a boundary directed edge " ++ show e ++ "\n"
 
-
-
+      face = case filter (isAtV a) $ facesAtBV bd b of
+             [f] -> f
+             _   -> error $ "inspectBDedge: Not a boundary directed edge " ++ show e ++ "\n"
+ -}
 
 --   Auxiliary Functions for adding faces: externalAngle and tryFindThirdV
 

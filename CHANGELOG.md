@@ -5,6 +5,11 @@ After 1.4
 ForceState now in class HasFaces
 Introduced New boundaryEdgeFilter (UFinders simplified using this)
 
+Improved
+  inspectBDedge
+  dedgesFacesMap
+  isAtV
+  
 ## version 1.4 -- 2025-6-12
 
 Changed module Tgraphs to module Tgraph.Extras
