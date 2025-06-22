@@ -9,7 +9,9 @@ Stability   : experimental
 This module defines decompose and decompositions for Tgraphs, but also exposes 
 two auxiliary functions for debugging and experimenting.
 -}
+
 {-# LANGUAGE BangPatterns             #-}
+--{-# LANGUAGE Strict             #-}
 
 module Tgraph.Decompose
   ( decompose
@@ -37,7 +39,7 @@ DECOMPOSING - decompose
 decompose :: Tgraph -> Tgraph
 decompose g = makeUncheckedTgraph newFaces where
     pvmap = phiVMap g
-    !newFaces = evalFaces $ concatMap (decompFace pvmap) (faces g)
+    newFaces = concatMap (decompFace pvmap) (faces g)
 
 -- |phiVMap g produces a finite map from the phi edges (the long edges including kite joins) to assigned new vertices not in g.
 -- Both (a,b) and (b,a) get the same new vertex number. This is used(in decompFace and decompose.

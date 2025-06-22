@@ -10,7 +10,7 @@ This module includes the main composition operations compose, partCompose,
 tryPartCompose, composeF, and partComposeF but also exposes 
 getDartWingInfo, getDartWingInfoForced (and type DartWingInfo) and composedFaceGroups for debugging and experimenting.
 -}
--- {-# LANGUAGE StrictData             #-} 
+{-# LANGUAGE StrictData             #-} 
 
 module Tgraph.Compose 
   ( compose
@@ -87,7 +87,7 @@ partComposeFacesF fg = (remainder,newfaces) where
 -- Since fg is a forced Tgraph it does not need a check for validity of the composed Tgraph.
 -- The fact that the result is also Forced relies on a theorem.
 partComposeF:: Forced Tgraph -> ([TileFace], Forced Tgraph)
-partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph $! evalFaces newfaces) where
+partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
   (remainder,newfaces) = partComposeFacesF fg
 
 -- |composeF - produces a composed Forced Tgraph from a Forced Tgraph.
@@ -101,9 +101,9 @@ composeF = snd . partComposeF
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- It includes a faceMap from dart wings to faces at that vertex.
 data DartWingInfo =  DartWingInfo 
-     { largeKiteCentres  :: ![Vertex]
-     , largeDartBases  :: ![Vertex]
-     , unknowns :: ![Vertex]
+     { largeKiteCentres  :: [Vertex]
+     , largeDartBases  :: [Vertex]
+     , unknowns :: [Vertex]
      , faceMap :: VMap.IntMap [TileFace] 
      } deriving Show
 

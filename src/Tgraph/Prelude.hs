@@ -69,7 +69,7 @@ module Tgraph.Prelude
 --  , faces
   , emptyTgraph
   , nullFaces
-  , evalFaces
+  --, evalFaces
   , ldarts
   , rdarts
   , lkites
@@ -299,12 +299,12 @@ renumberFaces prs = fmap renumberFace where
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph = Tgraph
 
--- |force evaluation of a list of faces.
+{- -- |force evaluation of a list of faces.
 evalFaces :: HasFaces a => a -> [TileFace]
 evalFaces = eval . faces where
     eval fcs = find (has0 . tileRep) fcs `seq` fcs
     has0 (x,y,z) = x==0 || y==0 || z==0
-
+ -}
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
 and producing an error if a check fails.
 
@@ -823,10 +823,15 @@ bothDir es = missingRevs es ++ es
 -- without checking for duplicates.
 -- Should be used on lists with single directions only.
 -- If the argument may contain reverse directions, use bothDir to avoid duplicates.
-bothDirOneWay:: [Dedge] -> [Dedge]
+bothDirOneWay :: [Dedge] -> [Dedge]
+bothDirOneWay des = revPlus des where
+  revPlus ((a,b):es) = (b,a):revPlus es
+  revPlus [] = des
+{- 
 bothDirOneWay [] = []
 bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
-
+ -}
+ 
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
 missingRevs:: [Dedge] -> [Dedge]
 missingRevs es = revUnmatched es where

@@ -10,9 +10,11 @@ This module includes force and tryForce plus related operations for testing and 
 such as tryStepForce, tryAddHalfKite and tryAddHalfDart.
 It introduces BoundaryState and ForceState types and includes a Forcible class with instances for
 Tgraph, BoundaryState, and ForceState.
+
+The module is made strict (to remove many space leaks).
 -}
 
-{-# LANGUAGE StrictData             #-} 
+{-# LANGUAGE Strict            #-} 
 
 module Tgraph.Force
   ( -- *  Forcible class
@@ -138,7 +140,7 @@ module Tgraph.Force
   -- , tryFindThirdV
   , externalAngle
 
-  ,  touchCheck
+  , touchCheck
 
   )  where
 
@@ -148,7 +150,7 @@ import Data.List ((\\), intersect, nub, find,foldl')
 import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
             -- used for BoundaryState locations AND faces at boundary vertices
-import qualified Data.Maybe(fromMaybe)
+-- import qualified Data.Maybe(fromMaybe)  -- was used for lazy mustFind only
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
 
@@ -568,27 +570,60 @@ data BoundaryChange = BoundaryChange
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bd [(a,b)] = [(x,a),(a,b),(b,y)] where
            bdry = boundary bd
-           (x,_) = mustFind ((==a).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a ++ "\n")
-           (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b ++ "\n")
-affectedBoundary bd [(a,b),(c,d)] | b==c = [(x,a),(a,b),(c,d),(d,y)] where
+           (x,_) = mustFind ((==a).snd) bdry 
+                  (\()-> error $ "affectedBoundary: boundary edge not found with snd = "
+                            ++ show a ++ "\nand edges: " ++ show [(a,b)]
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+           (_,y) = mustFind ((==b).fst) bdry
+                  (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
+                            ++ show b ++ "\nand edges: " ++ show [(a,b)]
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+affectedBoundary bd [(a,b),(c,d)] | c==b = [(x,a),(a,b),(c,d),(d,y)] where
            bdry = boundary bd
-           (x,_) = mustFind ((==a).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show a ++ "\n")
-           (_,y) = mustFind ((==d).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show d ++ "\n")
-affectedBoundary bd [(a,b),(c,d)] | a==d = [(x,c),(c,d),(a,b),(b,y)] where
+           (x,_) = mustFind ((==a).snd) bdry 
+                   (\()-> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
+                            ++ show a ++ "\nand edges: " ++ show [(a,b),(c,d)]
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+           (_,y) = mustFind ((==d).fst) bdry 
+                   (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
+                            ++ show d ++ "\nand edges: " ++ show [(a,b),(c,d)]
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+affectedBoundary bd [(a,b),(c,d)] | a==d  = [(x,c),(c,d),(a,b),(b,y)] where
            bdry = boundary bd
-           (x,_) = mustFind ((==c).snd) bdry (error $ "affectedBoundary: boundary edge not found with snd = " ++ show c ++ "\n")
-           (_,y) = mustFind ((==b).fst) bdry (error $ "affectedBoundary: boundary edge not found with fst = " ++ show b ++ "\n")
-affectedBoundary _ [] = []
-affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges " ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
+           (x,_) = mustFind ((==c).snd) bdry 
+                   (\()-> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
+                            ++ show c ++  "\nand edges: " ++ show [(a,b),(c,d)]
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+           (_,y) = mustFind ((==b).fst) bdry 
+                   (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
+                            ++ show b ++  "\nand edges: " ++ show [(a,b),(c,d)]
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+affectedBoundary _ [] = [] -- case for filling a triangular hole
+affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
+                             ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
 
-{-| mustFind is an auxiliary function used to search with definite result.
+
+{-| mustFind (older version requires laziness) - an auxiliary function used to search with definite result.
 mustFind p ls default returns the first item in ls satisfying predicate p and returns
 default argument when none found (in finite cases).
 Special case: the default arg may be used to raise an error when nothing is found.
--}
+
 mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
 mustFind p ls dflt
   = Data.Maybe.fromMaybe dflt (find p ls)
+-}
+
+{-| mustFind (strict version) is an auxiliary function used to search with definite result.
+mustFind' p ls defaulfnt returns the first item in ls satisfying predicate p and returns
+defaultfn () when none found (in finite cases).
+This is a replacement foran older mustFind that relied on laziness.
+This version works in a strict context.
+-}
+mustFind :: Foldable t => (p -> Bool) -> t p -> (() -> p) -> p
+mustFind p ls dflt
+  = case find p ls of
+    Just a -> a
+    Nothing -> dflt ()
 
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
@@ -1311,16 +1346,15 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
 inspectBDedge:: BoundaryState -> Dedge -> (TileFace, EdgeType)
 inspectBDedge bd (a,b) = (face,edgeType (b,a) face) where
-    face = mustFind (isAtV a) (facesAtBV bd b) 
-           (error $ "inspectBDedge: Not a boundary directed edge " ++ show (a,b) ++ "\n")
-{-     face = case facesAtBV bd (fst e) `intersect` facesAtBV bd (snd e) of
-         [f] -> f
-         _ -> error $ "inspectBDedge: Not a boundary directed edge " ++ show e ++ "\n"
-
       face = case filter (isAtV a) $ facesAtBV bd b of
              [f] -> f
-             _   -> error $ "inspectBDedge: Not a boundary directed edge " ++ show e ++ "\n"
- -}
+             _   -> error $ "inspectBDedge: Not a boundary directed edge " ++ show (a,b) ++ "\n"
+ {-
+     face = case facesAtBV bd a `intersect` facesAtBV bd b of
+         [f] -> f
+         _ -> error $ "inspectBDedge: Not a boundary directed edge " ++ show (a,b) ++ "\n"
+-}
+
 
 --   Auxiliary Functions for adding faces: externalAngle and tryFindThirdV
 
