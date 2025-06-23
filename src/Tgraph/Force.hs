@@ -207,7 +207,7 @@ makeBoundaryState g =
 
 -- |Converts a BoundaryState back to a Tgraph
 recoverGraph:: BoundaryState -> Tgraph
-recoverGraph = makeUncheckedTgraph . allFaces
+recoverGraph = makeUncheckedTgraph . faces
 
 -- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
@@ -629,7 +629,7 @@ mustFind p ls dflt
 -- using uGen to calculate new updates.
 tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
 tryReviseUpdates uGen bdChange umap =
-  do let umap' = foldr Map.delete umap (removedEdges bdChange)
+  do let umap' = foldl' (flip Map.delete) umap (removedEdges bdChange)
      umap'' <- applyUG uGen (newBoundaryState bdChange) (revisedEdges bdChange)
      return (Map.union umap'' umap')
 
@@ -666,7 +666,7 @@ tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
                         ," unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n"
                         ,"This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
                         ,"Total number of faces is "
-                        ,show (length $ allFaces bd)
+                        ,show (length $ faces bd)
                         ,"\n"
                         ]
   checkBlocked n (u: more) = case checkUnsafeUpdate bd u of
@@ -696,7 +696,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     { boundaryDedges = newDedges ++ (boundary bd \\ matchedDedges)
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
-                    , allFaces = newface:allFaces bd
+                    , allFaces = newface:faces bd
                     , nextVertex = v+1
                     }
        bdChange = BoundaryChange
@@ -729,11 +729,11 @@ trySafeUpdate bd (SafeUpdate newface) =
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
-                   { boundaryDedges = newDedges ++ (boundaryDedges bd \\ matchedDedges)
-                   , bvFacesMap = foldr VMap.delete (changeVFMap newface $ bvFacesMap bd) removedBVs
+                   { boundaryDedges = newDedges ++ (boundary bd \\ matchedDedges)
+                   , bvFacesMap = foldl' (flip VMap.delete) (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
-                   , allFaces = newface:allFaces bd
-                   , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
+                   , allFaces = newface:faces bd
+                   , bvLocMap = foldl' (flip VMap.delete) (bvLocMap bd) removedBVs
                                --remove vertex/vertices no longer on boundary
                    , nextVertex = nextVertex bd
                    }
@@ -780,7 +780,7 @@ tryUpdate bd u@(UnsafeUpdate _) =
 -- (Used at intervals in tryRecalibratingForce and recalibratingForce).
 recalculateBVLocs :: BoundaryState -> BoundaryState
 recalculateBVLocs bd = bd {bvLocMap = newlocs} where
-    newlocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ allFaces bd
+    newlocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ faces bd
     bvs = fst <$> boundary bd
 
 -- |A version of tryForce that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
@@ -936,8 +936,6 @@ boundaryEdgeFilter etype predF bd focus =
 -- |makeUpdate f x constructs a safe update if x is Just(..) and an unsafe update if x is Nothing
 makeUpdate:: (Vertex -> TileFace) -> Maybe Vertex ->  Update
 makeUpdate f (Just v) = SafeUpdate (f v)
-                        -- let newf = evalFace $ f v
-                        -- in SafeUpdate newf -- fully evaluate new face
 makeUpdate f Nothing  = UnsafeUpdate f
 
 
@@ -1016,9 +1014,9 @@ hasAnyMatchingE [] = False
 -}
 newUpdateGenerator :: UChecker -> UFinder -> UpdateGenerator
 newUpdateGenerator checker finder = UpdateGenerator genf where
-  genf bd edges = foldr addU (Right Map.empty) (finder bd edges) where
-     addU _      (Left x) = Left x
-     addU (e,fc) (Right ump) = do u <- checker bd fc
+  genf bd edges = foldl' addU (Right Map.empty) (finder bd edges) where
+     addU (Left x) _       = Left x
+     addU (Right ump) (e,fc) = do u <- checker bd fc
                                   return (Map.insert e u ump)
 
 {-  makeGenerator (deprecated) this is renamed as newUpdateGenerator.
@@ -1356,7 +1354,7 @@ inspectBDedge bd (a,b) = (face,edgeType (b,a) face) where
 -}
 
 
---   Auxiliary Functions for adding faces: externalAngle and tryFindThirdV
+
 
 
 {- $Additions
@@ -1412,7 +1410,7 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                    ,":\n"
                    ,show (bvFacesMap bd VMap.! b), 
                    "\nand a total of "
-                   ,show (length $ allFaces bd)
+                   ,show (length $ faces bd)
                    ," faces.\n"
                    ]
            | bAngle <1 || bAngle >9
@@ -1432,7 +1430,7 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                     ,":\n"
                     ,show (bvFacesMap bd VMap.! b)
                     ,"\nand a total of "
-                    ,show (length $ allFaces bd)
+                    ,show (length $ faces bd)
                     ," faces.\n"
                     ]
            | aAngle < n

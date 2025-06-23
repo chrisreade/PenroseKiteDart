@@ -7,12 +7,7 @@ Force module is now Strict
 ForceState now in class HasFaces
 Introduced New boundaryEdgeFilter (UFinders simplified using this)
 
-Removed evalFaces
-
-Improved
-  inspectBDedge
-  dedgesFacesMap
-  isAtV
+Removed evalFaces (use id)
 
 ## version 1.4 -- 2025-6-12
 
