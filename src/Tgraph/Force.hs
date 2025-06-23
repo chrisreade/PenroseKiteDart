@@ -207,7 +207,7 @@ makeBoundaryState g =
 
 -- |Converts a BoundaryState back to a Tgraph
 recoverGraph:: BoundaryState -> Tgraph
-recoverGraph = makeUncheckedTgraph . faces
+recoverGraph = makeUncheckedTgraph . allFaces
 
 -- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
@@ -629,7 +629,7 @@ mustFind p ls dflt
 -- using uGen to calculate new updates.
 tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
 tryReviseUpdates uGen bdChange umap =
-  do let umap' = foldl' (flip Map.delete) umap (removedEdges bdChange)
+  do let umap' = foldr Map.delete umap (removedEdges bdChange)
      umap'' <- applyUG uGen (newBoundaryState bdChange) (revisedEdges bdChange)
      return (Map.union umap'' umap')
 
@@ -696,7 +696,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     { boundaryDedges = newDedges ++ (boundary bd \\ matchedDedges)
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
-                    , allFaces = newface:faces bd
+                    , allFaces = newface:allFaces bd
                     , nextVertex = v+1
                     }
        bdChange = BoundaryChange
@@ -729,11 +729,11 @@ trySafeUpdate bd (SafeUpdate newface) =
        newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
-                   { boundaryDedges = newDedges ++ (boundary bd \\ matchedDedges)
-                   , bvFacesMap = foldl' (flip VMap.delete) (changeVFMap newface $ bvFacesMap bd) removedBVs
+                   { boundaryDedges = newDedges ++ (boundaryDedges bd \\ matchedDedges)
+                   , bvFacesMap = foldr VMap.delete (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
-                   , allFaces = newface:faces bd
-                   , bvLocMap = foldl' (flip VMap.delete) (bvLocMap bd) removedBVs
+                   , allFaces = newface:allFaces bd
+                   , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
                                --remove vertex/vertices no longer on boundary
                    , nextVertex = nextVertex bd
                    }
@@ -1014,9 +1014,9 @@ hasAnyMatchingE [] = False
 -}
 newUpdateGenerator :: UChecker -> UFinder -> UpdateGenerator
 newUpdateGenerator checker finder = UpdateGenerator genf where
-  genf bd edges = foldl' addU (Right Map.empty) (finder bd edges) where
-     addU (Left x) _       = Left x
-     addU (Right ump) (e,fc) = do u <- checker bd fc
+  genf bd edges = foldr addU (Right Map.empty) (finder bd edges) where
+     addU _      (Left x)    = Left x
+     addU (e,fc) (Right ump) = do u <- checker bd fc
                                   return (Map.insert e u ump)
 
 {-  makeGenerator (deprecated) this is renamed as newUpdateGenerator.

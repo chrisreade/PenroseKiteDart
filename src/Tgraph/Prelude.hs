@@ -860,7 +860,7 @@ create an IntMap from each vertex in vs to a list of those faces in a that are a
 vertexFacesMap:: HasFaces a => [Vertex] -> a -> VertexMap [TileFace]
 vertexFacesMap vs = foldl' insertf startVF . faces where
     startVF = VMap.fromList $ fmap (,[]) vs
-    insertf vfmap f = foldl' (flip (VMap.alter addf)) vfmap (faceVList f)
+    insertf vfmap f = foldr (VMap.alter addf) vfmap (faceVList f)
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
@@ -1331,7 +1331,7 @@ The third argument is the mapping of vertices to points.
     fastAddVPointsGen (f:fs) fcOther vpMap = fastAddVPointsGen (fs++nbs) fcOther' vpMap' where
         nbs = filter (`Set.member` fcOther) (edgeNbsGen f)
 --        nbs = filter (`Set.member` fcOther) (edgeNbsGen efMapGen fc)
-        fcOther' = foldl' (flip Set.delete) fcOther nbs
+        fcOther' = foldr Set.delete fcOther nbs
         vpMap' = addVPoint f vpMap
 -- Generalises buildEFMap by allowing for multiple faces on a directed edge.
 -- buildEFMapGen:: [TileFace] -> Map.Map Dedge [TileFace]
