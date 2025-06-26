@@ -11,7 +11,7 @@ two auxiliary functions for debugging and experimenting.
 -}
 
 {-# LANGUAGE BangPatterns             #-}
---{-# LANGUAGE Strict             #-}
+{-# LANGUAGE Strict             #-}
 
 module Tgraph.Decompose
   ( decompose

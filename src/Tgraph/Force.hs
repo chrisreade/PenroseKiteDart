@@ -211,12 +211,6 @@ recoverGraph = makeUncheckedTgraph . faces
 
 -- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
-{- changeVFMap f vfm = h x1 (h x2 (h x3 vfm)) where
-    (x1,x2,x3) = faceVs f
-    h = VMap.alter consf
-    consf Nothing = Just [f]
-    consf (Just fs) = Just (f:fs)
- -}
 changeVFMap f vfm = foldl' insertf vfm (faceVList f) where
    insertf vmap v = VMap.alter consf v vmap
    consf Nothing = Just [f]
@@ -568,35 +562,35 @@ data BoundaryChange = BoundaryChange
      (N.B. When a new face is fitted in to a hole with 3 sides there is no new boundary. Hence the need to allow for an empty list.)
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
-affectedBoundary bd [(a,b)] = [(x,a),(a,b),(b,y)] where
+affectedBoundary bd [e1@(a,b)] = [e0,e1,e2] where
            bdry = boundary bd
-           (x,_) = mustFind ((==a).snd) bdry 
+           e0 = mustFind ((==a).snd) bdry 
                   (\()-> error $ "affectedBoundary: boundary edge not found with snd = "
-                            ++ show a ++ "\nand edges: " ++ show [(a,b)]
+                            ++ show a ++ "\nand edges: " ++ show [e1]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
-           (_,y) = mustFind ((==b).fst) bdry
+           e2 = mustFind ((==b).fst) bdry
                   (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show b ++ "\nand edges: " ++ show [(a,b)]
+                            ++ show b ++ "\nand edges: " ++ show [e1]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
-affectedBoundary bd [(a,b),(c,d)] | c==b = [(x,a),(a,b),(c,d),(d,y)] where
+affectedBoundary bd [e1@(a,b),e2@(c,d)] | c==b = [e0,e1,e2,e3] where
            bdry = boundary bd
-           (x,_) = mustFind ((==a).snd) bdry 
+           e0 = mustFind ((==a).snd) bdry 
                    (\()-> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
-                            ++ show a ++ "\nand edges: " ++ show [(a,b),(c,d)]
+                            ++ show a ++ "\nand edges: " ++ show [e1,e2]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
-           (_,y) = mustFind ((==d).fst) bdry 
+           e3 = mustFind ((==d).fst) bdry 
                    (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show d ++ "\nand edges: " ++ show [(a,b),(c,d)]
+                            ++ show d ++ "\nand edges: " ++ show [e1,e2]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
-affectedBoundary bd [(a,b),(c,d)] | a==d  = [(x,c),(c,d),(a,b),(b,y)] where
+affectedBoundary bd [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
            bdry = boundary bd
-           (x,_) = mustFind ((==c).snd) bdry 
+           e0 = mustFind ((==c).snd) bdry 
                    (\()-> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
-                            ++ show c ++  "\nand edges: " ++ show [(a,b),(c,d)]
+                            ++ show c ++  "\nand edges: " ++ show [e1,e2]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
-           (_,y) = mustFind ((==b).fst) bdry 
+           e3 = mustFind ((==b).fst) bdry 
                    (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show b ++  "\nand edges: " ++ show [(a,b),(c,d)]
+                            ++ show b ++  "\nand edges: " ++ show [e1,e2]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
 affectedBoundary _ [] = [] -- case for filling a triangular hole
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "

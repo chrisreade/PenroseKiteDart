@@ -20,6 +20,8 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE BangPatterns              #-}
 
+{-# LANGUAGE StrictData             #-}
+
 module Tgraph.Prelude
   ( module HalfTile
   , module Try
@@ -69,7 +71,7 @@ module Tgraph.Prelude
 --  , faces
   , emptyTgraph
   , nullFaces
-  --, evalFaces
+  , evalFaces
   , ldarts
   , rdarts
   , lkites
@@ -299,12 +301,16 @@ renumberFaces prs = fmap renumberFace where
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph = Tgraph
 
-{- -- |force evaluation of a list of faces.
-evalFaces :: HasFaces a => a -> [TileFace]
-evalFaces = eval . faces where
+-- |force full evaluation of a list of faces.
+evalFaces :: HasFaces a => a -> a
+evalFaces a = b where
+    !b = find (notpos . tileRep) (faces a) `seq` a
+    notpos (x,y,z) = x<1 || y<1 || z<1
+{- evalFaces a = eval $ faces a where
     eval fcs = find (has0 . tileRep) fcs `seq` fcs
     has0 (x,y,z) = x==0 || y==0 || z==0
  -}
+
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
 and producing an error if a check fails.
 

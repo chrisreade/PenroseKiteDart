@@ -11,6 +11,9 @@ to implement a guided union of Tgraphs (fullUnion and tryFullUnion)
 and also a commonFaces operation (a kind of intersection which need not be a Tgraph)
 and a guided equality check (sameGraph).
 -}
+
+{-# LANGUAGE Strict            #-} 
+
 module Tgraph.Relabelling
   ( -- * Assisted Union (and matching) operations
     fullUnion

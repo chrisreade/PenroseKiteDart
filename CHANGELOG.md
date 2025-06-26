@@ -2,12 +2,15 @@
 
 
 After 1.4
-Force module is now Strict
+Force module is now Strict (significantly improves space usage)
+(HalfTile, Decompose, Relabelling also made Strict
+and Prelude StrictData)
 
-ForceState now in class HasFaces
-Introduced New boundaryEdgeFilter (UFinders simplified using this)
+ForceState now an instance of class HasFaces
 
-Removed evalFaces (use id)
+New: boundaryEdgeFilter
+  (used instead of boundaryFilter to simplify UFinders)
+
 
 ## version 1.4 -- 2025-6-12
 

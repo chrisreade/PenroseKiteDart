@@ -9,7 +9,7 @@ Stability   : experimental
 -}
 {-# LANGUAGE TypeFamilies              #-} -- needed for Transformable Instance
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Transformable Instance
--- {-# LANGUAGE StrictData                #-}
+{-# LANGUAGE Strict               #-}
 
 module HalfTile
   ( HalfTile(..)
