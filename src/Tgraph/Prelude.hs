@@ -87,6 +87,7 @@ module Tgraph.Prelude
   , removeVertices
   , selectVertices
   , vertexFacesMap
+  --, dwFacesMap
     -- * Other Face/Vertex Operations
   , makeRD
   , makeLD
@@ -286,7 +287,7 @@ tryCorrectTouchingVs fcs =
 -- |renumberFaces allows for a many to 1 relabelling represented by a list of pairs.
 -- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result 
 renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
-renumberFaces prs = fmap renumberFace where
+renumberFaces prs = map renumberFace where
     mapping = VMap.fromList $ differing prs
     renumberFace = fmap (all3 renumber)
     all3 f (a,b,c) = (f a,f b,f c)
@@ -304,9 +305,11 @@ makeUncheckedTgraph = Tgraph
 -- |force full evaluation of a list of faces.
 evalFaces :: HasFaces a => a -> a
 evalFaces a = b where
-    !b = find (notpos . tileRep) (faces a) `seq` a
+    !b = find (ev . faceVs) (faces a) `seq` a
+    ev (x,y,z) = x `seq` y `seq` z `seq` False
+{-     !b = find (notpos . faceVs) (faces a) `seq` a
     notpos (x,y,z) = x<1 || y<1 || z<1
-{- evalFaces a = eval $ faces a where
+ -}{- evalFaces a = eval $ faces a where
     eval fcs = find (has0 . tileRep) fcs `seq` fcs
     has0 (x,y,z) = x==0 || y==0 || z==0
  -}
@@ -336,7 +339,7 @@ Returns Left lines if a test fails, where lines describes the problem found.
 tryTgraphProps:: [TileFace] -> Try Tgraph
 tryTgraphProps []       =  Right emptyTgraph
 tryTgraphProps fcs
-      | hasEdgeLoops fcs  =  
+      | hasEdgeLoops fcs  =
          failReport $ "tryTgraphProps: Non-valid tile-face(s)\n" ++
                       "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
       | illegalTiling fcs =  failReports
@@ -542,7 +545,7 @@ vertices = IntSet.elems . vertexSet
 -- May have duplicates when applied to an arbitrary list of TileFace.
 -- but no duplicates for Tgraph, VPatch, BoundaryState, Forced, TrackedTgraph. 
 boundaryVs :: HasFaces a => a -> [Vertex]
-boundaryVs = fmap fst . boundary
+boundaryVs = map fst . boundary
 
 -- |get all the directed edges (directed clockwise round each face)
 dedges :: HasFaces a => a -> [Dedge]
@@ -550,7 +553,7 @@ dedges = concatMap faceDedges . faces
 
 -- |get the set of vertices in the faces
 vertexSet :: HasFaces a => a -> VertexSet
-vertexSet = mconcat . fmap faceVSet . faces
+vertexSet = mconcat . map faceVSet . faces
 
 -- |A list of tilefaces is in class HasFaces
 instance HasFaces [TileFace] where
@@ -606,7 +609,7 @@ selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
 -- |internal edges are shared by two faces. That is, all edges except those at the boundary.
 -- Both directions of each internal directed edge will appear in the result.
 internalEdges :: HasFaces a => a -> [Dedge]
-internalEdges a =  des \\ fmap reverseD (missingRevs des) where
+internalEdges a =  des \\ map reverseD (missingRevs des) where
     des = dedges a
 
 -- |phiEdges returns a list of the longer (phi-length) edges in the faces (including kite joins).
@@ -628,13 +631,13 @@ defaultAlignment g | nullFaces g = error "defaultAlignment: applied to null list
 
 makeRD,makeLD,makeRK,makeLK :: Vertex -> Vertex -> Vertex -> TileFace
 -- |make an RD (strict in arguments)
-makeRD !x !y !z = RD(x,y,z)
+makeRD !x !y !z = RD (x,y,z)
 -- |make an LD (strict in arguments)
-makeLD !x !y !z = LD(x,y,z)
+makeLD !x !y !z = LD (x,y,z)
 -- |make an RK (strict in arguments)
-makeRK !x !y !z = RK(x,y,z)
+makeRK !x !y !z = RK (x,y,z)
 -- |make an LK (strict in arguments)
-makeLK !x !y !z = LK(x,y,z)
+makeLK !x !y !z = LK (x,y,z)
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
 {-# Inline faceVs #-}
@@ -837,7 +840,7 @@ bothDirOneWay des = revPlus des where
 bothDirOneWay [] = []
 bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
  -}
- 
+
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
 missingRevs:: [Dedge] -> [Dedge]
 missingRevs es = revUnmatched es where
@@ -855,7 +858,7 @@ missingRevs es = revUnmatched es where
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
 edgeNb face = any (`elem` edges) . faceDedges where
-      edges = fmap reverseD (faceDedges face)
+      edges = map reverseD (faceDedges face)
 
 
 
@@ -865,10 +868,31 @@ create an IntMap from each vertex in vs to a list of those faces in a that are a
 -}
 vertexFacesMap:: HasFaces a => [Vertex] -> a -> VertexMap [TileFace]
 vertexFacesMap vs = foldl' insertf startVF . faces where
-    startVF = VMap.fromList $ fmap (,[]) vs
+    startVF = VMap.fromList $ map (,[]) vs
     insertf vfmap f = foldl' (flip (VMap.alter addf)) vfmap (faceVList f)
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
+
+{-|dwFacesMap - a special case of vertexFacesMap applied to the dart wing vertices.
+Create an IntMap from each dart wing vertex to a list of those faces that are at that vertex.
+It makes use of the fact that only kite opps and kite origins and dart wings can
+occur at a dart wing
+
+dwFacesMap:: HasFaces a => a -> VertexMap [TileFace]
+dwFacesMap g = foldl' insertf startVF (faces g) where
+    vs = nub (wingV <$> darts g)
+    startVF = VMap.fromList $ fmap (,[]) vs
+    insertf vfmap f = foldl' (flip (VMap.alter addf)) vfmap (relevantVs f)
+                      where addf Nothing = Nothing
+                            addf (Just fs) = Just (f:fs)
+
+    relevantVs  :: TileFace -> [Vertex]
+    relevantVs (LK (a,_,c)) = [a,c]
+    relevantVs (RK (a,b,_)) = [a,b]
+    relevantVs (LD (_,_,c)) = [c]
+    relevantVs (RD (_,b,_)) = [b]
+-}
+
 
 -- | dedgesFacesMap des a - Produces an edge-face map. Each directed edge in des is associated with
 -- a unique face in a that has that directed edge (if there is one).
@@ -877,10 +901,10 @@ vertexFacesMap vs = foldl' insertf startVF . faces where
 -- dedgesFacesMap is intended for a relatively small subset of directed edges in a Tgraph.
 dedgesFacesMap:: HasFaces a => [Dedge] -> a -> Map.Map Dedge TileFace
 dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
-   vs = fmap fst des `union` fmap snd des
+   vs = map fst des `union` map snd des
    vfMap = vertexFacesMap vs fcs
    assocFaces [] = []
-   assocFaces (d@(a,b):more) = 
+   assocFaces (d@(a,b):more) =
        case filter (liftA2 (&&) (isAtV a) (`hasDedge` d)) (vfMap VMap.! b) of
            [face] -> (d,face):assocFaces more
            []   -> assocFaces more
@@ -902,7 +926,7 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
 -- |Build a Map from all directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: HasFaces a  => a -> Map.Map Dedge TileFace
 buildEFMap = Map.fromList . concatMap assignFace . faces where
-  assignFace f = fmap (,f) (faceDedges f)
+  assignFace f = map (,f) (faceDedges f)
 
 -- | look up a face for an edge in an edge-face map
 faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
@@ -925,9 +949,9 @@ extractLowestJoin = getLJ . faces where
   getLJ fcs
     | null fcs  = error "extractLowestJoin: applied to empty list of faces"
     | otherwise = (face, fcs\\[face])
-        where a = minimum (fmap originV fcs)
+        where a = minimum (map originV fcs)
               aFaces = filter ((a==) . originV) fcs
-              b = minimum (fmap oppV aFaces)
+              b = minimum (map oppV aFaces)
               face = case find (((a,b)==) . joinOfTile) aFaces of
                     Just f -> f
                     Nothing -> error $ "extractLowestJoin: no face found at "
@@ -940,9 +964,9 @@ lowestJoin:: HasFaces a => a -> Dedge
 lowestJoin = lowest . faces where
     lowest fcs | null fcs  = error "lowestJoin: applied to empty list of faces"
     lowest fcs = (a,b) where
-        a = minimum (fmap originV fcs)
+        a = minimum (map originV fcs)
         aFaces = filter ((a==) . originV) fcs
-        b = minimum (fmap oppV aFaces)
+        b = minimum (map oppV aFaces)
 
 {---------------------
 *********************
@@ -1038,7 +1062,7 @@ instance Drawable VPatch where
 -- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces.
 -- (Usage can be confined to Drawable VPatch instance and DrawableLabelled VPatch instance.)
 dropLabels :: VPatch -> Patch
-dropLabels vp = fmap convert (faces vp) where
+dropLabels vp = map convert (faces vp) where
   locations = vLocs vp
   convert face = case (VMap.lookup (originV face) locations , VMap.lookup (oppV face) locations) of
     (Just p, Just p') -> fmap (const (p' .-. p)) face `at` p -- using HalfTile functor fmap
@@ -1118,7 +1142,7 @@ alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 -- centred on a, with b on the positive x axis.
 -- An error is raised if any VPatch does not contain both a and b vertices.
 alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]
-alignAll (a,b) = fmap (alignXaxis (a,b))
+alignAll (a,b) = map (alignXaxis (a,b))
 
 -- |alignBefore vfun (a,b) g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
 -- before applying the VPatch function vfun
@@ -1348,7 +1372,7 @@ The third argument is the mapping of vertices to points.
 -- edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
     edgeNbsGen f = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen
-      edges = fmap reverseD (faceDedges f)
+      edges = map reverseD (faceDedges f)
 {-
     edgeNbsGen efMapGen f = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen

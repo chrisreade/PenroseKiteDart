@@ -90,8 +90,8 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
      then return $ makeUncheckedTgraph fcs -- no properties check needed!
      else let vertg1 = vertexSet g1
               correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
-              newrel = newRelabelling $ fmap correct touchVs
-          in tryTgraphProps $ nub $ fmap (relabelFace newrel) fcs
+              newrel = newRelabelling $ map correct touchVs
+          in tryTgraphProps $ nub $ map (relabelFace newrel) fcs
 
 
 -- | commonFaces (g1,e1) (g2,e2) relabels g2 to match with g1 (where they match)
@@ -106,7 +106,7 @@ commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
   g3 = relabelToMatchIgnore (g1,e1) (g2,e2)
   fcs = faces g1 `union` faces g3
   touchVs = touchingVerticesGen fcs -- requires generalised version of touchingVertices
-  relFaces = fmap (relabelFace $ newRelabelling $ fmap correct touchVs) (faces g3)
+  relFaces = map (relabelFace $ newRelabelling $ map correct touchVs) (faces g3)
   vertg1 = vertexSet g1
   correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
 
@@ -299,13 +299,13 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
 -- (See also checkRelabelGraph)
 relabelGraph:: Relabelling -> Tgraph -> Tgraph
 relabelGraph rlab g = makeUncheckedTgraph newFaces where
-   newFaces = fmap (relabelFace rlab) (faces g) 
+   newFaces = map (relabelFace rlab) (faces g) 
 
 -- |checkRelabelGraph uses a relabelling map to change vertices in a Tgraph,
 -- then checks that the result is a valid Tgraph. (see also relabelGraph)
 checkRelabelGraph:: Relabelling -> Tgraph -> Tgraph
 checkRelabelGraph rlab g = checkedTgraph newFaces where
-   newFaces = fmap (relabelFace rlab) (faces g) 
+   newFaces = map (relabelFace rlab) (faces g) 
 
 -- |Uses a relabelling to relabel the three vertices of a face.
 -- Any vertex not in the domain of the mapping is left unchanged.

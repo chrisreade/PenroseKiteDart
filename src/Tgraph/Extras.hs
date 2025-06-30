@@ -123,7 +123,7 @@ smart dr g = drawBoundaryJoins g vp <> dr vp
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
 boundaryJoinFaces :: Tgraph -> [TileFace]
-boundaryJoinFaces g = fmap snd $ incompleteHalves bdry $ boundary bdry where
+boundaryJoinFaces g = map snd $ incompleteHalves bdry $ boundary bdry where
     bdry = makeBoundaryState g
 
 -- |draw boundary join edges of a Tgraph using a given VPatch
@@ -319,7 +319,7 @@ boundaryECovering forcedbs = covers [(forcedbs, boundaryEdgeSet (forgetF forcedb
     | Set.null es = fbs:covers opens -- bs is a completed cover
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
-             newcases = fmap (\b -> (b, commonBdry des (forgetF b)))
+             newcases = map (\b -> (b, commonBdry des (forgetF b)))
                              (runTry $ tryCheckCasesDKF de fbs)
 
 
@@ -344,8 +344,8 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
   covers ((open,es):opens)
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary $ forgetF open) of
         Nothing -> open:covers opens
-        Just dedge -> covers $ fmap (,es) (runTry $ tryCheckCasesDKF dedge open) ++opens
-    | otherwise =  covers $ fmap (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de (forgetF open)) ++opens
+        Just dedge -> covers $ map (,es) (runTry $ tryCheckCasesDKF dedge open) ++opens
+    | otherwise =  covers $ map (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de (forgetF open)) ++opens
                    where (de,des) = Set.deleteFindMin es
 
 
@@ -449,7 +449,7 @@ empire1 g =
      [] -> error "empire1 : no forced boundary covers found\n"
      (fg0:others) -> makeTrackedTgraph g0 [fcs,faces g] where
           g0 = forgetF fg0
-          fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
+          fcs = foldl' intersect (faces g0) $ map g0Intersect others
           de = defaultAlignment g
           g0Intersect fg1 = commonFaces (g0,de) (forgetF fg1,de)
 
@@ -464,10 +464,10 @@ empire1 g =
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> TrackedTgraph
 empire2 g = 
-  case fmap (recoverGraph . forgetF) covers2 of
+  case map (recoverGraph . forgetF) covers2 of
     [] -> error "empire2: empty list of secondary boundary covers found"
     (g0:others) -> makeTrackedTgraph g0 [fcs, faces g]
-      where fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
+      where fcs = foldl' intersect (faces g0) $ map g0Intersect others
             g0Intersect g1 = commonFaces (g0,de) (g1,de)
   where
      covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
@@ -481,10 +481,10 @@ empire2 g =
 -- Raises an error if force g fails with a stuck/incorrect Tgraph.
 empire2Plus:: Tgraph -> TrackedTgraph
 empire2Plus g = 
-  case fmap (recoverGraph . forgetF) covers2 of
+  case map (recoverGraph . forgetF) covers2 of
     [] -> error "empire2: empty list of secondary boundary covers found"
     (g0:others) -> makeTrackedTgraph g0 [fcs, faces g]
-      where fcs = foldl' intersect (faces g0) $ fmap g0Intersect others
+      where fcs = foldl' intersect (faces g0) $ map g0Intersect others
             g0Intersect g1 = commonFaces (g0,de) (g1,de)
   where
      covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
@@ -558,7 +558,7 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
 -- The result is a list of pairs: edge and a common tile label.
 -- commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
     commonToCovering bds edgeList = common edgeList (transpose labellists) where
-      labellists = fmap (`reportCover` edgeList) bds
+      labellists = map (`reportCover` edgeList) bds
       common [] [] = []
       common [] (_:_) = error "singleChoiceEdges:commonToCovering: label list is longer than edge list"
       common (_:_) [] = error "singleChoiceEdges:commonToCovering: label list is shorter than edge list"
@@ -570,7 +570,7 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
 -- reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
-    reportCover bd des = fmap (tileLabel . getf) des where
+    reportCover bd des = map (tileLabel . getf) des where
       efmap = dedgesFacesMap des (faces bd) -- more efficient than using graphEFMap?
 --      efmap = graphEFMap (recoverGraph bd)
       getf e = Data.Maybe.fromMaybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
@@ -654,7 +654,7 @@ newTrackedTgraph g = makeTrackedTgraph g []
 -- from trackedlist where each list in trackedlist is a subset of the faces of g.
 -- Any faces not in g are ignored.
 makeTrackedTgraph :: Tgraph -> [[TileFace]] -> TrackedTgraph
-makeTrackedTgraph g trackedlist = TrackedTgraph{ tgraph = g, tracked = fmap (`intersect` faces g) trackedlist}
+makeTrackedTgraph g trackedlist = TrackedTgraph{ tgraph = g, tracked = map (`intersect` faces g) trackedlist}
 
 -- |trackFaces ttg - pushes the maingraph tilefaces onto the stack of tracked subsets of ttg
 trackFaces:: TrackedTgraph -> TrackedTgraph
@@ -719,7 +719,7 @@ decomposeTracked ttg =
     g' = makeUncheckedTgraph newFaces
     newVFor = phiVMap g
     newFaces = concatMap (decompFace newVFor) (faces g)
-    tlist = fmap (concatMap (decompFace newVFor)) (tracked ttg)
+    tlist = map (concatMap (decompFace newVFor)) (tracked ttg)
 
 {-*  Drawing TrackedTgraphs
 -}
@@ -736,7 +736,7 @@ drawTrackedTgraph :: OKBackend b => [VPatch -> Diagram b] -> TrackedTgraph -> Di
 drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeVP (tgraph ttg)
     untracked = faces vp \\ concat (tracked ttg)
-    vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
+    vpList = map (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 {-|
     To draw a TrackedTgraph rotated.
@@ -749,7 +749,7 @@ drawTrackedTgraphRotated :: OKBackend b => [VPatch -> Diagram b] -> Angle Double
 drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = rotate a $ makeVP (tgraph ttg)
     untracked = faces vp \\ concat (tracked ttg)
-    vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
+    vpList = map (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 {-|
     To draw a TrackedTgraph aligned.
@@ -763,7 +763,7 @@ drawTrackedTgraphAligned :: OKBackend b => [VPatch -> Diagram b] -> (Vertex,Vert
 drawTrackedTgraphAligned drawList (a,b) ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeAlignedVP (a,b) (tgraph ttg)
     untracked = faces vp \\ concat (tracked ttg)
-    vpList = fmap (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
+    vpList = map (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
 
 
 

@@ -40,7 +40,7 @@ decompose :: Tgraph -> Tgraph
 decompose g = makeUncheckedTgraph newFaces where
     pvmap = phiVMap g
     newFaces = concatMap (decompFace pvmap) (faces g)
-
+    -- evaluated = length newFaces `seq` newFaces
 -- |phiVMap g produces a finite map from the phi edges (the long edges including kite joins) to assigned new vertices not in g.
 -- Both (a,b) and (b,a) get the same new vertex number. This is used(in decompFace and decompose.
 -- (Sort is used to fix order of assigned numbers).
@@ -51,7 +51,7 @@ phiVMap g = edgeVMap where
   newVs = [v+1..v+n]
   !n = length phiReps
   !v = maxV g
-  edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (fmap reverseD phiReps) newVs 
+  edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (map reverseD phiReps) newVs 
 
 -- |Decompose a face producing new faces. 
 -- This requires an edge to vertex map to get a unique new vertex assigned to each phi edge

@@ -193,7 +193,7 @@ instance HasFaces BoundaryState where
 makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g =
   let bdes = boundary g
-      bvs = fmap fst bdes -- (fmap snd bdes would also do) for all boundary vertices
+      bvs = map fst bdes -- (map snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ faces g
   in 
       BoundaryState
@@ -678,14 +678,14 @@ tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
 checkUnsafeUpdate:: BoundaryState -> Update -> Maybe BoundaryChange
 checkUnsafeUpdate _  (SafeUpdate _) = error  "checkUnsafeUpdate: applied to safe update.\n"
 checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
-   let v = nextVertex bd
-       newface = makeFace v
+   let !v = nextVertex bd
+       !newface = makeFace v
        oldVPoints = bvLocMap bd
        newVPoints = addVPoint newface oldVPoints
        vPosition = newVPoints VMap.! v -- Just vPosition = VMap.lookup v newVPoints
        fDedges = faceDedges newface
        matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
-       newDedges = fmap reverseD (fDedges \\ matchedDedges) -- two edges
+       newDedges = map reverseD (fDedges \\ matchedDedges) -- two edges
        resultBd = BoundaryState
                     { boundaryDedges = newDedges ++ (boundary bd \\ matchedDedges)
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
@@ -721,7 +721,7 @@ trySafeUpdate bd (SafeUpdate newface) =
        matchedDedges = fDedges `intersect` localRevDedges -- list of 2 or 3
        -- matchedDedges = fDedges `intersect` boundary bd -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
-       newDedges = fmap reverseD (fDedges \\ matchedDedges) -- one or none
+       newDedges = map reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
                    { boundaryDedges = newDedges ++ (boundaryDedges bd \\ matchedDedges)
@@ -930,7 +930,7 @@ boundaryEdgeFilter etype predF bd focus =
 
 -- |makeUpdate f x constructs a safe update if x is Just(..) and an unsafe update if x is Nothing
 makeUpdate:: (Vertex -> TileFace) -> Maybe Vertex ->  Update
-makeUpdate f (Just v) = SafeUpdate (f v)
+makeUpdate f (Just v) = fv `seq` SafeUpdate fv where fv = f v
 makeUpdate f Nothing  = UnsafeUpdate f
 
 
@@ -947,7 +947,7 @@ mustbeSun bd v = length (filter ((==v) . originV) $ filter isKite $ facesAtBV bd
 -- if there is a shared kite short edge at the vertex.
 mustbeDeuce:: BoundaryState -> Vertex -> Bool
 mustbeDeuce bd v = isKiteOppV bd v &&
-                   hasAnyMatchingE (fmap shortE $ filter isKite $ facesAtBV bd v)
+                   hasAnyMatchingE (map shortE $ filter isKite $ facesAtBV bd v)
 
 -- |A boundary vertex which is a kite wing and has 4 dart origins must be a king vertex
 mustbeKing:: BoundaryState -> Vertex -> Bool
@@ -962,15 +962,15 @@ mustbeQorK bd v = isDartOrigin bd v && isKiteWing bd v
 
 -- |isKiteWing bd v - Vertex v is a kite wing in BoundaryState bd
 isKiteWing:: BoundaryState -> Vertex -> Bool
-isKiteWing bd v = v `elem` fmap wingV (filter isKite (facesAtBV bd v))
+isKiteWing bd v = v `elem` map wingV (filter isKite (facesAtBV bd v))
 
 -- |isKiteOppV bd v - Vertex v is a kite oppV in BoundaryState bd
 isKiteOppV:: BoundaryState -> Vertex -> Bool
-isKiteOppV bd v = v `elem` fmap oppV (filter isKite (facesAtBV bd v))
+isKiteOppV bd v = v `elem` map oppV (filter isKite (facesAtBV bd v))
 
 -- |isDartOrigin bd v - Vertex v is a dart origin in BoundaryState bd
 isDartOrigin:: BoundaryState -> Vertex -> Bool
-isDartOrigin bd v = v `elem` fmap originV (filter isDart (facesAtBV bd v))
+isDartOrigin bd v = v `elem` map originV (filter isDart (facesAtBV bd v))
 
 -- |A boundary vertex with >2 kite wings is a queen vertex 
 -- (needing a fourth kite on a kite short edge or dart on a kite long edge)
@@ -987,11 +987,11 @@ kiteWingCount bd v = length $ filter ((==v) . wingV) $ filter isKite (facesAtBV 
 -- (false means it is either undetermined or is a deuce).
 mustbeJack :: BoundaryState -> Vertex -> Bool
 mustbeJack bd v =
-  (length dWings == 2 && not (hasAnyMatchingE (fmap longE dWings))) || -- 2 dart wings and dart long edges not shared.
+  (length dWings == 2 && not (hasAnyMatchingE (map longE dWings))) || -- 2 dart wings and dart long edges not shared.
   (length dWings == 1 && isKiteOrigin)
   where fcs = facesAtBV bd v
         dWings = filter ((==v) . wingV) $ filter isDart fcs
-        isKiteOrigin = v `elem` fmap originV (filter isKite fcs)
+        isKiteOrigin = v `elem` map originV (filter isKite fcs)
 
 -- |hasMatching asks if a directed edge list has any two matching (=opposing) directed edges.
 hasAnyMatchingE :: [Dedge] -> Bool
@@ -1199,40 +1199,40 @@ queenMissingKite = boundaryEdgeFilter Short predicate where
 --  add a symmetric (mirror) face for a given face at a boundary join edge.
 completeHalf :: UChecker
 completeHalf bd (LD(a,b,_)) = makeUpdate makeFace <$> x where
-        makeFace v = RD (a,v,b)
+        makeFace !v = makeRD a v b --RD (a,v,b)
         x = tryFindThirdV bd (b,a) (3,1) --anglesForJoinRD
 completeHalf bd (RD(a,_,b)) = makeUpdate makeFace <$> x where
-        makeFace v = LD (a,b,v)
+        makeFace !v = makeLD a b v --LD (a,b,v)
         x = tryFindThirdV bd (a,b) (1,3) --anglesForJoinLD
 completeHalf bd (LK(a,_,b)) = makeUpdate makeFace <$> x where
-        makeFace v = RK (a,b,v)
+        makeFace !v = makeRK a b v --RK (a,b,v)
         x = tryFindThirdV bd (a,b) (1,2) --anglesForJoinRK
 completeHalf bd (RK(a,b,_)) = makeUpdate makeFace <$> x where
-        makeFace v = LK (a,v,b)
+        makeFace !v = makeLK a v b --LK (a,v,b)
         x = tryFindThirdV bd (b,a) (2,1) --anglesForJoinLK
 
 -- |add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE :: UChecker
 addKiteShortE bd (RD(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace v = LK (v,c,b)
+    makeFace !v = makeLK v c b --LK (v,c,b)
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortLK
 addKiteShortE bd (LD(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace v = RK (v,c,b)
+    makeFace !v = makeRK v c b --RK (v,c,b)
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (LK(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace v = RK (v,c,b)
+    makeFace !v = makeRK v c b --RK (v,c,b)
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (RK(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace v = LK (v,c,b)
+    makeFace !v = makeLK v c b --LK (v,c,b)
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortLK
 
 -- |add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: UChecker
 addDartShortE bd (RK(_,b,c)) = makeUpdate makeFace <$> x where
-        makeFace v = LD (v,c,b)
+        makeFace !v = makeLD v c b --LD (v,c,b)
         x = tryFindThirdV bd (c,b) (3,1) --anglesForShortLD
 addDartShortE bd (LK(_,b,c)) = makeUpdate makeFace <$> x where
-        makeFace v = RD (v,c,b)
+        makeFace !v = makeRD v c b --RD (v,c,b)
         x = tryFindThirdV bd (c,b) (1,3) --anglesForShortRD
 addDartShortE _  _ = error "addDartShortE applied to non-kite face\n"
 
@@ -1245,31 +1245,31 @@ completeSunStar bd fc = if isKite fc
 -- |add a kite to a long edge of a dart or kite
 addKiteLongE :: UChecker
 addKiteLongE bd (LD(a,_,c)) = makeUpdate makeFace <$> x where
-    makeFace v = RK (c,v,a)
+    makeFace !v = makeRK c v a --RK (c,v,a)
     x = tryFindThirdV bd (a,c) (2,1) -- anglesForLongRK
 addKiteLongE bd (RD(a,b,_)) = makeUpdate makeFace <$> x where
-    makeFace v = LK (b,a,v)
+    makeFace !v = makeLK b a v --LK (b,a,v)
     x = tryFindThirdV bd (b,a) (1,2) -- anglesForLongLK
 addKiteLongE bd (RK(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace v = LK (a,c,v)
+  makeFace !v = makeLK a c v --LK (a,c,v)
   x = tryFindThirdV bd (a,c) (1,2) -- anglesForLongLK
 addKiteLongE bd (LK(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace v = RK (a,v,b)
+  makeFace !v = makeRK a v b --RK (a,v,b)
   x = tryFindThirdV bd (b,a) (2,1) -- anglesForLongRK
 
 -- |add a half dart on a boundary long edge of a dart or kite
 addDartLongE :: UChecker
 addDartLongE bd (LD(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace v = RD (a,c,v)
+  makeFace !v = makeRD a c v --RD (a,c,v)
   x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongRD
 addDartLongE bd (RD(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace v = LD (a,v,b)
+  makeFace !v = makeLD a v b --LD (a,v,b)
   x = tryFindThirdV bd (b,a) (1,1) -- anglesForLongLD
 addDartLongE bd (LK(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace v = RD (b,a,v)
+  makeFace !v = makeRD b a v --RD (b,a,v)
   x = tryFindThirdV bd (b,a) (1,1) -- anglesForLongRD
 addDartLongE bd (RK(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace v = LD (c,v,a)
+  makeFace !v = makeLD c v a --LD (c,v,a)
   x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongLD
 
 {-
@@ -1303,7 +1303,7 @@ anglesForShortRK = (2,2)
 -- boundary edges the result is a single Left, concatenating all the failure reports (unlike allUGenerator).
 defaultAllUGen :: UpdateGenerator
 defaultAllUGen = UpdateGenerator { applyUG = gen } where
-  gen bd es = combine $ fmap decide es where -- Either String is a monoid as well as Map
+  gen bd es = combine $ map decide es where -- Either String is a monoid as well as Map
       decide e = decider (e,f,etype) where (f,etype) = inspectBDedge bd e
 
       decider (e,f,Join)  = mapItem e (completeHalf bd f) -- rule 1

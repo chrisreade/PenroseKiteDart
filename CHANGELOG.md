@@ -1,7 +1,11 @@
 # Revision history for PenroseKiteDart
 
 
-After 1.4
+Since 1.4.1
+
+Improved composing (now a Strict module but lazy in remainder)
+
+## version 1.4.1  -- 2025-6-26
 Force module is now Strict (significantly improves space usage)
 (HalfTile, Decompose, Relabelling also made Strict
 and Prelude StrictData)
