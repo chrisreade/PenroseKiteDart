@@ -20,16 +20,17 @@ module Tgraph.Compose
   , partComposeF
   , tryPartCompose
   -- * Exported auxiliary functions (and type)
-  , partCompFacesFrom
+  -- , partCompFacesAssumeF
   , partComposeFaces
- -- , partComposeFacesF
+  , partComposeFacesF
   , DartWingInfo(..)
+  -- , getDWIassumeF
   , getDartWingInfo
   , getDartWingInfoForced
   , composedFaceGroups
   ) where
 
-import Data.List (find, foldl', partition)
+import Data.List (find, foldl', (\\),partition)
 import qualified Data.IntMap.Strict as VMap (IntMap,lookup,(!),alter,empty)
 import Data.Maybe (mapMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)
@@ -68,24 +69,17 @@ tryPartCompose g =
 
 -- |partComposeFaces g - produces a pair of the remainder faces (faces from g which will not compose)
 -- and the composed faces (which may or may not constitute faces of a valid Tgraph).
--- It does not assume that g is forced.
+-- It does not assume that g is forced which makes it less efficient than partComposeFacesF.
 partComposeFaces:: Tgraph -> ([TileFace],[TileFace])
-partComposeFaces = partCompFacesFrom . getDartWingInfo
-{- partComposeFaces g = (remainder,newfaces) where
-  compositions = composedFaceGroups $ getDartWingInfo g
-  newfaces =  map fst compositions -- evalFaces $ map fst compositions
-  ~remainder = faces g \\ concatMap snd compositions
- -}
+partComposeFaces = partCompFacesAssumeF False
+
 -- |partComposeFacesF (does the same as partComposeFaces for a Forced Tgraph).
 -- It produces a pair of the remainder faces (faces which will not compose)
 -- and the composed faces.
 partComposeFacesF :: Forced Tgraph -> ([TileFace],[TileFace])
-partComposeFacesF = partCompFacesFrom . getDartWingInfoForced
-{- partComposeFacesF fg = (remainder,newfaces) where
-  compositions = composedFaceGroups $ getDartWingInfoForced fg
-  newfaces = map fst compositions -- evalFaces $ map fst compositions
-  ~remainder = faces fg \\ concatMap snd compositions
- -}
+partComposeFacesF = partCompFacesAssumeF True . forgetF
+
+
 -- |partComposeF fg - produces a pair consisting of remainder faces (faces from fg which will not compose) 
 -- and a composed (Forced) Tgraph.
 -- Since fg is a forced Tgraph it does not need a check for validity of the composed Tgraph.
@@ -94,7 +88,6 @@ partComposeF:: Forced Tgraph -> ([TileFace], Forced Tgraph)
 partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
   (~remainder,newfaces) = partComposeFacesF fg
   
-
 -- |composeF - produces a composed Forced Tgraph from a Forced Tgraph.
 -- Since the argument is a forced Tgraph it does not need a check for validity of the composed Tgraph.
 -- The fact that the function is total and the result is also Forced relies on theorems
@@ -128,7 +121,8 @@ getDartWingInfoForced :: Forced Tgraph -> DartWingInfo
 getDartWingInfoForced fg = getDWIassumeF True (forgetF fg)
 
 
--- | getDWIassumeF isForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,
+-- | getDWIassumeF (not exported but used to define 2 cases getDartWingInfoForced and getDartWingInfo).
+-- getDWIassumeF isForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,
 -- returning as DartWingInfo. The boolean isForced is used to decide if g can be assumed to be forced.
 getDWIassumeF:: Bool -> Tgraph -> DartWingInfo
 getDWIassumeF isForced g =  
@@ -161,38 +155,10 @@ getDWIassumeF isForced g =
     addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
     addK f (Just fs) = Just (f:fs)
 
-{-  Previous
-    fullMap = foldl' insertK dartWMap kts -- all kites added to relevant dart wings
-    dartWMap = foldl' insertD VMap.empty drts -- all dartwings with 1 or 2 darts each
-    insertD vmap f = VMap.alter (addD f) (wingV f) vmap
-    addD f Nothing = Just [f]
-    addD f (Just fs) = Just (f:fs)
-    insertK vmap f = VMap.alter (addK f) (oppV f) $ VMap.alter (addK f) (originV f) vmap
-    addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
-    addK f (Just fs) = Just (f:fs)
- -}
-
-
-{-   OLDER version for dwFMap
-  drts  = darts g
-  -- special case of vertexFacesMap for dart wings only
-  -- using relevantVs (which can appear at a dart wing)
-  dwFMap = foldl' insertf startVF (faces g)
-    where
-    startVF = VMap.fromList $ (,[]) <$> nub (wingV <$> drts) --wings
-    insertf vfmap f = foldl' (flip (VMap.alter addf)) vfmap (relevantVs f)
-                      where addf Nothing = Nothing
-                            addf (Just fs) = Just (f:fs)
-    relevantVs (LK (a,_,c)) = [a,c]
-    relevantVs (RK (a,b,_)) = [a,b]
-    relevantVs (LD (_,_,c)) = [c]
-    relevantVs (RD (_,b,_)) = [b]
- -}
-  --dwFMap = dwFacesMap g
   (allKcs,allDbs,allUnks) = foldl' processD (IntSet.empty, IntSet.empty, IntSet.empty) drts  
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
--- unks = unclassified dart wing tips
+-- unks = unclassified dart wing vertices
 -- processD now uses a triple of IntSets rather than lists
   processD (kcs, dbs, unks) rd@(RD (orig, w, _)) = -- classify wing tip w
     if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else-- already classified
@@ -274,13 +240,14 @@ getDWIassumeF isForced g =
                               find (matchingJoinE rk)  (filter isLK fcs)
   findFarK _ _ = error "getDartWingInfo: findFarK applied to non-dart face"
 
--- |Creates a pair of TileFace lists using dart wing information.
--- The first is the (unused) remainder faces, and the second is the new composed faces.
--- Note the remainder faces come from both unMapped and faces at unknowns.
-partCompFacesFrom :: DartWingInfo -> ([TileFace],[TileFace])
-partCompFacesFrom dwInfo = (remainder, newFaces) where
-
-    remainder = unMapped dwInfo ++ concatMap (faceMap dwInfo VMap.!) (unknowns dwInfo)
+-- |partCompFacesAssumeF (not exported but used to build 2 cases: partComposeFaces, partComposefacesF)
+-- If the boolean is True then assumptions are made that the Tgraph is forced,
+-- making everything more efficient.
+partCompFacesAssumeF :: Bool ->  Tgraph -> ([TileFace],[TileFace])
+partCompFacesAssumeF isForced g = (remainder, newFaces) where
+    dwInfo = if isForced then getDartWingInfoForced (labelAsForced g) else getDartWingInfo g
+    ~remainder = if isForced then unMapped dwInfo ++ concatMap (faceMap dwInfo VMap.!) (unknowns dwInfo)
+                 else faces g \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
 
     newRDs = map makenewRD groupRDs 
@@ -324,9 +291,8 @@ partCompFacesFrom dwInfo = (remainder, newFaces) where
 
 
 
-
--- |(Unused) Creates a list of new composed faces, each paired with a list of old faces (components of the new face)
--- using dart wing information.
+-- |Creates a list of new composed faces, each paired with a list of old faces (components of the new face)
+-- using dart wing information. (Only used to illustrate composeK in Extras)
 composedFaceGroups :: DartWingInfo -> [(TileFace,[TileFace])]
 composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ faceGroupLKs where
 

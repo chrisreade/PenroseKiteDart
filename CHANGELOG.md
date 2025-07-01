@@ -1,6 +1,13 @@
 # Revision history for PenroseKiteDart
 
 
+## version 1.4.3  -- 2025-7-1
+
+Correction in composing
+(partCompFacesFrom was assuming forced to get remainders.)
+A correction is now incorporated in partComposeFaces and partComposeFacesF
+but partCompFacesFrom is now removed.
+
 ## version 1.4.2  -- 2025-7-1
 
 DartWingInfo has an extra field (unMapped)

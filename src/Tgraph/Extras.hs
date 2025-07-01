@@ -241,9 +241,9 @@ composeK g = runTry $ tryConnectedNoCross newfaces where
     changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
                         , unknowns = []
                         }
-    newfaces = snd $ partCompFacesFrom changedInfo
- --   compositions = composedFaceGroups changedInfo
---    newfaces = map fst compositions
+--    newfaces = snd $ partCompFacesFrom changedInfo
+    compositions = composedFaceGroups changedInfo
+    newfaces = map fst compositions
 
 -- |compForce is a partial function similar to (compose . force),
 -- i.e it does a force then compose (raising an error if the force fails with an incorrect Tgraph).
