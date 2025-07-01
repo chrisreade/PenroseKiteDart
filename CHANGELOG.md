@@ -1,12 +1,12 @@
 # Revision history for PenroseKiteDart
 
 
-Since 1.4.1
+## version 1.4.2  -- 2025-7-1
 
 DartWingInfo has an extra field (unMapped)
 
 Improved composing performance (now a Strict module)
-New: partCompFacesFrom (now used instead of composeFaceGroups)
+New: partCompFacesFrom (used instead of composeFaceGroups in composing)
 
 ## version 1.4.1  -- 2025-6-26
 Force module is now Strict (significantly improves space usage)
