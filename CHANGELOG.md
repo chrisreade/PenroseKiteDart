@@ -1,5 +1,11 @@
 # Revision history for PenroseKiteDart
 
+Since 1.4.3
+
+Found bug in remainder faces for new partComposeF - now fixed
+(error in getDartWingInfoForced only)
+
+Added new module TileLibP3 for P3 tilings and drawing 
 
 ## version 1.4.3  -- 2025-7-1
 

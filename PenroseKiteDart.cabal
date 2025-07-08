@@ -31,6 +31,7 @@ library
       CheckBackend
       HalfTile
       TileLib
+      TileLibP3
       Try
       Tgraph.Prelude
       Tgraph.Decompose

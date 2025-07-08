@@ -200,12 +200,11 @@ getDWIassumeF isForced g =
     let
         fcs = dwFMap VMap.! w -- faces at w
     in
-        if length fcs ==1 then (kcs, dbs, IntSet.insert w unks) else -- lone dart wing => unknown
         if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else
                    -- wing is a half kite origin => nodeDB
-        if (w,orig) `elem` map longE (filter isRD fcs) then (IntSet.insert w kcs,dbs,unks) else
+        if (orig,w) `elem` map longE (filter isRD fcs) then (IntSet.insert w kcs,dbs,unks) else
                    -- long edge ld shared with an rd => nodeKC
-        if isForced then (kcs, dbs, IntSet.insert w unks) else
+        if isForced || length fcs == 1 then (kcs, dbs, IntSet.insert w unks) else
         case findFarK ld fcs of
           Nothing -> (kcs,dbs,IntSet.insert w unks) -- unknown if incomplete kite attached to short edge of ld
           Just lk@(LK _)  ->  
