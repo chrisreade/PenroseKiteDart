@@ -89,11 +89,14 @@ module TgraphExamples
     -- *  Emplace Choices
  , emplaceChoices
  , emplaceChoicesFig
+     -- * Example showing a P3 tiling
+ , testRhombus
 
   ) where
 
 import Diagrams.Prelude
 import PKD
+import TileLibP3 
 import Tgraph.Prelude as NoWarn (makeUncheckedTgraph)
 import Data.List (intersect,find)      -- for emplaceChoices
 
@@ -450,4 +453,14 @@ emplaceChoicesFig =  lw thin $ hsep 1 $ map overlayg $ emplaceChoices g
     where g = foolD
           overlayg g' = smartAlignBefore draw algmnt g # lc red <> alignBefore draw algmnt g'
           algmnt = defaultAlignment g
+
+-- | An example to illustrate drawing P3 tiling (rhombuses).
+-- The top part (filled) is a 5 times decomposed sunGraph converted to rhombuses (P3) when drawn.
+-- The bottom part is the 5 times decomposed sunGraph reflected about its x-axis.
+testRhombus :: OKBackend b => Diagram b
+testRhombus = padBorder $
+              fillWN darkmagenta indigo g # lw veryThin # lc gold 
+              ===
+              draw g # reflectY # lw veryThin
+      where g = decompositions sunGraph !! 5
 

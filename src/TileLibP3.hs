@@ -158,7 +158,7 @@ drawPieceP3 = strokeLine . fromOffsets . drawnedgesP3
 
 -- |Draws all edges of a P3_Piece using a faint dashed line for the join edge
 dashjPieceP3 :: OKBackend b => P3_Piece -> Diagram b
-dashjPieceP3 p = drawPieceP3 p <> (strokeLine $ fromOffsets [tileRepP3 p])
+dashjPieceP3 p = drawPieceP3 p <> joinDashing (strokeLine $ fromOffsets [tileRepP3 p])
 
 -- |Fills a P3_Piece with a colour (without drawn edges)
 fillOnlyPieceP3 :: (OKBackend b, Color c) =>

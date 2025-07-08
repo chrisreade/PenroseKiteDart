@@ -5,7 +5,8 @@ Since 1.4.3
 Found bug in remainder faces for new partComposeF - now fixed
 (error in getDartWingInfoForced only)
 
-Added new module TileLibP3 for P3 tilings and drawing 
+Added new module TileLibP3 for drawing P3 tilings
+(see example testRhombus in module TgraphExamples)
 
 ## version 1.4.3  -- 2025-7-1
 
