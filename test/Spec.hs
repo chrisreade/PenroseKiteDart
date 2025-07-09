@@ -120,6 +120,12 @@ graphOpSpec = describe "Main Tgraph Operations Test" $ do
     context "Forcing Tgraphs" $
       it "Number of faces of force (dartDs !!6) should be 7546" $
          length(faces(force dD6)) `shouldBe` 7546
+    context "partCompose and Force" $
+      it "Number of remainder faces when part composing force (dartDs !!3) should be 58" $
+         length (fst $ partCompose $ force $ dartDs !!3) `shouldBe` 58
+    context "partComposeF and ForceF" $
+      it "Number of remainder faces when part composing forceF (dartDs !!3) should be 58" $
+         length (fst $ partCompose $ force $ dartDs !!3) `shouldBe` 58
 
 graphLabelCheck :: Spec
 graphLabelCheck = describe "Label critical examples check" $ do

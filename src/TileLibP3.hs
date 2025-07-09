@@ -7,15 +7,16 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 This module introduces Penrose\'s P3 tilings (narrow and wide rhombuses).
-This includes P3_HalfTiles, P3_Pieces and P3_Patches to represent and draw
+It includes P3_HalfTiles, P3_Pieces and P3_Patches to represent and draw
 rhombuses plus conversion to and from Darts and Kites (the P2 tiles).
-A class P3_Drawable is introduced with instance Patch, P3_Patch, VPatch, Tgraph
-and generalised drawing functions for drawing P3 tilings
+A class P3_Drawable is introduced with instance P3_Patch, Patch, VPatch, Tgraph
+and generalised drawing functions for drawing P3 tilings.
 -}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE FlexibleInstances         #-} -- needed for P3_Drawable P3_Patch
+{-# LANGUAGE Strict                    #-}
 -- {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
 
 module TileLibP3 
@@ -26,13 +27,13 @@ module TileLibP3
   -- * P3_Pieces
   , P3_Piece
   -- * Converting (located) Pieces
-  , convertPieceP3
-  , convertPieceP2
+  , decompPieceP2toP3
+  , decompPieceP3toP2
   -- * Converting Patches
-  , convertP3
-  , convertP2
+  , decompP2toP3
+  , decompP3toP2
   -- * Drawing P3_Pieces
-  , drawnedgesP3
+  --, drawnedgesP3
   , drawPieceP3
   , dashjPieceP3
   , fillOnlyPieceP3
@@ -63,6 +64,7 @@ data P3_HalfTile a
    | RN a -- ^ Right Narrow Rhombus
    deriving (Show,Eq)
 
+{-# INLINE tileRepP3 #-}
 -- | tileRepP3 produces the representation without the label (LW,RW,LN,RN)
 tileRepP3 :: P3_HalfTile a -> a
 tileRepP3 (LW a) = a
@@ -93,12 +95,14 @@ instance Functor P3_HalfTile where
     fmap f (RN rep) = RN (f rep)
 
 -- |Converting from P2 to P3 tilings.
--- Half darts become half wide rhombuses (LD->RW,RD->LW)
--- (new origin = old wing)
--- (new join = long edge)
+-- Half darts become half wide rhombuses (LD->RW,RD->LW).
+-- (The new origin is the dart wing, and 
+-- the new join is the dart long edge.)
 -- Half kites are decomposed to a half wide and a half narrow rhombus.
-convertPieceP3 :: Located Piece -> [Located P3_Piece]
-convertPieceP3 lp = case viewLoc lp of
+-- (For wide rhombuses, the new origin is the kite origin and the join is the kite long edge.)
+-- (For narrow rhombuses, the new origin is the kite opp and the join is toward the kite origin.)
+decompPieceP2toP3 :: Located Piece -> [Located P3_Piece]
+decompPieceP2toP3 lp = case viewLoc lp of
     (p, LK v) -> [ RW z `at` p
                  , RN ((2-phi)*^ negate v) `at` p.+^v
                  ] where z = rotate (ttangle 1) v
@@ -114,8 +118,8 @@ convertPieceP3 lp = case viewLoc lp of
 -- Half narrow rhombuses become half kites
 -- (but the origin vertex and join edge are changed).
 -- Half wide rhombuses are decomposed to a half dart and a half kite.
-convertPieceP2 :: Located P3_Piece -> [Located Piece]
-convertPieceP2 lp = case viewLoc lp of
+decompPieceP3toP2 :: Located P3_Piece -> [Located Piece]
+decompPieceP3toP2 lp = case viewLoc lp of
     (p, LW v) -> -- decompPiece (RD (z^-^v) `at` p.+^v)
                  -- where z = (phi-1)*^rotate (ttangle 1) v
                  [ RD ((2-phi)*^v) `at` p
@@ -136,14 +140,14 @@ convertPieceP2 lp = case viewLoc lp of
 type P3_Patch =  [Located P3_Piece]
 
 -- |Conversion from a Patch to a P3_Patch (Kites and Darts to Rhombuses)
-convertP3 :: Patch -> P3_Patch
-convertP3 = concatMap convertPieceP3
+decompP2toP3 :: Patch -> P3_Patch
+decompP2toP3 = concatMap decompPieceP2toP3
 
 -- |Conversion from a P3_Patch to a Patch (Rhombuses to Kites and Darts)
--- Note this does not reverse convertP3, but the combination
--- convertP2 . convertP3 is equivalent to a decompose operation (decompPatch)
-convertP2 :: P3_Patch -> Patch
-convertP2 = concatMap convertPieceP2
+-- Note this does not reverse decompP2toP3, but the combination
+-- decompP3toP2 . decompP2toP3 is equivalent to a decompose operation (decompPatch)
+decompP3toP2 :: P3_Patch -> Patch
+decompP3toP2 = concatMap decompPieceP3toP2
 
 -- |The drawn edges of a P3_Piece (as a list of vectors)
 drawnedgesP3 :: P3_Piece -> [V2 Double]
@@ -171,18 +175,18 @@ fillOnlyPieceP3 c p =
 -- The first colour is used for wide rhombuses, and the second for narrow rhombuses.
 -- (Note the order WN)
 fillPieceWN :: (OKBackend b, Color cw, Color cn) =>
-                   cw -> cn -> P3_Piece -> Diagram b
+               cw -> cn -> P3_Piece -> Diagram b
 fillPieceWN cw cn rp = drawPieceP3 rp <> filledpiece where
     filledpiece = case rp of
         (LW _ ) -> fillOnlyPieceP3 cw rp
         (RW _ ) -> fillOnlyPieceP3 cw rp
-        (LN _ ) -> fillOnlyPieceP3 cn rp
-        (RN _ ) -> fillOnlyPieceP3 cn rp
+        _       -> fillOnlyPieceP3 cn rp
+
 
 -- | A class for things that can be turned to diagrams when given a function to draw P3_Pieces.
 class P3_Drawable a where
   drawP3With :: OKBackend b =>
-              (P3_Piece ->  Diagram b) -> a -> Diagram b
+                (P3_Piece ->  Diagram b) -> a -> Diagram b
 
 -- | A P3_Patch is P3_Drawable.
 instance P3_Drawable P3_Patch where
@@ -190,10 +194,10 @@ instance P3_Drawable P3_Patch where
   drawP3With :: OKBackend b => (P3_Piece -> Diagram b) -> P3_Patch -> Diagram b
   drawP3With pd = position . fmap (viewLoc . mapLoc pd)
 
--- | A Patch is also P3_Drawable.
+-- | A Patch is also P3_Drawable (by conversion to a P3_Patch).
 instance P3_Drawable Patch where
   drawP3With :: OKBackend b => (P3_Piece -> Diagram b) -> Patch -> Diagram b
-  drawP3With pd = drawP3With pd . convertP3
+  drawP3With pd = drawP3With pd . decompP2toP3
 
 -- | A VPatch is P3_Drawable.
 instance P3_Drawable VPatch where
@@ -215,14 +219,16 @@ dashjP3 :: (OKBackend b, P3_Drawable a) =>
           a -> Diagram b
 dashjP3 = drawP3With dashjPieceP3
 
--- |The main draw and fill function for anything P3_Drawable
+-- |The main draw and fill function for anything P3_Drawable.
 -- The first colour is used for wide rhombuses, and the second for narrow rhombuses.
+-- (Note the order W N).
 fillWN :: (OKBackend b, P3_Drawable a, Color cw, Color cn) =>
           cw -> cn -> a -> Diagram b
 fillWN cw cn = drawP3With (fillPieceWN cw cn)
 
 -- |A variation on fillWN where
 -- the first colour is for narrow rhombuses, the second for wide rhombuses.
+-- (Note the order N W).
 fillNW :: (OKBackend b, P3_Drawable a, Color cw, Color cn) =>
           cw -> cn -> a -> Diagram b
-fillNW cn cw = drawP3With (fillPieceWN cw cn)
+fillNW = flip fillWN --drawP3With (fillPieceWN cw cn)

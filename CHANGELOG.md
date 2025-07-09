@@ -1,19 +1,19 @@
 # Revision history for PenroseKiteDart
 
-Since 1.4.3
+## version 1.4.4  -- 2025-8-9
 
-Found bug in remainder faces for new partComposeF - now fixed
-(error in getDartWingInfoForced only)
+Fixed bug in remainder faces for new partComposeF
 
-Added new module TileLibP3 for drawing P3 tilings
-(see example testRhombus in module TgraphExamples)
+Added new module `TileLibP3` for drawing P3 tilings.
+This is now included in `PKD` export list
+with example `testRhombus` in module `TgraphExamples`.
 
 ## version 1.4.3  -- 2025-7-1
 
-Correction in composing
+Fixed bug in `partComposing`.
 (partCompFacesFrom was assuming forced to get remainders.)
-A correction is now incorporated in partComposeFaces and partComposeFacesF
-but partCompFacesFrom is now removed.
+This is now incorporated in partComposeFaces and partComposeFacesF
+and partCompFacesFrom is now removed.
 
 ## version 1.4.2  -- 2025-7-1
 

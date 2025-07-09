@@ -75,7 +75,7 @@ To produce a diagram, we simply draw the `Tgraph`
 ## Modules
 
 Module `PKD` is the main module which imports and re-exports everything.
-That is, module `TileLib` and the Tgraph modules
+That is, module `TileLib` and `TileLibP3` and the Tgraph modules
 `Tgraph.Compose`, `Tgraph.Decompose`, `Tgraph.Force`, `Tgraph.Relabelling`, `Tgraph.Prelude`, `Tgraph.Extras`.
 
 `Try` is imported and re-exported by `Tgraph.Prelude` (used for results of partial functions).
@@ -86,6 +86,9 @@ That is, module `TileLib` and the Tgraph modules
 (The constraint `OKBackend b =>` is used extensively in the library to abstract types from any particular Backend).
 
 `TgraphExamples` contains example Tgraphs and Diagrams.
+
+New in version 1.4.4 `TileLibP3` is for converting to and drawing
+Penrose\'s P3 tilings (rhombuses)
 
 ## Further Information
 

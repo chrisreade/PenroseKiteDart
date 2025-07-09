@@ -96,8 +96,8 @@ module TgraphExamples
 
 import Diagrams.Prelude
 import PKD
-import TileLibP3 
 import Tgraph.Prelude as NoWarn (makeUncheckedTgraph)
+
 import Data.List (intersect,find)      -- for emplaceChoices
 
 
@@ -349,6 +349,7 @@ sun3Dart = addHalfDart (9,10) $ addHalfDart (8,9) $ addHalfDart (5,6) $ addHalfD
 superForceFig :: OKBackend b => Diagram b
 superForceFig = padBorder $ lw thin $ rotate (ttangle 1) $ drawSuperForce g where
     g = addHalfDart (220,221) $ force $ decompositions fool !!3
+-- (Used in testing)
 
 -- |Diagram showing 4 rockets formed by applying superForce to successive decompositions
 -- of sun3Dart. The decompositions are in red with normal force additions in black and superforce additions in blue.
@@ -372,10 +373,11 @@ boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) draw
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart4 = removeVertices [354] boundaryFDart4
-    -- checkedTgraph $ filter ((/=354).originV)  (faces boundaryFDart4)
+ -- (Used in testing)
+
 -- |graph of the boundary faces only of a forced graph - with extra faces removed to make a gap
 boundaryGapFDart5 = removeVertices [1467] boundaryFDart5
-    -- checkedTgraph $ filter ((/=1467).originV) (faces boundaryFDart5)
+ -- (Used in testing)
 
 boundaryGap4Fig, boundaryGap5Fig  :: OKBackend b => Diagram b
 -- |figure for the boundary gap graph boundaryGapFDart4.
