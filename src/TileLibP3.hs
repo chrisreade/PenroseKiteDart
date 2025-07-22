@@ -42,6 +42,7 @@ module TileLibP3
   , P3_Drawable(..)
   -- * Drawing functions producing P3 Rhombuses
   , drawP3
+  , drawjP3
   , dashjP3
   , fillWN
   , fillNW
@@ -215,9 +216,14 @@ drawP3 :: (OKBackend b, P3_Drawable a) =>
 drawP3 = drawP3With drawPieceP3
 
 -- |An alternative drawing function for anything P3_Drawable adding dashed lines for join edges
+drawjP3 :: (OKBackend b, P3_Drawable a) => 
+          a -> Diagram b
+drawjP3 = drawP3With dashjPieceP3
+
+-- |Deprecated (renamed as drawjP3)
 dashjP3 :: (OKBackend b, P3_Drawable a) => 
           a -> Diagram b
-dashjP3 = drawP3With dashjPieceP3
+dashjP3 = drawjP3
 
 -- |The main draw and fill function for anything P3_Drawable.
 -- The first colour is used for wide rhombuses, and the second for narrow rhombuses.

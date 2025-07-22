@@ -1,5 +1,8 @@
 # Revision history for PenroseKiteDart
 
+Since 1.4.4 
+added drawjP3 (renaming dashjP3)
+
 ## version 1.4.4  -- 2025-8-9
 
 Fixed bug in remainder faces for new partComposeF
