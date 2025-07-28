@@ -30,6 +30,7 @@ module TileLibP3
   , decompPieceP2toP3
   , decompPieceP3toP2
   -- * Converting Patches
+  , P3_Patch
   , decompP2toP3
   , decompP3toP2
   -- * Drawing P3_Pieces

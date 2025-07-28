@@ -15,6 +15,7 @@ two auxiliary functions for debugging and experimenting.
 
 module Tgraph.Decompose
   ( decompose
+  , decomposeFaces
   , decompositions
   -- * Exported auxiliary functions 
   , phiVMap
@@ -37,20 +38,24 @@ DECOMPOSING - decompose
 
 -- |Decompose a Tgraph.
 decompose :: Tgraph -> Tgraph
-decompose g = makeUncheckedTgraph newFaces where
-    pvmap = phiVMap g
-    newFaces = concatMap (decompFace pvmap) (faces g)
-    -- evaluated = length newFaces `seq` newFaces
--- |phiVMap g produces a finite map from the phi edges (the long edges including kite joins) to assigned new vertices not in g.
--- Both (a,b) and (b,a) get the same new vertex number. This is used(in decompFace and decompose.
+decompose = makeUncheckedTgraph . decomposeFaces
+
+-- |Decompose all the faces (using a phiVMap for new vertices).
+decomposeFaces :: HasFaces a => a -> [TileFace]
+decomposeFaces a = newFaces where
+    pvmap = phiVMap (faces a)
+    newFaces = concatMap (decompFace pvmap) (faces a)
+
+-- |phiVMap fcs produces a finite map from the phi edges (the long edges including kite joins) to assigned new vertices not in fcs.
+-- Both (a,b) and (b,a) get the same new vertex number. This is used(in decompFace, decompFaces and decompose.
 -- (Sort is used to fix order of assigned numbers).
 -- (Exported for use in TrackedTgraphs in Tgraphs module).
-phiVMap :: Tgraph -> Map.Map Dedge Vertex
-phiVMap g = edgeVMap where
-  phiReps = sort [(a,b) | (a,b) <- phiEdges g, a<b]
+phiVMap :: HasFaces a => a -> Map.Map Dedge Vertex
+phiVMap fcs = edgeVMap where
+  phiReps = sort [(a,b) | (a,b) <- phiEdges fcs, a<b]
   newVs = [v+1..v+n]
   !n = length phiReps
-  !v = maxV g
+  !v = maxV fcs
   edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (map reverseD phiReps) newVs 
 
 -- |Decompose a face producing new faces. 

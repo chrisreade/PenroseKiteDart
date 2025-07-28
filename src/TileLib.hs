@@ -75,6 +75,7 @@ module TileLib
   , scales
   , phiScales
   , phiScaling
+  --, realignX
   ) where
 
 import Diagrams.Prelude
@@ -437,6 +438,7 @@ phiScales = phiScaling 1
 phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
 phiScaling _ [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
+
 
 
 

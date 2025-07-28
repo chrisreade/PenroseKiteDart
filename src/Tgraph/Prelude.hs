@@ -123,9 +123,9 @@ module Tgraph.Prelude
   , hasDedge
   , hasDedgeIn
   , completeEdges
---   , bothDir
+  , bothDir
 --   , bothDirOneWay
---   , missingRevs
+  , missingRevs
     -- * Other Face Operations
   , edgeNb
   , dedgesFacesMap
@@ -1115,6 +1115,8 @@ centerOn :: Vertex -> VPatch -> VPatch
 centerOn a vp =
     case findLoc a vp of
         Just loca -> translate (origin .-. loca) vp
+                     -- same as moveOriginTo loca vp
+                     -- and as  moveOriginBy (loca .-. origin) vp
         _ -> error $ "centerOn: vertex not found (Vertex " ++ show a ++ ")\n"
 
 -- |alignXaxis takes a vertex pair (a,b) and a VPatch vp

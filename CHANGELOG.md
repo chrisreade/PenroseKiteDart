@@ -2,6 +2,12 @@
 
 Since 1.4.4 
 added drawjP3 (renaming dashjP3)
+new decomposeFaces
+generalised phiVMap
+
+exposed P3_Patch
+exposed bothDir
+exposed missingRevs
 
 ## version 1.4.4  -- 2025-8-9
 
