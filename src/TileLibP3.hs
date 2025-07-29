@@ -47,6 +47,11 @@ module TileLibP3
   , dashjP3
   , fillWN
   , fillNW
+  -- * P3_DrawableLabelled Class
+  , P3_DrawableLabelled(..)
+  -- * Adding labels to functions producing P3 Rhombuses
+  , labelP3Size
+  , labelledP3
   ) where
 
 import Diagrams.Prelude
@@ -56,6 +61,10 @@ import CheckBackend
 import HalfTile
 import TileLib
 import Tgraph.Prelude
+import Tgraph.Decompose ( phiVMap )
+
+import qualified Data.Map.Strict as Map ((!))
+import qualified Data.IntMap.Strict as VMap (fromList, toList, lookup)
 
 -- | Penrose P3 Tiling uses wide and narrow rhombuses
 -- These are split into half tiles (triangles) as with kites and darts
@@ -239,3 +248,49 @@ fillWN cw cn = drawP3With (fillPieceWN cw cn)
 fillNW :: (OKBackend b, P3_Drawable a, Color cw, Color cn) =>
           cw -> cn -> a -> Diagram b
 fillNW = flip fillWN --drawP3With (fillPieceWN cw cn)
+
+
+-- | A class for things that can be drawn (P3 style) with labels when given a colour and a measure (size) for the labels and a 
+-- a draw function (for P3_Patches).
+-- So labelP3ColourSize c m  modifies a P3_Patch drawing function to add labels (of colour c and size measure m).
+-- Measures are defined in Diagrams. In particular: tiny, verySmall, small, normal, large, veryLarge, huge.
+class P3_DrawableLabelled a where
+   labelP3ColourSize :: OKBackend b => 
+                        Colour Double -> Measure Double -> (P3_Patch -> Diagram b) -> a -> Diagram b
+
+-- | VPatches can be drawn (P3 style) with labels
+-- NB: the additional vertices for P3 are only added when drawing and are not part of the VPatch.
+-- Thus using such a vertex for alignment will raise an error.
+instance P3_DrawableLabelled VPatch where
+     labelP3ColourSize c m d vp = drawLabels <> d p3Patch where
+        p3Patch = decompP2toP3 $ dropLabels vp
+        drawLabels = position $ drawlabel <$> VMap.toList (extendLocsP3 vp)
+        drawlabel(v,p) = (p, baselineText (show v) # fontSize m # fc c)
+
+-- | (Not exported) Extend the vertex locations of a vpatch with locations for new kite join vertices.
+-- The new vertex numbers are generated with phiVMap from Tgraph.Decompose
+extendLocsP3 :: VPatch -> VertexLocMap
+extendLocsP3 vp = locmap <> VMap.fromList (map (locateNew . joinOfTile) (kites vp)) where
+    locmap = vLocs vp
+    newemap = phiVMap vp
+    locateNew (a,b) = case (VMap.lookup a locmap, VMap.lookup b locmap) of
+        (Just pa, Just pb) -> (newemap Map.! (a,b), pa .+^ (phi-1) *^ (pb .-. pa))
+        _ -> error "extendLocsP3: Missing location for a kite join"
+
+-- | Tgraphs can be drawn (P3 style) with labels
+-- NB: the additional vertices for P3 are only added when drawing and are not part of the Tgraph
+-- or its VPatch.
+-- Thus using such a vertex for alignment will raise an error.
+instance P3_DrawableLabelled Tgraph where
+     labelP3ColourSize c m d = labelP3ColourSize c m d . makeVP
+
+-- | Default Version of labelP3ColourSize with colour red. Example usage: labelP3Size tiny drawP3 a , labelP3Size normal drawjP3 a
+labelP3Size :: (OKBackend b, P3_DrawableLabelled a) =>
+               Measure Double -> (P3_Patch -> Diagram b) -> a -> Diagram b
+labelP3Size = labelP3ColourSize red
+
+-- | Default Version of labelP3ColourSize using red and small (rather than normal label size). Example usage: labelledP3 drawP3 a , labelledP3 drawjP3 a
+labelledP3 :: (OKBackend b, P3_DrawableLabelled a) =>
+            (P3_Patch -> Diagram b) -> a -> Diagram b
+labelledP3 = labelP3ColourSize red small --(normalized 0.023)
+

@@ -1,13 +1,13 @@
 # Revision history for PenroseKiteDart
 
 Since 1.4.4 
-added drawjP3 (renaming dashjP3)
-new decomposeFaces
+added class P3_DrawableLabelled (instances VPatch, Tgraph)
+      with labelP3ColourSize, labelP3Size, labelledP3
+added drawjP3 (renamed from dashjP3)
 generalised phiVMap
+new: decomposeFaces
 
-exposed P3_Patch
-exposed bothDir
-exposed missingRevs
+exposed: P3_Patch, bothDir, missingRevs
 
 ## version 1.4.4  -- 2025-8-9
 
