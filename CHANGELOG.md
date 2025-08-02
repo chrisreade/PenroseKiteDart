@@ -2,12 +2,13 @@
 
 Since 1.4.4 
 added class P3_DrawableLabelled (instances VPatch, Tgraph)
-      with labelP3ColourSize, labelP3Size, labelledP3
+      with labelColourSizeP3, labelSizeP3, labelledP3
 added drawjP3 (renamed from dashjP3)
 generalised phiVMap
 new: decomposeFaces
+     fillOnlyPieceDK
 
-exposed: P3_Patch, bothDir, missingRevs
+exposed: P3_Patch, bothDir, missingRevs, extractLowestJoin
 
 ## version 1.4.4  -- 2025-8-9
 

@@ -132,7 +132,7 @@ module Tgraph.Prelude
   , buildEFMap
   , faceForEdge
   , edgeNbs
---  , extractLowestJoin
+  , extractLowestJoin
   , lowestJoin
     -- * VPatch and Conversions
   , VPatch(..)
@@ -1060,7 +1060,6 @@ instance Drawable VPatch where
     drawWith pd vp = drawWith pd (dropLabels vp)
 
 -- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces.
--- (Usage can be confined to Drawable VPatch instance and DrawableLabelled VPatch instance.)
 dropLabels :: VPatch -> Patch
 dropLabels vp = map convert (faces vp) where
   locations = vLocs vp
@@ -1086,8 +1085,8 @@ class DrawableLabelled a where
 
 -- | VPatches can be drawn with labels
 instance DrawableLabelled VPatch where
-  labelColourSize c m d vp = drawLabels (vLocs vp) <> d (dropLabels vp) where
-     drawLabels vpMap = position $ drawlabel <$> VMap.toList vpMap
+  labelColourSize c m d vp = drawLabels <> d (dropLabels vp) where
+     drawLabels = position $ drawlabel <$> VMap.toList (vLocs vp)
      drawlabel(v,p) = (p, baselineText (show v) # fontSize m # fc c)
 
 -- | Tgraphs can be drawn with labels

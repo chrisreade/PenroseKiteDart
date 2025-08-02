@@ -40,6 +40,7 @@ module TileLib
   , drawRoundPiece
   , drawJoin
   , fillOnlyPiece
+  , fillOnlyPieceDK
   , fillPieceDK
   -- , fillMaybePieceDK
   , leftFillPieceDK
@@ -160,7 +161,7 @@ drawPiece = strokeLine . fromOffsets . pieceEdges
 -- |same as drawPiece but with join edge added as faint dashed line.
 dashjPiece :: OKBackend b =>
               Piece -> Diagram b
-dashjPiece piece = drawPiece piece <> dashjOnly piece
+dashjPiece = drawPiece <> dashjOnly
 
 
 -- |draw join edge only (as faint dashed line).
@@ -187,22 +188,35 @@ drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
 -- |fillOnlyPiece col piece - fills piece with colour col without drawing any lines.
 -- Can be used with both Colour and AlphaColour
 fillOnlyPiece :: (OKBackend b, Color c) =>
-                  c -> Piece -> Diagram b
+                 c -> Piece -> Diagram b
 fillOnlyPiece col piece  = drawRoundPiece piece # fillColor col # lw none
+
+-- |fillOnlyPieceDK dcol kcol piece - fills the half-tile piece
+-- with colour dcol for darts and kcol for kites.
+-- Note the order D K.
+-- Can be used with both Colour and AlphaColour
+fillOnlyPieceDK :: (OKBackend b, Color c1, Color c2) =>
+                   c1 -> c2 -> HalfTile (V2 Double) -> Diagram b
+fillOnlyPieceDK dcol kcol piece = 
+    if isDart piece 
+    then fillOnlyPiece dcol piece
+    else fillOnlyPiece kcol piece
 
 -- |fillPieceDK dcol kcol piece - draws and fills the half-tile piece
 -- with colour dcol for darts and kcol for kites.
 -- Note the order D K.
 -- Can be used with both Colour and AlphaColour
 fillPieceDK :: (OKBackend b, Color c1, Color c2) =>
-                c1 -> c2 -> HalfTile (V2 Double) -> Diagram b
+               c1 -> c2 -> HalfTile (V2 Double) -> Diagram b
+fillPieceDK dcol kcol = drawPiece <> fillOnlyPieceDK dcol kcol
+{- 
 fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
   filledPiece = case piece of
      (LD _) -> fillOnlyPiece dcol piece
      (RD _) -> fillOnlyPiece dcol piece
      (LK _) -> fillOnlyPiece kcol piece
      (RK _) -> fillOnlyPiece kcol piece
-
+ -}
 -- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.
 -- (Right half-tiles produce nothing, so whole tiles are not drawn twice).
