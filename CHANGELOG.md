@@ -1,16 +1,28 @@
 # Revision history for PenroseKiteDart
 
-Since 1.4.4 
-added class P3_DrawableLabelled (instances VPatch, Tgraph)
-      with labelColourSizeP3, labelSizeP3, labelledP3
-added drawjP3 (renamed from dashjP3)
-generalised phiVMap
-new: decomposeFaces
-     fillOnlyPieceDK
+## version 1.4.5  -- 2025-8-3
+added:
+    class P3_DrawableLabelled (instances VPatch, Tgraph)
+    with labelColourSizeP3, labelSizeP3, labelledP3
 
-exposed: P3_Patch, bothDir, missingRevs, extractLowestJoin
+    drawjP3 (renamed from dashjP3)
+    fillOnlyPieceDK
+    drawjPiece (renamed from dashjPiece)
+    drawnEdges (renamed from pieceEdges)
 
-## version 1.4.4  -- 2025-8-9
+    decomposeFaces
+    fillOnlyPieceDK
+
+exposed:
+    P3_Patch, bothDir, missingRevs, extractLowestJoin
+
+generalised:
+    phiVMap
+
+deprecated:
+    dashjP3, dashjPiece, pieceEdges (all renamed)
+
+## version 1.4.4  -- 2025-7-9
 
 Fixed bug in remainder faces for new partComposeF
 

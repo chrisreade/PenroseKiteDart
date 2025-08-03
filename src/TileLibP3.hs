@@ -34,9 +34,9 @@ module TileLibP3
   , decompP2toP3
   , decompP3toP2
   -- * Drawing P3_Pieces
-  --, drawnedgesP3
+  --, drawnEdgesP3
   , drawPieceP3
-  , dashjPieceP3
+  , drawjPieceP3
   , fillOnlyPieceP3
   , fillOnlyPieceWN
   , fillPieceWN
@@ -161,29 +161,35 @@ decompP2toP3 = concatMap decompPieceP2toP3
 decompP3toP2 :: P3_Patch -> Patch
 decompP3toP2 = concatMap decompPieceP3toP2
 
--- |The drawn edges of a P3_Piece (as a list of vectors)
-drawnedgesP3 :: P3_Piece -> [V2 Double]
-drawnedgesP3 (LW v) = [z,v^-^z] where z = (phi-1)*^rotate (ttangle 1) v
-drawnedgesP3 (RW v) = [z,v^-^z] where z = (phi-1)*^rotate (ttangle 9) v
-drawnedgesP3 (LN v) = [z,v^-^z] where z = phi*^rotate (ttangle 2) v
-drawnedgesP3 (RN v) = [z,v^-^z] where z = phi*^rotate (ttangle 8) v
+-- |The drawn edges of a P3_Piece excluding the join edge (as a list of vectors)
+drawnEdgesP3 :: P3_Piece -> [V2 Double]
+drawnEdgesP3 (LW v) = [z,v^-^z] where z = (phi-1)*^rotate (ttangle 1) v
+drawnEdgesP3 (RW v) = [z,v^-^z] where z = (phi-1)*^rotate (ttangle 9) v
+drawnEdgesP3 (LN v) = [z,v^-^z] where z = phi*^rotate (ttangle 2) v
+drawnEdgesP3 (RN v) = [z,v^-^z] where z = phi*^rotate (ttangle 8) v
+
 
 -- |Draws the two drawn edges of a P3_Piece
 drawPieceP3 :: OKBackend b => P3_Piece -> Diagram b
-drawPieceP3 = strokeLine . fromOffsets . drawnedgesP3
+drawPieceP3 = strokeLine . fromOffsets . drawnEdgesP3
+
+-- |Draw dashed join only of a P3_Piece 
+dashjOnlyP3 :: OKBackend b => P3_Piece -> Diagram b
+dashjOnlyP3 p = joinDashing (strokeLine $ fromOffsets [tileRepP3 p])
+
 
 -- |Draws all edges of a P3_Piece using a faint dashed line for the join edge
-dashjPieceP3 :: OKBackend b => P3_Piece -> Diagram b
-dashjPieceP3 p = drawPieceP3 p <> joinDashing (strokeLine $ fromOffsets [tileRepP3 p])
+drawjPieceP3 :: OKBackend b => P3_Piece -> Diagram b
+drawjPieceP3 = drawPieceP3 <> dashjOnlyP3
 
 -- |Fills a P3_Piece with a colour (without drawn edges)
 fillOnlyPieceP3 :: (OKBackend b, Color c) =>
                    c -> P3_Piece -> Diagram b
 fillOnlyPieceP3 c p = 
     lw none $ fillColor c $ 
-    strokeLoop $ closeLine $ fromOffsets $ drawnedgesP3 p
+    strokeLoop $ closeLine $ fromOffsets $ drawnEdgesP3 p
 
--- |Fills and draws a P3_Piece with one of 2 colours
+-- |Fills a P3_Piece with one of 2 colours (but no drawn edges).
 -- The first colour is used for wide rhombuses, and the second for narrow rhombuses.
 -- (Note the order WN)
 fillOnlyPieceWN :: (OKBackend b, Color cw, Color cn) =>
@@ -243,8 +249,9 @@ drawP3 = drawP3With drawPieceP3
 -- |An alternative drawing function for anything P3_Drawable adding dashed lines for join edges
 drawjP3 :: (OKBackend b, P3_Drawable a) => 
           a -> Diagram b
-drawjP3 = drawP3With dashjPieceP3
+drawjP3 = drawP3With drawjPieceP3
 
+{-# DEPRECATED dashjP3 "Replaced by drawjP3" #-}
 -- |Deprecated (renamed as drawjP3)
 dashjP3 :: (OKBackend b, P3_Drawable a) => 
           a -> Diagram b

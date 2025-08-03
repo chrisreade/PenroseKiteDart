@@ -30,10 +30,12 @@ module TileLib
     -- * Drawing Pieces
   , phi
   , ttangle
+  , drawnEdges
   , pieceEdges
   , wholeTileEdges
   -- $OKBackend
   , drawPiece
+  , drawjPiece
   , dashjPiece
   , joinDashing
   , dashjOnly
@@ -126,7 +128,7 @@ ttangle:: Int -> Angle Double
 ttangle n = fromIntegral (n `mod` 10) *^tt
              where tt = 1/10 @@ turn
 
-{-|This produces a list of the two adjacent non-join tile directed edges of a piece starting from the origin.
+{-|This produces a list of vectors representing the two adjacent non-join tile directed edges of a piece starting from the origin.
 
 We consider left and right as viewed from the origin.
 This means that darts are reversed with respect to a view from the tail, but kites are
@@ -135,18 +137,23 @@ in keeping with a common view (the kite tail being the origin).
 So for right dart and left kite the edges are directed and ordered clockwise from the piece origin, and for left dart and right kite these are
 directed and ordered anti-clockwise from the piece origin.
 -}
+drawnEdges:: Piece -> [V2 Double]
+drawnEdges (LD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 9) v
+drawnEdges (RD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 1) v
+drawnEdges (RK v) = [v',v ^-^ v'] where v' = rotate (ttangle 9) v
+drawnEdges (LK v) = [v',v ^-^ v'] where v' = rotate (ttangle 1) v
+
+{-# DEPRECATED pieceEdges "Replaced by drawnEdges" #-}
+-- |older name for drawnEdges
 pieceEdges:: Piece -> [V2 Double]
-pieceEdges (LD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 9) v
-pieceEdges (RD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 1) v
-pieceEdges (RK v) = [v',v ^-^ v'] where v' = rotate (ttangle 9) v
-pieceEdges (LK v) = [v',v ^-^ v'] where v' = rotate (ttangle 1) v
+pieceEdges = drawnEdges
 
 -- |the 4 tile edges of a completed half-tile piece (used for colour fill).
 -- These are directed and ordered clockwise from the origin of the tile.
 wholeTileEdges:: Piece -> [V2 Double]
 wholeTileEdges (LD v) = wholeTileEdges (RD v)
-wholeTileEdges (RD v) = pieceEdges (RD v) ++ map negated (reverse $ pieceEdges (LD v))
-wholeTileEdges (LK v) = pieceEdges (LK v) ++ map negated (reverse $ pieceEdges (RK v))
+wholeTileEdges (RD v) = drawnEdges (RD v) ++ map negated (reverse $ drawnEdges (LD v))
+wholeTileEdges (LK v) = drawnEdges (LK v) ++ map negated (reverse $ drawnEdges (RK v))
 wholeTileEdges (RK v) = wholeTileEdges (LK v)
 
 {- $OKBackend 
@@ -156,34 +163,39 @@ Note: Most functions for drawing will have constraint OKBackend b and result typ
 -- |drawing lines for the 2 non-join edges of a piece.
 drawPiece :: OKBackend b =>
              Piece -> Diagram b
-drawPiece = strokeLine . fromOffsets . pieceEdges
+drawPiece = strokeLine . fromOffsets . drawnEdges
 
 -- |same as drawPiece but with join edge added as faint dashed line.
+drawjPiece :: OKBackend b =>
+              Piece -> Diagram b
+drawjPiece = drawPiece <> dashjOnly
+
+{-# DEPRECATED dashjPiece "Replaced by drawjPiece" #-}
+-- |renamed as drawjPiece
 dashjPiece :: OKBackend b =>
               Piece -> Diagram b
-dashjPiece = drawPiece <> dashjOnly
-
+dashjPiece = drawjPiece
 
 -- |draw join edge only (as faint dashed line).
 dashjOnly :: OKBackend b =>
              Piece -> Diagram b
--- dashjOnly piece = drawJoin piece # dashingN [0.003,0.003] 0 # lw ultraThin -- # lc grey 
-dashjOnly piece = drawJoin piece # joinDashing
+dashjOnly = joinDashing . drawJoin
 
 -- |changes line style to ultraThin dashed lines (for drawing join edges)
 joinDashing :: (HasStyle c, N c ~ Double) => c -> c
 joinDashing = dashing [dashmeasure,dashmeasure] 0 . lw ultraThin
                      where dashmeasure = normalized 0.003  `atLeast` output 0.5
 
--- |same as drawPiece but with added join edge (also fillable as a loop).
-drawRoundPiece :: OKBackend b =>
-                  Piece -> Diagram b
-drawRoundPiece = strokeLoop . closeLine . fromOffsets . pieceEdges
-
 -- |draw join edge only.
 drawJoin :: OKBackend b =>
             Piece -> Diagram b
 drawJoin piece = strokeLine $ fromOffsets [joinVector piece]
+
+-- |same as drawPiece but with added join edge (also fillable as a loop).
+drawRoundPiece :: OKBackend b =>
+                  Piece -> Diagram b
+drawRoundPiece = strokeLoop . closeLine . fromOffsets . drawnEdges
+
 
 -- |fillOnlyPiece col piece - fills piece with colour col without drawing any lines.
 -- Can be used with both Colour and AlphaColour
@@ -269,7 +281,7 @@ draw = drawWith drawPiece
 -- | alternative default case for drawing, adding dashed lines for join edges.
 drawj :: (Drawable a, OKBackend b) =>
          a -> Diagram b
-drawj = drawWith dashjPiece
+drawj = drawWith drawjPiece
 
 fillDK, fillKD :: (Drawable a, OKBackend b, Color c1, Color c2) =>
                   c1 -> c2 -> a -> Diagram b
