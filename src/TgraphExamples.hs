@@ -96,7 +96,7 @@ module TgraphExamples
 
 import Diagrams.Prelude
 import PKD
-import Tgraph.Prelude as NoWarn (makeUncheckedTgraph)
+--import Tgraph.Prelude as NoWarn (makeUncheckedTgraph)
 
 import Data.List (intersect,find)      -- for emplaceChoices
 
@@ -253,7 +253,7 @@ badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, v
     vp = makeVP badlyBrokenDart
     comp = compose badlyBrokenDart
     vpComp = restrictVP vp $ faces comp
-    vpFailed  = restrictVP vp $ (snd . partComposeFaces) comp
+    vpFailed  = restrictVP vp $ (snd . runTry . tryPartComposeFaces) comp
 
 -- |figure showing the result of removing incomplete tiles (those that do not have their matching halftile)
 -- to a 3 times decomposed sun.
@@ -360,9 +360,9 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 
 boundaryFDart4, boundaryFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph (dartDs!!4)
-boundaryFDart4 = NoWarn.makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
+boundaryFDart4 = makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState dartD4
 -- |graph of the boundary faces only of a forced graph (dartDs!!5)
-boundaryFDart5 = NoWarn.makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
+boundaryFDart5 = makeUncheckedTgraph $ boundaryFaces $ force $ makeBoundaryState (dartDs!!5)
 
 boundaryFDart4Fig,boundaryFDart5Fig :: OKBackend b => Diagram b
 -- |figure of the boundary faces only of a forced graph (dartDs!!4).
@@ -428,10 +428,9 @@ emplaceChoices:: Tgraph -> [Tgraph]
 emplaceChoices = emplaceChoicesForced . forceF  where
 
   emplaceChoicesForced:: Forced Tgraph -> [Tgraph]
-  emplaceChoicesForced fg | nullFaces g' = chooseUnknowns [(unknowns $ getDartWingInfo g0, g0)]
+  emplaceChoicesForced fg | nullFaces g' = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, forgetF fg)]
                           | otherwise    = force . decompose <$> emplaceChoicesForced fg'
-                          where g0 = forgetF fg
-                                fg' = composeF fg
+                          where fg' = composeF fg
                                 g' = forgetF fg'
 
   chooseUnknowns :: [([Vertex],Tgraph)] -> [Tgraph]

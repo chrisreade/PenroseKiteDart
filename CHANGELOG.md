@@ -1,9 +1,23 @@
 # Revision history for PenroseKiteDart
 
 Since v1.4.5
-compose, partCompose, getDartWingInfo can now involve forcing
-to get more accurate dart wing info.
-This means they can raise an error when an incorrect Tgraph is found.
+
+Revamp of composing.  (When a Tgraph is not known to be forced,
+composing now involves calculating the forced version to get accurate information
+about dart wings.)
+
+This affects
+    compose,
+    partCompose,
+    tryPartCompose (new),
+    tryPartComposeFaces (new),
+    tryGetDartWingInfo (new)
+removed:
+    partComposeFaces, 
+    partComposeFacesF,
+    composedFaceGroups,
+    getDartWingInfo (renamed as oldGetDartWingInfo)
+
 This does not affect composeF, partComposeF, getDartWingInfoForced
 
 ## version 1.4.5  -- 2025-8-3

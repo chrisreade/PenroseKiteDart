@@ -236,14 +236,23 @@ emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) whe
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 -- E.g. when applied to force queenGraph.
 composeK :: Tgraph -> Tgraph
+composeK g = runTry $ 
+   do dwInfo <- tryGetDartWingInfo g
+      let changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
+                              , unknowns = []
+                              }
+          ( _ , newfaces) = partComposeFacesWith changedInfo
+      tryConnectedNoCross newfaces
+{- composeK :: Tgraph -> Tgraph
 composeK g = runTry $ tryConnectedNoCross newfaces where
-    dwInfo = getDartWingInfo g
+    dwInfo = runTry $ tryGetDartWingInfo g
     changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
                         , unknowns = []
                         }
 --    newfaces = snd $ partCompFacesFrom changedInfo
     compositions = composedFaceGroups changedInfo
     newfaces = map fst compositions
+ -}
 
 -- |compForce is a partial function similar to (compose . force),
 -- i.e it does a force then compose (raising an error if the force fails with an incorrect Tgraph).
