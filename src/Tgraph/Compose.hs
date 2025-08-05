@@ -26,17 +26,18 @@ module Tgraph.Compose
   , DartWingInfo(..)
   -- , getDWIassumeF
   , getDartWingInfo
+  , oldGetDartWingInfo
   , getDartWingInfoForced
   , composedFaceGroups
   ) where
 
-import Data.List (find, foldl', (\\),partition)
+import Data.List (find, foldl', (\\),partition, nub)
 import qualified Data.IntMap.Strict as VMap (IntMap,lookup,(!),alter,empty)
 import Data.Maybe (mapMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)
 
 import Tgraph.Prelude
-import Tgraph.Force ( Forced(), forgetF, labelAsForced )
+import Tgraph.Force ( Forced(), forgetF, labelAsForced, tryForce )
 {-------------------------------------------------------------------------
 ***************************************************************************              
 COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
@@ -47,6 +48,7 @@ COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
 -- the composed Tgraph.  It will raise an error if the result is not a valid Tgraph
 -- (i.e. if it fails the connectedness, no crossing boundary check).
 -- It does not assume the given Tgraph is forced.
+-- It can raise an error if the Tgraph is found to be incorrect
 compose:: Tgraph -> Tgraph
 compose = snd . partCompose
 
@@ -115,11 +117,15 @@ data DartWingInfo =  DartWingInfo
 getDartWingInfo:: Tgraph -> DartWingInfo
 getDartWingInfo = getDWIassumeF False
 
+-- | getDartWingInfo g, classifies the dart wings in g and calculates a faceMap for each dart wing,
+-- returning as DartWingInfo. It does not assume g is forced and is more expensive than getDartWingInfoForced
+oldGetDartWingInfo:: Tgraph -> DartWingInfo
+oldGetDartWingInfo = oldGetDWIassumeF False
+
 -- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg and calculates a faceMap for each dart wing,
 -- returning as DartWingInfo. (It can classify quicker knowing the Tgraph is forced.)
 getDartWingInfoForced :: Forced Tgraph -> DartWingInfo
 getDartWingInfoForced fg = getDWIassumeF True (forgetF fg)
-
 
 -- | getDWIassumeF (not exported but used to define 2 cases getDartWingInfoForced and getDartWingInfo).
 -- getDWIassumeF isForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,
@@ -144,100 +150,50 @@ getDWIassumeF isForced g =
     addD f Nothing = Just [f]
     addD f (Just fs) = Just (f:fs)
     insertK (vmap,unsd) f = 
-      let op = oppV f
+      let opp = oppV f
           org = originV f
-      in  case (VMap.lookup op vmap, VMap.lookup org vmap) of
-            (Just _ ,Just _)     ->  (VMap.alter (addK f) (oppV f) $ VMap.alter (addK f) (originV f) vmap, unsd)
-            (Just _ , Nothing)   ->  (VMap.alter (addK f) (oppV f) vmap, unsd)
-            (Nothing, Just _ )   ->  (VMap.alter (addK f) (originV f) vmap, unsd)
+      in  case (VMap.lookup opp vmap, VMap.lookup org vmap) of
+            (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
+            (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
+            (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, unsd)
             (Nothing, Nothing)   ->  (vmap, f:unsd)
 
     addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
     addK f (Just fs) = Just (f:fs)
 
+  ~forcedFaces = if isForced then faces g else 
+               faces (runTry $ onFail "getDartWingInfo: incorrect Tgraph found when composing.\n"
+                             $ tryForce g)
+
+
   (allKcs,allDbs,allUnks) = foldl' processD (IntSet.empty, IntSet.empty, IntSet.empty) drts  
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
 -- unks = unclassified dart wing vertices
--- processD now uses a triple of IntSets rather than lists
-  processD (kcs, dbs, unks) rd@(RD (orig, w, _)) = -- classify wing tip w
-    if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else-- already classified
-    let
-        fcs = dwFMap VMap.! w -- faces at w
---        Just fcs = VMap.lookup w dwFMap -- faces at w
+-- Uses a triple of IntSets rather than lists
+  processD (kcs, dbs, unks) drt =
+    let w = wingV drt
+        revLongE = reverseD (longE drt)
     in
-        if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else 
-                -- wing is a half kite origin => largeDartBases
-        if (w,orig) `elem` map longE (filter isLD fcs) then (IntSet.insert w kcs,dbs,unks) else 
-                -- long edge rd shared with an ld => largeKiteCentres
-        if isForced || length fcs == 1 then (kcs, dbs, IntSet.insert w unks) else
-        case findFarK rd fcs of -- extra inspection only needed for unforced Tgraphs
-        Nothing -> (kcs,dbs,IntSet.insert w unks) -- unknown if incomplete kite attached to short edge of rd
-        Just rk@(RK _)  ->  
-            case find (matchingShortE rk) fcs of
-            Just (LK _) -> (IntSet.insert w kcs,dbs,unks) -- short edge rk shared with an lk => largeKiteCentres
-            Just (LD _) -> (kcs,IntSet.insert w dbs,unks) -- short edge rk shared with an ld => largeDartBases
-            _ -> let 
-                     newfcs = filter (isAtV (wingV rk)) (faces g)   -- faces at rk wing    
-                 in
-                 case find (matchingLongE rk) newfcs of  -- short edge rk has nothing attached
-                 Nothing -> (kcs,dbs,IntSet.insert w unks)  -- long edge of rk has nothing attached => unknown
-                 Just (LD _) -> (IntSet.insert w kcs,dbs,unks) -- long edge rk shared with ld => largeKiteCentres
-                 Just lk@(LK _) ->               -- long edge rk shared with lk
-                      case find (matchingShortE lk) newfcs of
-                      Just (RK _) -> (IntSet.insert w kcs,dbs,unks)
-                              -- short edge of this lk shared with another rk => largeKiteCentres
-                      Just (RD _) -> (kcs,IntSet.insert w dbs,unks) 
-                              -- short edge of this lk shared with rd => largeDartBases
-                      _ -> (kcs,dbs,IntSet.insert w unks) 
-                 Just _ ->  error "getDartWingInfo: illegal case for matchingLongE of a right kite"
-                              -- short edge of this lk has nothing attached => unknown
-        Just _ -> error "getDartWingInfo: non-kite returned by findFarK"
+        if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else-- already classified
+        let
+            fcs = dwFMap VMap.! w -- list of  faces at w
+        in
+            if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else 
+                    -- wing is a half kite origin => largeDartBase
+            if revLongE `elem` map longE (filter isDart fcs) then (IntSet.insert w kcs,dbs,unks) else 
+                    -- long edge drt shared with another dart => largeKiteCentre
+            if isForced || length fcs == 1 then (kcs, dbs, IntSet.insert w unks) else
+            let     -- (when not already forced) do same checks but with forced faces 
+                ~ffcs = filter (isAtV w) forcedFaces
+            in
+                if w `elem` map originV (filter isKite ffcs) then (kcs,IntSet.insert w dbs,unks) else 
+                    -- wing is a half kite origin => largeDartBase
+                if revLongE `elem` map longE (filter isDart ffcs) then (IntSet.insert w kcs,dbs,unks) else 
+                    -- long edge rd shared with an ld => largeKiteCentre
+                (kcs,dbs,IntSet.insert w unks) 
 
--- processD now uses a triple of IntSets rather than lists
-  processD (kcs, dbs, unks) ld@(LD (orig, _, w)) = -- classify wing tip w
-    if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else  -- already classified
-    let
-        fcs = dwFMap VMap.! w -- faces at w
-    in
-        if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else
-                   -- wing is a half kite origin => nodeDB
-        if (orig,w) `elem` map longE (filter isRD fcs) then (IntSet.insert w kcs,dbs,unks) else
-                   -- long edge ld shared with an rd => nodeKC
-        if isForced || length fcs == 1 then (kcs, dbs, IntSet.insert w unks) else
-        case findFarK ld fcs of
-          Nothing -> (kcs,dbs,IntSet.insert w unks) -- unknown if incomplete kite attached to short edge of ld
-          Just lk@(LK _)  ->  
-            case find (matchingShortE lk) fcs of
-            Just (RK _) -> (IntSet.insert w kcs,dbs,unks) -- short edge lk shared with an rk => largeKiteCentres
-            Just (RD _) -> (kcs,IntSet.insert w dbs,unks) -- short edge lk shared with an rd => largeDartBases
-            _ -> let 
-                     newfcs = filter (isAtV (wingV lk)) (faces g)   -- faces at lk wing  
-                 in
-                 case find (matchingLongE lk) newfcs of -- short edge lk has nothing attached
-                 Nothing -> (kcs,dbs,IntSet.insert w unks)  -- long edge of lk has nothing attached => unknown
-                 Just (RD _) -> (IntSet.insert w kcs,dbs,unks) -- long edge lk shared with rd => largeKiteCentres
-                 Just rk@(RK _) ->               -- long edge lk is shared with an rk
-                     case find (matchingShortE rk) newfcs of
-                     Just (LK _) -> (IntSet.insert w kcs,dbs,unks)
-                             -- short edge of this rk shared with another lk => largeKiteCentres
-                     Just (LD _) -> (kcs,IntSet.insert w dbs,unks)
-                             -- short edge of this rk shared with ld => largeDartBases
-                     _ -> (kcs,dbs,IntSet.insert w unks) -- short edge of this rk has nothing attached => unknown
-                 Just _ ->  error "getDartWingInfo: illegal case for matchingLongE of a left kite"
 
-          Just _ -> error "getDartWingInfo: non-kite returned by findFarK"
-
-  processD _ _ = error "getDartWingInfo: processD applied to non-dart"
-
-    -- find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
-    -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
-  findFarK :: TileFace -> [TileFace] -> Maybe TileFace
-  findFarK rd@(RD _) fcs = do lk <- find (matchingShortE rd) (filter isLK fcs)
-                              find (matchingJoinE lk) (filter isRK fcs)
-  findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
-                              find (matchingJoinE rk)  (filter isLK fcs)
-  findFarK _ _ = error "getDartWingInfo: findFarK applied to non-dart face"
 
 -- |partCompFacesAssumeF (not exported but used to build 2 cases: partComposeFaces, partComposefacesF)
 -- If the boolean is True then assumptions are made that the Tgraph is forced,
@@ -287,6 +243,16 @@ partCompFacesAssumeF isForced g = (remainder, newFaces) where
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
+-- |Recover a list of faces (no repetitions) contained in the dartwing info.
+-- (These should be all faces of the Tgraph used to make the dartwing info.)
+getAllFaces :: DartWingInfo -> [TileFace]
+getAllFaces dwInfo = 
+    nub $ concat [ concatMap getFaces (largeKiteCentres dwInfo)
+                 , concatMap getFaces (largeDartBases dwInfo)
+                 , concatMap getFaces (unknowns dwInfo)
+                 , unMapped dwInfo
+                 ]  
+   where getFaces = (faceMap dwInfo VMap.!)
 
 
 
@@ -334,5 +300,125 @@ composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ face
                     return [ld,rk,lk]
 
 
+
+-- | getDWIassumeF (not exported but used to define 2 cases getDartWingInfoForced and getDartWingInfo).
+-- getDWIassumeF isForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,
+-- returning as DartWingInfo. The boolean isForced is used to decide if g can be assumed to be forced.
+oldGetDWIassumeF:: Bool -> Tgraph -> DartWingInfo
+oldGetDWIassumeF isForced g =  
+  DartWingInfo { largeKiteCentres = IntSet.toList allKcs
+               , largeDartBases = IntSet.toList allDbs
+               , unknowns = IntSet.toList allUnks
+               , faceMap = dwFMap
+               , unMapped = unused
+               } where
+  (drts,kts) = partition isDart (faces g)
+  -- special case of vertexFacesMap for dart wings only
+  -- using only relevant vertices where there is a dart wing.
+  -- i.e only wings for darts and only oppVs and originVs for kites.
+  -- The map is built first from darts, then kites are added.
+  (dwFMap,unused) = foldl' insertK (dartWMap,[]) kts -- all kites added to relevant dart wings
+    where
+    dartWMap = foldl' insertD VMap.empty drts -- all dartwings with 1 or 2 darts each
+    insertD vmap f = VMap.alter (addD f) (wingV f) vmap
+    addD f Nothing = Just [f]
+    addD f (Just fs) = Just (f:fs)
+    insertK (vmap,unsd) f = 
+      let opp = oppV f
+          org = originV f
+      in  case (VMap.lookup opp vmap, VMap.lookup org vmap) of
+            (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
+            (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
+            (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, unsd)
+            (Nothing, Nothing)   ->  (vmap, f:unsd)
+
+    addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
+    addK f (Just fs) = Just (f:fs)
+
+  (allKcs,allDbs,allUnks) = foldl' processD (IntSet.empty, IntSet.empty, IntSet.empty) drts  
+-- kcs = kite centres of larger kites,
+-- dbs = dart bases of larger darts,
+-- unks = unclassified dart wing vertices
+-- Uses a triple of IntSets rather than lists
+  processD (kcs, dbs, unks) rd@(RD (orig, w, _)) = -- classify wing tip w
+    if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else-- already classified
+    let
+        fcs = dwFMap VMap.! w -- faces at w
+--        Just fcs = VMap.lookup w dwFMap -- faces at w
+    in
+        if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else 
+                -- wing is a half kite origin => largeDartBase
+        if (w,orig) `elem` map longE (filter isLD fcs) then (IntSet.insert w kcs,dbs,unks) else 
+                -- long edge rd shared with an ld => largeKiteCentre
+        if isForced || length fcs == 1 then (kcs, dbs, IntSet.insert w unks) else
+        case findFarK rd fcs of -- extra inspection only needed for unforced Tgraphs
+        Nothing -> (kcs,dbs,IntSet.insert w unks) -- unknown if incomplete kite attached to short edge of rd
+        Just rk@(RK _)  ->  
+            case find (matchingShortE rk) fcs of
+            Just (LK _) -> (IntSet.insert w kcs,dbs,unks) -- short edge rk shared with an lk => largeKiteCentres
+            Just (LD _) -> (kcs,IntSet.insert w dbs,unks) -- short edge rk shared with an ld => largeDartBases
+            _ -> let 
+                     newfcs = filter (isAtV (wingV rk)) (faces g)   -- faces at rk wing    
+                 in
+                 case find (matchingLongE rk) newfcs of  -- short edge rk has nothing attached
+                 Nothing -> (kcs,dbs,IntSet.insert w unks)  -- long edge of rk has nothing attached => unknown
+                 Just (LD _) -> (IntSet.insert w kcs,dbs,unks) -- long edge rk shared with ld => largeKiteCentres
+                 Just lk@(LK _) ->               -- long edge rk shared with lk
+                      case find (matchingShortE lk) newfcs of
+                      Just (RK _) -> (IntSet.insert w kcs,dbs,unks)
+                              -- short edge of this lk shared with another rk => largeKiteCentres
+                      Just (RD _) -> (kcs,IntSet.insert w dbs,unks) 
+                              -- short edge of this lk shared with rd => largeDartBases
+                      _ -> (kcs,dbs,IntSet.insert w unks) 
+                 Just _ ->  error "getDartWingInfo: illegal case for matchingLongE of a right kite"
+                              -- short edge of this lk has nothing attached => unknown
+        Just _ -> error "getDartWingInfo: non-kite returned by findFarK"
+
+-- processD now uses a triple of IntSets rather than lists
+  processD (kcs, dbs, unks) ld@(LD (orig, _, w)) = -- classify wing tip w
+    if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else  -- already classified
+    let
+        fcs = dwFMap VMap.! w -- faces at w
+    in
+        if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else
+                   -- wing is a half kite origin => largeDartBase
+        if (orig,w) `elem` map longE (filter isRD fcs) then (IntSet.insert w kcs,dbs,unks) else
+                   -- long edge ld shared with an rd => largeKiteCentre
+        if isForced || length fcs == 1 then (kcs, dbs, IntSet.insert w unks) else
+        case findFarK ld fcs of -- extra inspection only needed for unforced Tgraphs
+          Nothing -> (kcs,dbs,IntSet.insert w unks) -- unknown if incomplete kite attached to short edge of ld
+          Just lk@(LK _)  ->  
+            case find (matchingShortE lk) fcs of
+            Just (RK _) -> (IntSet.insert w kcs,dbs,unks) 
+                  -- short edge lk shared with an rk => largeKiteCentres
+            Just (RD _) -> (kcs,IntSet.insert w dbs,unks)
+                  -- short edge lk shared with an rd => largeDartBases
+            _ -> let 
+                     newfcs = filter (isAtV (wingV lk)) (faces g)   -- faces at lk wing  
+                 in
+                 case find (matchingLongE lk) newfcs of -- short edge lk has nothing attached
+                 Nothing -> (kcs,dbs,IntSet.insert w unks)  -- long edge of lk has nothing attached => unknown
+                 Just (RD _) -> (IntSet.insert w kcs,dbs,unks) -- long edge lk shared with rd => largeKiteCentres
+                 Just rk@(RK _) ->               -- long edge lk is shared with an rk
+                     case find (matchingShortE rk) newfcs of
+                     Just (LK _) -> (IntSet.insert w kcs,dbs,unks)
+                             -- short edge of this rk shared with another lk => largeKiteCentres
+                     Just (LD _) -> (kcs,IntSet.insert w dbs,unks)
+                             -- short edge of this rk shared with ld => largeDartBases
+                     _ -> (kcs,dbs,IntSet.insert w unks) -- short edge of this rk has nothing attached => unknown
+                 Just _ ->  error "getDartWingInfo: illegal case for matchingLongE of a left kite"
+
+          Just _ -> error "getDartWingInfo: non-kite returned by findFarK"
+
+  processD _ _ = error "getDartWingInfo: processD applied to non-dart"
+
+    -- find the two kite halves below a dart half, return the half kite furthest away (not attached to dart).
+    -- Returns a Maybe.   rd produces an rk (or Nothing) ld produces an lk (or Nothing)
+  findFarK :: TileFace -> [TileFace] -> Maybe TileFace
+  findFarK rd@(RD _) fcs = do lk <- find (matchingShortE rd) (filter isLK fcs)
+                              find (matchingJoinE lk) (filter isRK fcs)
+  findFarK ld@(LD _) fcs = do rk <- find (matchingShortE ld) (filter isRK fcs)
+                              find (matchingJoinE rk)  (filter isLK fcs)
+  findFarK _ _ = error "getDartWingInfo: findFarK applied to non-dart face"
 
 

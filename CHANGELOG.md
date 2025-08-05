@@ -1,5 +1,11 @@
 # Revision history for PenroseKiteDart
 
+Since v1.4.5
+compose, partCompose, getDartWingInfo can now involve forcing
+to get more accurate dart wing info.
+This means they can raise an error when an incorrect Tgraph is found.
+This does not affect composeF, partComposeF, getDartWingInfoForced
+
 ## version 1.4.5  -- 2025-8-3
 added:
     class P3_DrawableLabelled (instances VPatch, Tgraph)
