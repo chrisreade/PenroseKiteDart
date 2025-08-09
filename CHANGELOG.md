@@ -1,24 +1,35 @@
 # Revision history for PenroseKiteDart
 
-Since v1.4.5
+## version v1.5 2025-8-9
 
-Revamp of composing.  (When a Tgraph is not known to be forced,
+Changes to composing.
+
+(When a Tgraph is not known to be forced,
 composing now involves calculating the forced version to get accurate information
-about dart wings.)
+about boundary dart wings.  Previously only local information was used to classify
+which could result in a dart wing being classified as unknown when non-local
+information suggests otherwise).
 
-This affects
+This affects:
     compose,
     partCompose,
     tryPartCompose (new),
     tryPartComposeFaces (new),
     tryGetDartWingInfo (new)
+    
+This does not affect:
+    composeF, 
+    partComposeF, 
+    getDartWingInfoForced, 
+    partComposeFacesFrom (new)
+
 removed:
     partComposeFaces, 
     partComposeFacesF,
     composedFaceGroups,
     getDartWingInfo (renamed as oldGetDartWingInfo)
 
-This does not affect composeF, partComposeF, getDartWingInfoForced
+The previous version of partCompose is renamed as oldPartCompose (for comparisons)
 
 ## version 1.4.5  -- 2025-8-3
 added:
@@ -31,7 +42,6 @@ added:
     drawnEdges (renamed from pieceEdges)
 
     decomposeFaces
-    fillOnlyPieceDK
 
 exposed:
     P3_Patch, bothDir, missingRevs, extractLowestJoin

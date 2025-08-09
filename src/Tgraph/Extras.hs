@@ -241,7 +241,7 @@ composeK g = runTry $
       let changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
                               , unknowns = []
                               }
-          ( _ , newfaces) = partComposeFacesWith changedInfo
+          ( _ , newfaces) = partComposeFacesFrom changedInfo
       tryConnectedNoCross newfaces
 {- composeK :: Tgraph -> Tgraph
 composeK g = runTry $ tryConnectedNoCross newfaces where

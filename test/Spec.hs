@@ -69,6 +69,9 @@ testCrossingBoundary = [LK (1,8,3),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13)
                        ,LK (3,2,13),RK (3,13,11),RK (3,14,4),LK (3,11,14),LK (7,4,14),RK (7,14,12)
                        ]
 
+-- |Example to test composing of unforced Tgraph
+extraBrokenDart :: Tgraph
+extraBrokenDart = removeFaces [RK(25,60,61),LK(25,24,60)] badlyBrokenDart
 
 graphPropSpec :: Spec
 graphPropSpec = describe "Test Properties of Tgraphs" $ do
@@ -125,7 +128,11 @@ graphOpSpec = describe "Main Tgraph Operations Test" $ do
          length (fst $ partCompose $ force $ dartDs !!3) `shouldBe` 58
     context "partComposeF and ForceF" $
       it "Number of remainder faces when part composing forceF (dartDs !!3) should be 58" $
-         length (fst $ partCompose $ force $ dartDs !!3) `shouldBe` 58
+         length (fst $ partComposeF $ forceF $ dartDs !!3) `shouldBe` 58
+    context "partCompose of reduced Tgraph (extraBrokenDart)" $
+      it "Number of remainder/composed faces when part composing extraBrokenDart should be (5,18)" $
+         (length $ fst res,length $ faces $ snd res)
+          `shouldBe` (5,18) where res = partCompose extraBrokenDart
 
 graphLabelCheck :: Spec
 graphLabelCheck = describe "Label critical examples check" $ do

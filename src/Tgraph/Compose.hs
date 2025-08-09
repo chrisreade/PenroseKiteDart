@@ -8,34 +8,39 @@ Stability   : experimental
 
 This module includes the main composition operations compose, partCompose,
 tryPartCompose, composeF, and partComposeF but also exposes 
-getDartWingInfo, getDartWingInfoForced (and type DartWingInfo)
-and partCompFacesFrom for debugging and composedFaceGroups for experimenting.
+auxiliary functions
+tryGetDartWingInfo, getDartWingInfoForced (and type DartWingInfo)
+and partCompFacesFrom for debugging.
 -}
 {-# LANGUAGE Strict             #-} 
 
 module Tgraph.Compose 
-  ( compose
-  , composeF
-  , partCompose
+  ( -- * Composing forced Tgraphs 
+    composeF
   , partComposeF
+    -- * General compose operations 
+  , compose
+  , partCompose
   , tryPartCompose
   , tryPartComposeFaces
   -- * Exported auxiliary functions (and type)
   -- , partCompFacesAssumeF
   -- , partComposeFaces
   -- , partComposeFacesF
-  , partComposeFacesWith --new
+  , partComposeFacesFrom --new
   , DartWingInfo(..)
   -- , getDWIassumeF
   -- , getDartWingInfo
   , tryGetDartWingInfo
-  , oldGetDartWingInfo
   , getDartWingInfoForced
  -- , composedFaceGroups
+   -- * Older versions (for debugging/comparison)
+  , oldGetDartWingInfo
+  , oldPartCompose
   ) where
 
 import Data.List (find, foldl', (\\),partition, nub)
-import qualified Data.IntMap.Strict as VMap (IntMap,lookup,(!),alter,empty)
+import qualified Data.IntMap.Strict as VMap (IntMap,lookup,(!),alter,empty,elems)
 import Data.Maybe (mapMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)
 
@@ -57,7 +62,8 @@ compose = snd . partCompose
 
 -- |partCompose g is a partial function producing a pair consisting of remainder faces (faces from g which will not compose) 
 -- and a composed Tgraph. 
--- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
+-- It checks the composed Tgraph for connectedness and no crossing boundaries
+-- raising an error if this check fails.
 -- It does not assume the given Tgraph is forced.
 -- It can raise an error if the Tgraph is found to be incorrect (when getting dartwing info).
 partCompose:: Tgraph -> ([TileFace],Tgraph)
@@ -72,22 +78,23 @@ partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
 tryPartCompose:: Tgraph -> Try ([TileFace],Tgraph)
 tryPartCompose g = 
   do dwInfo <- tryGetDartWingInfo g 
-     let (~remainder,newFaces) = partComposeFacesWith dwInfo
+     let (~remainder,newFaces) = partComposeFacesFrom dwInfo
      checked <- onFail "tryPartCompose:\n" $ tryConnectedNoCross newFaces
      return (remainder,checked)
 
 -- |Get the remainder and composed faces (without checking the composed faces make a valid Tgraph)
 -- It uses tryGetDartWingInfo g which can fail if g is found to be incorrect when forced.
--- (This is used in an example showing failure of the connected, no crossing boundary check).
 tryPartComposeFaces:: Tgraph -> Try ([TileFace],[TileFace])
 tryPartComposeFaces g = 
   do dwInfo <- tryGetDartWingInfo g 
-     return $ partComposeFacesWith dwInfo
+     return $ partComposeFacesFrom dwInfo
+-- tryPartComposeFaces is used in an example showing failure of the connected, no crossing boundary check.
+
 
 -- |Uses supplied dartwing info to get remainder faces and composed faces.
 -- Does not assume forced and does not check the composed faces for connected/no crossing boundaries
-partComposeFacesWith :: DartWingInfo -> ([TileFace], [TileFace])
-partComposeFacesWith = partCompFacesAssumeF False
+partComposeFacesFrom :: DartWingInfo -> ([TileFace], [TileFace])
+partComposeFacesFrom = partCompFacesAssumeF False
 
 {- 
 -- |partComposeFaces g - produces a pair of the remainder faces (faces from g which will not compose)
@@ -120,6 +127,7 @@ composeF:: Forced Tgraph -> Forced Tgraph
 composeF = snd . partComposeF
 
 
+
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- Faces at a largeKiteCentre vertex will form kite faces when composed.
 -- Faces at a largeDartBase vertex will form dart faces when composed.
@@ -133,6 +141,12 @@ data DartWingInfo =  DartWingInfo
      , faceMap :: VMap.IntMap [TileFace] -- ^ a mapping from dart wing vertices to faces at the vertex.
      , unMapped :: [TileFace] -- ^ any faces not at a dart wing vertex (necessarily kites)
      } deriving Show
+
+-- |Recover a list of faces (no repetitions) contained in the dart wing info.
+-- (These should be all faces of the Tgraph used to make the dart wing info.)
+recoverFaces :: DartWingInfo -> [TileFace]
+recoverFaces dwInfo =  nub $ concat (unMapped dwInfo : VMap.elems (faceMap dwInfo))
+
 
 {- -- | getDartWingInfo g, classifies the dart wings in g and calculates a faceMap for each dart wing,
 -- returning as DartWingInfo. It does not assume g is forced and is more expensive than getDartWingInfoForced
@@ -163,8 +177,9 @@ getDartWingInfoForced :: Forced Tgraph -> DartWingInfo
 getDartWingInfoForced fg = getDWIassumeF True (forgetF fg) fg
 
 -- | getDWIassumeF (not exported but used to define 2 cases getDartWingInfoForced and tryGetDartWingInfo).
--- getDWIassumeF isForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,
+-- getDWIassumeF isForced g fg (where fg is forceF g), classifies the dart wings in g and calculates a faceMap for each dart wing,
 -- returning as DartWingInfo. The boolean isForced is used to decide if g can be assumed to be forced.
+-- When this is True, the classification is simpler and does not use fg.
 getDWIassumeF:: Bool -> Tgraph -> Forced Tgraph -> DartWingInfo
 getDWIassumeF isForced g fg =  
   DartWingInfo { largeKiteCentres = IntSet.toList allKcs
@@ -178,9 +193,11 @@ getDWIassumeF isForced g fg =
   -- using only relevant vertices where there is a dart wing.
   -- i.e only wings for darts and only oppVs and originVs for kites.
   -- The map is built first from darts, then kites are added.
-  (dwFMap,unused) = foldl' insertK (dartWMap,[]) kts -- all kites added to relevant dart wings
-    where
-    dartWMap = foldl' insertD VMap.empty drts -- all dartwings with 1 or 2 darts each
+  (dwFMap,unused) = foldl' insertK (dartWMap,[]) kts 
+                    -- all kite halves added to relevant dart wings of the dart wing map.
+    where           -- the unused list records half kites not added to any dart wing.
+    dartWMap = foldl' insertD VMap.empty drts
+                    -- maps all dart wing vertices to 1 or 2 half darts.
     insertD vmap f = VMap.alter (addD f) (wingV f) vmap
     addD f Nothing = Just [f]
     addD f (Just fs) = Just (f:fs)
@@ -191,7 +208,7 @@ getDWIassumeF isForced g fg =
             (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
             (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
             (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, unsd)
-            (Nothing, Nothing)   ->  (vmap, f:unsd)
+            (Nothing, Nothing)   ->  (vmap, f:unsd) -- kite face not at any dart wing
 
     addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
     addK f (Just fs) = Just (f:fs)
@@ -213,25 +230,32 @@ getDWIassumeF isForced g fg =
                     -- wing is a half kite origin => largeDartBase
             if revLongE `elem` map longE (filter isDart fcs) then (IntSet.insert w kcs,dbs,unks) else 
                     -- long edge drt shared with another dart => largeKiteCentre
-            if isForced || length fcs == 1 then (kcs, dbs, IntSet.insert w unks) else
+            if isForced then (kcs, dbs, IntSet.insert w unks) else
             let     -- (when not already forced) do same checks but with forced faces 
-                ~ffcs = filter (isAtV w) (faces fg)
+                ffcs = filter (isAtV w) (faces fg)
             in
                 if w `elem` map originV (filter isKite ffcs) then (kcs,IntSet.insert w dbs,unks) else 
                     -- wing is a half kite origin => largeDartBase
                 if revLongE `elem` map longE (filter isDart ffcs) then (IntSet.insert w kcs,dbs,unks) else 
-                    -- long edge rd shared with an ld => largeKiteCentre
+                    -- long edge drt shared with another dart => largeKiteCentre
                 (kcs,dbs,IntSet.insert w unks) 
 
 
 
--- |partCompFacesAssumeF (not exported but used to build 2 cases: partComposeFacesWith, partComposeF)
--- If the boolean is True then assumptions are made that the Tgraph is forced,
--- making everything more efficient.
+-- |partCompFacesAssumeF
+-- (not exported but used to build 2 cases: partComposeFacesFrom, partComposeF)
+-- If the boolean is True then assumptions are made that the DartWingIno
+-- has come from a forced Tgraph,
+-- making the remainder faces calculation more efficient.
 partCompFacesAssumeF :: Bool ->  DartWingInfo -> ([TileFace],[TileFace])
 partCompFacesAssumeF isForced dwInfo = (remainder, newFaces) where
-    ~remainder = if isForced then unMapped dwInfo ++ concatMap (faceMap dwInfo VMap.!) (unknowns dwInfo)
-                 else getAllFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
+    ~remainder = 
+        if isForced
+        then -- unMapped faces plus all faces at unknowns.
+            unMapped dwInfo ++ concatMap (faceMap dwInfo VMap.!) (unknowns dwInfo)
+        else -- all faces except those successfully used in making composed faces.
+            recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
+    
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
 
     newRDs = map makenewRD groupRDs 
@@ -272,63 +296,19 @@ partCompFacesAssumeF isForced dwInfo = (remainder, newFaces) where
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
--- |Recover a list of faces (no repetitions) contained in the dart wing info.
--- (These should be all faces of the Tgraph used to make the dart wing info.)
-getAllFaces :: DartWingInfo -> [TileFace]
-getAllFaces dwInfo = 
-    nub $ concat [ concatMap getFaces (largeKiteCentres dwInfo)
-                 , concatMap getFaces (largeDartBases dwInfo)
-                 , concatMap getFaces (unknowns dwInfo)
-                 , unMapped dwInfo
-                 ]  
-   where getFaces = (faceMap dwInfo VMap.!)
 
+-- |partCompose g is a partial function producing a pair consisting of remainder faces (faces from g which will not compose) 
+-- and a composed Tgraph. 
+-- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
+-- It does not assume the given Tgraph is forced.
+-- It can raise an error if the Tgraph is found to be incorrect (when getting dartwing info).
+oldPartCompose:: Tgraph -> ([TileFace],Tgraph)
+oldPartCompose g = runTry $ onFail "oldPartCompose:\n" $
+  do let dwInfo = oldGetDartWingInfo g 
+         (~remainder,newFaces) = partComposeFacesFrom dwInfo
+     checked <- tryConnectedNoCross newFaces
+     return (remainder,checked)
 
-{- 
--- |Creates a list of new composed faces, each paired with a list of old faces (components of the new face)
--- using dart wing information. No longer used.
-composedFaceGroups :: DartWingInfo -> [(TileFace,[TileFace])]
-composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ faceGroupLKs where
-
-    faceGroupRDs = map (\gp -> (makenewRD gp,gp)) groupRDs 
-    groupRDs = mapMaybe groupRD (largeDartBases dwInfo)
-    makenewRD [rd,lk] = makeRD (originV lk) (originV rd) (oppV lk) 
-    makenewRD _       = error "composedFaceGroups: RD case"
-    groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
-                    rd <- find isRD fcs
-                    lk <- find (matchingShortE rd) fcs
-                    return [rd,lk]
-
-    faceGroupLDs = map (\gp -> (makenewLD gp,gp)) groupLDs 
-    groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
-    makenewLD [ld,rk] = makeLD (originV rk) (oppV rk) (originV ld)
-    makenewLD _       = error "composedFaceGroups: LD case"
-    groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
-                    ld <- find isLD fcs
-                    rk <- find (matchingShortE ld) fcs
-                    return [ld,rk]
-
-    faceGroupRKs = map (\gp -> (makenewRK gp,gp)) groupRKs 
-    groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
-    makenewRK [rd,_,rk] = makeRK (originV rd) (wingV rk) (originV rk)
-    makenewRK _         = error "composedFaceGroups: RK case"
-    groupRK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
-                    rd <- find isRD fcs
-                    lk <- find (matchingShortE rd) fcs
-                    rk <- find (matchingJoinE lk) fcs
-                    return [rd,lk,rk]
-
-    faceGroupLKs = map (\gp -> (makenewLK gp,gp)) groupLKs 
-    groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
-    makenewLK [ld,_,lk] = makeLK (originV ld) (originV lk) (wingV lk)
-    makenewLK _         = error "composedFaceGroups: LK case"
-    groupLK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
-                    ld <- find isLD fcs
-                    rk <- find (matchingShortE ld) fcs
-                    lk <- find (matchingJoinE rk) fcs
-                    return [ld,rk,lk]
-
--}
 
 -- | oldGetDWIassumeF (not exported but used to define oldGetDartWingInfo).
 -- oldGetDWIassumeF isForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,
@@ -344,11 +324,13 @@ oldGetDWIassumeF isForced g =
   (drts,kts) = partition isDart (faces g)
   -- special case of vertexFacesMap for dart wings only
   -- using only relevant vertices where there is a dart wing.
-  -- i.e only wings for darts and only oppVs and originVs for kites.
+  -- i.e only wingVs for darts and only oppVs and originVs for kites.
   -- The map is built first from darts, then kites are added.
-  (dwFMap,unused) = foldl' insertK (dartWMap,[]) kts -- all kites added to relevant dart wings
-    where
-    dartWMap = foldl' insertD VMap.empty drts -- all dartwings with 1 or 2 darts each
+  (dwFMap,unused) = foldl' insertK (dartWMap,[]) kts
+                    -- all kite halves added to relevant dart wings of the dart wing faces map
+    where           -- the unused list records half kites not added to any dart wing
+    dartWMap = foldl' insertD VMap.empty drts
+                     -- maps all dart wing vertices to 1 or 2 half darts
     insertD vmap f = VMap.alter (addD f) (wingV f) vmap
     addD f Nothing = Just [f]
     addD f (Just fs) = Just (f:fs)
@@ -450,4 +432,49 @@ oldGetDWIassumeF isForced g =
                               find (matchingJoinE rk)  (filter isLK fcs)
   findFarK _ _ = error "getDartWingInfo: findFarK applied to non-dart face"
 
+{- 
+-- |Creates a list of new composed faces, each paired with a list of old faces (components of the new face)
+-- using dart wing information. No longer used.
+composedFaceGroups :: DartWingInfo -> [(TileFace,[TileFace])]
+composedFaceGroups dwInfo = faceGroupRDs ++ faceGroupLDs ++ faceGroupRKs ++ faceGroupLKs where
+
+    faceGroupRDs = map (\gp -> (makenewRD gp,gp)) groupRDs 
+    groupRDs = mapMaybe groupRD (largeDartBases dwInfo)
+    makenewRD [rd,lk] = makeRD (originV lk) (originV rd) (oppV lk) 
+    makenewRD _       = error "composedFaceGroups: RD case"
+    groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
+                    rd <- find isRD fcs
+                    lk <- find (matchingShortE rd) fcs
+                    return [rd,lk]
+
+    faceGroupLDs = map (\gp -> (makenewLD gp,gp)) groupLDs 
+    groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
+    makenewLD [ld,rk] = makeLD (originV rk) (oppV rk) (originV ld)
+    makenewLD _       = error "composedFaceGroups: LD case"
+    groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
+                    ld <- find isLD fcs
+                    rk <- find (matchingShortE ld) fcs
+                    return [ld,rk]
+
+    faceGroupRKs = map (\gp -> (makenewRK gp,gp)) groupRKs 
+    groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
+    makenewRK [rd,_,rk] = makeRK (originV rd) (wingV rk) (originV rk)
+    makenewRK _         = error "composedFaceGroups: RK case"
+    groupRK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
+                    rd <- find isRD fcs
+                    lk <- find (matchingShortE rd) fcs
+                    rk <- find (matchingJoinE lk) fcs
+                    return [rd,lk,rk]
+
+    faceGroupLKs = map (\gp -> (makenewLK gp,gp)) groupLKs 
+    groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
+    makenewLK [ld,_,lk] = makeLK (originV ld) (originV lk) (wingV lk)
+    makenewLK _         = error "composedFaceGroups: LK case"
+    groupLK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
+                    ld <- find isLD fcs
+                    rk <- find (matchingShortE ld) fcs
+                    lk <- find (matchingJoinE rk) fcs
+                    return [ld,rk,lk]
+
+-}
 
