@@ -171,7 +171,7 @@ drawPCompose :: OKBackend b =>
                 Tgraph -> Diagram b
 drawPCompose g =
     restrictSmart g' draw vp
-    <> drawj (subVP vp remainder) # lw medium # lc lime
+    <> drawj (subVP vp remainder) # lc lime
     where (remainder,g') = partCompose g
           vp = makeVP g
 
@@ -181,7 +181,7 @@ drawPCompose g =
 drawForce :: OKBackend b =>
              Tgraph -> Diagram b
 drawForce g =
-    restrictSmart g draw vp # lc red # lw medium
+    restrictSmart g draw vp # lc red 
     <> draw vp
     where vp = makeVP $ force g
 

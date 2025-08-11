@@ -61,7 +61,7 @@ phiVMap fcs = edgeVMap where
 -- |Decompose a face producing new faces. 
 -- This requires an edge to vertex map to get a unique new vertex assigned to each phi edge
 -- (as created by phiVMap).
--- (Exported for use in TrackedTgraphs in Tgraphs module).
+-- (Exported for use in TrackedTgraphs in Tgraph.Extras module).
 decompFace:: Map.Map Dedge Vertex -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]

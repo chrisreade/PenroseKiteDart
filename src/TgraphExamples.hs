@@ -200,10 +200,10 @@ dartD4 = dartDs!!4
 
 pCompFig1,pCompFig2,pCompFig :: OKBackend b => Diagram b
 -- |diagram showing partial composition of a forced 3 times decomposed dart (with remainder faces in pale green).
-pCompFig1 = lw veryThin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
+pCompFig1 = lw thin $ hsep 5 $ rotations [1,1] [draw fd3, drawPCompose fd3]
             where fd3 = force $ dartDs!!3
 -- |diagram showing partial composition of a forced 3 times decomposed kite (with remainder faces in pale green).
-pCompFig2 = lw veryThin $ hsep 5 [draw fk3, drawPCompose fk3]
+pCompFig2 = lw thin $ hsep 5 [draw fk3, drawPCompose fk3]
             where fk3 = force $ kiteDs!!3
 -- |diagram showing two partial compositions (with remainder faces in pale green).
 pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]

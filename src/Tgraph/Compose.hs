@@ -7,10 +7,11 @@ Maintainer  : chrisreade@mac.com
 Stability   : experimental
 
 This module includes the main composition operations compose, partCompose,
-tryPartCompose, composeF, and partComposeF but also exposes 
+tryPartCompose and the more efficient versions composeF, partComposeF (for explicitly forced Tgraphs).
+It also exposes 
 auxiliary functions
 tryGetDartWingInfo, getDartWingInfoForced (and type DartWingInfo)
-and partCompFacesFrom for debugging.
+and partComposeFacesFrom for debugging.
 -}
 {-# LANGUAGE Strict             #-} 
 
@@ -48,7 +49,7 @@ import Tgraph.Prelude
 import Tgraph.Force ( Forced(), forgetF, labelAsForced, tryForceF )
 {-------------------------------------------------------------------------
 ***************************************************************************              
-COMPOSING compose, partCompose, tryPartCompose, uncheckedPartCompose
+COMPOSING compose, partCompose, tryPartCompose, ...
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
@@ -114,7 +115,9 @@ partComposeFacesF = partCompFacesAssumeF True . forgetF
 -- |partComposeF fg - produces a pair consisting of remainder faces (faces from fg which will not compose) 
 -- and a composed (Forced) Tgraph.
 -- Since fg is a forced Tgraph it does not need a check for validity of the composed Tgraph.
--- The fact that the result is also Forced relies on a theorem.
+-- The fact that the function is total and the result is also Forced relies on theorems
+-- established for composing.
+-- The calculation of remainder faces is also more efficient with a known forced Tgraph.
 partComposeF:: Forced Tgraph -> ([TileFace], Forced Tgraph)
 partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
   (~remainder,newfaces) = partCompFacesAssumeF True $ getDartWingInfoForced fg
@@ -238,7 +241,7 @@ getDWIassumeF isForced g fg =
                     -- wing is a half kite origin => largeDartBase
                 if revLongE `elem` map longE (filter isDart ffcs) then (IntSet.insert w kcs,dbs,unks) else 
                     -- long edge drt shared with another dart => largeKiteCentre
-                (kcs,dbs,IntSet.insert w unks) 
+                (kcs,dbs,IntSet.insert w unks) -- on the forced boundary so must be unknown
 
 
 
