@@ -166,13 +166,6 @@ tryGetDartWingInfo g =
     do fg <- onFail "tryGetDartWingInfo: incorrect Tgraph found.\n" $ tryForceF g
        return $ getDWIassumeF False g fg
 
--- | oldGetDartWingInfo g, classifies the dart wings in g and calculates a faceMap for each dart wing,
--- returning as DartWingInfo. If only uses local information to classify each dart wing and can
--- therefore sometimes classify a dart wing as unknown unnecessarily.
--- In contrast tryGetDartWingInfo is accurate using information from forcing (so is not local)
-oldGetDartWingInfo:: Tgraph -> DartWingInfo
-oldGetDartWingInfo = oldGetDWIassumeF False
-
 -- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg
 -- and calculates a faceMap for each dart wing, returning as DartWingInfo.
 -- The classification is much simplified knowing that the Tgraph is forced.
@@ -300,7 +293,7 @@ partCompFacesAssumeF isForced dwInfo = (remainder, newFaces) where
                     return [ld,rk,lk]
 
 
--- |partCompose g is a partial function producing a pair consisting of remainder faces (faces from g which will not compose) 
+-- |oldPartCompose g is a partial function producing a pair consisting of remainder faces (faces from g which will not compose) 
 -- and a composed Tgraph. 
 -- It checks the composed Tgraph for connectedness and no crossing boundaries raising an error if this check fails.
 -- It does not assume the given Tgraph is forced.
@@ -312,6 +305,13 @@ oldPartCompose g = runTry $ onFail "oldPartCompose:\n" $
      checked <- tryConnectedNoCross newFaces
      return (remainder,checked)
 
+
+-- | oldGetDartWingInfo g, classifies the dart wings in g and calculates a faceMap for each dart wing,
+-- returning as DartWingInfo. If only uses local information to classify each dart wing and can
+-- therefore sometimes classify a dart wing as unknown unnecessarily.
+-- In contrast tryGetDartWingInfo is accurate using information from forcing (so is not local)
+oldGetDartWingInfo:: Tgraph -> DartWingInfo
+oldGetDartWingInfo = oldGetDWIassumeF False
 
 -- | oldGetDWIassumeF (not exported but used to define oldGetDartWingInfo).
 -- oldGetDWIassumeF isForced g, classifies the dart wings in g and calculates a faceMap for each dart wing,

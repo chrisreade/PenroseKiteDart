@@ -3,3 +3,4 @@
 .DS*
 stack.yaml.lock
 *-bench.*
+.dist-newstyle*

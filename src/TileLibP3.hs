@@ -67,6 +67,7 @@ import Tgraph.Decompose ( phiVMap )
 import qualified Data.Map.Strict as Map ((!))
 import qualified Data.IntMap.Strict as VMap (fromList, toList, lookup)
 
+
 -- | Penrose P3 Tiling uses wide and narrow rhombuses
 -- These are split into half tiles (triangles) as with kites and darts
 data P3_HalfTile a
@@ -108,11 +109,14 @@ instance Functor P3_HalfTile where
 
 -- |Converting from P2 to P3 tilings.
 -- Half darts become half wide rhombuses (LD->RW,RD->LW).
--- (The new origin is the dart wing, and 
--- the new join is the dart long edge.)
--- Half kites are decomposed to a half wide and a half narrow rhombus.
--- (For wide rhombuses, the new origin is the kite origin and the join is the kite long edge.)
--- (For narrow rhombuses, the new origin is the kite opp and the join is toward the kite origin.)
+-- The rhombus origin is the dart wing, the rhombus opp is the dart origin, so
+-- the rhombus join is the dart long edge.
+-- Half kites are decomposed to a half wide and a half narrow rhombus
+-- (LK -> RW and RN, RK -> LW and LN).
+-- For wide rhombuses, the origin is the kite origin and rhombus opp is the kite wing
+-- (the join is the kite long edge).
+-- For narrow rhombuses, the origin is the kite opp and the rhombus wing is the kite opp
+-- (the join is toward the kite origin.)
 decompPieceP2toP3 :: Located Piece -> [Located P3_Piece]
 decompPieceP2toP3 lp = case viewLoc lp of
     (p, LK v) -> [ RW z `at` p
@@ -127,9 +131,12 @@ decompPieceP2toP3 lp = case viewLoc lp of
                  where z = phi *^ rotate (ttangle 1) v
 
 -- |Converting from P3 to P2 tilings.
--- Half narrow rhombuses become half kites
--- (but the origin vertex and join edge are changed).
--- Half wide rhombuses are decomposed to a half dart and a half kite.
+-- Half narrow rhombuses become half kites (LN->RK,RN->LK).
+-- The rhombus wing becomes the kite origin and the rhombus origin becomes the kite wing.
+-- Half wide rhombuses are decomposed to a half dart and a half kite
+-- (RW -> LD and RK, LW -> RD and LK).
+-- The wide rhombus origin becomes the dart origin, and the wide rhombus opp becomes the kite origin.
+-- The wide rhombus wing becomes both the kite opp and dart wing.
 decompPieceP3toP2 :: Located P3_Piece -> [Located Piece]
 decompPieceP3toP2 lp = case viewLoc lp of
     (p, LW v) -> -- decompPiece (RD (z^-^v) `at` p.+^v)
