@@ -40,7 +40,9 @@ module Tgraph.Compose
   , oldPartCompose
   ) where
 
-import Data.List (find, foldl', (\\),partition, nub)
+import Data.List (find,(\\),partition,nub)
+import Prelude hiding (Foldable(..))
+import Data.Foldable (Foldable(..))
 import qualified Data.IntMap.Strict as VMap (IntMap,lookup,(!),alter,empty,elems)
 import Data.Maybe (mapMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)

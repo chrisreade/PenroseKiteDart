@@ -177,8 +177,9 @@ module Tgraph.Prelude
   --, drawEdge
   ) where
 
-import Data.List ((\\), intersect, union, elemIndex,foldl',find,nub)
--- import Data.Either(fromRight, lefts, rights, isLeft)
+import Data.List ((\\),intersect,union,elemIndex,find,nub)
+import Prelude hiding (Foldable(..))
+import Data.Foldable (Foldable(..))
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault)
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith)
@@ -1250,10 +1251,11 @@ axisJoin face =
   VMap.insert (originV face) origin $ VMap.insert (oppV face) (p2 (x,0)) VMap.empty where
     x = if isDart face then 1 else phi
 
--- |lookup 3 vertex locations in a vertex to point map.
+{- -- |lookup 3 vertex locations in a vertex to point map.
 find3Locs::(Vertex,Vertex,Vertex) -> VertexLocMap
              -> (Maybe (Point V2 Double),Maybe (Point V2 Double),Maybe (Point V2 Double))
 find3Locs (v1,v2,v3) vpMap = (VMap.lookup v1 vpMap, VMap.lookup v2 vpMap, VMap.lookup v3 vpMap)
+ -}
 
 {-| thirdVertexLoc face vpMap,  where face is a tileface and vpMap associates points with vertices (positions).
 It looks up all 3 vertices of face in vpMap hoping to find at least 2 of them, it then returns Just pr
@@ -1265,6 +1267,33 @@ New Version: This assumes all edge lengths are 1 or phi.
 It now uses signorm to produce vectors of length 1 rather than rely on relative lengths.
 (Requires ttangle and phi from TileLib).
 -}
+
+thirdVertexLoc:: TileFace -> VertexLocMap -> Maybe (Vertex, Point V2 Double)
+thirdVertexLoc face@(RD _ ) vpMap = -- LD and RD cases are the same using originV, wingV, oppV EXCEPT for angles
+  case (VMap.lookup (originV face) vpMap, VMap.lookup (wingV face) vpMap, VMap.lookup (oppV face) vpMap) of
+  (Just locOg, Just locW, Nothing)  -> Just (oppV face, locW .+^ v)     where v = signorm (rotate (ttangle 1) (locOg .-. locW))
+  (Nothing, Just locW, Just locOp)  -> Just (originV face, locOp .+^ v) where v = signorm (rotate (ttangle 8) (locOp .-. locW))
+  (Just locOg, Nothing, Just locOp) -> Just (wingV face, locOp .+^ v)   where v = signorm (rotate (ttangle 7) (locOg .-. locOp))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
+
+thirdVertexLoc face@(LD _ )  vpMap = -- LD and RD cases are the same using originV, wingV, oppV EXCEPT for angles
+  case (VMap.lookup (originV face) vpMap, VMap.lookup (wingV face) vpMap, VMap.lookup (oppV face) vpMap) of
+  (Just locOg, Just locW, Nothing)  -> Just (oppV face, locW .+^ v)     where v = signorm (rotate (ttangle 9) (locOg .-. locW))
+  (Nothing, Just locW, Just locOp)  -> Just (originV face, locOp .+^ v) where v = signorm (rotate (ttangle 2) (locOp .-. locW))
+  (Just locOg, Nothing, Just locOp) -> Just (wingV face, locOp .+^ v)   where v = signorm (rotate (ttangle 3) (locOg .-. locOp))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
+
+thirdVertexLoc face vpMap = -- LK and RK cases are the same using first,second,third
+  case (VMap.lookup (firstV face) vpMap, VMap.lookup (secondV face) vpMap, VMap.lookup (thirdV face) vpMap) of 
+  (Just loc1, Just loc2, Nothing) -> Just (thirdV face, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 4) (loc1 .-. loc2))
+  (Nothing, Just loc2, Just loc3) -> Just (firstV face, loc3 .+^ v)    where v = phi*^signorm (rotate (ttangle 2) (loc2 .-. loc3))
+  (Just loc1, Nothing, Just loc3) -> Just (secondV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
+  (Just _ , Just _ , Just _)      -> Nothing
+  _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
+
+{- older version with 4 cases
 thirdVertexLoc:: TileFace -> VertexLocMap -> Maybe (Vertex, Point V2 Double)
 thirdVertexLoc face@(LD _) vpMap = case find3Locs (faceVs face) vpMap of
   (Just loc1, Just loc2, Nothing) -> Just (wingV face, loc1 .+^ v)   where v = phi*^signorm (rotate (ttangle 9) (loc2 .-. loc1))
@@ -1293,8 +1322,7 @@ thirdVertexLoc face@(RK _) vpMap = case find3Locs (faceVs face) vpMap of
   (Just loc1, Nothing, Just loc3) -> Just (oppV face, loc1 .+^ v)    where v = phi*^signorm (rotate (ttangle 1) (loc3 .-. loc1))
   (Just _ , Just _ , Just _)      -> Nothing
   _ -> error $ "thirdVertexLoc: face not tile-connected?: " ++ show face ++ "\n"
-
-
+ -}
 
 -- *  Touching Vertices
 

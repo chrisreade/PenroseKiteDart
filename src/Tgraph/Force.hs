@@ -146,7 +146,9 @@ module Tgraph.Force
 
 
 
-import Data.List ((\\), intersect, nub, find,foldl')
+import Data.List ((\\), intersect, nub, find)
+import Prelude hiding (Foldable(..))
+import Data.Foldable (Foldable(..))
 import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
             -- used for BoundaryState locations AND faces at boundary vertices

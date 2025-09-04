@@ -100,7 +100,9 @@ import Tgraph.Relabelling
 import Tgraph.Force
 
 import Diagrams.Prelude hiding (union)
-import Data.List (intersect, union, (\\), find, foldl', transpose)
+import Data.List (intersect, union, (\\), find, transpose)
+import Prelude hiding (Foldable(..))
+import Data.Foldable (Foldable(..))
 import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops

@@ -1,5 +1,7 @@
 # Revision history for PenroseKiteDart
 
+redundant import foldl' warning avoided
+
 ## version v1.5 2025-8-9
 
 Changes to composing.
