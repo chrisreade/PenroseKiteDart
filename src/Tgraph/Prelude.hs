@@ -129,6 +129,8 @@ module Tgraph.Prelude
     -- * Other Face Operations
   , edgeNb
   , dedgesFacesMap
+  , boundaryJoinFaces
+  , boundaryEdgeFaces
   , buildEFMap
   , faceForEdge
   , edgeNbs
@@ -184,7 +186,7 @@ import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault)
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
-import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith)
+import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith, elems, filterWithKey)
 import Data.Maybe (mapMaybe) -- edgeNbrs
 import qualified Data.Set as Set  (fromList,member,null,delete,)-- used for locateVertices
 
@@ -925,6 +927,18 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
                                                   ++ show d ++ "\n"
       _ -> assocFaces more
  -}
+-- |select the faces with a join edge on the boundary.
+-- Useful for drawing join edges only on the boundary.
+boundaryJoinFaces :: HasFaces a => a -> [TileFace]
+boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin dfMap where
+    dfMap = dedgesFacesMap (map reverseD $ boundary a) a
+    isJoin d f = joinE f == d
+
+-- |find the faces with a (at least one) boundary edge.
+boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
+boundaryEdgeFaces a = nub $ Map.elems dfMap where
+    dfMap = dedgesFacesMap (map reverseD $ boundary a) a
+
 
 -- |Build a Map from all directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: HasFaces a  => a -> Map.Map Dedge TileFace

@@ -14,6 +14,8 @@ generalised boundaryJoinFaces, drawBoundaryJoins, drawJoinsFor
 added smartOn (replacing deprecated restrictSmart)
 added restrictTo (replacing deprecated restrictVP)
 added subFaces (replacing deprecated subVP)
+added boundaryVFacesBS (replacing deprecated boundaryFaces)
+added boundaryEdgeFaces
 
 ## version v1.5 2025-8-9
 

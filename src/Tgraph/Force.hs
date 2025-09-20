@@ -37,7 +37,7 @@ module Tgraph.Force
   , forgetF
   , tryForceF
   , forceF
-   , recoverGraphF
+  , recoverGraphF
   , boundaryStateF
   , makeBoundaryStateF
   , initFSF
@@ -65,7 +65,8 @@ module Tgraph.Force
   , recoverGraph
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
-  , boundaryFaces
+  , boundaryVFacesBS
+  , boundaryFaces --deprecated
     -- *  Auxiliary Functions for a force step
   , affectedBoundary
 --  , mustFind
@@ -225,11 +226,14 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
   Nothing -> error $ "facesAtBV: Not a boundary vertex? No result found for vertex " ++ show v ++ "\n"
 
 -- |return a list of faces which have a boundary vertex from a BoundaryState
-boundaryFaces :: BoundaryState -> [TileFace]
-boundaryFaces bd = nub $ concatMap (facesAtBV bd) bvs where
+boundaryVFacesBS :: BoundaryState -> [TileFace]
+boundaryVFacesBS bd = nub $ concatMap (facesAtBV bd) bvs where
     bvs = boundaryVs bd
--- boundaryFaces = nub . concat . VMap.elems . bvFacesMap 
--- relies on the map containing no extra info for non boundary vertices
+
+{-# DEPRECATED boundaryFaces "Use boundaryVFacesBS" #-}
+-- | DEPRECATED boundaryFaces: Use boundaryVFacesBS
+boundaryFaces :: BoundaryState -> [TileFace]
+boundaryFaces = boundaryVFacesBS
 
 -- |An Update is either safe or unsafe.
 -- A safe update has a new face involving 3 existing vertices.

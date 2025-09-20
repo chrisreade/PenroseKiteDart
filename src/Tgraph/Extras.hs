@@ -23,7 +23,6 @@ It also defines experimental TrackedTgraphs (used for tracking subsets of faces 
 
 module Tgraph.Extras
   ( smart
-  , boundaryJoinFaces
   , drawBoundaryJoins
   , drawJoinsFor
   , smartdraw
@@ -107,7 +106,6 @@ import Data.Foldable (Foldable(..))
 import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
-import qualified Data.Map as Map (elems, filterWithKey)
 import Data.Maybe (fromMaybe)
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
@@ -124,12 +122,7 @@ smart :: OKBackend b =>
 smart dr g = drawBoundaryJoins g vp <> dr vp
   where vp = makeVP g
 
--- |select the halftile faces of a Tgraph with a join edge on the boundary.
--- Useful for drawing join edges only on the boundary.
-boundaryJoinFaces :: HasFaces a => a -> [TileFace]
-boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin dfMap where
-    dfMap = dedgesFacesMap (map reverseD $ boundary a) a
-    isJoin d f = joinE f == d
+
 
 {- OLD version used makeBoundaryState
 boundaryJoinFaces :: Tgraph -> [TileFace]
@@ -166,6 +159,7 @@ smartOn :: (HasFaces a, OKBackend b) =>
 smartOn a dr vp = drawBoundaryJoins a rvp <> dr rvp where rvp = restrictTo a vp
 
 {-# DEPRECATED restrictSmart "Use smartOn" #-}
+-- | DEPRECATED restrictSmart: Use smartOn
 restrictSmart :: (HasFaces a, OKBackend b) =>
                  a -> (VPatch -> Diagram b) -> VPatch -> Diagram b
 restrictSmart = smartOn
@@ -614,7 +608,7 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
 -- The resulting faces could have a crossing boundary and also could be disconnected if there is a hole in the starting Tgraph
 -- so these conditions are checked for, producing a Try result.
 tryBoundaryFaceGraph :: Tgraph -> Try Tgraph
-tryBoundaryFaceGraph = tryConnectedNoCross . boundaryFaces . makeBoundaryState
+tryBoundaryFaceGraph = tryConnectedNoCross . boundaryVFacesBS . makeBoundaryState
 
 
 {- -- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
