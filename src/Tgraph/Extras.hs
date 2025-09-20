@@ -123,13 +123,7 @@ smart dr g = drawBoundaryJoins g vp <> dr vp
   where vp = makeVP g
 
 
-
-{- OLD version used makeBoundaryState
-boundaryJoinFaces :: Tgraph -> [TileFace]
-boundaryJoinFaces g = map snd $ incompleteHalves bdry $ boundary bdry where
-    bdry = makeBoundaryState g
- -}
--- |draw boundary join edges of a Tgraph using a given suitable VPatch
+-- |drawBoundaryJoins a vp - draw boundary join edges of faces in a, using a given suitable VPatch
 -- Will raise an error if any vertex in the faces does not have a location in the VPatch.
 drawBoundaryJoins :: (HasFaces a, OKBackend b) => a -> VPatch -> Diagram b
 drawBoundaryJoins = drawJoinsFor . boundaryJoinFaces
@@ -139,13 +133,11 @@ drawBoundaryJoins :: OKBackend b => Tgraph -> VPatch -> Diagram b
 drawBoundaryJoins g vp = drawEdgesVP vp (map joinE $ boundaryJoinFaces g) # joinDashing
 -}
 
--- |Given a list of faces and a VPatch with suitable locations, draw dashed joins for those faces.
+-- |drawJoinsFor a vp - If vp is a VPatch with suitable locations, draw dashed joins for the faces in a.
 -- Will raise an error if any vertex in the faces does not have a location in the VPatch.
 drawJoinsFor::  (HasFaces a, OKBackend b) =>
                 a -> VPatch -> Diagram b
 drawJoinsFor a vp = drawWith dashJOnly (restrictTo a vp)
-
-
 
 -- |same as draw except adding dashed lines on boundary join edges. 
 smartdraw :: OKBackend b => Tgraph -> Diagram b
@@ -187,7 +179,7 @@ drawPCompose :: OKBackend b =>
                 Tgraph -> Diagram b
 drawPCompose g =
     smartOn g' draw vp
-    <> drawj (subFaces remainder vp) # lc lime
+    <> drawJ (subFaces remainder vp) # lc lime
     where (remainder,g') = partCompose g
           vp = makeVP g
 
