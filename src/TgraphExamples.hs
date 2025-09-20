@@ -252,8 +252,8 @@ badlyBrokenDartFig :: OKBackend b => Diagram b
 badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, vpComp, vpFailed] where
     vp = makeVP badlyBrokenDart
     comp = compose badlyBrokenDart
-    vpComp = restrictVP vp $ faces comp
-    vpFailed  = restrictVP vp $ (snd . runTry . tryPartComposeFaces) comp
+    vpComp = restrictTo (faces comp) vp
+    vpFailed  = restrictTo ((snd . runTry . tryPartComposeFaces) comp) vp
 
 -- |figure showing the result of removing incomplete tiles (those that do not have their matching halftile)
 -- to a 3 times decomposed sun.

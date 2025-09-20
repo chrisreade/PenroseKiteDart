@@ -138,8 +138,10 @@ module Tgraph.Prelude
   , VPatch(..)
   , VertexLocMap
   , makeVP
+  , subFaces
   , subVP
   , relevantVP
+  , restrictTo
   , restrictVP
   , graphFromVP
   , removeFacesVP
@@ -736,7 +738,7 @@ we will refer to this as an edge list rather than a directed edge list.
 -}
 
 
--- |directed edges (clockwise) round a face.
+-- |produces a list of directed edges (clockwise) round a face.
 faceDedges::TileFace -> [Dedge]
 faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
@@ -1007,14 +1009,20 @@ This makes the join of the face with lowest origin and lowest oppV align on the 
 makeVP::Tgraph -> VPatch
 makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces g
 
--- |Creates a VPatch from a list of tile faces, using the vertex location map from the given VPatch.
--- The vertices in the tile faces should have locations assigned in the given VPatch vertex locations.
+-- |subFaces a vp, creates a new VPatch from faces in a, using the vertex location map from vp.
+-- The vertices in the faces should have locations assigned in vp vertex locations.
 -- However THIS IS NOT CHECKED so missing locations for vertices will raise an error when drawing.
--- subVP vp fcs can be used for both subsets of tile faces of vp,
+-- subFaces a vp can be used for both subsets of tile faces of vp,
 -- and also for larger scale faces which use the same vertex to point assignment (e.g in compositions).
--- The vertex location map is not changed (see also relevantVP and restrictVP).
-subVP:: VPatch -> [TileFace] -> VPatch
-subVP vp fcs = vp {vpFaces  = fcs}
+-- The vertex location map is not changed (see also relevantVP and restrictTo).
+subFaces:: HasFaces a => a -> VPatch -> VPatch
+subFaces a vp = vp {vpFaces  = faces a}
+
+{-# DEPRECATED subVP "Use (flip subFaces)" #-}
+-- | DEPRECATED subVP: Use (flip subFaces)
+subVP:: HasFaces a => VPatch -> a -> VPatch
+subVP = flip subFaces
+
 
 -- | removes locations for vertices not used in the faces of a VPatch.
 -- (Useful when restricting which labels get drawn).
@@ -1030,11 +1038,18 @@ relevantVP vp
      diffList = IntSet.toList $ IntSet.difference vs source
      locVs = VMap.filterWithKey (\ v _ -> v `IntSet.member` vs) $ vLocs vp
 
--- | A combination of subVP and relevantVP. Restricts a vp to a list of faces, removing locations for vertices not in the faces.
--- (Useful when restricting which labels get drawn)
--- restrictVP vp fcs will raise an error if any vertex in fcs is not a key in the location map of vp.
+-- |A combination of subFaces and relevantVP. 
+-- restrictTo a vp - restricts vp to faces in a,
+-- removing locations for vertices not in the faces.
+-- (Useful when restricting which labels get drawn).
+-- Will raise an error if any vertex in faces of a is not a key in the location map of vp.
+restrictTo:: HasFaces a => a -> VPatch -> VPatch
+restrictTo a vp = relevantVP (subFaces (faces a) vp)
+
+{-# DEPRECATED restrictVP "Use (flip restrictTo)" #-}
+-- | DEPRECATED restrictVP: Use (flip restrictTo)
 restrictVP:: VPatch -> [TileFace] -> VPatch
-restrictVP vp fcs = relevantVP (subVP vp fcs)
+restrictVP = flip restrictTo
 
 -- |Recover a Tgraph from a VPatch by dropping the vertex positions and checking Tgraph properties.
 graphFromVP:: VPatch -> Tgraph
@@ -1042,12 +1057,12 @@ graphFromVP = checkedTgraph . faces
 
 -- |remove a list of faces from a VPatch
 removeFacesVP :: VPatch -> [TileFace] -> VPatch
-removeFacesVP vp fcs = restrictVP vp (faces vp \\ fcs)
+removeFacesVP vp fcs = restrictTo (faces vp \\ fcs) vp
 
 -- |make a new VPatch with a list of selected faces from a VPatch.
 -- This will ignore any faces that are not in the given VPatch.
 selectFacesVP:: VPatch -> [TileFace] -> VPatch
-selectFacesVP vp fcs = restrictVP vp (fcs `intersect` faces vp)
+selectFacesVP vp fcs = restrictTo (fcs `intersect` faces vp) vp
 
 -- |find the location of a single vertex in a VPatch
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
@@ -1160,7 +1175,7 @@ makeAlignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch
 makeAlignedVP = alignBefore id
 
 
--- |produce a diagram of a list of edges (given a VPatch)
+-- |produce a diagram of a list of edges (given a suitable VPatch)
 -- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.
 drawEdgesVP :: OKBackend b =>
                VPatch -> [Dedge] -> Diagram b

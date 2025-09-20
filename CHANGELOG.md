@@ -1,6 +1,19 @@
 # Revision history for PenroseKiteDart
 
+## version v1.5.1
+
 redundant import foldl' warning avoided
+
+joinDashing changed appearance (no longer ultraThin)
+and added
+dashJOnly, drawJPiece, and drawJ 
+(alongside dashjOnly, drawjPiece, and drawj which still use ultraThin) 
+
+generalised boundaryJoinFaces, drawBoundaryJoins, drawJoinsFor
+
+added smartOn (replacing deprecated restrictSmart)
+added restrictTo (replacing deprecated restrictVP)
+added subFaces (replacing deprecated subVP)
 
 ## version v1.5 2025-8-9
 

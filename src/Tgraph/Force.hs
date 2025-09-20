@@ -426,6 +426,7 @@ instance HasFaces a => HasFaces (Forced a) where
 --
 -- WARNING: this should only be used when the argument is known to be a fully forced Forcible.
 -- Consider using forceF or tryForceF instead for safety reasons.
+-- Used in partComposeF and composeF
 labelAsForced :: a -> Forced a
 labelAsForced = Forced
 
@@ -441,19 +442,19 @@ forceF = runTry . tryForceF
 
 -- | recoverGraphF is an explicitly forced version of recoverGraph
 recoverGraphF :: Forced BoundaryState -> Forced Tgraph
-recoverGraphF (Forced bs) = labelAsForced (recoverGraph bs)
+recoverGraphF (Forced bs) = Forced (recoverGraph bs)
 
 -- | boundaryStateF is an explicitly forced version of boundaryState
 boundaryStateF :: Forced ForceState -> Forced BoundaryState
-boundaryStateF (Forced fs) = labelAsForced (boundaryState fs)
+boundaryStateF (Forced fs) = Forced (boundaryState fs)
 
 -- | makeBoundaryStateF is an explicitly forced version of makeBoundaryState
 makeBoundaryStateF :: Forced Tgraph -> Forced BoundaryState
-makeBoundaryStateF (Forced g) = labelAsForced (makeBoundaryState g)
+makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
 
 -- | initFSF is an explicitly forced version of initFS
 initFSF :: Forcible a => Forced a -> Forced ForceState
-initFSF (Forced a) = labelAsForced (initFS a)
+initFSF (Forced a) = Forced (initFS a)
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as

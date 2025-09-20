@@ -37,6 +37,7 @@ module TileLibP3
   --, drawnEdgesP3
   , drawPieceP3
   , drawjPieceP3
+  , drawJPieceP3
   , fillOnlyPieceP3
   , fillOnlyPieceWN
   , fillPieceWN
@@ -45,7 +46,8 @@ module TileLibP3
   -- * Drawing functions producing P3 Rhombuses
   , drawP3
   , drawjP3
-  , dashjP3
+  , drawJP3
+  , dashjP3 --deprecated
   , fillWN
   , fillNW
   -- * P3_DrawableLabelled Class
@@ -180,14 +182,19 @@ drawnEdgesP3 (RN v) = [z,v^-^z] where z = phi*^rotate (ttangle 8) v
 drawPieceP3 :: OKBackend b => P3_Piece -> Diagram b
 drawPieceP3 = strokeLine . fromOffsets . drawnEdgesP3
 
--- |Draw dashed join only of a P3_Piece 
-dashjOnlyP3 :: OKBackend b => P3_Piece -> Diagram b
-dashjOnlyP3 p = joinDashing (strokeLine $ fromOffsets [tileRepP3 p])
-
+-- |Draw dashed join only of a P3_Piece. 
+dashJOnlyP3 :: OKBackend b => P3_Piece -> Diagram b
+dashJOnlyP3 p = joinDashing (strokeLine $ fromOffsets [tileRepP3 p])
 
 -- |Draws all edges of a P3_Piece using a faint dashed line for the join edge
+-- (J for plain dashed Join, j for faint dashed join)
 drawjPieceP3 :: OKBackend b => P3_Piece -> Diagram b
-drawjPieceP3 = drawPieceP3 <> dashjOnlyP3
+drawjPieceP3 = drawPieceP3 <> lw ultraThin . dashJOnlyP3
+
+-- |Draws all edges of a P3_Piece using a dashed line for the join edge
+-- (J for plain dashed Join, j for faint dashed join)
+drawJPieceP3 :: OKBackend b => P3_Piece -> Diagram b
+drawJPieceP3 = drawPieceP3 <> dashJOnlyP3
 
 -- |Fills a P3_Piece with a colour (without drawn edges)
 fillOnlyPieceP3 :: (OKBackend b, Color c) =>
@@ -253,13 +260,20 @@ drawP3 :: (OKBackend b, P3_Drawable a) =>
           a -> Diagram b
 drawP3 = drawP3With drawPieceP3
 
--- |An alternative drawing function for anything P3_Drawable adding dashed lines for join edges
+-- |An alternative drawing function for anything P3_Drawable adding faint dashed lines for join edges
+-- (J for plain dashed Join, j for faint dashed join)
 drawjP3 :: (OKBackend b, P3_Drawable a) => 
           a -> Diagram b
 drawjP3 = drawP3With drawjPieceP3
 
-{-# DEPRECATED dashjP3 "Replaced by drawjP3" #-}
--- |Deprecated (renamed as drawjP3)
+-- |An alternative drawing function for anything P3_Drawable adding dashed lines for join edges
+-- (J for plain dashed Join, j for faint dashed join)
+drawJP3 :: (OKBackend b, P3_Drawable a) => 
+          a -> Diagram b
+drawJP3 = drawP3With drawJPieceP3
+
+{-# DEPRECATED dashjP3 "Use drawjP3" #-}
+-- | DEPRECATED dashjP3: Use drawjP3
 dashjP3 :: (OKBackend b, P3_Drawable a) => 
           a -> Diagram b
 dashjP3 = drawjP3

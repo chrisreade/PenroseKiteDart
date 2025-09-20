@@ -1,11 +1,11 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
+-- This file has been generated from package.yaml by hpack version 0.38.1.
 --
 -- see: https://github.com/sol/hpack
 
 name:           PenroseKiteDart
-version:        1.5
+version:        1.5.1
 synopsis:       Library to explore Penrose's Kite and Dart Tilings.
 description:    Library to explore Penrose's Kite and Dart Tilings using Haskell Diagrams. Please see README.md
 category:       Graphics

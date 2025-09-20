@@ -27,6 +27,7 @@ module Tgraph.Extras
   , drawBoundaryJoins
   , drawJoinsFor
   , smartdraw
+  , smartOn
   , restrictSmart
   , smartRotateBefore
   , smartAlignBefore
@@ -106,7 +107,8 @@ import Data.Foldable (Foldable(..))
 import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
-import qualified Data.Maybe (fromMaybe)
+import qualified Data.Map as Map (elems, filterWithKey)
+import Data.Maybe (fromMaybe)
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
@@ -124,31 +126,49 @@ smart dr g = drawBoundaryJoins g vp <> dr vp
 
 -- |select the halftile faces of a Tgraph with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
+boundaryJoinFaces :: HasFaces a => a -> [TileFace]
+boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin dfMap where
+    dfMap = dedgesFacesMap (map reverseD $ boundary a) a
+    isJoin d f = joinE f == d
+
+{- OLD version used makeBoundaryState
 boundaryJoinFaces :: Tgraph -> [TileFace]
 boundaryJoinFaces g = map snd $ incompleteHalves bdry $ boundary bdry where
     bdry = makeBoundaryState g
-
--- |draw boundary join edges of a Tgraph using a given VPatch
+ -}
+-- |draw boundary join edges of a Tgraph using a given suitable VPatch
+-- Will raise an error if any vertex in the faces does not have a location in the VPatch.
+drawBoundaryJoins :: (HasFaces a, OKBackend b) => a -> VPatch -> Diagram b
+drawBoundaryJoins = drawJoinsFor . boundaryJoinFaces
+--drawWith dashJOnly $ restrictTo (boundaryJoinFaces a) vp
+{- Old version used drawEdgesVP
 drawBoundaryJoins :: OKBackend b => Tgraph -> VPatch -> Diagram b
 drawBoundaryJoins g vp = drawEdgesVP vp (map joinE $ boundaryJoinFaces g) # joinDashing
+-}
 
--- |Given a list of faces and a VPatch with suitable locations, draw just the dashed joins for those faces.
+-- |Given a list of faces and a VPatch with suitable locations, draw dashed joins for those faces.
 -- Will raise an error if any vertex in the faces does not have a location in the VPatch.
-drawJoinsFor::  OKBackend b =>
-                [TileFace] -> VPatch -> Diagram b
-drawJoinsFor fcs vp = drawWith dashjOnly (restrictVP vp fcs)
+drawJoinsFor::  (HasFaces a, OKBackend b) =>
+                a -> VPatch -> Diagram b
+drawJoinsFor a vp = drawWith dashJOnly (restrictTo a vp)
+
+
 
 -- |same as draw except adding dashed lines on boundary join edges. 
 smartdraw :: OKBackend b => Tgraph -> Diagram b
 smartdraw = smart draw
 
--- |restrictSmart g dr vp - assumes vp has locations for vertices in g.
+-- |smartOn a dr vp - assumes vp has locations for vertices in faces of a.
 -- It uses the VPatch drawing function dr to draw g and adds dashed boundary joins.
 -- This can be used instead of smart when an appropriate vp is already available.
-restrictSmart :: OKBackend b =>
-                 Tgraph -> (VPatch -> Diagram b) -> VPatch -> Diagram b
-restrictSmart g dr vp = drawBoundaryJoins g rvp <> dr rvp
-                        where rvp = restrictVP vp $ faces g
+smartOn :: (HasFaces a, OKBackend b) =>
+           a -> (VPatch -> Diagram b) -> VPatch -> Diagram b
+smartOn a dr vp = drawBoundaryJoins a rvp <> dr rvp where rvp = restrictTo a vp
+
+{-# DEPRECATED restrictSmart "Use smartOn" #-}
+restrictSmart :: (HasFaces a, OKBackend b) =>
+                 a -> (VPatch -> Diagram b) -> VPatch -> Diagram b
+restrictSmart = smartOn
 
 -- |smartRotateBefore vfun a g - a tricky combination of smart with rotateBefore.
 -- Uses vfun to produce a Diagram after converting g to a rotated VPatch but also adds the dashed boundary join edges of g.
@@ -156,7 +176,7 @@ restrictSmart g dr vp = drawBoundaryJoins g rvp <> dr rvp
 -- Example: smartRotateBefore (labelled draw) angle g
 smartRotateBefore :: OKBackend b =>
                      (VPatch -> Diagram b) -> Angle Double -> Tgraph -> Diagram b
-smartRotateBefore vfun angle g = rotateBefore (restrictSmart g vfun) angle g
+smartRotateBefore vfun angle g = rotateBefore (smartOn g vfun) angle g
 
 -- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with alignBefore.
 -- Uses vfun to produce a Diagram after converting g to an aligned VPatch but also adds the dashed boundary join edges of g.
@@ -164,7 +184,7 @@ smartRotateBefore vfun angle g = rotateBefore (restrictSmart g vfun) angle g
 -- Example: smartAlignBefore (labelled draw) (a,b) g
 smartAlignBefore :: OKBackend b =>
                     (VPatch -> Diagram b) -> (Vertex,Vertex) -> Tgraph -> Diagram b
-smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
+smartAlignBefore vfun (a,b) g = alignBefore (smartOn g vfun) (a,b) g
 
 -- |applies partCompose to a Tgraph g, then draws the composed graph along with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
@@ -172,8 +192,8 @@ smartAlignBefore vfun (a,b) g = alignBefore (restrictSmart g vfun) (a,b) g
 drawPCompose :: OKBackend b =>
                 Tgraph -> Diagram b
 drawPCompose g =
-    restrictSmart g' draw vp
-    <> drawj (subVP vp remainder) # lc lime
+    smartOn g' draw vp
+    <> drawj (subFaces remainder vp) # lc lime
     where (remainder,g') = partCompose g
           vp = makeVP g
 
@@ -183,7 +203,7 @@ drawPCompose g =
 drawForce :: OKBackend b =>
              Tgraph -> Diagram b
 drawForce g =
-    restrictSmart g draw vp # lc red 
+    smartOn g draw vp # lc red 
     <> draw vp
     where vp = makeVP $ force g
 
@@ -197,8 +217,8 @@ drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     fg = force g
     sfg = superForce fg
     vp = makeVP sfg
-    dfg = draw $ selectFacesVP vp (faces fg \\ faces g) -- restrictSmart (force g) draw vp
-    dg = restrictSmart g draw vp
+    dfg = draw $ selectFacesVP vp (faces fg \\ faces g) -- smartOn (force g) draw vp
+    dg = smartOn g draw vp
     dsfg = draw $ selectFacesVP vp (faces sfg \\ faces fg)
 
 -- | drawWithMax g - draws g and overlays the maximal composition of force g in red.
@@ -208,9 +228,9 @@ drawWithMax :: OKBackend b =>
                Tgraph -> Diagram b
 drawWithMax g =  (dmax # lc red # lw medium) <> dg where
     vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
-    dg = restrictSmart g draw vp
+    dg = smartOn g draw vp
     maxg = maxCompForce g
-    dmax = draw $ subVP vp $ faces $ forgetF maxg
+    dmax = draw $ subFaces (faces maxg) vp
 
 -- |addBoundaryAfter f g - displaying the boundary of a Tgraph g in lime (overlaid on g drawn with f).
 addBoundaryAfter :: OKBackend b =>
@@ -230,7 +250,7 @@ emphasizeFaces :: OKBackend b =>
                   [TileFace] -> Tgraph -> Diagram b
 emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) where
     vp = makeVP g
-    emphvp = subVP vp (fcs `intersect` faces g)
+    emphvp = subFaces (fcs `intersect` faces g) vp
 
 
 -- | For illustrating an unsound version of composition which defaults to kites when there are unknown
@@ -281,7 +301,7 @@ allCompForce = takeWhile (not . nullFaces . forgetF) . iterate composeF . forceF
 -- and just the emptyTgraph otherwise.
 -- It will raise an error if the initial force fails with an incorrect Tgraph.
 maxCompForce:: Tgraph -> Forced Tgraph
-maxCompForce g | nullFaces g = labelAsForced g
+maxCompForce g | nullFaces g = labelAsForced g -- forceF g
                | otherwise = last $ allCompForce g
 
 
@@ -315,11 +335,13 @@ forcedBoundaryVCovering g = recoverGraphF <$> boundaryVCovering gforcedBdry wher
 {-| boundaryECovering - for an explicitly Forced BoundaryState fbd,
 produces a list of all possible covers of the boundary directed edges in fbd.
 A cover is an explicitly Forced extension (of fbd) such that the original boundary directed edges of fbd are all internal edges.
-Extensions are made by repeatedly adding a face to any edge on the original boundary that is still on the boundary
-and forcing, repeating this until the orignal boundary is all internal edges.
+Extensions are made by choosing any edge on the original boundary that is still on the boundary,
+adding both possible legal faces, and forcing each result (keeping only successes - using
+tryCheckCasesDKF) then 
+repeating this process until the orignal boundary is all internal edges.
 The resulting covers account for all possible ways the boundary can be extended.
-This can raise an error if both choices on a boundary edge fail when forced (using atLeastOne).
 
+This can raise an error if both choices on a boundary edge fail when forced (using tryCheckCasesDKF).
 In which case, fbd represents an important counter example to the hypothesis that
 successfully forced forcibles are correct.
 -}
@@ -345,7 +367,7 @@ commonBdry des a = des `Set.intersection` boundaryEdgeSet a
 
 {-| boundaryVCovering fbd - similar to boundaryECovering, but produces a list of all possible covers of 
     the boundary vertices in fbd (rather than just boundary edges).
-    This can raise an error if both choices on a boundary edge fail when forced (using atLeastOne).
+    This can raise an error if both choices on a boundary edge fail when forced (using tryCheckCasesDKF).
  -}
 boundaryVCovering:: Forced BoundaryState -> [Forced BoundaryState]
 boundaryVCovering fbd = covers [(fbd, startbds)] where
@@ -585,7 +607,7 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
     reportCover bd des = map (tileLabel . getf) des where
       efmap = dedgesFacesMap des (faces bd) -- more efficient than using graphEFMap?
 --      efmap = graphEFMap (recoverGraph bd)
-      getf e = Data.Maybe.fromMaybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
+      getf e = fromMaybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
                                     (faceForEdge e efmap)
 
 -- |Tries to create a new Tgraph from all faces with a boundary vertex in a Tgraph.
@@ -748,7 +770,7 @@ drawTrackedTgraph :: OKBackend b => [VPatch -> Diagram b] -> TrackedTgraph -> Di
 drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeVP (tgraph ttg)
     untracked = faces vp \\ concat (tracked ttg)
-    vpList = map (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
+    vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
 
 {-|
     To draw a TrackedTgraph rotated.
@@ -761,7 +783,7 @@ drawTrackedTgraphRotated :: OKBackend b => [VPatch -> Diagram b] -> Angle Double
 drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = rotate a $ makeVP (tgraph ttg)
     untracked = faces vp \\ concat (tracked ttg)
-    vpList = map (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
+    vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
 
 {-|
     To draw a TrackedTgraph aligned.
@@ -775,7 +797,7 @@ drawTrackedTgraphAligned :: OKBackend b => [VPatch -> Diagram b] -> (Vertex,Vert
 drawTrackedTgraphAligned drawList (a,b) ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = makeAlignedVP (a,b) (tgraph ttg)
     untracked = faces vp \\ concat (tracked ttg)
-    vpList = map (restrictVP vp) (untracked:tracked ttg) ++ repeat vp
+    vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
 
 
 

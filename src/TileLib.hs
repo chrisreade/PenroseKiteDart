@@ -36,9 +36,11 @@ module TileLib
   -- $OKBackend
   , drawPiece
   , drawjPiece
+  , drawJPiece
   , dashjPiece
   , joinDashing
   , dashjOnly
+  , dashJOnly
   , drawRoundPiece
   , drawJoin
   , fillOnlyPiece
@@ -52,6 +54,7 @@ module TileLib
   , Drawable(..)
   , draw
   , drawj
+  , drawJ
   , fillDK
   , fillKD
   -- , fillMaybeDK
@@ -166,9 +169,16 @@ drawPiece :: OKBackend b =>
 drawPiece = strokeLine . fromOffsets . drawnEdges
 
 -- |same as drawPiece but with join edge added as faint dashed line.
+-- J for plain dashed Join, j for faint dashed join
 drawjPiece :: OKBackend b =>
               Piece -> Diagram b
 drawjPiece = drawPiece <> dashjOnly
+
+-- |same as drawPiece but with join edge added as dashed line.
+-- J for plain dashed  Join, j for faint dashed join
+drawJPiece :: OKBackend b =>
+              Piece -> Diagram b
+drawJPiece = drawPiece <> dashJOnly
 
 {-# DEPRECATED dashjPiece "Replaced by drawjPiece" #-}
 -- |renamed as drawjPiece
@@ -177,13 +187,20 @@ dashjPiece :: OKBackend b =>
 dashjPiece = drawjPiece
 
 -- |draw join edge only (as faint dashed line).
+-- J for plain dashed Join, j for faint dashed join
 dashjOnly :: OKBackend b =>
              Piece -> Diagram b
-dashjOnly = joinDashing . drawJoin
+dashjOnly = lw ultraThin . dashJOnly
+
+-- |draw join edge only (as faint dashed line).
+-- J for plain dashed  Join, j for faint dashed join
+dashJOnly :: OKBackend b =>
+             Piece -> Diagram b
+dashJOnly = joinDashing . drawJoin
 
 -- |changes line style to ultraThin dashed lines (for drawing join edges)
 joinDashing :: (HasStyle c, N c ~ Double) => c -> c
-joinDashing = dashing [dashmeasure,dashmeasure] 0 . lw ultraThin
+joinDashing = dashing [dashmeasure,dashmeasure] 0
                      where dashmeasure = normalized 0.003  `atLeast` output 0.5
 
 -- |draw join edge only.
@@ -278,10 +295,17 @@ draw :: (Drawable a, OKBackend b) =>
         a -> Diagram b
 draw = drawWith drawPiece
 
--- | alternative default case for drawing, adding dashed lines for join edges.
+-- | alternative default case for drawing, adding faint dashed lines for join edges.
+-- J for plain dashed  Join, j for faint dashed join
 drawj :: (Drawable a, OKBackend b) =>
          a -> Diagram b
 drawj = drawWith drawjPiece
+
+-- | alternative default case for drawing, adding dashed lines for join edges.
+-- J for plain dashed  Join, j for faint dashed join
+drawJ :: (Drawable a, OKBackend b) =>
+         a -> Diagram b
+drawJ = drawWith drawJPiece
 
 fillDK, fillKD :: (Drawable a, OKBackend b, Color c1, Color c2) =>
                   c1 -> c2 -> a -> Diagram b
