@@ -643,7 +643,7 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
 -- The resulting faces could have a crossing boundary and also could be disconnected if there is a hole in the starting Tgraph
 -- so these conditions are checked for, producing a Try result.
 tryBoundaryFaceGraph :: Tgraph -> Try Tgraph
-tryBoundaryFaceGraph = tryConnectedNoCross . boundaryVFacesBS . makeBoundaryState
+tryBoundaryFaceGraph = tryConnectedNoCross . boundaryVFaces . makeBoundaryState
 
 
 {- -- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.
@@ -750,6 +750,7 @@ instance HasFaces TrackedTgraph where
     faces  = faces . tgraph
     boundary = boundary . faces . tgraph
     maxV = maxV . faces . tgraph
+    boundaryVFMap = boundaryVFMap . faces -- note need for nub
 
 -- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.

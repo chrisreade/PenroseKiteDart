@@ -38,11 +38,13 @@ module Tgraph.Prelude
   , tryMakeTgraph
   , checkedTgraph
   , makeUncheckedTgraph
-  , HasFaces(..) -- faces, boundary, maxV
+  , HasFaces(..) -- faces, boundary, maxV, boundaryVFMap
   , dedges
   , vertexSet
   , vertices
   , boundaryVs
+  , boundaryEFMap
+  , boundaryVFaces
    -- * Property Checking for Tgraphs
 --  , renumberFaces
 --  , differing
@@ -187,7 +189,7 @@ module Tgraph.Prelude
 import Data.List ((\\),intersect,union,elemIndex,find,nub)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault)
+import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault,elems)
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith, elems, filterWithKey)
 import Data.Maybe (mapMaybe) -- edgeNbrs
@@ -544,6 +546,9 @@ class HasFaces a where
     boundary :: a -> [Dedge]
     -- |get the maximum vertex in all faces (0 if there are no faces)
     maxV :: a -> Int
+    -- |create a map associating to each boundary vertex, a list of faces at the vertex
+    boundaryVFMap :: a -> VertexMap [TileFace]
+
 
 -- |An ascending list of the vertices occuring in faces (without duplicates)
 vertices :: HasFaces a => a -> [Vertex]
@@ -563,18 +568,38 @@ dedges = concatMap faceDedges . faces
 vertexSet :: HasFaces a => a -> VertexSet
 vertexSet = mconcat . map faceVSet . faces
 
+-- |create a directed edge to face map from the (reverse direction of the) boundary edges
+boundaryEFMap :: HasFaces a => a -> Map.Map Dedge TileFace
+boundaryEFMap fcs = Map.fromList (assocFaces des) where
+       des = map reverseD $ boundary fcs
+--       vs = boundaryVs a
+       vfMap = boundaryVFMap fcs
+       assocFaces [] = []
+       assocFaces (d@(a,b):more) =
+           case filter (liftA2 (&&) (isAtV a) (`hasDedge` d)) (vfMap VMap.! b) of
+               [face] -> (d,face):assocFaces more
+               []   -> assocFaces more
+               _   -> error $ "boundaryEFMap: more than one Tileface has the same directed edge: "
+                              ++ show d ++ "\n"
+
+-- |find the faces which have at leat one boundary vertex.
+boundaryVFaces :: HasFaces a => a -> [TileFace]
+boundaryVFaces a = nub $ concat $ VMap.elems $ boundaryVFMap a 
+
 -- |A list of tilefaces is in class HasFaces
 instance HasFaces [TileFace] where
     faces = id
     boundary = missingRevs . dedges
     maxV [] = 0
     maxV fcs = IntSet.findMax $ vertexSet fcs
+    boundaryVFMap fcs = vertexFacesMap (nub $ boundaryVs fcs) fcs -- need for nub
 
 -- |Tgraph is in class HasFaces
 instance HasFaces Tgraph where
     faces  = getFaces
     boundary = boundary . faces
     maxV = maxV . faces
+    boundaryVFMap g = vertexFacesMap (boundaryVs g) (faces g) -- no need for nub
 
 ldarts,rdarts,lkites,rkites, kites, darts :: HasFaces a => a -> [TileFace]
 -- | selecting left darts from 
@@ -930,17 +955,27 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
                                                   ++ show d ++ "\n"
       _ -> assocFaces more
  -}
--- |select the faces with a join edge on the boundary.
--- Useful for drawing join edges only on the boundary.
-boundaryJoinFaces :: HasFaces a => a -> [TileFace]
+
+{- boundaryJoinFaces :: HasFaces a => a -> [TileFace]
 boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin dfMap where
     dfMap = dedgesFacesMap (map reverseD $ boundary a) a
     isJoin d f = joinE f == d
+ -}
+-- |select the faces with a join edge on the boundary.
+-- Useful for drawing join edges only on the boundary.
+boundaryJoinFaces :: HasFaces a => a -> [TileFace]
+boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin $ boundaryEFMap a where
+    isJoin d f = joinE f == d
 
--- |find the faces with a (at least one) boundary edge.
+{- -- |find the faces with a (at least one) boundary edge.
 boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
 boundaryEdgeFaces a = nub $ Map.elems dfMap where
     dfMap = dedgesFacesMap (map reverseD $ boundary a) a
+ -}
+ 
+-- |find the faces with a at least one boundary edge.
+boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
+boundaryEdgeFaces = nub . Map.elems . boundaryEFMap
 
 
 -- |Build a Map from all directed edges to faces (the unique face containing the directed edge)
@@ -1017,6 +1052,7 @@ instance HasFaces VPatch where
     faces = vpFaces
     boundary = boundary . faces
     maxV = maxV . faces
+    boundaryVFMap = boundaryVFMap . faces -- need for nub (from [TileFace] instance)
 
 
 {-|Convert a Tgraph to a VPatch.

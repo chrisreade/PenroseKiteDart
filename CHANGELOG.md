@@ -2,15 +2,19 @@
 
 ## version v1.5.1
 
+possibly breaking:
+    added boundaryVFMap to class HasFaces
+
 generalised:
     boundaryJoinFaces
     drawBoundaryJoins
     drawJoinsFor
 added:
+    boundaryEFMap
     smartOn (replacing deprecated restrictSmart)
     restrictTo (replacing deprecated restrictVP)
     subFaces (replacing deprecated subVP)
-    boundaryVFacesBS (replacing deprecated boundaryFaces)
+    boundaryVFaces (replacing deprecated boundaryFaces)
     boundaryEdgeFaces
     removeFacesFromVP (replacing deprecated removeFacesVP)
     removeVerticesFromVP
@@ -22,7 +26,7 @@ deprecated:
     subVP
     boundaryFaces
     removeFacesVP
-    
+
 warning avoided for import of foldl'
 
 joinDashing changed appearance (no longer ultraThin by default)

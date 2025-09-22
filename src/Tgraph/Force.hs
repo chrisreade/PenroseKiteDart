@@ -65,7 +65,7 @@ module Tgraph.Force
   , recoverGraph
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
-  , boundaryVFacesBS
+  -- , boundaryVFacesBS  (removed)
   , boundaryFaces --deprecated
     -- *  Auxiliary Functions for a force step
   , affectedBoundary
@@ -191,6 +191,7 @@ instance HasFaces BoundaryState where
     faces = allFaces
     boundary = boundaryDedges
     maxV bd = nextVertex bd - 1
+    boundaryVFMap = bvFacesMap
 
 -- |Calculates BoundaryState information from a Tgraph.
 makeBoundaryState:: Tgraph -> BoundaryState
@@ -225,15 +226,16 @@ facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
   Just fcs -> fcs
   Nothing -> error $ "facesAtBV: Not a boundary vertex? No result found for vertex " ++ show v ++ "\n"
 
--- |return a list of faces which have a boundary vertex from a BoundaryState
+{- -- |return a list of faces which have a boundary vertex from a BoundaryState
 boundaryVFacesBS :: BoundaryState -> [TileFace]
 boundaryVFacesBS bd = nub $ concatMap (facesAtBV bd) bvs where
     bvs = boundaryVs bd
+ -}
 
-{-# DEPRECATED boundaryFaces "Use boundaryVFacesBS" #-}
+{-# DEPRECATED boundaryFaces "Use boundaryVFaces" #-}
 -- | DEPRECATED boundaryFaces: Use boundaryVFacesBS
 boundaryFaces :: BoundaryState -> [TileFace]
-boundaryFaces = boundaryVFacesBS
+boundaryFaces = boundaryVFaces
 
 -- |An Update is either safe or unsafe.
 -- A safe update has a new face involving 3 existing vertices.
@@ -262,6 +264,7 @@ instance HasFaces ForceState where
     faces = faces . boundaryState
     boundary = boundary . boundaryState
     maxV = maxV . boundaryState
+    boundaryVFMap = boundaryVFMap . boundaryState
 
 {-|UpdateGenerator is a newtype for functions which capture one or more of the forcing rules.
 The functions can be applied using the unwrapper applyUG
@@ -425,6 +428,7 @@ instance HasFaces a => HasFaces (Forced a) where
     faces = faces . forgetF
     boundary = boundary . forgetF
     maxV = maxV . faces
+    boundaryVFMap = boundaryVFMap . forgetF
 
 -- | Constructs an explicitly Forced type.
 --
