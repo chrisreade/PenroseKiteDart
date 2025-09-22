@@ -141,13 +141,16 @@ module Tgraph.Prelude
   , VertexLocMap
   , makeVP
   , subFaces
-  , subVP
+  , subVP --deprecated
   , relevantVP
   , restrictTo
-  , restrictVP
+  , restrictVP --deprecated
   , graphFromVP
-  , removeFacesVP
-  , selectFacesVP
+  , removeFacesFromVP
+  , removeVerticesFromVP
+  , selectVerticesFromVP
+  , removeFacesVP --deprecated
+  , selectFacesVP --deprecated
   , findLoc
     -- * Drawing Tgraphs and Vpatches with Labels
   , DrawableLabelled(..)
@@ -547,8 +550,8 @@ vertices :: HasFaces a => a -> [Vertex]
 vertices = IntSet.elems . vertexSet
 
 -- |List of boundary vertices
--- May have duplicates when applied to an arbitrary list of TileFace.
--- but no duplicates for Tgraph, VPatch, BoundaryState, Forced, TrackedTgraph. 
+-- May have duplicates when applied to an arbitrary list of TileFace or VPatch.
+-- but no duplicates for Tgraph, BoundaryState, Forced, TrackedTgraph. 
 boundaryVs :: HasFaces a => a -> [Vertex]
 boundaryVs = map fst . boundary
 
@@ -1070,13 +1073,28 @@ graphFromVP:: VPatch -> Tgraph
 graphFromVP = checkedTgraph . faces
 
 -- |remove a list of faces from a VPatch
+removeFacesFromVP :: [TileFace] -> VPatch -> VPatch
+removeFacesFromVP fcs vp = restrictTo (faces vp \\ fcs) vp
+
+{-# DEPRECATED removeFacesVP "Use (flip removeFacesFromVP)" #-}
+-- |remove a list of faces from a VPatch
 removeFacesVP :: VPatch -> [TileFace] -> VPatch
 removeFacesVP vp fcs = restrictTo (faces vp \\ fcs) vp
 
--- |make a new VPatch with a list of selected faces from a VPatch.
--- This will ignore any faces that are not in the given VPatch.
+{-# DEPRECATED selectFacesVP "Use (flip restrictTo)" #-}
+-- |DEPRECATED selectFacesVP: Use (flip restrictTo)
 selectFacesVP:: VPatch -> [TileFace] -> VPatch
 selectFacesVP vp fcs = restrictTo (fcs `intersect` faces vp) vp
+
+-- |removeVerticesFromVP vs vp - removes any vertex in the list vs from vp
+-- by removing all faces at those vertices.
+removeVerticesFromVP :: [Vertex] -> VPatch -> VPatch
+removeVerticesFromVP vs vp = removeFacesFromVP (filter (hasVIn vs) (faces vp)) vp
+
+-- |selectVerticesFromVP vs vp - removes any face that does not have
+-- at least one vertex in the list vs from vp.
+selectVerticesFromVP :: [Vertex] -> VPatch -> VPatch
+selectVerticesFromVP vs vp = restrictTo (filter (hasVIn vs) (faces vp)) vp
 
 -- |find the location of a single vertex in a VPatch
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)

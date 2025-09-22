@@ -2,20 +2,32 @@
 
 ## version v1.5.1
 
-redundant import foldl' warning avoided
+generalised:
+    boundaryJoinFaces
+    drawBoundaryJoins
+    drawJoinsFor
+added:
+    smartOn (replacing deprecated restrictSmart)
+    restrictTo (replacing deprecated restrictVP)
+    subFaces (replacing deprecated subVP)
+    boundaryVFacesBS (replacing deprecated boundaryFaces)
+    boundaryEdgeFaces
+    removeFacesFromVP (replacing deprecated removeFacesVP)
+    removeVerticesFromVP
+    selectVerticesFromVP
+deprecated:
+    selectFacesVP
+    restrictSmart
+    restrictVP
+    subVP
+    boundaryFaces
+    removeFacesVP
+    
+warning avoided for import of foldl'
 
-joinDashing changed appearance (no longer ultraThin)
-and added
-dashJOnly, drawJPiece, and drawJ 
+joinDashing changed appearance (no longer ultraThin by default)
+added: dashJOnly, drawJPiece, and drawJ 
 (alongside dashjOnly, drawjPiece, and drawj which still use ultraThin) 
-
-generalised boundaryJoinFaces, drawBoundaryJoins, drawJoinsFor
-
-added smartOn (replacing deprecated restrictSmart)
-added restrictTo (replacing deprecated restrictVP)
-added subFaces (replacing deprecated subVP)
-added boundaryVFacesBS (replacing deprecated boundaryFaces)
-added boundaryEdgeFaces
 
 ## version v1.5 2025-8-9
 

@@ -33,8 +33,11 @@ module Tgraph.Extras
     -- * Overlaid drawing tools for Tgraphs
   , drawPCompose
   , drawForce
+  , drawPCompose'
+  , drawForce'
   , drawSuperForce
   , drawWithMax
+  , drawWithMax'
   , addBoundaryAfter
   , drawCommonFaces
   , emphasizeFaces
@@ -172,7 +175,39 @@ smartAlignBefore :: OKBackend b =>
                     (VPatch -> Diagram b) -> (Vertex,Vertex) -> Tgraph -> Diagram b
 smartAlignBefore vfun (a,b) g = alignBefore (smartOn g vfun) (a,b) g
 
--- |applies partCompose to a Tgraph g, then draws the composed graph along with the remainder faces (in lime).
+-- |drawForce g is a diagram showing the argument g in red overlayed on force g.
+-- It adds dashed join edges on the boundary of g.
+-- It will raise an error if the force fails with an incorrect/stuck Tgraph.
+drawForce :: OKBackend b => 
+             Tgraph -> Diagram b
+drawForce = drawForce' red
+
+-- |a generalisation of drawForce which takes an additional colour argument
+-- for drawing the edges of the original Tgraph (default colour is red in drawForce).
+drawForce' :: OKBackend b => 
+              Colour Double -> Tgraph -> Diagram b
+drawForce' c g =
+    smartOn g draw vp # lc c <> draw vp
+    where vp = makeVP $ force g
+
+-- |applies partCompose to a Tgraph g, then draws the composed Tgraph
+-- along with the remainder faces (drawn in lime).
+-- This will raise an error if the composed faces have a crossing boundary or are disconnected.
+drawPCompose :: OKBackend b =>
+                Tgraph -> Diagram b
+drawPCompose = drawPCompose' lime
+
+-- |a generalisation of drawPCompose which takes an additional colour argument
+-- for drawing the edges of remainder faces (default colour is lime in drawPCompose).
+drawPCompose' :: OKBackend b =>
+                 Colour Double -> Tgraph -> Diagram b
+drawPCompose' c g =
+    smartOn g' draw vp
+    <> drawJ (subFaces remainder vp) # lc c
+    where (remainder,g') = partCompose g
+          vp = makeVP g
+
+{- -- |applies partCompose to a Tgraph g, then draws the composed graph along with the remainder faces (in lime).
 -- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
 -- This will raise an error if the composed faces have a crossing boundary or are disconnected.
 drawPCompose :: OKBackend b =>
@@ -192,7 +227,7 @@ drawForce g =
     smartOn g draw vp # lc red 
     <> draw vp
     where vp = makeVP $ force g
-
+ -}
 -- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
 -- overlaid on superForce g in blue.
 -- It adds dashed join edges on the boundary of g.
@@ -203,20 +238,28 @@ drawSuperForce g = (dg # lc red) <> dfg <> (dsfg # lc blue) where
     fg = force g
     sfg = superForce fg
     vp = makeVP sfg
-    dfg = draw $ selectFacesVP vp (faces fg \\ faces g) -- smartOn (force g) draw vp
+    dfg = draw $ restrictTo (faces fg \\ faces g) vp
+    --selectFacesVP vp (faces fg \\ faces g) -- smartOn (force g) draw vp
     dg = smartOn g draw vp
-    dsfg = draw $ selectFacesVP vp (faces sfg \\ faces fg)
+    dsfg = draw $ restrictTo (faces sfg \\ faces fg) vp
+    --selectFacesVP vp (faces sfg \\ faces fg)
 
 -- | drawWithMax g - draws g and overlays the maximal composition of force g in red.
 -- This relies on g and all compositions of force g having vertices in force g.
 -- It will raise an error if forcing fails (g is an incorrect Tgraph).
 drawWithMax :: OKBackend b =>
                Tgraph -> Diagram b
-drawWithMax g =  (dmax # lc red # lw medium) <> dg where
+drawWithMax =  drawWithMax' red
+
+-- | generalisation of drawWithMax, taking an extra colour argument for drawing
+-- the edges of the maximal composition (default is red in drawWithMax)
+drawWithMax' :: OKBackend b =>
+                Colour Double -> Tgraph -> Diagram b
+drawWithMax' c g =  (dmax # lc c) <> dg where
     vp = makeVP $ force g -- duplicates force to get the locations of vertices in the forced Tgraph
     dg = smartOn g draw vp
     maxg = maxCompForce g
-    dmax = draw $ subFaces (faces maxg) vp
+    dmax = draw $ subFaces maxg vp
 
 -- |addBoundaryAfter f g - displaying the boundary of a Tgraph g in lime (overlaid on g drawn with f).
 addBoundaryAfter :: OKBackend b =>
