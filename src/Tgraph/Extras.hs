@@ -178,6 +178,7 @@ smartAlignBefore vfun (a,b) g = alignBefore (smartOn g vfun) (a,b) g
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g.
 -- It adds dashed join edges on the boundary of g.
 -- It will raise an error if the force fails with an incorrect/stuck Tgraph.
+-- (See also drawForce')
 drawForce :: OKBackend b => 
              Tgraph -> Diagram b
 drawForce = drawForce' red
@@ -193,6 +194,7 @@ drawForce' c g =
 -- |applies partCompose to a Tgraph g, then draws the composed Tgraph
 -- along with the remainder faces (drawn in lime).
 -- This will raise an error if the composed faces have a crossing boundary or are disconnected.
+-- (See also drawPCompose')
 drawPCompose :: OKBackend b =>
                 Tgraph -> Diagram b
 drawPCompose = drawPCompose' lime
@@ -207,27 +209,6 @@ drawPCompose' c g =
     where (remainder,g') = partCompose g
           vp = makeVP g
 
-{- -- |applies partCompose to a Tgraph g, then draws the composed graph along with the remainder faces (in lime).
--- (Relies on the vertices of the composition and remainder being subsets of the vertices of g.)
--- This will raise an error if the composed faces have a crossing boundary or are disconnected.
-drawPCompose :: OKBackend b =>
-                Tgraph -> Diagram b
-drawPCompose g =
-    smartOn g' draw vp
-    <> drawJ (subFaces remainder vp) # lc lime
-    where (remainder,g') = partCompose g
-          vp = makeVP g
-
--- |drawForce g is a diagram showing the argument g in red overlayed on force g.
--- It adds dashed join edges on the boundary of g.
--- It will raise an error if the force fails with an incorrect/stuck Tgraph
-drawForce :: OKBackend b =>
-             Tgraph -> Diagram b
-drawForce g =
-    smartOn g draw vp # lc red 
-    <> draw vp
-    where vp = makeVP $ force g
- -}
 -- |drawSuperForce g is a diagram showing the argument g in red overlayed on force g in black
 -- overlaid on superForce g in blue.
 -- It adds dashed join edges on the boundary of g.
@@ -643,7 +624,7 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
 -- The resulting faces could have a crossing boundary and also could be disconnected if there is a hole in the starting Tgraph
 -- so these conditions are checked for, producing a Try result.
 tryBoundaryFaceGraph :: Tgraph -> Try Tgraph
-tryBoundaryFaceGraph = tryConnectedNoCross . boundaryVFaces . makeBoundaryState
+tryBoundaryFaceGraph = tryConnectedNoCross . boundaryVFaces 
 
 
 {- -- | Returns a list of (looping) vertex trails for the boundary of a Tgraph.

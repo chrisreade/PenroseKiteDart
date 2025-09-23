@@ -232,8 +232,8 @@ boundaryVFacesBS bd = nub $ concatMap (facesAtBV bd) bvs where
     bvs = boundaryVs bd
  -}
 
-{-# DEPRECATED boundaryFaces "Use boundaryVFaces" #-}
--- | DEPRECATED boundaryFaces: Use boundaryVFacesBS
+{-# DEPRECATED boundaryFaces "Use boundaryVFaces or boundaryEdgeFaces" #-}
+-- | DEPRECATED boundaryFaces: Use boundaryVFaces or boundaryEdgeFaces
 boundaryFaces :: BoundaryState -> [TileFace]
 boundaryFaces = boundaryVFaces
 

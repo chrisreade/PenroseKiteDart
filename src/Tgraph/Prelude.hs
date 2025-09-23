@@ -34,18 +34,13 @@ module Tgraph.Prelude
   , Dedge
   , EdgeType(..)
   , Tgraph() -- not Data Constructor Tgraph
+    -- * Making Tgraphs
   , makeTgraph
   , tryMakeTgraph
   , checkedTgraph
   , makeUncheckedTgraph
-  , HasFaces(..) -- faces, boundary, maxV, boundaryVFMap
-  , dedges
-  , vertexSet
-  , vertices
-  , boundaryVs
-  , boundaryEFMap
-  , boundaryVFaces
-   -- * Property Checking for Tgraphs
+  , emptyTgraph
+   -- * Property Checks
 --  , renumberFaces
 --  , differing
   , tryTgraphProps
@@ -69,9 +64,15 @@ module Tgraph.Prelude
   , crossingBoundaries
   , connected
 --  , connectedBy
-    -- * Basic Tgraph and HasFaces operations
+   -- * Tgraph and HasFaces operations
+  , HasFaces(..) -- faces, boundary, maxV, boundaryVFMap
+  , dedges
+  , vertexSet
+  , vertices
+  , boundaryVs
+  , boundaryEFMap
+  , boundaryVFaces
 --  , faces
-  , emptyTgraph
   , nullFaces
   , evalFaces
   , ldarts
@@ -89,8 +90,16 @@ module Tgraph.Prelude
   , removeVertices
   , selectVertices
   , vertexFacesMap
-  --, dwFacesMap
-    -- * Other Face/Vertex Operations
+  , dedgesFacesMap
+  , boundaryJoinFaces
+  , boundaryEdgeFaces
+  , buildEFMap
+  , extractLowestJoin
+  , lowestJoin
+    -- * Other Face ops
+  , faceForEdge
+  , edgeNbs
+  , edgeNb
   , makeRD
   , makeLD
   , makeRK
@@ -109,7 +118,7 @@ module Tgraph.Prelude
   , prevV
   , isAtV
   , hasVIn
-    -- * Other Edge Operations
+    -- * Face and Edge ops
   , faceDedges
   , reverseD
   , joinE
@@ -128,16 +137,6 @@ module Tgraph.Prelude
   , bothDir
 --   , bothDirOneWay
   , missingRevs
-    -- * Other Face Operations
-  , edgeNb
-  , dedgesFacesMap
-  , boundaryJoinFaces
-  , boundaryEdgeFaces
-  , buildEFMap
-  , faceForEdge
-  , edgeNbs
-  , extractLowestJoin
-  , lowestJoin
     -- * VPatch and Conversions
   , VPatch(..)
   , VertexLocMap
@@ -167,7 +166,7 @@ module Tgraph.Prelude
   , alignAll
   , alignBefore
   , makeAlignedVP
-    -- *  Drawing Edges with a VPatch or a VertexLocationMap
+    -- *  Drawing Edges
   , drawEdgesVP
   , drawEdgeVP
   , drawLocatedEdges
@@ -314,15 +313,10 @@ makeUncheckedTgraph = Tgraph
 
 -- |force full evaluation of a list of faces.
 evalFaces :: HasFaces a => a -> a
-evalFaces a = b where
+evalFaces !a = b where
     !b = find (ev . faceVs) (faces a) `seq` a
     ev (x,y,z) = x `seq` y `seq` z `seq` False
-{-     !b = find (notpos . faceVs) (faces a) `seq` a
-    notpos (x,y,z) = x<1 || y<1 || z<1
- -}{- evalFaces a = eval $ faces a where
-    eval fcs = find (has0 . tileRep) fcs `seq` fcs
-    has0 (x,y,z) = x==0 || y==0 || z==0
- -}
+ 
 
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
 and producing an error if a check fails.
@@ -894,7 +888,6 @@ edgeNb face = any (`elem` edges) . faceDedges where
       edges = map reverseD (faceDedges face)
 
 
-
 {-|vertexFacesMap vs a -
 For list of vertices vs and faces from a,
 create an IntMap from each vertex in vs to a list of those faces in a that are at that vertex.
@@ -906,32 +899,12 @@ vertexFacesMap vs = foldl' insertf startVF . faces where
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
-{-|dwFacesMap - a special case of vertexFacesMap applied to the dart wing vertices.
-Create an IntMap from each dart wing vertex to a list of those faces that are at that vertex.
-It makes use of the fact that only kite opps and kite origins and dart wings can
-occur at a dart wing
-
-dwFacesMap:: HasFaces a => a -> VertexMap [TileFace]
-dwFacesMap g = foldl' insertf startVF (faces g) where
-    vs = nub (wingV <$> darts g)
-    startVF = VMap.fromList $ fmap (,[]) vs
-    insertf vfmap f = foldl' (flip (VMap.alter addf)) vfmap (relevantVs f)
-                      where addf Nothing = Nothing
-                            addf (Just fs) = Just (f:fs)
-
-    relevantVs  :: TileFace -> [Vertex]
-    relevantVs (LK (a,_,c)) = [a,c]
-    relevantVs (RK (a,b,_)) = [a,b]
-    relevantVs (LD (_,_,c)) = [c]
-    relevantVs (RD (_,b,_)) = [b]
--}
-
 
 -- | dedgesFacesMap des a - Produces an edge-face map. Each directed edge in des is associated with
 -- a unique face in a that has that directed edge (if there is one).
 -- It will report an error if more than one face in a has the same directed edge in des. 
 -- If the directed edges are all the ones in a, buildEFMap will be more efficient.
--- dedgesFacesMap is intended for a relatively small subset of directed edges in a Tgraph.
+-- If the edges are just the boundary edges, use boundaryEFMap instead.
 dedgesFacesMap:: HasFaces a => [Dedge] -> a -> Map.Map Dedge TileFace
 dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
    vs = map fst des `union` map snd des
@@ -943,42 +916,20 @@ dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
            []   -> assocFaces more
            _   -> error $ "dedgesFacesMap: more than one Tileface has the same directed edge: "
                           ++ show d ++ "\n"
-{- dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
-   vs = fmap fst des `union` fmap snd des
-   vfMap = vertexFacesMap vs fcs
-   assocFaces [] = []
-   assocFaces (d@(a,b):more) = case (VMap.lookup a vfMap, VMap.lookup b vfMap) of
-      (Just fcs1, Just fcs2) -> case filter (`hasDedge` d) $ fcs1 `intersect` fcs2 of
-                                   [face] -> (d,face):assocFaces more
-                                   []   -> assocFaces more
-                                   _   -> error $ "dedgesFacesMap: more than one Tileface has the same directed edge: "
-                                                  ++ show d ++ "\n"
-      _ -> assocFaces more
- -}
 
-{- boundaryJoinFaces :: HasFaces a => a -> [TileFace]
-boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin dfMap where
-    dfMap = dedgesFacesMap (map reverseD $ boundary a) a
-    isJoin d f = joinE f == d
- -}
 -- |select the faces with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
 boundaryJoinFaces :: HasFaces a => a -> [TileFace]
 boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin $ boundaryEFMap a where
     isJoin d f = joinE f == d
 
-{- -- |find the faces with a (at least one) boundary edge.
-boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
-boundaryEdgeFaces a = nub $ Map.elems dfMap where
-    dfMap = dedgesFacesMap (map reverseD $ boundary a) a
- -}
  
 -- |find the faces with a at least one boundary edge.
 boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
 boundaryEdgeFaces = nub . Map.elems . boundaryEFMap
 
 
--- |Build a Map from all directed edges to faces (the unique face containing the directed edge)
+-- |Build a full Map from all directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: HasFaces a  => a -> Map.Map Dedge TileFace
 buildEFMap = Map.fromList . concatMap assignFace . faces where
   assignFace f = map (,f) (faceDedges f)
