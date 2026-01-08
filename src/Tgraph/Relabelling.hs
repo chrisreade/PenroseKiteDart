@@ -15,10 +15,10 @@ and a guided equality check (sameGraph).
 {-# LANGUAGE Strict            #-} 
 
 module Tgraph.Relabelling
-  ( -- * Assisted Union (and matching) operations
+  ( -- * Guided Union operations
     fullUnion
   , tryFullUnion
-    -- * commonFaces (Assisted Intersection) and sameGraph (Assisted Equivalence)
+    -- * commonFaces (Guided Intersection) and sameGraph (Guided Equivalence)
   , commonFaces
   , sameGraph
     -- * Creating Relabellings
@@ -26,7 +26,7 @@ module Tgraph.Relabelling
   , newRelabelling
 --  , relabellingFrom
 --  , relabellingTo
---  , relabelUnion
+--  , extendRelabelling
     -- * Relabellings and matching
   , relabelToMatch
   , tryRelabelToMatch
@@ -93,7 +93,6 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
               newrel = newRelabelling $ map correct touchVs
           in tryTgraphProps $ nub $ map (relabelFace newrel) fcs
 
-
 -- | commonFaces (g1,e1) (g2,e2) relabels g2 to match with g1 (where they match)
 -- and returns the common faces as a subset of faces of g1.
 -- i.e. with g1 vertex labelling.
@@ -121,13 +120,19 @@ sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
                 return (vertexSet g == vertexSet g1)
 
 
--- |Relabelling is a special case of mappings from vertices to vertices that are not the 
--- identity on a finite number of vertices.
--- They are represented by keeping the non identity cases in a finite map.
--- When applied, we assume the identity map for vertices not found in the representation domain
--- (see relabelV).  Relabellings must be 1-1 on their representation domain,
--- and redundant identity mappings are removed in the representation.
--- Vertices in the range of a relabelling must be >0.
+{-|Relabelling is a special case of mappings from vertices to vertices that are not the 
+identity on a finite number of vertices.
+They are represented by keeping the non identity cases in a finite map.
+When applied, we assume the identity map for vertices not found in the keys of the relabelling.
+(see relabelV).  Relabellings must be 1-1 on their keys,
+and redundant identity mappings are removed in the representation.
+Vertices in the range of a relabelling must be >0.
+
+Call the set of elements (range) of a relabelling that are not keys of the relabelling
+the /unsafe domain/ of the relabelling.
+
+A relabelling is 1-1 on any set that is disjoint from its unsafe domain.
+-}
 newtype Relabelling = Relabelling (VMap.IntMap Vertex)
 
 -- | newRelabelling prs - make a relabelling from a finite list of vertex pairs.
@@ -143,6 +148,7 @@ newRelabelling prs
 -- | relabellingFrom n vs - make a relabelling from finite set of vertices vs.
 -- Elements of vs are ordered and relabelled from n upwards (an error is raised if n<1).
 -- The resulting relabelling excludes any identity mappings of vertices.
+-- The resulting relabelling (for n>0) is clearly 1-1 on vs
 relabellingFrom :: Int -> VertexSet -> Relabelling
 relabellingFrom n vs 
     | n<1 = error $ "relabellingFrom: Label not positive " ++ show n
@@ -150,15 +156,21 @@ relabellingFrom n vs
 
 -- | f1 \`relabellingTo\` f2  - creates a relabelling so that
 -- if applied to face f1, the vertices will match with face f2 exactly.
--- It does not check that the tile faces have the same form (LK,RK,LD,RD).
+-- It does not check that the tile faces have the same constructor (LK,RK,LD,RD).
 relabellingTo :: TileFace -> TileFace -> Relabelling
 f1 `relabellingTo` f2 = newRelabelling $ zip (faceVList f1) (faceVList f2) -- f1 relabels to f2
 
+-- | (not exported) extendRelabelling fc1 fc2 r - Extend r to also relabel face fc1 to fc2
+extendRelabelling :: TileFace -> TileFace -> Relabelling -> Relabelling
+extendRelabelling fc1 fc2 (Relabelling r) = Relabelling $ VMap.union extra r
+  where Relabelling extra = (fc1 `relabellingTo` fc2)
+
+{- No longer used
 -- | Combine relabellings (assumes disjoint representation domains and disjoint representation ranges but
 -- no check is made for these).
 relabelUnion:: Relabelling -> Relabelling -> Relabelling
 relabelUnion (Relabelling r1) (Relabelling r2) = Relabelling $ VMap.union r1 r2 
-
+ -}
 
 {-|relabelToMatch (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
 consistent with g1 on a single tile-connected region of overlap.
@@ -242,7 +254,8 @@ tryGrowRelabel g (fc:fcs) awaiting rlab =
        Nothing   -> tryGrowRelabel g fcs awaiting rlab
        Just orig -> tryGrowRelabel g (fcs++fcs') awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                          rlab' = relabelUnion (fc `relabellingTo` orig) rlab
+                          rlab' = extendRelabelling fc orig rlab 
+                          -- relabelUnion (fc `relabellingTo` orig) rlab
 
 
 
@@ -286,14 +299,12 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
        Nothing   -> growRelabelIgnore g fcs awaiting rlab
        Just orig -> growRelabelIgnore g (fcs++fcs') awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
-                          rlab' = relabelUnion (fc `relabellingTo` orig) rlab
-
+                          rlab' = extendRelabelling fc orig rlab 
+                          -- relabelUnion (fc `relabellingTo` orig) rlab
 
 -- |relabelGraph rlab g - uses a Relabelling rlab to change vertices in a Tgraph g.
 -- Caveat: This should only be used when it is known that:
--- rlab is 1-1 on its (representation) domain, and
--- the vertices of g are disjoint from those vertices that are in the representation range
--- but which are not in the representation domain of rlab.
+-- the vertices of g are disjoint from the unsafe domain of rlab.
 -- This ensures rlab (extended with the identity) remains 1-1 on vertices in g,
 -- so that the resulting Tgraph does not need an expensive check for Tgraph properties.
 -- (See also checkRelabelGraph)
@@ -308,15 +319,16 @@ checkRelabelGraph rlab g = checkedTgraph newFaces where
    newFaces = map (relabelFace rlab) (faces g) 
 
 -- |Uses a relabelling to relabel the three vertices of a face.
--- Any vertex not in the domain of the mapping is left unchanged.
+-- Any vertex not in the key set of the relabelling is left unchanged.
 -- The mapping should be 1-1 on the 3 vertices to avoid creating a self loop edge.
+-- This will be the case if the 3 vertices are not in the unsafe domain of the relabelling.
 relabelFace:: Relabelling -> TileFace -> TileFace
 relabelFace rlab = fmap (all3 (relabelV rlab)) where -- fmap of HalfTile Functor
   all3 f (a,b,c) = (f a,f b,f c)
 
 -- |relabelV rlab v - uses relabelling rlab to find a replacement for v (leaves as v if none found).
 -- I.e relabelV turns a Relabelling into a total function using identity
--- for undefined cases in the Relabelling representation. 
+-- for vertices not in the key set of the relabelling. 
 relabelV:: Relabelling -> Vertex -> Vertex
 relabelV (Relabelling r) v = VMap.findWithDefault v v r
 
@@ -324,15 +336,33 @@ relabelV (Relabelling r) v = VMap.findWithDefault v v r
 -- Any vertex in g that is in the set avoid will be changed to a new vertex that is
 -- neither in g nor in the set avoid. Vertices in g that are not in avoid will remain the same.
 relabelAvoid :: VertexSet -> Tgraph -> Tgraph
+relabelAvoid avoid g = 
+  case nullFaces g of
+      True -> g
+      _ -> relabelGraph rlab g
+  where
+    gverts = vertexSet g
+    gMax = IntSet.findMax gverts
+    avoidMax = if IntSet.null avoid then 0 else IntSet.findMax avoid
+    vertsToChange = gverts `IntSet.intersection` avoid
+    rlab = relabellingFrom (1+ max gMax avoidMax) vertsToChange
+  -- assert: rlab is 1-1 on the vertices of g
+  --    because the unsafe domain of rlab excludes all vertices of g
+  -- assert: the relabelling preserves Tgraph properties
+  -- assert: the relabelled Tgraph does not have vertices in the set avoid
+
+{- 
+relabelAvoid :: VertexSet -> Tgraph -> Tgraph
 relabelAvoid avoid g = relabelGraph rlab g where
   gverts = vertexSet g
   avoidMax = if IntSet.null avoid then 0 else IntSet.findMax avoid
   vertsToChange = gverts `IntSet.intersection` avoid
   rlab = relabellingFrom (1+ max (maxV g) avoidMax) vertsToChange
+
   -- assert: rlab is 1-1 on the vertices of g
   -- assert: the relabelled Tgraph satisfies Tgraph properties (if g does)
   -- assert: the relabelled Tgraph does not have vertices in the set avoid
-
+ -}
   
 {-|prepareFixAvoid fix avoid g - produces a new Tgraph from g by relabelling.
  Any vertex in g that is in the set avoid but not in the list fix will be changed to a new vertex that is
@@ -346,7 +376,7 @@ Note: If any element of the list fix is not a vertex in g, it could end up in th
 -}
 prepareFixAvoid :: [Vertex] -> VertexSet -> Tgraph -> Tgraph
 prepareFixAvoid fix avoid = relabelAvoid (avoid IntSet.\\ IntSet.fromList fix)
-  -- assert: the relabelled Tgraph satisfies Tgraph properties (if the argument Tgraph does)
+  -- assert: the relabelling preserves Tgraph properties
   -- assert: the relabelled Tgraph does not have vertices in the set (avoid\\fix)
 
 -- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
@@ -354,7 +384,8 @@ relabelContig :: Tgraph -> Tgraph
 relabelContig g = relabelGraph rlab g where
    rlab = relabellingFrom 1 (vertexSet g)
   -- assert: rlab is 1-1 on the vertices of g
-  -- assert: the relabelled Tgraph satisfies Tgraph properties (if g does)
+  --  (the unsafe domain of rlab is disjoint from the vertices of g)
+  -- assert: the relabelled Tgraph preserves the Tgraph properties
                      
 {-|
 tryMatchFace f g - looks for a face in g that corresponds to f (sharing a directed edge),
