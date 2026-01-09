@@ -1,5 +1,9 @@
 # Revision history for PenroseKiteDart
 
+Since 1.5.1 
+removed data constructor Relabelling
+added unsafeDom (for use with relabellings)
+
 ## version v1.5.1
 
 possibly breaking:

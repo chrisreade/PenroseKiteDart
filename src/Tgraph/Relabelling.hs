@@ -15,19 +15,12 @@ and a guided equality check (sameGraph).
 {-# LANGUAGE Strict            #-} 
 
 module Tgraph.Relabelling
-  ( -- * Guided Union operations
+  ( -- * Guided operations
     fullUnion
   , tryFullUnion
-    -- * commonFaces (Guided Intersection) and sameGraph (Guided Equivalence)
   , commonFaces
   , sameGraph
-    -- * Creating Relabellings
-  , Relabelling(..)
-  , newRelabelling
---  , relabellingFrom
---  , relabellingTo
---  , extendRelabelling
-    -- * Relabellings and matching
+    -- * Tgraph Matching
   , relabelToMatch
   , tryRelabelToMatch
 --  , tryRelabelFromFaces
@@ -35,14 +28,21 @@ module Tgraph.Relabelling
   , relabelToMatchIgnore
 --  , relabelFromFacesIgnore
 --  , growRelabelIgnore
-    -- * Using Relabellings
+    -- * Relabellings
+  , Relabelling()
+  , newRelabelling
+  , unsafeDom
+--  , relabellingFrom
+--  , relabellingTo
+--  , extendRelabelling
   , relabelGraph
   , checkRelabelGraph
+  , relabelContig
+  -- * Auxiliary Functions
   , relabelFace
   , relabelV
 --  , relabelAvoid
   , prepareFixAvoid
-  , relabelContig
     --  * Renumbering (not necessarily 1-1)
 --  , tryMatchFace
 --  , twoVMatch
@@ -52,7 +52,7 @@ module Tgraph.Relabelling
 
 
 import Data.List (intersect, (\\), union,find,partition,nub)
-import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, fromAscList, union)
+import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, fromAscList, elems, keysSet, union)
 import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\),null,member)
 
 import Tgraph.Prelude
@@ -99,7 +99,6 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
 -- It requires a face in g1 with directed edge e1 to match a face in g2 with directed edge e2,
 -- (apart from the third vertex label) otherwise an error is raised.
 -- This uses vertex locations to correct touching vertices in multiply overlapping regions.
--- >>>> touching vertices being 1-1 is sensitive to nearness check of touchingVerticesGen <<<<<<<<<
 commonFaces:: (Tgraph,Dedge) -> (Tgraph,Dedge) -> [TileFace]
 commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
   g3 = relabelToMatchIgnore (g1,e1) (g2,e2)
@@ -126,19 +125,20 @@ They are represented by keeping the non identity cases in a finite map.
 When applied, we assume the identity map for vertices not found in the keys of the relabelling.
 (see relabelV).  Relabellings must be 1-1 on their keys,
 and redundant identity mappings are removed in the representation.
-Vertices in the range of a relabelling must be >0.
+Vertices in the range of a relabelling must be positive integers.
 
 Call the set of elements (range) of a relabelling that are not keys of the relabelling
 the /unsafe domain/ of the relabelling.
 
-A relabelling is 1-1 on any set that is disjoint from its unsafe domain.
+A relabelling is 1-1 on any set (of positive integers) that is disjoint from its unsafe domain.
 -}
 newtype Relabelling = Relabelling (VMap.IntMap Vertex)
 
 -- | newRelabelling prs - make a relabelling from a finite list of vertex pairs.
 -- The first item in each pair relabels to the second in the pair.
 -- The resulting relabelling excludes any identity mappings of vertices.
--- An error is raised if second items of the pairs contain duplicated numbers or a number<1
+-- An error is raised if the list of second items of the pairs contains duplicates
+-- or a non-positive integer.
 newRelabelling :: [(Vertex,Vertex)] -> Relabelling
 newRelabelling prs 
     | wrong (map snd prs) = error $ "newRelabelling: Not 1-1 or Non-positive label in range " ++ show prs
@@ -153,6 +153,15 @@ relabellingFrom :: Int -> VertexSet -> Relabelling
 relabellingFrom n vs 
     | n<1 = error $ "relabellingFrom: Label not positive " ++ show n
     | otherwise = Relabelling $ VMap.fromAscList $ differing $ zip (IntSet.elems vs) [n..] 
+
+-- | Returns the /unsafe domain/ of a relabelling.
+-- The unsafe domain is the set of elements (range) of a relabelling that are not keys of the relabelling.
+-- I.e. those vertex numbers to be avoided when applying a relabelling to guarantee the relabelling is 1-1.
+unsafeDom :: Relabelling -> VertexSet
+unsafeDom (Relabelling vmap) = 
+    IntSet.fromList [ e | e <- VMap.elems vmap
+                       , not (e `IntSet.member` VMap.keysSet vmap )
+                       ]
 
 -- | f1 \`relabellingTo\` f2  - creates a relabelling so that
 -- if applied to face f1, the vertices will match with face f2 exactly.
@@ -302,11 +311,11 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
                           rlab' = extendRelabelling fc orig rlab 
                           -- relabelUnion (fc `relabellingTo` orig) rlab
 
--- |relabelGraph rlab g - uses a Relabelling rlab to change vertices in a Tgraph g.
+-- |relabelGraph rlab g - uses a relabelling rlab to change vertices in a Tgraph g.
 -- Caveat: This should only be used when it is known that:
--- the vertices of g are disjoint from the unsafe domain of rlab.
--- This ensures rlab (extended with the identity) remains 1-1 on vertices in g,
--- so that the resulting Tgraph does not need an expensive check for Tgraph properties.
+-- rlab (extended with the identity) remains 1-1 on vertices in g.
+-- That is, the vertices of g are disjoint from the unsafe domain of rlab.
+-- This ensures the resulting Tgraph does not need an expensive check for Tgraph properties.
 -- (See also checkRelabelGraph)
 relabelGraph:: Relabelling -> Tgraph -> Tgraph
 relabelGraph rlab g = makeUncheckedTgraph newFaces where
@@ -326,7 +335,7 @@ relabelFace:: Relabelling -> TileFace -> TileFace
 relabelFace rlab = fmap (all3 (relabelV rlab)) where -- fmap of HalfTile Functor
   all3 f (a,b,c) = (f a,f b,f c)
 
--- |relabelV rlab v - uses relabelling rlab to find a replacement for v (leaves as v if none found).
+-- |relabelV rlab v - uses relabelling rlab to find a replacement for v (returns v if none found).
 -- I.e relabelV turns a Relabelling into a total function using identity
 -- for vertices not in the key set of the relabelling. 
 relabelV:: Relabelling -> Vertex -> Vertex
