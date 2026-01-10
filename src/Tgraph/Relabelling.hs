@@ -398,23 +398,25 @@ relabelContig g = relabelGraph rlab g where
                      
 {-|
 tryMatchFace f g - looks for a face in g that corresponds to f (sharing a directed edge),
-If the corresponding face does not match properly (with twoVMatch) this stops the
+If the corresponding face does not match constructor (LK,RK,LD,RD) this stops the
 matching process returning Left ... to indicate a failed match.
 Otherwise it returns either Right (Just f) where f is the matched face or
 Right Nothing if there is no corresponding face.
+Note, a matched face must have either two or three of the correponding vertices the same.
 -}
 tryMatchFace:: TileFace -> Tgraph -> Try (Maybe TileFace)  
 tryMatchFace face g = onFail "tryMatchFace:\n" $
   case find (`hasDedgeIn` faceDedges face) (faces g) of
     Nothing      -> Right Nothing
-    Just corresp -> if twoVMatch corresp face
+ --   Just corresp -> if twoVMatch corresp face (redundant test of 2 vertex match)
+    Just corresp -> if isMatched corresp face
                     then Right $ Just corresp
                     else failReports 
                             ["Found non matching faces "
                             ,show (corresp, face)
                             ,"\n"
                             ]
-
+{-  No longer used
 -- |twoVMatch f1 f2 is True if the two tilefaces are the same except
 -- for a single vertex label possibly not matching.
 twoVMatch:: TileFace -> TileFace -> Bool
@@ -422,11 +424,14 @@ twoVMatch f1 f2 = isMatched f1 f2 &&
                   if firstV f1 == firstV f2
                   then secondV f1 == secondV f2 || thirdV f1 == thirdV f2
                   else secondV f1 == secondV f2 && thirdV f1 == thirdV f2
+ -}
 
 {-|A version of tryMatchFace that just ignores mismatches.
 matchFaceIgnore f g - looks for a face in g that corresponds to f (sharing a directed edge),
-If there is a corresponding face f' which matches label and corresponding directed edge then Just f' is returned
-Otherwise Nothing is returned. (Thus ignoring a clash)
+If there is a corresponding face f' which matches constructor (LK,RK,LD,RD)
+and corresponding directed edge then Just f' is returned
+Otherwise Nothing is returned. (Thus ignoring a clash).
+Note, a matched face must have either two or three of the correponding vertices the same.
 -}
 matchFaceIgnore:: TileFace -> Tgraph -> Maybe TileFace  
 matchFaceIgnore face g = case tryMatchFace face g of

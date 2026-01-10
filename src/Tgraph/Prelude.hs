@@ -752,7 +752,7 @@ hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
 {- $Edges
 
-Representing Edges:
+  __Representing Edges__
 
 For vertices a and b, (a,b) is regarded as a directed edge from a to b (a Dedge).
 
