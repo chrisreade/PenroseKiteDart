@@ -35,8 +35,8 @@ module Tgraph.Relabelling
 --  , relabellingFrom
 --  , relabellingTo
 --  , extendRelabelling
+  , uncheckedRelabelGraph
   , relabelGraph
-  , checkRelabelGraph
   , relabelContig
   -- * Auxiliary Functions
   , relabelFace
@@ -53,7 +53,7 @@ module Tgraph.Relabelling
 
 import Data.List (intersect, (\\), union,find,partition,nub)
 import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, fromAscList, elems, keysSet, union)
-import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\),null,member)
+import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\),null,member,disjoint)
 
 import Tgraph.Prelude
 
@@ -159,9 +159,8 @@ relabellingFrom n vs
 -- I.e. those vertex numbers to be avoided when applying a relabelling to guarantee the relabelling is 1-1.
 unsafeDom :: Relabelling -> VertexSet
 unsafeDom (Relabelling vmap) = 
-    IntSet.fromList [ e | e <- VMap.elems vmap
-                       , not (e `IntSet.member` VMap.keysSet vmap )
-                       ]
+       IntSet.fromList (VMap.elems vmap) IntSet.\\ VMap.keysSet vmap
+       
 
 -- | f1 \`relabellingTo\` f2  - creates a relabelling so that
 -- if applied to face f1, the vertices will match with face f2 exactly.
@@ -232,7 +231,7 @@ to match with g1.
 tryRelabelFromFaces :: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Try Tgraph
 tryRelabelFromFaces (g1,fc1) (g2,fc2) = onFail "tryRelabelFromFaces:\n" $ 
    do rlab <- tryGrowRelabel g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
-      return $ relabelGraph rlab g2
+      return $ uncheckedRelabelGraph rlab g2
       
 {-|tryGrowRelabel is used by tryRelabelFromFaces to build a relabelling map which can fail, producing Left lines.
 In the successful case it produces a Right rlab
@@ -258,13 +257,14 @@ indicates a mismatch on the overlap and Left ... is returned.
 tryGrowRelabel:: Tgraph -> [TileFace] -> [TileFace] -> Relabelling -> Try Relabelling
 tryGrowRelabel _ [] _ rlab = Right rlab -- awaiting are not tile-connected to overlap region
 tryGrowRelabel g (fc:fcs) awaiting rlab = 
-  do maybef <- tryMatchFace (relabelFace rlab fc) g
+  do maybef <- tryMatchFace (relabelFace rlab fc) g  
+              -- note fc relabelled before trying to find its match in g
      case maybef of
        Nothing   -> tryGrowRelabel g fcs awaiting rlab
        Just orig -> tryGrowRelabel g (fcs++fcs') awaiting' rlab'
                     where (fcs', awaiting') = partition (edgeNb fc) awaiting
                           rlab' = extendRelabelling fc orig rlab 
-                          -- relabelUnion (fc `relabellingTo` orig) rlab
+                          -- the extension of the relabelling has 1 or 0 new relabelled vertices
 
 
 
@@ -296,7 +296,7 @@ CAVEAT: Only the single tile-connected region of common overlap (containing fc2)
 to match with g1.
 -}
 relabelFromFacesIgnore :: (Tgraph,TileFace) -> (Tgraph,TileFace) -> Tgraph
-relabelFromFacesIgnore (g1,fc1) (g2,fc2) = relabelGraph rlab g2 where
+relabelFromFacesIgnore (g1,fc1) (g2,fc2) = uncheckedRelabelGraph rlab g2 where
     rlab = growRelabelIgnore g1 [fc2] (faces g2 \\ [fc2]) (fc2 `relabellingTo` fc1)
 
 -- |growRelabelIgnore is similar to tryGrowRelabel except that it uses matchFaceIgnore (instead of tryMatchFace)
@@ -311,21 +311,27 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
                           rlab' = extendRelabelling fc orig rlab 
                           -- relabelUnion (fc `relabellingTo` orig) rlab
 
--- |relabelGraph rlab g - uses a relabelling rlab to change vertices in a Tgraph g.
+-- |uncheckedRelabelGraph rlab g - uses a relabelling rlab to change vertices in a Tgraph g.
 -- Caveat: This should only be used when it is known that:
 -- rlab (extended with the identity) remains 1-1 on vertices in g.
--- That is, the vertices of g are disjoint from the unsafe domain of rlab.
--- This ensures the resulting Tgraph does not need an expensive check for Tgraph properties.
--- (See also checkRelabelGraph)
-relabelGraph:: Relabelling -> Tgraph -> Tgraph
-relabelGraph rlab g = makeUncheckedTgraph newFaces where
+-- This will be true if the vertices of g are disjoint from the unsafe domain of rlab.
+-- This precondition ensures the resulting Tgraph does not need an expensive check for Tgraph properties.
+-- (Use relabelGraph for a checking version).
+uncheckedRelabelGraph:: Relabelling -> Tgraph -> Tgraph
+uncheckedRelabelGraph rlab g = makeUncheckedTgraph newFaces where
    newFaces = map (relabelFace rlab) (faces g) 
 
--- |checkRelabelGraph uses a relabelling map to change vertices in a Tgraph,
--- then checks that the result is a valid Tgraph. (see also relabelGraph)
-checkRelabelGraph:: Relabelling -> Tgraph -> Tgraph
-checkRelabelGraph rlab g = checkedTgraph newFaces where
-   newFaces = map (relabelFace rlab) (faces g) 
+-- |relabelGraph uses a relabelling map to change vertices in a Tgraph,
+-- It checks that the result is a valid Tgraph whenever there are vertices in the Tgraph
+-- that are also in the unsafe domain of the relabelling (since the
+-- relabelling may not be 1-1 on the Tgraph. (see also uncheckedRelabelGraph)
+relabelGraph:: Relabelling -> Tgraph -> Tgraph
+relabelGraph rlab g = 
+    if unsafeDom rlab `IntSet.disjoint` vertexSet g
+    then makeUncheckedTgraph newFaces
+    else runTry $ onFail "relabelGraph:\nRelabelling not 1-1\n" $ 
+         tryMakeTgraph newFaces
+  where newFaces = map (relabelFace rlab) (faces g) 
 
 -- |Uses a relabelling to relabel the three vertices of a face.
 -- Any vertex not in the key set of the relabelling is left unchanged.
@@ -348,7 +354,7 @@ relabelAvoid :: VertexSet -> Tgraph -> Tgraph
 relabelAvoid avoid g = 
   case nullFaces g of
       True -> g
-      _ -> relabelGraph rlab g
+      _ -> uncheckedRelabelGraph rlab g
   where
     gverts = vertexSet g
     gMax = IntSet.findMax gverts
@@ -362,7 +368,7 @@ relabelAvoid avoid g =
 
 {- 
 relabelAvoid :: VertexSet -> Tgraph -> Tgraph
-relabelAvoid avoid g = relabelGraph rlab g where
+relabelAvoid avoid g = uncheckedRelabelGraph rlab g where
   gverts = vertexSet g
   avoidMax = if IntSet.null avoid then 0 else IntSet.findMax avoid
   vertsToChange = gverts `IntSet.intersection` avoid
@@ -390,14 +396,14 @@ prepareFixAvoid fix avoid = relabelAvoid (avoid IntSet.\\ IntSet.fromList fix)
 
 -- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
 relabelContig :: Tgraph -> Tgraph
-relabelContig g = relabelGraph rlab g where
+relabelContig g = uncheckedRelabelGraph rlab g where
    rlab = relabellingFrom 1 (vertexSet g)
   -- assert: rlab is 1-1 on the vertices of g
   --  (the unsafe domain of rlab is disjoint from the vertices of g)
   -- assert: the relabelled Tgraph preserves the Tgraph properties
                      
 {-|
-tryMatchFace f g - looks for a face in g that corresponds to f (sharing a directed edge),
+tryMatchFace f g - looks for a face in g that corresponds to f (with a common directed edge),
 If the corresponding face does not match constructor (LK,RK,LD,RD) this stops the
 matching process returning Left ... to indicate a failed match.
 Otherwise it returns either Right (Just f) where f is the matched face or
@@ -427,9 +433,9 @@ twoVMatch f1 f2 = isMatched f1 f2 &&
  -}
 
 {-|A version of tryMatchFace that just ignores mismatches.
-matchFaceIgnore f g - looks for a face in g that corresponds to f (sharing a directed edge),
+matchFaceIgnore f g - looks for a face in g that corresponds to f (with a common directed edge),
 If there is a corresponding face f' which matches constructor (LK,RK,LD,RD)
-and corresponding directed edge then Just f' is returned
+then Just f' is returned
 Otherwise Nothing is returned. (Thus ignoring a clash).
 Note, a matched face must have either two or three of the correponding vertices the same.
 -}

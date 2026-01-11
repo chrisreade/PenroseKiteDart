@@ -3,6 +3,8 @@
 Since 1.5.1 
 removed data constructor Relabelling
 added unsafeDom (for use with relabellings)
+Renamed relabelGraph as uncheckedRelabelGraph
+Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
 
 ## version v1.5.1
 
