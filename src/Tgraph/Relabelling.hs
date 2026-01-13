@@ -138,13 +138,22 @@ newtype Relabelling = Relabelling (VMap.IntMap Vertex)
 -- | newRelabelling prs - make a relabelling from a finite list of vertex pairs.
 -- The first item in each pair relabels to the second in the pair.
 -- The resulting relabelling map will exclude any identity mappings of vertices.
--- An error is raised if the list of second items of the pairs contains duplicates
+-- An error is raised if either the first items or the second items of the pairs contains duplicates
 -- or a non-positive integer.
-newRelabelling :: [(Vertex,Vertex)] -> Relabelling
+newRelabelling :: [(Vertex,Vertex)] -> Relabelling  -- Export only. Not used internally
 newRelabelling prs 
-    | wrong (map snd prs) = error $ "newRelabelling: Not 1-1 or Non-positive label in range " ++ show prs
-    | otherwise = Relabelling $ VMap.fromList $ differing prs
-  where wrong vs = any (<1) vs || not (null (duplicates vs))
+    | wrong = error $ "newRelabelling: Not 1-1 or Non-positive label\nwith pairs: " ++ show prs
+    | otherwise = Relabelling $ VMap.fromList newprs
+  where newprs = differing prs
+        (keys,elems) = unzip newprs
+        wrong = any (<1) elems
+                || any (<1) keys 
+                || not (null (duplicates elems))
+                || not (null (duplicates keys))
+
+-- |Not exported -- quick version of newRelabelling without checks on pairs
+quickRelabelling :: [(Vertex,Vertex)] -> Relabelling
+quickRelabelling = Relabelling . VMap.fromList . differing
 
 -- | relabellingFrom n vs - make a relabelling from a finite set of vertices vs.
 -- Elements of vs are ordered and relabelled from n upwards (an error is raised if n<1).
@@ -167,19 +176,12 @@ unsafeDom (Relabelling vmap) =
 -- if applied to face f1, the vertices will match with face f2 exactly.
 -- It does not check that the tile faces have the same constructor (LK,RK,LD,RD).
 relabellingTo :: TileFace -> TileFace -> Relabelling
-f1 `relabellingTo` f2 = newRelabelling $ zip (faceVList f1) (faceVList f2) -- f1 relabels to f2
+f1 `relabellingTo` f2 = quickRelabelling $ zip (faceVList f1) (faceVList f2) -- f1 relabels to f2
 
 -- | (not exported) extendRelabelling fc1 fc2 r - Extend r to also relabel face fc1 to fc2
 extendRelabelling :: TileFace -> TileFace -> Relabelling -> Relabelling
-extendRelabelling fc1 fc2 (Relabelling r) = Relabelling $ VMap.union extra r
-  where Relabelling extra = (fc1 `relabellingTo` fc2)
-
-{- No longer used
--- | Combine relabellings (assumes disjoint representation domains and disjoint representation ranges but
--- no check is made for these).
-relabelUnion:: Relabelling -> Relabelling -> Relabelling
-relabelUnion (Relabelling r1) (Relabelling r2) = Relabelling $ VMap.union r1 r2 
- -}
+extendRelabelling fc1 fc2 (Relabelling r) = Relabelling $ VMap.union r extra
+  where Relabelling extra = fc1 `relabellingTo` fc2
 
 {-|relabelToMatch (g1,e1) (g2,e2)  produces a relabelled version of g2 that is
 consistent with g1 on a single tile-connected region of overlap.
@@ -210,7 +212,7 @@ tryRelabelToMatch (g1,(x1,y1)) (g2,(x2,y2)) = onFail "tryRelabelToMatch:\n" $
   do let g2prepared = prepareFixAvoid [x2,y2] (vertexSet g1) g2
      fc2 <- find (`hasDedge` (x2,y2)) (faces g2prepared)
             `nothingFail` ("No face found for edge " ++ show (x2,y2))                      
-     maybef <- tryMatchFace (relabelFace (newRelabelling [(x2,x1),(y2,y1)]) fc2) g1
+     maybef <- tryMatchFace (relabelFace (quickRelabelling [(x2,x1),(y2,y1)]) fc2) g1
      fc1 <- maybef `nothingFail` 
                    ("No matching face found at edge "++show (x1,y1)++
                     "\nfor relabelled face " ++ show fc2)  
@@ -242,7 +244,7 @@ g is the Tgraph being matched against;
 processing is a list of faces to be matched next
 (each has an edge in common with at least one previously matched face or it is the starting face);
 awaiting is a list of faces that have not yet been tried for a match and are not
-tile-connected to any faces already matched.
+tile-connected to any faces already matched;
 rlab is the relabelling so far.
 
 The idea is that from a single matched starting face we process faces that share an edge with a
@@ -276,7 +278,7 @@ relabelToMatchIgnore (g1,(x1,y1)) (g2,(x2,y2)) = relabelFromFacesIgnore (g1,fc1)
   fc2 = case find (`hasDedge` (x2,y2)) (faces g2prepared) of
            Nothing -> error $ "No face found for edge " ++ show (x2,y2)
            Just f -> f                      
-  fc1 = case matchFaceIgnore (relabelFace (newRelabelling [(x2,x1),(y2,y1)]) fc2) g1 of
+  fc1 = case matchFaceIgnore (relabelFace (quickRelabelling [(x2,x1),(y2,y1)]) fc2) g1 of
            Nothing -> error $ "No matching face found at edge "++show (x1,y1)++
                               "\nfor relabelled face " ++ show fc2
            Just f -> f
