@@ -32,7 +32,7 @@ module Tgraph.Relabelling
   , Relabelling()
   , newRelabelling
   , unsafeDom
---  , relabellingFrom
+  , relabellingFrom
 --  , relabellingTo
 --  , extendRelabelling
   , uncheckedRelabelGraph
@@ -41,8 +41,8 @@ module Tgraph.Relabelling
   -- * Auxiliary Functions
   , relabelFace
   , relabelV
---  , relabelAvoid
-  , prepareFixAvoid
+  , relabelAvoid
+--  , prepareFixAvoid
     --  * Renumbering (not necessarily 1-1)
 --  , tryMatchFace
 --  , twoVMatch
@@ -119,8 +119,8 @@ sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
                 return (vertexSet g == vertexSet g1)
 
 
-{-|Relabelling is a special case of mappings from vertices to vertices that are not the 
-identity on a finite number of vertices.
+{-|Relabelling is a special case of mappings from vertices to vertices (positive integers)
+that are not the identity on a finite number of vertices.
 They are represented by keeping the non identity cases in a finite map.
 When applied, we assume the identity map for vertices not found in the keys of the relabelling.
 (see relabelV).  Relabellings must be 1-1 on their keys,
@@ -130,13 +130,14 @@ Vertices in the range of a relabelling must be positive integers.
 Call the set of elements (range) of a relabelling that are not keys of the relabelling
 the /unsafe domain/ of the relabelling.
 
-A relabelling is 1-1 on any set (of positive integers) that is disjoint from its unsafe domain.
+A relabelling is guaranteed to be 1-1 on any set (of positive integers)
+that is disjoint from its unsafe domain.
 -}
 newtype Relabelling = Relabelling (VMap.IntMap Vertex)
 
 -- | newRelabelling prs - make a relabelling from a finite list of vertex pairs.
 -- The first item in each pair relabels to the second in the pair.
--- The resulting relabelling excludes any identity mappings of vertices.
+-- The resulting relabelling map will exclude any identity mappings of vertices.
 -- An error is raised if the list of second items of the pairs contains duplicates
 -- or a non-positive integer.
 newRelabelling :: [(Vertex,Vertex)] -> Relabelling
@@ -145,10 +146,10 @@ newRelabelling prs
     | otherwise = Relabelling $ VMap.fromList $ differing prs
   where wrong vs = any (<1) vs || not (null (duplicates vs))
 
--- | relabellingFrom n vs - make a relabelling from finite set of vertices vs.
+-- | relabellingFrom n vs - make a relabelling from a finite set of vertices vs.
 -- Elements of vs are ordered and relabelled from n upwards (an error is raised if n<1).
--- The resulting relabelling excludes any identity mappings of vertices.
--- The resulting relabelling (for n>0) is clearly 1-1 on vs
+-- The resulting relabelling map excludes any identity mappings of vertices.
+-- The resulting relabelling will be 1-1 on vs.
 relabellingFrom :: Int -> VertexSet -> Relabelling
 relabellingFrom n vs 
     | n<1 = error $ "relabellingFrom: Label not positive " ++ show n
@@ -266,8 +267,6 @@ tryGrowRelabel g (fc:fcs) awaiting rlab =
                           rlab' = extendRelabelling fc orig rlab 
                           -- the extension of the relabelling has 1 or 0 new relabelled vertices
 
-
-
 -- |same as relabelToMatch but ignores non-matching faces (except for the initial 2)
 -- The initial 2 faces are those on the given edges, and an error is raised if they do not match.
 -- This is used by commonFaces
@@ -281,7 +280,6 @@ relabelToMatchIgnore (g1,(x1,y1)) (g2,(x2,y2)) = relabelFromFacesIgnore (g1,fc1)
            Nothing -> error $ "No matching face found at edge "++show (x1,y1)++
                               "\nfor relabelled face " ++ show fc2
            Just f -> f
-   
 
 {-| relabelFromFacesIgnore is an auxiliary function for relabelToMatchIgnore.
 It is similar to tryRelabelFromFaces except that it uses growRelabelIgnore and matchFaceIgnore
@@ -365,21 +363,10 @@ relabelAvoid avoid g =
   --    because the unsafe domain of rlab excludes all vertices of g
   -- assert: the relabelling preserves Tgraph properties
   -- assert: the relabelled Tgraph does not have vertices in the set avoid
-
-{- 
-relabelAvoid :: VertexSet -> Tgraph -> Tgraph
-relabelAvoid avoid g = uncheckedRelabelGraph rlab g where
-  gverts = vertexSet g
-  avoidMax = if IntSet.null avoid then 0 else IntSet.findMax avoid
-  vertsToChange = gverts `IntSet.intersection` avoid
-  rlab = relabellingFrom (1+ max (maxV g) avoidMax) vertsToChange
-
-  -- assert: rlab is 1-1 on the vertices of g
-  -- assert: the relabelled Tgraph satisfies Tgraph properties (if g does)
-  -- assert: the relabelled Tgraph does not have vertices in the set avoid
- -}
   
-{-|prepareFixAvoid fix avoid g - produces a new Tgraph from g by relabelling.
+{-|prepareFixAvoid fix avoid g - no longer exported after v1.5.1.
+Same as relabelAvoid avoid g except that the list of items fix is removed from the avoid set.
+
  Any vertex in g that is in the set avoid but not in the list fix will be changed to a new vertex that is
  neither in g nor in the set (avoid with fix removed).
  All other vertices of g (including those in fix) will remain the same.
@@ -422,15 +409,6 @@ tryMatchFace face g = onFail "tryMatchFace:\n" $
                             ,show (corresp, face)
                             ,"\n"
                             ]
-{-  No longer used
--- |twoVMatch f1 f2 is True if the two tilefaces are the same except
--- for a single vertex label possibly not matching.
-twoVMatch:: TileFace -> TileFace -> Bool
-twoVMatch f1 f2 = isMatched f1 f2 &&
-                  if firstV f1 == firstV f2
-                  then secondV f1 == secondV f2 || thirdV f1 == thirdV f2
-                  else secondV f1 == secondV f2 && thirdV f1 == thirdV f2
- -}
 
 {-|A version of tryMatchFace that just ignores mismatches.
 matchFaceIgnore f g - looks for a face in g that corresponds to f (with a common directed edge),

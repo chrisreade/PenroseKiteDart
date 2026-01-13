@@ -1,10 +1,28 @@
 # Revision history for PenroseKiteDart
 
 Since 1.5.1 
-removed data constructor Relabelling
-added unsafeDom (for use with relabellings)
-Renamed relabelGraph as uncheckedRelabelGraph
-Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
+Possibly breaking:
+   Removed data constructor Relabelling from export
+   Renamed relabelGraph as uncheckedRelabelGraph
+   Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
+   prepareFixAvoid no longer exported (use relabelAvoid instead)
+   Added boundaryVs to HasFaces class
+Other changes:
+   Added unsafeDom (for use with relabellings)
+   relabelAvoid now exported
+   relabellingFrom now exported
+   Changed Tgraph definition so no record type used
+   (this was hidden anyway but visible when a Tgraph was shown)
+
+(About to remove) deprecated:
+   restrictSmart Use smartOn
+   selectFacesVP Use (flip restrictTo)
+   removeFacesVP Use (flip removeFacesFromVP)
+   boundaryFaces Use boundaryVFaces or boundaryEdgeFaces
+   pieceEdges Use drawnEdges
+   dashjPiece Use drawjPiece
+   dashjP3 Use drawjP3
+
 
 ## version v1.5.1
 

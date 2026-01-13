@@ -319,13 +319,6 @@ fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 -- Works with AlphaColours as well as Colours.
 fillKD c1 c2 = fillDK c2 c1
 
-{- {-# DEPRECATED fillMaybeDK "Use fillDK which now works with AlphaColours such as transparent" #-}
--- |fillMaybeDK *Deprecated*
--- (Use fillDK which works with AlphaColours such as transparent as well as Colours).
-fillMaybeDK :: (Drawable a, OKBackend b) =>
-               Maybe (Colour Double) -> Maybe (Colour Double) -> a -> Diagram b
-fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
- -}
 -- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).
 -- Note the order D K G.
@@ -333,16 +326,6 @@ fillMaybeDK c1 c2 = drawWith (fillMaybePieceDK c1 c2)
 colourDKG :: (Drawable a, OKBackend b, Color c1, Color c2, Color c3) =>
              (c1,c2,c3) -> a -> Diagram b
 colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lineColor c3
-
-{- {-# DEPRECATED colourMaybeDKG "Use colourDKG which now works with AlphaColours such as transparent" #-}
--- |colourMaybeDKG *Deprecated*
--- (Use colourDKG which works with AlphaColours such as transparent as well as Colours)
-colourMaybeDKG:: (Drawable a, OKBackend b) =>
-                 (Maybe (Colour Double),  Maybe (Colour Double), Maybe (Colour Double)) -> a -> Diagram b
-colourMaybeDKG (d,k,g) a = fillMaybeDK d k a # maybeGrout g where
-    maybeGrout (Just c) = lc c
-    maybeGrout Nothing = lw none
- -}
 
 {-|
 Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch.

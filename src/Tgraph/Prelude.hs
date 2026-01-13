@@ -8,9 +8,9 @@ Stability   : experimental
 
 Introduces Tgraphs and includes operations on vertices, edges and faces as well as Tgraphs.
 Plus VPatch (Vertex Patch) as intermediary between Tgraph and Diagram.
-Conversion and drawing operations to produce Diagrams.
+Conversions and drawing operations (producing Diagrams).
 The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint),
-touching vertex checks (touchingVertices, touchingVerticesGen), and edge drawing functions.
+abd touching vertex checks (touchingVertices, touchingVerticesGen).
 
 This module re-exports module HalfTile and module Try.
 -}
@@ -26,6 +26,7 @@ module Tgraph.Prelude
   ( module HalfTile
   , module Try
     -- * Types for Tgraphs, Faces, Vertices, Directed Edges
+  , Tgraph() -- not Data Constructor Tgraph
   , TileFace
   , Vertex
   , VertexSet
@@ -33,7 +34,6 @@ module Tgraph.Prelude
     -- $Edges
   , Dedge
   , EdgeType(..)
-  , Tgraph() -- not Data Constructor Tgraph
     -- * Making Tgraphs
   , makeTgraph
   , tryMakeTgraph
@@ -49,6 +49,7 @@ module Tgraph.Prelude
 --  , findEdgeLoops
   , hasEdgeLoops
   , duplicates
+--  , duplicateInts
 --  , conflictingDedges
   , edgeType
   --, findEdgeLoop
@@ -65,13 +66,16 @@ module Tgraph.Prelude
   , connected
 --  , connectedBy
    -- * Tgraph and HasFaces operations
-  , HasFaces(..) -- faces, boundary, maxV, boundaryVFMap
+  , HasFaces(..) -- faces, boundary, maxV, boundaryVs, boundaryVFMap
+-- , boundary
+-- , maxV
   , dedges
   , vertexSet
   , vertices
-  , boundaryVs
+  , boundaryVsDup
   , boundaryEFMap
   , boundaryVFaces
+  --, boundaryVFMap
 --  , faces
   , nullFaces
   , evalFaces
@@ -228,14 +232,12 @@ type TileFace = HalfTile (Vertex,Vertex,Vertex)
 
 {- | A Tgraph is a newtype for a list of faces (that is [TileFace]).
    All vertex labels should be positive, so 0 is not used as a vertex label.
-   Tgraphs should be constructed with makeTgraph or checkedTgraph to check required properties.
-   The data constructor Tgraph is not exported (but see also makeUncheckedTgraph).
+   Tgraphs should be constructed with @makeTgraph@ or @checkedTgraph@ to check required properties.
+   The data constructor @Tgraph@ is not exported (but see also @makeUncheckedTgraph@).
 
-   Use faces to retrieve the list of faces of a Tgraph.
+   Use @faces@ to retrieve the list of faces of a Tgraph.
 -}
-newtype Tgraph = Tgraph { -- | getFaces is not exported (use faces)
-                         getFaces ::[TileFace] -- ^ Retrieve the faces of a Tgraph
-                        }
+newtype Tgraph = Tgraph [TileFace] 
                  deriving (Show)
 
 -- |A type used to classify edges of faces.
@@ -401,10 +403,19 @@ hasEdgeLoops = not . null . findEdgeLoops
 
 -- |duplicates finds any duplicated items in a list (unique results).
 duplicates :: Eq a => [a] -> [a]
+duplicates = check [] [] where
+ check dups _ [] = reverse dups
+ check dups seen (x:xs) | x `elem` dups = check dups seen xs
+                        | x `elem` seen = check (x:dups) seen xs
+                        | otherwise = check dups (x:seen) xs
+
+{- -- |duplicates finds any duplicated items in a list (unique results).
+duplicates :: Eq a => [a] -> [a]
 duplicates = reverse . fst . foldl' check ([],[]) where
  check (dups,seen) x | x `elem` dups = (dups,seen)
                      | x `elem` seen = (x:dups,seen)
                      | otherwise = (dups,x:seen)
+  -}
 
 -- |conflictingDedges fcs returns a list of conflicting directed edges in fcs
 -- i.e. different faces having the same edge in the same direction.
@@ -485,7 +496,18 @@ illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fc
 -- |crossingBVs fcs returns a list of vertices where there are crossing boundaries
 -- (which should be null for Tgraphs, VPatches, BoundaryStates, Forced, TrackedTgraph).               
 crossingBVs :: HasFaces a => a -> [Vertex]
-crossingBVs = duplicates . boundaryVs
+crossingBVs = duplicateInts . boundaryVsDup
+
+
+-- |duplicateInts - not exported.
+-- finds any duplicated items in a list (unique results).
+-- It uses IntSet, so faster than duplicates on large integer lists.
+duplicateInts :: [Int] -> [Int]
+duplicateInts = check IntSet.empty IntSet.empty where
+  check dups _ [] = IntSet.toList dups
+  check dups seen (x:xs) | x `IntSet.member` dups = check dups seen xs
+                         | x `IntSet.member` seen = check (IntSet.insert x dups) seen xs
+                         | otherwise = check dups (IntSet.insert x seen) xs
 
 -- |There are crossing boundaries if vertices occur more than once
 -- in the boundary vertices.
@@ -531,15 +553,20 @@ nullFaces = null . faces
 
 -- |Class HasFaces for operations using (a list of) TileFaces.
 -- 
--- Used to define common functions on [TileFace], Tgraph, VPatch, BoundaryState, Forced, TrackedTgraph
+-- Used to define common functions on 
+-- [TileFace], Tgraph, VPatch, BoundaryState, ForceState, Forced, TrackedTgraph.
+-- Note maxV, boundary, boundaryVFMap included as they are precalculted for BoundaryState, ForceState, Forced
+-- Note boundaryVs has no duplicates (requires nub to remove them only from [TileFace], VPatch)
 class HasFaces a where
-    -- |get the tileface list
+    -- |get the tileFace list
     faces :: a -> [TileFace]
+    -- |get the boundary vertices (without duplicates)
+    boundaryVs :: a -> [Vertex]
+    -- |get the maximum vertex in all faces (0 if there are no faces)
+    maxV :: a -> Int
     -- |get the directed edges of the boundary
     -- (direction with a tileface on the left and exterior on right).
     boundary :: a -> [Dedge]
-    -- |get the maximum vertex in all faces (0 if there are no faces)
-    maxV :: a -> Int
     -- |create a map associating to each boundary vertex, a list of faces at the vertex
     boundaryVFMap :: a -> VertexMap [TileFace]
 
@@ -548,11 +575,11 @@ class HasFaces a where
 vertices :: HasFaces a => a -> [Vertex]
 vertices = IntSet.elems . vertexSet
 
--- |List of boundary vertices
+-- |List of boundary vertices (with possible duplicates).
 -- May have duplicates when applied to an arbitrary list of TileFace or VPatch.
 -- but no duplicates for Tgraph, BoundaryState, Forced, TrackedTgraph. 
-boundaryVs :: HasFaces a => a -> [Vertex]
-boundaryVs = map fst . boundary
+boundaryVsDup :: HasFaces a => a -> [Vertex]
+boundaryVsDup = map fst . boundary
 
 -- |get all the directed edges (directed clockwise round each face)
 dedges :: HasFaces a => a -> [Dedge]
@@ -562,7 +589,13 @@ dedges = concatMap faceDedges . faces
 vertexSet :: HasFaces a => a -> VertexSet
 vertexSet = mconcat . map faceVSet . faces
 
--- |create a directed edge to face map from the (reverse direction of the) boundary edges
+{- -- |create a map associating to each boundary vertex, a list of faces at the vertex
+boundaryVFMap :: HasFaces a => a -> VertexMap [TileFace]
+boundaryVFMap a = vertexFacesMap (boundaryVs a) (faces a)
+
+ -}
+ 
+ -- |create a directed edge to face map from the (reverse direction of the) boundary edges
 boundaryEFMap :: HasFaces a => a -> Map.Map Dedge TileFace
 boundaryEFMap fcs = Map.fromList (assocFaces des) where
        des = map reverseD $ boundary fcs
@@ -583,17 +616,20 @@ boundaryVFaces a = nub $ concat $ VMap.elems $ boundaryVFMap a
 -- |A list of tilefaces is in class HasFaces
 instance HasFaces [TileFace] where
     faces = id
+    boundaryVs = nub . boundaryVsDup
+    boundaryVFMap fcs = vertexFacesMap (boundaryVs fcs) fcs
+
     boundary = missingRevs . dedges
     maxV [] = 0
     maxV fcs = IntSet.findMax $ vertexSet fcs
-    boundaryVFMap fcs = vertexFacesMap (nub $ boundaryVs fcs) fcs -- need for nub
 
 -- |Tgraph is in class HasFaces
 instance HasFaces Tgraph where
-    faces  = getFaces
+    faces (Tgraph fcs) = fcs
+    boundaryVs = boundaryVsDup -- no duplicates possible
+    boundaryVFMap = boundaryVFMap . faces
     boundary = boundary . faces
     maxV = maxV . faces
-    boundaryVFMap g = vertexFacesMap (boundaryVs g) (faces g) -- no need for nub
 
 ldarts,rdarts,lkites,rkites, kites, darts :: HasFaces a => a -> [TileFace]
 -- | selecting left darts from 
@@ -1001,10 +1037,12 @@ instance Transformable VPatch where
 -- |VPatch is in class HasFace
 instance HasFaces VPatch where
     faces = vpFaces
-    boundary = boundary . faces
-    maxV = maxV . faces
+    boundaryVs = boundaryVs . faces  -- duplicates removed
+
     boundaryVFMap = boundaryVFMap . faces -- need for nub (from [TileFace] instance)
 
+    boundary = boundary . faces
+    maxV = maxV . faces
 
 {-|Convert a Tgraph to a VPatch.
 This uses locateVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
@@ -1056,6 +1094,7 @@ restrictVP:: VPatch -> [TileFace] -> VPatch
 restrictVP = flip restrictTo
 
 -- |Recover a Tgraph from a VPatch by dropping the vertex positions and checking Tgraph properties.
+-- This will fail if the faces do not form a valid Tgraph.
 graphFromVP:: VPatch -> Tgraph
 graphFromVP = checkedTgraph . faces
 
@@ -1087,9 +1126,6 @@ selectVerticesFromVP vs vp = restrictTo (filter (hasVIn vs) (faces vp)) vp
 findLoc :: Vertex -> VPatch -> Maybe (Point V2 Double)
 findLoc v = VMap.lookup v . vLocs
 
-
-
-
 -- |VPatches are drawable
 instance Drawable VPatch where
     drawWith pd vp = drawWith pd (dropLabels vp)
@@ -1116,7 +1152,6 @@ class DrawableLabelled a where
   labelColourSize :: OKBackend b =>
                      Colour Double -> Measure Double -> (Patch -> Diagram b) -> a -> Diagram b
 -- The argument type of the draw function is Patch rather than VPatch, which prevents labelling twice.
-
 
 -- | VPatches can be drawn with labels
 instance DrawableLabelled VPatch where

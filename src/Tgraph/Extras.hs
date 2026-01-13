@@ -729,6 +729,7 @@ instance Forcible TrackedTgraph where
 -- |TrackedTgraph is in class HasFaces
 instance HasFaces TrackedTgraph where
     faces  = faces . tgraph
+    boundaryVs = boundaryVs . tgraph
     boundary = boundary . faces . tgraph
     maxV = maxV . faces . tgraph
     boundaryVFMap = boundaryVFMap . faces -- note need for nub

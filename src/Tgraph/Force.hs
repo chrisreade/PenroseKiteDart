@@ -189,9 +189,11 @@ data BoundaryState
 -- |BoundaryState is in class HasFaces
 instance HasFaces BoundaryState where
     faces = allFaces
-    boundary = boundaryDedges
-    maxV bd = nextVertex bd - 1
-    boundaryVFMap = bvFacesMap
+    boundaryVs = boundaryVsDup -- boundary already calculated (no duplicates possible)
+    boundary = boundaryDedges  -- boundary already calculated
+    maxV :: BoundaryState -> Int
+    maxV bd = nextVertex bd - 1 -- no longar calculation needed
+    boundaryVFMap = bvFacesMap -- boundary face map already calculated
 
 -- |Calculates BoundaryState information from a Tgraph.
 makeBoundaryState:: Tgraph -> BoundaryState
@@ -207,7 +209,6 @@ makeBoundaryState g =
       , allFaces = faces g
       , nextVertex = 1+ maxV g
       }
-
 
 -- |Converts a BoundaryState back to a Tgraph
 recoverGraph:: BoundaryState -> Tgraph
@@ -262,6 +263,7 @@ data ForceState = ForceState
 -- |ForceState is in class HasFaces
 instance HasFaces ForceState where
     faces = faces . boundaryState
+    boundaryVs = boundaryVs . boundaryState
     boundary = boundary . boundaryState
     maxV = maxV . boundaryState
     boundaryVFMap = boundaryVFMap . boundaryState
@@ -426,8 +428,9 @@ newtype Forced a = Forced { -- | forget the explicit Forced labelling
 -- |Extend HasFaces ops from a to Forced a
 instance HasFaces a => HasFaces (Forced a) where
     faces = faces . forgetF
+    boundaryVs = boundaryVs . forgetF
     boundary = boundary . forgetF
-    maxV = maxV . faces
+    maxV = maxV . forgetF
     boundaryVFMap = boundaryVFMap . forgetF
 
 -- | Constructs an explicitly Forced type.
