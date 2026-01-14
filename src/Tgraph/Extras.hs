@@ -722,10 +722,10 @@ instance Forcible TrackedTgraph where
 -- |TrackedTgraph is in class HasFaces
 instance HasFaces TrackedTgraph where
     faces  = faces . tgraph
-    boundary = boundary . faces . tgraph
-    maxV = maxV . faces . tgraph
-    boundaryVFMap = boundaryVFMap . faces -- note need for nub
-
+{-     boundary = boundary . tgraph
+    maxV = maxV . tgraph
+    boundaryVFMap = boundaryVFMap . tgraph -- note need for nub
+ -}
 -- |addHalfDartTracked ttg e - add a half dart to the tgraph of ttg on the given edge e,
 -- and push the new singleton face list onto the tracked list.
 addHalfDartTracked:: Dedge -> TrackedTgraph -> TrackedTgraph

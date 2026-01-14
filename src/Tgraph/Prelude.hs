@@ -556,19 +556,26 @@ nullFaces = null . faces
 -- 
 -- Used to define common functions on 
 -- [TileFace], Tgraph, VPatch, BoundaryState, ForceState, Forced, TrackedTgraph.
--- Note maxV, boundary, boundaryVFMap included as they are precalculted for BoundaryState, ForceState, Forced
--- Note boundaryVs has no duplicates (requires nub to remove them only from [TileFace], VPatch)
+--
+-- Note maxV, boundary, boundaryVFMap are included in the class 
+-- with the default implementations. These are overiden for
+-- BoundaryState, ForceState, Forced (where they are precalculated).
 class HasFaces a where
     -- |get the tileFace list
     faces :: a -> [TileFace]
     -- |get the maximum vertex in all faces (0 if there are no faces)
     maxV :: a -> Int
+    maxV = maxV' . faces where
+           maxV' [] = 0
+           maxV' fcs = IntSet.findMax $ vertexSet fcs
     -- |get the directed edges of the boundary
     -- (direction with a tileface on the left and exterior on right).
     boundary :: a -> [Dedge]
+    boundary = missingRevs . dedges
     -- |create a map associating to each boundary vertex, a list of faces at the vertex
     boundaryVFMap :: a -> VertexMap [TileFace]
-
+    boundaryVFMap a = vertexFacesMap (boundaryVertexSet fcs) fcs
+                       where fcs = faces a
 
 -- |An ascending list of the vertices occuring in faces (without duplicates)
 vertices :: HasFaces a => a -> [Vertex]
@@ -613,17 +620,19 @@ boundaryVertexSet = IntSet.fromList . boundaryVsDup
 -- |A list of tilefaces is in class HasFaces
 instance HasFaces [TileFace] where
     faces = id
-    boundaryVFMap fcs = vertexFacesMap (boundaryVertexSet fcs) fcs
+{-     boundaryVFMap fcs = vertexFacesMap (boundaryVertexSet fcs) fcs
     boundary = missingRevs . dedges
     maxV [] = 0
     maxV fcs = IntSet.findMax $ vertexSet fcs
+ -}
 
 -- |Tgraph is in class HasFaces
 instance HasFaces Tgraph where
     faces (Tgraph fcs) = fcs
-    boundaryVFMap = boundaryVFMap . faces
+{-     boundaryVFMap = boundaryVFMap . faces
     boundary = boundary . faces
     maxV = maxV . faces
+ -}
 
 ldarts,rdarts,lkites,rkites, kites, darts :: HasFaces a => a -> [TileFace]
 -- | selecting left darts from 
@@ -965,11 +974,9 @@ boundaryJoinFaces :: HasFaces a => a -> [TileFace]
 boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin $ boundaryEFMap a where
     isJoin d f = joinE f == d
 
- 
 -- |find the faces with a at least one boundary edge.
 boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
 boundaryEdgeFaces = nub . Map.elems . boundaryEFMap
-
 
 -- |Build a full Map from all directed edges to faces (the unique face containing the directed edge)
 buildEFMap:: HasFaces a  => a -> Map.Map Dedge TileFace
@@ -1043,10 +1050,10 @@ instance Transformable VPatch where
 -- |VPatch is in class HasFace
 instance HasFaces VPatch where
     faces = vpFaces
-    boundaryVFMap = boundaryVFMap . faces -- need for nub (from [TileFace] instance)
+{-     boundaryVFMap = boundaryVFMap . faces -- need for nub (from [TileFace] instance)
     boundary = boundary . faces
     maxV = maxV . faces
-
+ -}
 {-|Convert a Tgraph to a VPatch.
 This uses locateVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis.

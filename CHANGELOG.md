@@ -6,10 +6,11 @@ Possibly breaking:
    Renamed relabelGraph as uncheckedRelabelGraph
    Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
    prepareFixAvoid no longer exported (use relabelAvoid instead)
-   Moved boundaryVertexSet to Prelude
+   Moved boundaryVertexSet to Tgraph.Prelude
    Changed vertexFacesMap to take a set rather then list of vertices
-   
+
 Other changes:
+   Default implementations in Class HasFaces for boundary, maxV, boundaryVFMap
    Added unsafeDom (for use with relabellings)
    relabelAvoid now exported
    relabellingFrom now exported

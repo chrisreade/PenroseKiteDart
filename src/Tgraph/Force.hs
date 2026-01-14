@@ -187,12 +187,13 @@ data BoundaryState
      , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
 
--- |BoundaryState is in class HasFaces
+-- |BoundaryState is in class HasFaces.
+-- Note the default implementations are overiden to use precalculated information
 instance HasFaces BoundaryState where
     faces = allFaces
-    boundary = boundaryDedges  -- boundary already calculated
-    maxV bd = nextVertex bd - 1 -- no longar calculation needed
-    boundaryVFMap = bvFacesMap -- boundary face map already calculated
+    boundary = boundaryDedges  -- (overrides default) boundary already calculated
+    maxV bd = nextVertex bd - 1 -- (overrides default)
+    boundaryVFMap = bvFacesMap -- (overrides default) already calculated
 
 -- |Calculates BoundaryState information from a Tgraph.
 makeBoundaryState:: Tgraph -> BoundaryState
@@ -253,7 +254,8 @@ data ForceState = ForceState
                    , updateMap:: UpdateMap
                    } deriving (Show)
 
--- |ForceState is in class HasFaces
+-- |ForceState is in class HasFaces.
+-- (using the boundaryState implementations)
 instance HasFaces ForceState where
     faces = faces . boundaryState
     boundary = boundary . boundaryState
@@ -303,7 +305,6 @@ instance Forcible ForceState where
     tryChangeBoundaryWith ugen f fs = do
         bdC <- f (boundaryState fs)
         tryReviseFSWith ugen bdC fs
---    boundaryState = boundaryState
 
 -- | BoundaryStates are Forcible    
 instance Forcible BoundaryState where
@@ -324,7 +325,7 @@ instance Forcible Tgraph where
     tryInitFSWith ugen g = tryInitFSWith ugen (makeBoundaryState g)
     tryChangeBoundaryWith ugen f g = -- update generator not used
         recoverGraph <$> tryChangeBoundaryWith ugen f (makeBoundaryState g)
---    boundaryState = makeBoundaryState
+
 
 
 -- | try forcing using a given UpdateGenerator.
