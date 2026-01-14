@@ -60,7 +60,6 @@ module Tgraph.Extras
   , checkCasesDKF
   , boundaryEdgeSet
   , commonBdry
-  , boundaryVertexSet
   , internalVertexSet
   , drawFBCovering
   , empire1
@@ -107,7 +106,7 @@ import Data.List (intersect, union, (\\), find, transpose)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
-import qualified Data.IntSet as IntSet (fromList,member,(\\)) -- for boundary vertex set
+import qualified Data.IntSet as IntSet (member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 import Data.Maybe (fromMaybe)
 
@@ -392,15 +391,9 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
     | otherwise =  covers $ map (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de (forgetF open)) ++opens
                    where (de,des) = Set.deleteFindMin es
 
-
--- | returns the set of boundary vertices of a tilefaces
-boundaryVertexSet :: HasFaces a => a -> VertexSet
-boundaryVertexSet = IntSet.fromList . boundaryVs
-
 -- | returns the set of internal vertices of a tilefaces
 internalVertexSet :: HasFaces a => a -> VertexSet
 internalVertexSet a = vertexSet a IntSet.\\ boundaryVertexSet a
-
 
 -- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b. Each of the results is a Try.
@@ -729,7 +722,6 @@ instance Forcible TrackedTgraph where
 -- |TrackedTgraph is in class HasFaces
 instance HasFaces TrackedTgraph where
     faces  = faces . tgraph
-    boundaryVs = boundaryVs . tgraph
     boundary = boundary . faces . tgraph
     maxV = maxV . faces . tgraph
     boundaryVFMap = boundaryVFMap . faces -- note need for nub

@@ -66,12 +66,13 @@ module Tgraph.Prelude
   , connected
 --  , connectedBy
    -- * Tgraph and HasFaces operations
-  , HasFaces(..) -- faces, boundary, maxV, boundaryVs, boundaryVFMap
+  , HasFaces(..) -- faces, boundary, maxV, boundaryVFMap
 -- , boundary
 -- , maxV
   , dedges
   , vertexSet
   , vertices
+  , boundaryVertexSet
   , boundaryVsDup
   , boundaryEFMap
   , boundaryVFaces
@@ -189,7 +190,7 @@ module Tgraph.Prelude
   --, drawEdge
   ) where
 
-import Data.List ((\\),intersect,union,elemIndex,find,nub)
+import Data.List ((\\),intersect,elemIndex,find,nub)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault,elems)
@@ -560,8 +561,6 @@ nullFaces = null . faces
 class HasFaces a where
     -- |get the tileFace list
     faces :: a -> [TileFace]
-    -- |get the boundary vertices (without duplicates)
-    boundaryVs :: a -> [Vertex]
     -- |get the maximum vertex in all faces (0 if there are no faces)
     maxV :: a -> Int
     -- |get the directed edges of the boundary
@@ -589,17 +588,10 @@ dedges = concatMap faceDedges . faces
 vertexSet :: HasFaces a => a -> VertexSet
 vertexSet = mconcat . map faceVSet . faces
 
-{- -- |create a map associating to each boundary vertex, a list of faces at the vertex
-boundaryVFMap :: HasFaces a => a -> VertexMap [TileFace]
-boundaryVFMap a = vertexFacesMap (boundaryVs a) (faces a)
-
- -}
- 
- -- |create a directed edge to face map from the (reverse direction of the) boundary edges
+-- |create a directed edge to face map from the (reverse direction of the) boundary edges
 boundaryEFMap :: HasFaces a => a -> Map.Map Dedge TileFace
 boundaryEFMap fcs = Map.fromList (assocFaces des) where
        des = map reverseD $ boundary fcs
---       vs = boundaryVs a
        vfMap = boundaryVFMap fcs
        assocFaces [] = []
        assocFaces (d@(a,b):more) =
@@ -613,12 +605,15 @@ boundaryEFMap fcs = Map.fromList (assocFaces des) where
 boundaryVFaces :: HasFaces a => a -> [TileFace]
 boundaryVFaces a = nub $ concat $ VMap.elems $ boundaryVFMap a 
 
+-- |get the set of boundary vertices
+boundaryVertexSet :: HasFaces a => a -> IntSet.IntSet
+boundaryVertexSet = IntSet.fromList . boundaryVsDup
+
+
 -- |A list of tilefaces is in class HasFaces
 instance HasFaces [TileFace] where
     faces = id
-    boundaryVs = nub . boundaryVsDup
-    boundaryVFMap fcs = vertexFacesMap (boundaryVs fcs) fcs
-
+    boundaryVFMap fcs = vertexFacesMap (boundaryVertexSet fcs) fcs
     boundary = missingRevs . dedges
     maxV [] = 0
     maxV fcs = IntSet.findMax $ vertexSet fcs
@@ -626,7 +621,6 @@ instance HasFaces [TileFace] where
 -- |Tgraph is in class HasFaces
 instance HasFaces Tgraph where
     faces (Tgraph fcs) = fcs
-    boundaryVs = boundaryVsDup -- no duplicates possible
     boundaryVFMap = boundaryVFMap . faces
     boundary = boundary . faces
     maxV = maxV . faces
@@ -923,7 +917,7 @@ edgeNb::TileFace -> TileFace -> Bool
 edgeNb face = any (`elem` edges) . faceDedges where
       edges = map reverseD (faceDedges face)
 
-
+{- OLD Version with lists
 {-|vertexFacesMap vs a -
 For list of vertices vs and faces from a,
 create an IntMap from each vertex in vs to a list of those faces in a that are at that vertex.
@@ -931,6 +925,18 @@ create an IntMap from each vertex in vs to a list of those faces in a that are a
 vertexFacesMap:: HasFaces a => [Vertex] -> a -> VertexMap [TileFace]
 vertexFacesMap vs = foldl' insertf startVF . faces where
     startVF = VMap.fromList $ map (,[]) vs
+    insertf vfmap f = foldl' (flip (VMap.alter addf)) vfmap (faceVList f)
+                      where addf Nothing = Nothing
+                            addf (Just fs) = Just (f:fs)
+ -}
+
+{-|vertexFacesMap vs a -
+For vertex set vs and faces from a,
+create an IntMap from each vertex in vs to a list of those faces in a that are at that vertex.
+-}
+vertexFacesMap:: HasFaces a => VertexSet -> a -> VertexMap [TileFace]
+vertexFacesMap vs = foldl' insertf startVF . faces where
+    startVF = VMap.fromList $ map (,[]) $ IntSet.elems vs
     insertf vfmap f = foldl' (flip (VMap.alter addf)) vfmap (faceVList f)
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
@@ -943,8 +949,8 @@ vertexFacesMap vs = foldl' insertf startVF . faces where
 -- If the edges are just the boundary edges, use boundaryEFMap instead.
 dedgesFacesMap:: HasFaces a => [Dedge] -> a -> Map.Map Dedge TileFace
 dedgesFacesMap des fcs =  Map.fromList (assocFaces des) where
-   vs = map fst des `union` map snd des
-   vfMap = vertexFacesMap vs fcs
+   vset = IntSet.fromList (map fst des) `IntSet.union` IntSet.fromList (map snd des)
+   vfMap = vertexFacesMap vset fcs
    assocFaces [] = []
    assocFaces (d@(a,b):more) =
        case filter (liftA2 (&&) (isAtV a) (`hasDedge` d)) (vfMap VMap.! b) of
@@ -1037,10 +1043,7 @@ instance Transformable VPatch where
 -- |VPatch is in class HasFace
 instance HasFaces VPatch where
     faces = vpFaces
-    boundaryVs = boundaryVs . faces  -- duplicates removed
-
     boundaryVFMap = boundaryVFMap . faces -- need for nub (from [TileFace] instance)
-
     boundary = boundary . faces
     maxV = maxV . faces
 

@@ -152,6 +152,7 @@ import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
+import qualified Data.IntSet as IntSet (member,fromList)
             -- used for BoundaryState locations AND faces at boundary vertices
 -- import qualified Data.Maybe(fromMaybe)  -- was used for lazy mustFind only
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
@@ -189,9 +190,7 @@ data BoundaryState
 -- |BoundaryState is in class HasFaces
 instance HasFaces BoundaryState where
     faces = allFaces
-    boundaryVs = boundaryVsDup -- boundary already calculated (no duplicates possible)
     boundary = boundaryDedges  -- boundary already calculated
-    maxV :: BoundaryState -> Int
     maxV bd = nextVertex bd - 1 -- no longar calculation needed
     boundaryVFMap = bvFacesMap -- boundary face map already calculated
 
@@ -199,8 +198,8 @@ instance HasFaces BoundaryState where
 makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g =
   let bdes = boundary g
-      bvs = map fst bdes -- (map snd bdes would also do) for all boundary vertices
-      bvLocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ faces g
+      bvs = IntSet.fromList (map fst bdes) --boundaryVertexSet g --map fst bdes -- (map snd bdes would also do) for all boundary vertices
+      bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateVertices $ faces g
   in 
       BoundaryState
       { boundaryDedges = bdes
@@ -226,12 +225,6 @@ facesAtBV:: BoundaryState -> Vertex -> [TileFace]
 facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
   Just fcs -> fcs
   Nothing -> error $ "facesAtBV: Not a boundary vertex? No result found for vertex " ++ show v ++ "\n"
-
-{- -- |return a list of faces which have a boundary vertex from a BoundaryState
-boundaryVFacesBS :: BoundaryState -> [TileFace]
-boundaryVFacesBS bd = nub $ concatMap (facesAtBV bd) bvs where
-    bvs = boundaryVs bd
- -}
 
 {-# DEPRECATED boundaryFaces "Use boundaryVFaces or boundaryEdgeFaces" #-}
 -- | DEPRECATED boundaryFaces: Use boundaryVFaces or boundaryEdgeFaces
@@ -263,7 +256,6 @@ data ForceState = ForceState
 -- |ForceState is in class HasFaces
 instance HasFaces ForceState where
     faces = faces . boundaryState
-    boundaryVs = boundaryVs . boundaryState
     boundary = boundary . boundaryState
     maxV = maxV . boundaryState
     boundaryVFMap = boundaryVFMap . boundaryState
@@ -428,7 +420,6 @@ newtype Forced a = Forced { -- | forget the explicit Forced labelling
 -- |Extend HasFaces ops from a to Forced a
 instance HasFaces a => HasFaces (Forced a) where
     faces = faces . forgetF
-    boundaryVs = boundaryVs . forgetF
     boundary = boundary . forgetF
     maxV = maxV . forgetF
     boundaryVFMap = boundaryVFMap . forgetF
