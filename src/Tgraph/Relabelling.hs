@@ -33,10 +33,11 @@ module Tgraph.Relabelling
   , newRelabelling
   , unsafeDom
   , relabellingFrom
---  , relabellingTo
---  , extendRelabelling
   , uncheckedRelabelGraph
   , relabelGraph
+  -- $SafeRelabelling
+--  , relabellingTo
+--  , extendRelabelling
   , relabelContig
   -- * Auxiliary Functions
   , relabelFace
@@ -316,15 +317,15 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
 -- rlab (extended with the identity) remains 1-1 on vertices in g.
 -- This will be true if the vertices of g are disjoint from the unsafe domain of rlab.
 -- This precondition ensures the resulting Tgraph does not need an expensive check for Tgraph properties.
--- (Use relabelGraph for a checking version).
+-- Use relabelGraph for a checking version. (See Safe Relabelling )
 uncheckedRelabelGraph:: Relabelling -> Tgraph -> Tgraph
 uncheckedRelabelGraph rlab g = makeUncheckedTgraph newFaces where
    newFaces = map (relabelFace rlab) (faces g) 
 
 -- |relabelGraph uses a relabelling map to change vertices in a Tgraph,
 -- It checks that the result is a valid Tgraph whenever there are vertices in the Tgraph
--- that are also in the unsafe domain of the relabelling (since the
--- relabelling may not be 1-1 on the Tgraph. (see also uncheckedRelabelGraph)
+-- that are also in the unsafe domain of the relabelling since the
+-- relabelling may not be 1-1 on the Tgraph. (See also uncheckedRelabelGraph)
 relabelGraph:: Relabelling -> Tgraph -> Tgraph
 relabelGraph rlab g = 
     if unsafeDom rlab `IntSet.disjoint` vertexSet g
@@ -332,6 +333,53 @@ relabelGraph rlab g =
     else runTry $ onFail "relabelGraph:\nRelabelling not 1-1\n" $ 
          tryMakeTgraph newFaces
   where newFaces = map (relabelFace rlab) (faces g) 
+
+{- $SafeRelabelling
+
+__Safe Relabelling__
+
+A Tgraph should only be relabelled with a 1-1 mapping, so only use @uncheckedRelabelGraph@
+when you know this to be the case.
+
+Any relabelling has an /unsafe/ domain and it is guaranteed to be 1-1
+if it is not applied to anything in the unsafe domain.
+However this is not an if and only if.
+
+As an example, consider
+
+    @kiteGraph = Tgraph [RK (1,2,4),LK (1,3,2)]@ 
+
+which has vertices {1,2,3,4}, and the two relabellings
+
+    @rel1 = newRelabelling [(1,2),(2,4),(3,5)]@ 
+
+    @rel2 = newRelabelling [(1,2),(2,5),(5,4)]@
+
+which are unsafe on {4,5} and {4} respectively.
+
+Example (incorrect)
+
+    @uncheckedRelabelGraph rel1 kiteGraph@
+
+produces a non valid @Tgraph [RK (2,4,4),LK (2,5,4)]@.
+The relabelling is unsafe on {4,5} and 4 occurs in the kiteGraph.
+In this case the relabelling is not 1-1 on kiteGraph. If
+we check with
+
+    @relabelGraph rel1 kiteGraph@
+
+the non valid Tgraph is detected.
+
+Example (correct)
+
+   @relabelGraph rel2 kiteGraph@
+
+produces a (checked) valid @Tgraph [RK (2,5,4),LK (2,3,5)]@.
+The relabelling is unsafe on 4 which occurs in kiteGraph,
+so a full check of the resulting faces is performed.
+This is an example of a relabelling which, although unsafe on the domain {1,2,3,4}, is nevertheless still 1-1
+on that domain.
+-}
 
 -- |Uses a relabelling to relabel the three vertices of a face.
 -- Any vertex not in the key set of the relabelling is left unchanged.

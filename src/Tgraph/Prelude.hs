@@ -197,7 +197,7 @@ import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fr
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith, elems, filterWithKey)
 import Data.Maybe (mapMaybe) -- edgeNbrs
-import qualified Data.Set as Set  (fromList,member,null,delete,)-- used for locateVertices
+import qualified Data.Set as Set (fromList,member,null,delete,toList,empty,insert) -- used for locateVertices and duplicates
 
 import Diagrams.Prelude hiding (union,mapping)
 -- import Diagrams.TwoD.Text (Text)
@@ -402,21 +402,23 @@ findEdgeLoop = duplicates . faceVList
 hasEdgeLoops:: HasFaces a => a  -> Bool
 hasEdgeLoops = not . null . findEdgeLoops
 
--- |duplicates finds any duplicated items in a list (unique results).
+{- -- |duplicates finds any duplicated items in a list (unique results).
 duplicates :: Eq a => [a] -> [a]
 duplicates = check [] [] where
  check dups _ [] = reverse dups
  check dups seen (x:xs) | x `elem` dups = check dups seen xs
                         | x `elem` seen = check (x:dups) seen xs
                         | otherwise = check dups (x:seen) xs
+ -}
 
-{- -- |duplicates finds any duplicated items in a list (unique results).
-duplicates :: Eq a => [a] -> [a]
-duplicates = reverse . fst . foldl' check ([],[]) where
- check (dups,seen) x | x `elem` dups = (dups,seen)
-                     | x `elem` seen = (x:dups,seen)
-                     | otherwise = (dups,x:seen)
-  -}
+-- |duplicates finds any duplicated items in a list (unique results).
+duplicates :: Ord a => [a] -> [a]
+duplicates = check Set.empty Set.empty where
+  check dups _ [] = Set.toList dups
+  check dups seen (x:xs) | x `Set.member` dups = check dups seen xs
+                         | x `Set.member` seen = check (Set.insert x dups) seen xs
+                         | otherwise = check dups (Set.insert x seen) xs
+
 
 -- |conflictingDedges fcs returns a list of conflicting directed edges in fcs
 -- i.e. different faces having the same edge in the same direction.
@@ -497,10 +499,9 @@ illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fc
 -- |crossingBVs fcs returns a list of vertices where there are crossing boundaries
 -- (which should be null for Tgraphs, VPatches, BoundaryStates, Forced, TrackedTgraph).               
 crossingBVs :: HasFaces a => a -> [Vertex]
-crossingBVs = duplicateInts . boundaryVsDup
+crossingBVs = duplicates . boundaryVsDup
 
-
--- |duplicateInts - not exported.
+{- -- |duplicateInts - not exported.
 -- finds any duplicated items in a list (unique results).
 -- It uses IntSet, so faster than duplicates on large integer lists.
 duplicateInts :: [Int] -> [Int]
@@ -509,6 +510,7 @@ duplicateInts = check IntSet.empty IntSet.empty where
   check dups seen (x:xs) | x `IntSet.member` dups = check dups seen xs
                          | x `IntSet.member` seen = check (IntSet.insert x dups) seen xs
                          | otherwise = check dups (IntSet.insert x seen) xs
+ -}
 
 -- |There are crossing boundaries if vertices occur more than once
 -- in the boundary vertices.
