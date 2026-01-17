@@ -313,8 +313,11 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
                           rlab' = extendRelabelling fc orig rlab 
                           -- relabelUnion (fc `relabellingTo` orig) rlab
 
-{-# WARNING uncheckedRelabelGraph ["This should only be used when it is known that the Relabelling remains 1-1 on vertices in the Tgraph."
-                                  , "Use relabelGraph for a checking version."]
+{-# WARNING uncheckedRelabelGraph 
+     ["This should only be used when it is known that "
+     ,"the Relabelling remains 1-1 on vertices in the Tgraph. "
+     ,"Use relabelGraph for a checking version."
+     ]
 #-}
 -- |uncheckedRelabelGraph rlab g - uses a relabelling rlab to change vertices in a Tgraph g.
 -- The relabelling is guaranteed to be 1-1 on g

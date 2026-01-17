@@ -28,7 +28,6 @@ module Tgraph.Extras
   , drawJoinsFor
   , smartdraw
   , smartOn
-  , restrictSmart
   , smartRotateBefore
   , smartAlignBefore
     -- * Overlaid drawing tools for Tgraphs
@@ -153,12 +152,6 @@ smartOn :: (HasFaces a, OKBackend b) =>
            a -> (VPatch -> Diagram b) -> VPatch -> Diagram b
 smartOn a dr vp = drawBoundaryJoins a rvp <> dr rvp where rvp = restrictTo a vp
 
-{-# DEPRECATED restrictSmart "Use smartOn" #-}
--- | DEPRECATED restrictSmart: Use smartOn
-restrictSmart :: (HasFaces a, OKBackend b) =>
-                 a -> (VPatch -> Diagram b) -> VPatch -> Diagram b
-restrictSmart = smartOn
-
 -- |smartRotateBefore vfun a g - a tricky combination of smart with rotateBefore.
 -- Uses vfun to produce a Diagram after converting g to a rotated VPatch but also adds the dashed boundary join edges of g.
 --
@@ -255,16 +248,16 @@ drawCommonFaces :: OKBackend b =>
                    (Tgraph,Dedge) -> (Tgraph,Dedge) -> Diagram b
 drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g1
 
--- |emphasizeFaces fcs g emphasizes the given faces (that are in g) overlaid on the background draw g.
-emphasizeFaces :: OKBackend b =>
-                  [TileFace] -> Tgraph -> Diagram b
-emphasizeFaces fcs g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) where
+-- |emphasizeFaces a g - emphasizes the faces that are in a and g, overlaid on the background draw g.
+emphasizeFaces :: (OKBackend b, HasFaces a) =>
+                  a -> Tgraph -> Diagram b
+emphasizeFaces a g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) where
     vp = makeVP g
-    emphvp = subFaces (fcs `intersect` faces g) vp
+    emphvp = subFaces (faces a `intersect` faces g) vp
 
 
 -- | For illustrating an unsound version of composition which defaults to kites when there are unknown
--- dart wings on the boundary.
+-- dart wings on the boundary (with just a half kite and the half dart at the dart wing).
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 -- E.g. when applied to force queenGraph.
 composeK :: Tgraph -> Tgraph

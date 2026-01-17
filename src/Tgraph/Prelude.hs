@@ -147,16 +147,12 @@ module Tgraph.Prelude
   , VertexLocMap
   , makeVP
   , subFaces
-  , subVP --deprecated
   , relevantVP
   , restrictTo
-  , restrictVP --deprecated
   , graphFromVP
   , removeFacesFromVP
   , removeVerticesFromVP
   , selectVerticesFromVP
-  , removeFacesVP --deprecated
-  , selectFacesVP --deprecated
   , findLoc
     -- * Drawing Tgraphs and Vpatches with Labels
   , DrawableLabelled(..)
@@ -297,8 +293,8 @@ tryCorrectTouchingVs fcs =
         -- renumberFaces allows for a many to 1 relabelling represented by a list 
     where touchVs = touchingVertices fcs -- uses non-generalised version of touchingVertices
 
--- |renumberFaces allows for a many to 1 relabelling represented by a list of pairs.
--- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result 
+-- |renumberFaces - not exported. Allows for a many to 1 relabelling represented by a list of pairs.
+-- It is used only for tryCorrectTouchingVs in Tgraphs which then checks the result. 
 renumberFaces :: [(Vertex,Vertex)] -> [TileFace] -> [TileFace]
 renumberFaces prs = map renumberFace where
     mapping = VMap.fromList $ differing prs
@@ -307,8 +303,11 @@ renumberFaces prs = map renumberFace where
     renumber v = VMap.findWithDefault v v mapping
     differing = filter $ uncurry (/=)
 
-{-# WARNING makeUncheckedTgraph ["This should only be used when it is known that the faces satisfy the Tgraph properties."
-                                ,"Consider using makeTgraph, tryMakeTgraph or checkedTgraph instead to perform checks."]
+{-# WARNING makeUncheckedTgraph 
+    ["This should only be used when it is known that "
+    ,"the faces satisfy the Tgraph properties. "
+    ,"Consider using makeTgraph, tryMakeTgraph or checkedTgraph instead to perform checks."
+    ]
 #-}
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. 
@@ -486,7 +485,7 @@ legal (LD _, Long,  RK _ , Long ) = True
 legal (RK _, Long,  LD _ , Long ) = True
 legal _ = False
 
--- | Returns a list of illegal face parings of the form (f1,e1,f2,e2) where f1 and f2 share an edge
+-- | Returns a list of illegal face pairings of the form (f1,e1,f2,e2) where f1 and f2 share an edge
 -- and e1 is the type of this edge in f1, and e2 is the type of this edge in f2.
 -- The list should be null for a legal Tgraph.
 illegals:: [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
@@ -724,15 +723,7 @@ faceVList = (\(x,y,z) -> [x,y,z]) . faceVs
 faceVSet :: TileFace -> VertexSet
 faceVSet = IntSet.fromList . faceVList
 
-{- -- |find the maximum vertex for a list of faces (0 for an empty list).
-facesMaxV :: [TileFace] -> Vertex
-facesMaxV [] = 0
-facesMaxV fcs = IntSet.findMax $ vertexSet fcs
- -}
--- Whilst first, second and third vertex of a face are obvious (clockwise), 
--- it is often more convenient to refer to the originV (=firstV),
--- oppV (the vertex at the other end of the join edge), and
--- wingV (the remaining vertex not on the join edge)
+
 
 -- |firstV, secondV and thirdV vertices of a face are counted clockwise starting with the origin
 firstV,secondV,thirdV:: TileFace -> Vertex
@@ -810,10 +801,6 @@ faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (LK(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
 
-{- -- |Returns the list of all directed edges (clockwise round each) of a list of tile faces.
-facesDedges :: [TileFace] -> [Dedge]
-facesDedges = concatMap faceDedges
- -}
 -- |opposite directed edge.
 reverseD:: Dedge -> Dedge
 reverseD (a,b) = (b,a)
@@ -943,7 +930,7 @@ vertexFacesMap vs = foldl' insertf startVF . faces where
 
 {-|vertexFacesMap vs a -
 For vertex set vs and faces from a,
-create an IntMap from each vertex in vs to a list of those faces in a that are at that vertex.
+create a VertexMap from each vertex in vs to a list of those faces in a that are at that vertex.
 -}
 vertexFacesMap:: HasFaces a => VertexSet -> a -> VertexMap [TileFace]
 vertexFacesMap vs = foldl' insertf startVF . faces where
@@ -1072,12 +1059,6 @@ makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces
 subFaces:: HasFaces a => a -> VPatch -> VPatch
 subFaces a vp = vp {vpFaces  = faces a}
 
-{-# DEPRECATED subVP "Use (flip subFaces)" #-}
--- | DEPRECATED subVP: Use (flip subFaces)
-subVP:: HasFaces a => VPatch -> a -> VPatch
-subVP = flip subFaces
-
-
 -- | removes locations for vertices not used in the faces of a VPatch.
 -- (Useful when restricting which labels get drawn).
 -- relevantVP vp will raise an error if any vertex in the faces of vp is not a key in the location map of vp.
@@ -1100,29 +1081,14 @@ relevantVP vp
 restrictTo:: HasFaces a => a -> VPatch -> VPatch
 restrictTo a vp = relevantVP (subFaces (faces a) vp)
 
-{-# DEPRECATED restrictVP "Use (flip restrictTo)" #-}
--- | DEPRECATED restrictVP: Use (flip restrictTo)
-restrictVP:: VPatch -> [TileFace] -> VPatch
-restrictVP = flip restrictTo
-
 -- |Recover a Tgraph from a VPatch by dropping the vertex positions and checking Tgraph properties.
 -- This will fail if the faces do not form a valid Tgraph.
 graphFromVP:: VPatch -> Tgraph
 graphFromVP = checkedTgraph . faces
 
--- |remove a list of faces from a VPatch
-removeFacesFromVP :: [TileFace] -> VPatch -> VPatch
-removeFacesFromVP fcs vp = restrictTo (faces vp \\ fcs) vp
-
-{-# DEPRECATED removeFacesVP "Use (flip removeFacesFromVP)" #-}
--- |remove a list of faces from a VPatch
-removeFacesVP :: VPatch -> [TileFace] -> VPatch
-removeFacesVP vp fcs = restrictTo (faces vp \\ fcs) vp
-
-{-# DEPRECATED selectFacesVP "Use (flip restrictTo)" #-}
--- |DEPRECATED selectFacesVP: Use (flip restrictTo)
-selectFacesVP:: VPatch -> [TileFace] -> VPatch
-selectFacesVP vp fcs = restrictTo (fcs `intersect` faces vp) vp
+-- |remove faces from a VPatch (ignoring faces not in the VPatch)
+removeFacesFromVP :: HasFaces a => a -> VPatch -> VPatch
+removeFacesFromVP a vp = restrictTo (faces vp \\ faces a) vp
 
 -- |removeVerticesFromVP vs vp - removes any vertex in the list vs from vp
 -- by removing all faces at those vertices.
@@ -1268,17 +1234,6 @@ drawLocatedEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error $ "drawEdge: location not found for one or both vertices "++ show (a,b) ++ "\n"
 
-{- {-# DEPRECATED drawEdge, drawEdges "Use drawLocatedEdge, drawLocatedEdges instead" #-}
--- |deprecated (use drawLocatedEdges)
-drawEdges :: OKBackend b =>
-             VertexLocMap -> [Dedge] -> Diagram b
-drawEdges = drawLocatedEdges
-
--- |deprecated (use drawLocatedEdge)
-drawEdge :: OKBackend b =>
-            VertexLocMap -> Dedge -> Diagram b
-drawEdge = drawLocatedEdge
- -}
 
 {-| locateVertices: processes a list of faces to associate points for each vertex using a default scale and orientation.
 The default scale is 1 unit for short edges (phi units for long edges).

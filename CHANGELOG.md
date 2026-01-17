@@ -17,7 +17,9 @@ Other changes:
    Changed Tgraph definition so no record type used
    (this was hidden anyway but visible when a Tgraph was shown)
 
-(About to remove) deprecated:
+Removed deprecated:
+   subVP Use (flip subFaces)
+   restrictVP Use (flip restrictTo)
    restrictSmart Use smartOn
    selectFacesVP Use (flip restrictTo)
    removeFacesVP Use (flip removeFacesFromVP)
@@ -25,7 +27,6 @@ Other changes:
    pieceEdges Use drawnEdges
    dashjPiece Use drawjPiece
    dashjP3 Use drawjP3
-
 
 ## version v1.5.1
 

@@ -31,13 +31,11 @@ module TileLib
   , phi
   , ttangle
   , drawnEdges
-  , pieceEdges
   , wholeTileEdges
   -- $OKBackend
   , drawPiece
   , drawjPiece
   , drawJPiece
-  , dashjPiece
   , joinDashing
   , dashjOnly
   , dashJOnly
@@ -146,11 +144,6 @@ drawnEdges (RD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 1) v
 drawnEdges (RK v) = [v',v ^-^ v'] where v' = rotate (ttangle 9) v
 drawnEdges (LK v) = [v',v ^-^ v'] where v' = rotate (ttangle 1) v
 
-{-# DEPRECATED pieceEdges "Replaced by drawnEdges" #-}
--- |older name for drawnEdges
-pieceEdges:: Piece -> [V2 Double]
-pieceEdges = drawnEdges
-
 -- |the 4 tile edges of a completed half-tile piece (used for colour fill).
 -- These are directed and ordered clockwise from the origin of the tile.
 wholeTileEdges:: Piece -> [V2 Double]
@@ -179,12 +172,6 @@ drawjPiece = drawPiece <> dashjOnly
 drawJPiece :: OKBackend b =>
               Piece -> Diagram b
 drawJPiece = drawPiece <> dashJOnly
-
-{-# DEPRECATED dashjPiece "Replaced by drawjPiece" #-}
--- |renamed as drawjPiece
-dashjPiece :: OKBackend b =>
-              Piece -> Diagram b
-dashjPiece = drawjPiece
 
 -- |draw join edge only (as faint dashed line).
 -- J for plain dashed Join, j for faint dashed join

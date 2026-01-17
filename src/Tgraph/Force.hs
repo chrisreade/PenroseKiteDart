@@ -67,7 +67,6 @@ module Tgraph.Force
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
   -- , boundaryVFacesBS  (removed)
-  , boundaryFaces --deprecated
     -- *  Auxiliary Functions for a force step
   , affectedBoundary
 --  , mustFind
@@ -227,11 +226,6 @@ facesAtBV:: BoundaryState -> Vertex -> [TileFace]
 facesAtBV bd v = case VMap.lookup v (bvFacesMap bd) of
   Just fcs -> fcs
   Nothing -> error $ "facesAtBV: Not a boundary vertex? No result found for vertex " ++ show v ++ "\n"
-
-{-# DEPRECATED boundaryFaces "Use boundaryVFaces or boundaryEdgeFaces" #-}
--- | DEPRECATED boundaryFaces: Use boundaryVFaces or boundaryEdgeFaces
-boundaryFaces :: BoundaryState -> [TileFace]
-boundaryFaces = boundaryVFaces
 
 -- |An Update is either safe or unsafe.
 -- A safe update has a new face involving 3 existing vertices.

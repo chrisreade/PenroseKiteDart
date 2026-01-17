@@ -47,7 +47,6 @@ module TileLibP3
   , drawP3
   , drawjP3
   , drawJP3
-  , dashjP3 --deprecated
   , fillWN
   , fillNW
   -- * P3_DrawableLabelled Class
@@ -271,12 +270,6 @@ drawjP3 = drawP3With drawjPieceP3
 drawJP3 :: (OKBackend b, P3_Drawable a) => 
           a -> Diagram b
 drawJP3 = drawP3With drawJPieceP3
-
-{-# DEPRECATED dashjP3 "Use drawjP3" #-}
--- | DEPRECATED dashjP3: Use drawjP3
-dashjP3 :: (OKBackend b, P3_Drawable a) => 
-          a -> Diagram b
-dashjP3 = drawjP3
 
 -- |The main draw and fill function for anything P3_Drawable.
 -- The first colour is used for wide rhombuses, and the second for narrow rhombuses.
