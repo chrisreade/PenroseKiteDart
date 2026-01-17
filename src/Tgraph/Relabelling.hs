@@ -12,7 +12,8 @@ and also a commonFaces operation (a kind of intersection which need not be a Tgr
 and a guided equality check (sameGraph).
 -}
 
-{-# LANGUAGE Strict            #-} 
+{-# LANGUAGE Strict               #-} 
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Tgraph.Relabelling
   ( -- * Guided operations
@@ -312,12 +313,12 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
                           rlab' = extendRelabelling fc orig rlab 
                           -- relabelUnion (fc `relabellingTo` orig) rlab
 
+{-# WARNING uncheckedRelabelGraph ["This should only be used when it is known that the Relabelling remains 1-1 on vertices in the Tgraph."
+                                  , "Use relabelGraph for a checking version."]
+#-}
 -- |uncheckedRelabelGraph rlab g - uses a relabelling rlab to change vertices in a Tgraph g.
--- Caveat: This should only be used when it is known that:
--- rlab (extended with the identity) remains 1-1 on vertices in g.
--- This will be true if the vertices of g are disjoint from the unsafe domain of rlab.
--- This precondition ensures the resulting Tgraph does not need an expensive check for Tgraph properties.
--- Use relabelGraph for a checking version. (See Safe Relabelling )
+-- The relabelling is guaranteed to be 1-1 on g
+-- if the vertices of g are disjoint from the unsafe domain of rlab.
 uncheckedRelabelGraph:: Relabelling -> Tgraph -> Tgraph
 uncheckedRelabelGraph rlab g = makeUncheckedTgraph newFaces where
    newFaces = map (relabelFace rlab) (faces g) 

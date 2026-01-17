@@ -13,7 +13,8 @@ auxiliary functions
 tryGetDartWingInfo, getDartWingInfoForced (and type DartWingInfo)
 and partComposeFacesFrom for debugging.
 -}
-{-# LANGUAGE Strict             #-} 
+{-# LANGUAGE Strict                #-} 
+{-# OPTIONS_GHC -Wno-deprecations  #-}
 
 module Tgraph.Compose 
   ( -- * Composing forced Tgraphs 

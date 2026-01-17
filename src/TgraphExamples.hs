@@ -11,7 +11,7 @@ Stability   : experimental
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
-
+{-# OPTIONS_GHC -Wno-deprecations      #-}
 
 module TgraphExamples
   (-- * Some Layout tools
@@ -96,7 +96,7 @@ module TgraphExamples
 
 import Diagrams.Prelude
 import PKD
---import Tgraph.Prelude as NoWarn (makeUncheckedTgraph)
+
 
 import Data.List (intersect,find)      -- for emplaceChoices
 

@@ -25,22 +25,22 @@ This module re-exports module HalfTile and module Try.
 module Tgraph.Prelude
   ( module HalfTile
   , module Try
-    -- * Types for Tgraphs, Faces, Vertices, Directed Edges
+       -- * Making Tgraphs
   , Tgraph() -- not Data Constructor Tgraph
   , TileFace
-  , Vertex
-  , VertexSet
-  , VertexMap
-    -- $Edges
-  , Dedge
-  , EdgeType(..)
-    -- * Making Tgraphs
   , makeTgraph
   , tryMakeTgraph
   , checkedTgraph
   , makeUncheckedTgraph
   , emptyTgraph
-   -- * Property Checks
+-- * Vertices and Edges
+  , Vertex
+  , VertexSet
+  , VertexMap
+  , Dedge
+    -- $Edges
+  , EdgeType(..)
+-- * Tgraph Property Checks
 --  , renumberFaces
 --  , differing
   , tryTgraphProps
@@ -65,7 +65,7 @@ module Tgraph.Prelude
   , crossingBoundaries
   , connected
 --  , connectedBy
-   -- * Tgraph and HasFaces operations
+   -- * HasFaces operations
   , HasFaces(..) -- faces, boundary, maxV, boundaryVFMap
 -- , boundary
 -- , maxV
@@ -218,11 +218,12 @@ Tgraphs
 
 -- Types for Tgraphs, Vertices, Directed Edges, Faces
 
--- |Vertex labels are integers. They must be positive for a Tgraph (Checked by makeTgraph).
+-- |Vertices are (positive) integers. They are checked for being positive
+-- in Tgraphs.
 type Vertex = Int
 -- | directed edge
 type Dedge = (Vertex,Vertex)
--- | Vertex label sets
+-- | vertex set
 type VertexSet = IntSet.IntSet
 
 -- |A TileFace is a HalfTile with 3 vertex labels (clockwise starting with the origin vertex).
@@ -245,7 +246,7 @@ newtype Tgraph = Tgraph [TileFace]
 -- Each (halftile) face has a long edge, a short edge and a join edge. 
 data EdgeType = Short | Long | Join deriving (Show,Eq)
 
--- |Abbreviation for Mapping from Vertex keys (also used for Boundaries)
+-- |Mappings with vertex keys.
 type VertexMap a = VMap.IntMap a
 
 
@@ -306,11 +307,11 @@ renumberFaces prs = map renumberFace where
     renumber v = VMap.findWithDefault v v mapping
     differing = filter $ uncurry (/=)
 
+{-# WARNING makeUncheckedTgraph ["This should only be used when it is known that the faces satisfy the Tgraph properties."
+                                ,"Consider using makeTgraph, tryMakeTgraph or checkedTgraph instead to perform checks."]
+#-}
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. 
---
--- WARNING: This is intended for use only when checks are known to be redundant.
--- Consider using makeTgraph, tryMakeTgraph or checkedTgraph instead to perform checks.
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph = Tgraph
 
@@ -565,7 +566,7 @@ nullFaces = null . faces
 class HasFaces a where
     -- |get the tileFace list
     faces :: a -> [TileFace]
-    -- |get the maximum vertex in all faces (0 if there are no faces)
+    -- |get the maximum vertex integer in all faces (0 if there are no faces)
     maxV :: a -> Int
     maxV = maxV' . faces where
            maxV' [] = 0
@@ -795,11 +796,10 @@ hasVIn vs face = not $ null $ faceVList face `intersect` vs
 
   __Representing Edges__
 
-For vertices a and b, (a,b) is regarded as a directed edge from a to b (a Dedge).
+For vertices a and b, a directed edge from a to b (a @Dedge@) is represented simply as the pair (a,b) .
 
-A list of such pairs will usually be regarded as a list of directed edges.
-In the special case that the list is symmetrically closed [(b,a) is in the list whenever (a,b) is in the list]
-we will refer to this as an edge list rather than a directed edge list.                  
+In the special case that a @Dedge@ list is symmetrically closed [(b,a) is in the list whenever (a,b) is in the list]
+we may refer to this as an edge list rather than just a directed edge list.                  
 -}
 
 

@@ -14,7 +14,8 @@ Tgraph, BoundaryState, and ForceState.
 The module is made strict (to remove many space leaks).
 -}
 
-{-# LANGUAGE Strict            #-} 
+{-# LANGUAGE Strict                 #-} 
+{-# OPTIONS_GHC -Wno-deprecations   #-}
 
 module Tgraph.Force
   ( -- *  Forcible class

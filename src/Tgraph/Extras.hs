@@ -20,6 +20,7 @@ It also defines experimental TrackedTgraphs (used for tracking subsets of faces 
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
 {-# LANGUAGE TupleSections             #-}
+{-# OPTIONS_GHC -Wno-deprecations      #-}
 
 module Tgraph.Extras
   ( smart
