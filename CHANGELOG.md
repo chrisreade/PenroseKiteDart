@@ -18,7 +18,7 @@ Other changes:
    relabelContig deprecated. Use (relabelFrom 1)
    checkRelabelGraph deprecated. Use (relabelGraph)
    Changed Tgraph definition so no record type used
-   (this was hidden anyway but visible when a Tgraph was shown)
+     (this was hidden anyway but visible when a Tgraph was shown)
 
 Removed deprecated:
    subVP Use (flip subFaces)

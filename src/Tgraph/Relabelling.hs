@@ -33,7 +33,7 @@ module Tgraph.Relabelling
   , Relabelling()
   , newRelabelling
   , unsafeDom
-  , relabellingFrom
+ --  , relabellingFrom
   , uncheckedRelabelGraph
   , relabelGraph
   , checkRelabelGraph
@@ -42,11 +42,11 @@ module Tgraph.Relabelling
 --  , extendRelabelling
 --  , relabellingFrom
   , relabelFrom
+  , relabelAvoid
   , relabelContig
   -- * Auxiliary Functions
   , relabelFace
   , relabelV
-  , relabelAvoid
 --  , prepareFixAvoid
     --  * Renumbering (not necessarily 1-1)
 --  , tryMatchFace
@@ -57,8 +57,8 @@ module Tgraph.Relabelling
 
 
 import Data.List (intersect, (\\), union,find,partition,nub)
-import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, fromAscList, elems, keysSet, union)
-import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\),null,member,disjoint)
+import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, fromDistinctAscList, elems, keysSet, union)
+import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\),null,member,disjoint,delete)
 
 import Tgraph.Prelude
 
@@ -95,7 +95,7 @@ tryFullUnion (g1,e1) (g2,e2) = onFail "tryFullUnion:\n" $
      then return $ makeUncheckedTgraph fcs -- no properties check needed!
      else let vertg1 = vertexSet g1
               correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
-              newrel = newRelabelling $ map correct touchVs
+              newrel = quickRelabelling $ map correct touchVs
           in tryTgraphProps $ nub $ map (relabelFace newrel) fcs
 
 -- | commonFaces (g1,e1) (g2,e2) relabels g2 to match with g1 (where they match)
@@ -109,7 +109,7 @@ commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
   g3 = relabelToMatchIgnore (g1,e1) (g2,e2)
   fcs = faces g1 `union` faces g3
   touchVs = touchingVerticesGen fcs -- requires generalised version of touchingVertices
-  relFaces = map (relabelFace $ newRelabelling $ map correct touchVs) (faces g3)
+  relFaces = map (relabelFace $ quickRelabelling $ map correct touchVs) (faces g3)
   vertg1 = vertexSet g1
   correct e@(a,b) = if a `IntSet.member` vertg1 then (b,a) else e
 
@@ -128,9 +128,9 @@ sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
 that are not the identity on a finite number of vertices.
 They are represented by keeping the non identity cases in a finite map.
 When applied, we assume the identity map for vertices not found in the keys of the relabelling.
-(see relabelV).  Relabellings must be 1-1 on their keys,
-and redundant identity mappings are removed in the representation.
-Vertices in the range of a relabelling must be positive integers.
+
+Relabellings must be 1-1 on their keys,
+The keys and vertices in the range of a relabelling must be positive integers.
 
 Call the set of elements (range) of a relabelling that are not keys of the relabelling
 the /unsafe domain/ of the relabelling.
@@ -167,7 +167,7 @@ quickRelabelling = Relabelling . VMap.fromList . differing
 relabellingFrom :: Int -> VertexSet -> Relabelling
 relabellingFrom n vs 
     | n<1 = error $ "relabellingFrom: Label not positive " ++ show n
-    | otherwise = Relabelling $ VMap.fromAscList $ differing $ zip (IntSet.elems vs) [n..] 
+    | otherwise = Relabelling $ VMap.fromDistinctAscList $ differing $ zip (IntSet.elems vs) [n..] 
 
 -- | Returns the /unsafe domain/ of a relabelling.
 -- The unsafe domain is the set of elements (range) of a relabelling that are not keys of the relabelling.
@@ -194,7 +194,7 @@ The overlapping region must contain the directed edge e1 in g1. The edge e2 in g
 will be identified with e1 by the relabelling of g2.
 This produces an error if a mismatch is found anywhere in the overlap.
 
-CAVEAT: The relabelling may not be complete if the overlap is not just a SINGLE tile-connected region in g1.
+CAVEAT: The relabelling may not produce a complete match if the overlap is not just a SINGLE tile-connected region in g1.
 If the overlap is more than a single tile-connected region, then the union of the relabelled faces with faces in g1
 will be tile-connected but may have touching vertices.
 This limitation is addressed by fullUnion. 
@@ -331,7 +331,7 @@ uncheckedRelabelGraph rlab g = makeUncheckedTgraph newFaces where
 -- |relabelGraph uses a relabelling map to change vertices in a Tgraph,
 -- It checks for vertices in the Tgraph
 -- that are also in the unsafe domain of the relabelling. If this is the case
--- it also checks that the result is a valid Tgraph.
+-- it also checks that the result is a valid Tgraph and will raise an error if not.
 -- Otherwise it uses uncheckedRelabelGraph.
 relabelGraph:: Relabelling -> Tgraph -> Tgraph
 relabelGraph rlab g = 
@@ -441,7 +441,7 @@ Same as relabelAvoid avoid g except that the list of items fix is removed from t
 Note: If any element of the list fix is not a vertex in g, it could end up in the relabelled Tgraph.
 -}
 prepareFixAvoid :: [Vertex] -> VertexSet -> Tgraph -> Tgraph
-prepareFixAvoid fix avoid = relabelAvoid (avoid IntSet.\\ IntSet.fromList fix)
+prepareFixAvoid fix avoid = relabelAvoid $ foldl' (flip IntSet.delete) avoid fix --relabelAvoid (avoid IntSet.\\ IntSet.fromList fix)
   -- assert: the relabelling preserves Tgraph properties
   -- assert: the relabelled Tgraph does not have vertices in the set (avoid\\fix)
 
