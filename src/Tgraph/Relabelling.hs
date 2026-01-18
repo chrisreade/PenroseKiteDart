@@ -36,9 +36,12 @@ module Tgraph.Relabelling
   , relabellingFrom
   , uncheckedRelabelGraph
   , relabelGraph
+  , checkRelabelGraph
   -- $SafeRelabelling
 --  , relabellingTo
 --  , extendRelabelling
+--  , relabellingFrom
+  , relabelFrom
   , relabelContig
   -- * Auxiliary Functions
   , relabelFace
@@ -157,7 +160,7 @@ newRelabelling prs
 quickRelabelling :: [(Vertex,Vertex)] -> Relabelling
 quickRelabelling = Relabelling . VMap.fromList . differing
 
--- | relabellingFrom n vs - make a relabelling from a finite set of vertices vs.
+-- | relabellingFrom n vs - (not exported) make a relabelling from a finite set of vertices vs.
 -- Elements of vs are ordered and relabelled from n upwards (an error is raised if n<1).
 -- The resulting relabelling map excludes any identity mappings of vertices.
 -- The resulting relabelling will be 1-1 on vs.
@@ -204,7 +207,7 @@ consistent with g1 on an overlapping tile-connected region or Left lines if ther
 The overlapping region must contain the directed edge e1 in g1. The edge e2 in g2
 will be identified with e1 by the relabelling of g2.
 
-CAVEAT: The relabelling may not be complete if the overlap is not just a SINGLE tile-connected region in g1.
+CAVEAT: The relabelling may not produce a complete match if the overlap is not just a SINGLE tile-connected region in g1.
 If the overlap is more than a single tile-connected region, then the union of the relabelled faces with faces in g1
 will be tile-connected but may have touching vertices.    
 This limitation is addressed by tryFullUnion. 
@@ -320,16 +323,16 @@ growRelabelIgnore g (fc:fcs) awaiting rlab =
      ]
 #-}
 -- |uncheckedRelabelGraph rlab g - uses a relabelling rlab to change vertices in a Tgraph g.
--- The relabelling is guaranteed to be 1-1 on g
--- if the vertices of g are disjoint from the unsafe domain of rlab.
+-- (See Safe Relabelling).
 uncheckedRelabelGraph:: Relabelling -> Tgraph -> Tgraph
 uncheckedRelabelGraph rlab g = makeUncheckedTgraph newFaces where
    newFaces = map (relabelFace rlab) (faces g) 
 
 -- |relabelGraph uses a relabelling map to change vertices in a Tgraph,
--- It checks that the result is a valid Tgraph whenever there are vertices in the Tgraph
--- that are also in the unsafe domain of the relabelling since the
--- relabelling may not be 1-1 on the Tgraph. (See also uncheckedRelabelGraph)
+-- It checks for vertices in the Tgraph
+-- that are also in the unsafe domain of the relabelling. If this is the case
+-- it also checks that the result is a valid Tgraph.
+-- Otherwise it uses uncheckedRelabelGraph.
 relabelGraph:: Relabelling -> Tgraph -> Tgraph
 relabelGraph rlab g = 
     if unsafeDom rlab `IntSet.disjoint` vertexSet g
@@ -338,18 +341,25 @@ relabelGraph rlab g =
          tryMakeTgraph newFaces
   where newFaces = map (relabelFace rlab) (faces g) 
 
+{-# DEPRECATED checkRelabelGraph "Use relabelGraph" #-}
+-- |renamed as relabelGraph
+checkRelabelGraph :: Relabelling -> Tgraph -> Tgraph
+checkRelabelGraph = relabelGraph
+
 {- $SafeRelabelling
 
 __Safe Relabelling__
 
-A Tgraph should only be relabelled with a 1-1 mapping, so only use @uncheckedRelabelGraph@
-when you know this to be the case.
-
+A Tgraph should only be relabelled with a 1-1 mapping to ensure the result is a valid Tgraph.
 Any relabelling has an /unsafe/ domain and it is guaranteed to be 1-1
 if it is not applied to anything in the unsafe domain.
-However this is not an if and only if.
+(However this is not an if and only if.)
+-}
 
-As an example, consider
+
+
+{- Relabelling Examples
+Consider
 
     @kiteGraph = Tgraph [RK (1,2,4),LK (1,3,2)]@ 
 
@@ -435,6 +445,16 @@ prepareFixAvoid fix avoid = relabelAvoid (avoid IntSet.\\ IntSet.fromList fix)
   -- assert: the relabelling preserves Tgraph properties
   -- assert: the relabelled Tgraph does not have vertices in the set (avoid\\fix)
 
+-- |relabelFrom n g- relabels all vertices in g using new labels n..n+m (where m is the number of vertices).
+-- Raises an error if n is not positive.
+relabelFrom :: Int -> Tgraph -> Tgraph
+relabelFrom n g = uncheckedRelabelGraph rlab g where
+   rlab = relabellingFrom n (vertexSet g)
+  -- assert: rlab is 1-1 on the vertices of g
+  --  (the unsafe domain of rlab is disjoint from the vertices of g)
+  -- assert: the relabelled Tgraph preserves the Tgraph properties
+ 
+{-# DEPRECATED relabelContig "Use (relabelFrom 1)" #-}
 -- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
 relabelContig :: Tgraph -> Tgraph
 relabelContig g = uncheckedRelabelGraph rlab g where

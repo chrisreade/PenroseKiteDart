@@ -116,33 +116,33 @@ graphOpSpec :: Spec
 graphOpSpec = describe "Main Tgraph Operations Test" $ do
     context "Decomposition of Tgraphs" $
       it "Number of faces of dartDs !!6 should be 466" $
-         length(faces dD6)  `shouldBe` 466
+         faceCount dD6  `shouldBe` 466
     context "Composing Tgraphs" $
       it "Number of faces of maxCompForce (dartDs !!6) should be 6" $
-         length (faces $ forgetF $ maxCompForce dD6) `shouldBe` 6
+         faceCount (forgetF $ maxCompForce dD6) `shouldBe` 6
     context "Forcing Tgraphs" $
       it "Number of faces of force (dartDs !!6) should be 7546" $
-         length(faces(force dD6)) `shouldBe` 7546
+         faceCount(force dD6) `shouldBe` 7546
     context "partCompose and Force" $
       it "Number of remainder faces when part composing force (dartDs !!3) should be 58" $
-         length (fst $ partCompose $ force $ dartDs !!3) `shouldBe` 58
+         faceCount(fst $ partCompose $ force $ dartDs !!3) `shouldBe` 58
     context "partComposeF and ForceF" $
       it "Number of remainder faces when part composing forceF (dartDs !!3) should be 58" $
-         length (fst $ partComposeF $ forceF $ dartDs !!3) `shouldBe` 58
+         faceCount(fst $ partComposeF $ forceF $ dartDs !!3) `shouldBe` 58
     context "partCompose of reduced Tgraph (extraBrokenDart)" $
       it "Number of remainder/composed faces when part composing extraBrokenDart should be (5,18)" $
-         (length $ fst res,length $ faces $ snd res)
+        (faceCount (fst res),faceCount (snd res))
           `shouldBe` (5,18) where res = partCompose extraBrokenDart
 
 graphLabelCheck :: Spec
 graphLabelCheck = describe "Label critical examples check" $ do
     context "boundaryGapFDart4" $
       it "Number of faces of boundaryGapFDart4 should be 180" $
-         length(faces boundaryGapFDart4)  `shouldBe` 180
+         faceCount boundaryGapFDart4  `shouldBe` 180
     context "boundaryGapFDart5" $
       it "Number of faces of boundaryGapFDart5 should be 316" $
-         length(faces boundaryGapFDart5)  `shouldBe` 316
+         faceCount boundaryGapFDart5  `shouldBe` 316
     context "superForceFig" $
-      it "Number of faces of superForceFig should be 349" $         
-         length (faces(addHalfDart (220,221) $ force $ decompositions fool !!3)) `shouldBe` 349
+      it "Number of faces of superForceFig should be 398" $         
+         faceCount (superForce $ addHalfDart (220,221) $ force $ decompositions fool !!3) `shouldBe` 398
   

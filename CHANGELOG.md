@@ -12,8 +12,11 @@ Possibly breaking:
 Other changes:
    Default implementations in Class HasFaces for boundary, maxV, boundaryVFMap
    Added unsafeDom (for use with relabellings)
+   Added faceCount
    relabelAvoid now exported
-   relabellingFrom now exported
+   relabelFrom now exported
+   relabelContig deprecated. Use (relabelFrom 1)
+   checkRelabelGraph deprecated. Use (relabelGraph)
    Changed Tgraph definition so no record type used
    (this was hidden anyway but visible when a Tgraph was shown)
 

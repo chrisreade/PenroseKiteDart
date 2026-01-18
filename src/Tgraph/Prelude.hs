@@ -19,8 +19,7 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE BangPatterns              #-}
-
-{-# LANGUAGE StrictData             #-}
+{-# LANGUAGE StrictData                #-}
 
 module Tgraph.Prelude
   ( module HalfTile
@@ -80,6 +79,7 @@ module Tgraph.Prelude
 --  , faces
   , nullFaces
   , evalFaces
+  , faceCount
   , ldarts
   , rdarts
   , lkites
@@ -631,10 +631,10 @@ instance HasFaces [TileFace] where
 -- |Tgraph is in class HasFaces
 instance HasFaces Tgraph where
     faces (Tgraph fcs) = fcs
-{-     boundaryVFMap = boundaryVFMap . faces
-    boundary = boundary . faces
-    maxV = maxV . faces
- -}
+
+-- |count the faces
+faceCount :: HasFaces a => a -> Int
+faceCount = length . faces
 
 ldarts,rdarts,lkites,rkites, kites, darts :: HasFaces a => a -> [TileFace]
 -- | selecting left darts from 
