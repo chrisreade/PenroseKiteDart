@@ -53,7 +53,7 @@ decomposeFaces a = newFaces where
 -- (Exported for use in TrackedTgraphs in Tgraphs module).
 phiVMap :: HasFaces a => a -> Map.Map Dedge Vertex
 phiVMap fcs = edgeVMap where
-  phiReps = sort [(a,b) | (a,b) <- phiEdges fcs, a<b]
+  phiReps = sort [e | e@(a,b) <- phiEdges fcs, a<b]
   newVs = [v+1..v+n]
   !n = length phiReps
   !v = maxV fcs

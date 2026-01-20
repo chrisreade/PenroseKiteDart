@@ -12,7 +12,7 @@ main =
      wait
      let kD = {-# SCC "decomposing" #-} decompositions kingGraph !! n
      putStrLn $ "Number of faces of a " ++ sn ++ " times decomposed King is " 
-                       ++ show (length (faces kD))
+                       ++ show (faceCount kD)
      putStrLn $ "Max vertex of a (" ++ sn ++ " times decomposed King) is " 
                             ++ show (maxV kD)
      _ <- traceMarkerIO "finished decomposing" 
@@ -20,7 +20,7 @@ main =
      _ <- traceMarkerIO "starting force" 
      let fkD = {-# SCC "forcingKD" #-} forceF kD
      putStrLn $ "Number of faces of force (" ++ sn ++ " times decomposed King) is " 
-                            ++ show (length $ faces $ forgetF fkD)
+                            ++ show (faceCount $ forgetF fkD)
      putStrLn $ "Max vertex of force (" ++ sn ++ " times decomposed King) is " 
                             ++ show (maxV $ forgetF fkD)
      _ <- traceMarkerIO "finished force" 
@@ -28,14 +28,14 @@ main =
      _ <- traceMarkerIO "starting (unchecked) composing" 
      let cfkD = {-# SCC "composing" #-} forgetF $ last $ takeWhile (not . nullFaces . forgetF) $ iterate composeF fkD
      putStrLn $ "Number of faces of recomposed force (" ++ sn ++ " times decomposed King) is " 
-                            ++ show (length (faces cfkD))
+                            ++ show (faceCount cfkD)
      putStrLn $ "Max vertex of recomposed force (" ++ sn ++ " times decomposed King) is " 
                             ++ show (maxV cfkD)
      _  <- traceMarkerIO "finished (unchecked) composing" 
      return ()
 {-
      putStrLn $ "Number of faces of reforced force (" ++ sn ++ " times decomposed King) is " 
-                            ++ show (length (faces rcfkD))
+                            ++ show (faceCount rcfkD)
 -}
 
   where

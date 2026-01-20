@@ -151,7 +151,7 @@ import Data.List ((\\), intersect, nub, find)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (elems, filterWithKey, alter, delete, lookup, (!))
+import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!))
 import qualified Data.IntSet as IntSet (member,fromList)
             -- used for BoundaryState locations AND faces at boundary vertices
 -- import qualified Data.Maybe(fromMaybe)  -- was used for lazy mustFind only
@@ -718,7 +718,7 @@ trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
 trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
-       localRevDedges =  [(b,a) | v <- faceVList newface, f <- bvFacesMap bd VMap.! v, (a,b) <- faceDedges f]
+       localRevDedges =  [reverseD e | v <- faceVList newface, f <- bvFacesMap bd VMap.! v, e <- faceDedges f]
        matchedDedges = fDedges `intersect` localRevDedges -- list of 2 or 3
        -- matchedDedges = fDedges `intersect` boundary bd -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
@@ -729,8 +729,9 @@ trySafeUpdate bd (SafeUpdate newface) =
                    , bvFacesMap = foldl' (flip VMap.delete) (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                    , allFaces = newface:allFaces bd
-                   , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
-                               --remove vertex/vertices no longer on boundary
+ --                  , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
+                   , bvLocMap = foldl' (flip VMap.delete) (bvLocMap bd) removedBVs
+                              --remove vertex/vertices no longer on boundary
                    , nextVertex = nextVertex bd
                    }
        bdChange = BoundaryChange
@@ -1305,6 +1306,39 @@ anglesForShortRK = (2,2)
 defaultAllUGen :: UpdateGenerator
 defaultAllUGen = UpdateGenerator { applyUG = gen } where
   gen bd es = combine $ map decide es where -- Either String is a monoid as well as Map
+    combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
+                                         -- otherwise combines the update maps with mconcat
+    decide e = decider $ inspectBDedge bd e where
+
+      decider (f,Join)  = mapItem (completeHalf bd f) -- rule 1
+      decider (f,Short)
+        | isDart f = mapItem (addKiteShortE bd f) -- rule 2
+        | otherwise = kiteShortDecider f
+      decider (f,Long)
+        | isDart f = dartLongDecider f
+        | otherwise = kiteLongDecider f
+
+      dartLongDecider f
+        | mustbeStar bd (originV f) = mapItem (completeSunStar bd f)
+        | mustbeKing bd (originV f) = mapItem (addDartLongE bd f)
+        | mustbeJack bd (wingV f) = mapItem (addKiteLongE bd f)
+        | otherwise = Right Map.empty
+
+      kiteLongDecider f
+        | mustbeSun bd (originV f) = mapItem (completeSunStar bd f)
+        | mustbeQueen bd (wingV f) = mapItem (addDartLongE bd f)
+        | otherwise = Right Map.empty
+
+      kiteShortDecider f
+        | mustbeDeuce bd (oppV f) || mustbeJack bd (oppV f) = mapItem (addDartShortE bd f)
+        | mustbeQueen bd (wingV f) || isDartOrigin bd (wingV f) = mapItem (addKiteShortE bd f)
+        | otherwise = Right Map.empty
+
+      mapItem = fmap (\u -> Map.insert e u Map.empty)
+
+{- defaultAllUGen :: UpdateGenerator
+defaultAllUGen = UpdateGenerator { applyUG = gen } where
+  gen bd es = combine $ map decide es where -- Either String is a monoid as well as Map
       decide e = decider (e,f,etype) where (f,etype) = inspectBDedge bd e
 
       decider (e,f,Join)  = mapItem e (completeHalf bd f) -- rule 1
@@ -1334,7 +1368,7 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
       mapItem e = fmap (\u -> Map.insert e u Map.empty)
       combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
                                            -- otherwise combines the update maps with mconcat
-
+ -}
 
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
@@ -1374,8 +1408,11 @@ creating a touching vertex/crossing boundary. This is why BoundaryStates keep tr
 (The check is done in tryUnsafeUpdate.)
 -}
 
-{-|tryFindThirdV finds a neighbouring third vertex on the boundary if there is one in the correct direction for a face added to
-   the right hand side of a directed boundary edge.
+{-|tryFindThirdV tries to find a neighbouring third vertex on the boundary either side of the dedge
+   (for a new face to be added).
+   It can return a Left failreport if it discovers an incorrect Tgraph.
+   Otherwise it returns a Right Nothing or Right (Just v) depending on whether it found an existing
+   suitable vertex.
    In tryFindThirdV bd (a,b) (n,m), the two integer arguments n and m are the INTERNAL angles
    for the new face on the boundary directed edge (a,b)
    (for a and b respectively) expressed as multiples of tt (tt being a tenth turn)
@@ -1485,5 +1522,6 @@ requires Diagrams.Prelude for Point and V2
 
 -- |touchCheck p vpMap - check if a vertex location p touches (is too close to) any other vertex location in the mapping vpMap
 touchCheck:: Point V2 Double -> VertexMap (Point V2 Double) -> Bool
-touchCheck p vpMap = any (touching p) (VMap.elems vpMap)
-
+touchCheck p vpMap = not $ VMap.null $ VMap.filter (touching p) vpMap
+  -- filtering the map has better performance than checking a list
+  -- touchCheck p vpMap = any (touching p) (VMap.elems vpMap)

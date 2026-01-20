@@ -186,7 +186,7 @@ module Tgraph.Prelude
   --, drawEdge
   ) where
 
-import Data.List ((\\),intersect,elemIndex,find,nub)
+import Data.List ((\\),intersect,find,nub)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault,elems)
@@ -747,10 +747,16 @@ oppV (RK(_,b,_)) = b
 
 -- |indexV finds the index of a vertex in a face (firstV -> 0, secondV -> 1, thirdV -> 2)
 indexV :: Vertex -> TileFace -> Int
-indexV v face = case elemIndex v (faceVList face) of
+indexV v face | v==a = 0
+              | v==b = 1
+              | v==c = 2
+              | otherwise = error ("indexV: " ++ show v ++ " not found in " ++ show face)
+              where (a,b,c) = faceVs face
+
+{- indexV v face = case elemIndex v (faceVList face) of
                   Just i -> i
                   _      -> error ("indexV: " ++ show v ++ " not found in " ++ show face)
-
+ -}
 -- |nextV returns the next vertex in a face going clockwise from v
 -- where v must be a vertex of the face
 nextV :: Vertex -> TileFace -> Vertex
@@ -867,11 +873,14 @@ matchingJoinE  = matchingE joinE
 
 -- |hasDedge f e returns True if directed edge e is one of the directed edges of face f
 hasDedge :: TileFace -> Dedge -> Bool
-hasDedge f e = e `elem` faceDedges f
+hasDedge f e = e == (a,b) || e == (b,c) || e == (c,a)
+               where (a,b,c) = faceVs f
+  -- faster than: hasDedge f e = e `elem` faceDedges f
 
 -- |hasDedgeIn f es - is True if face f has a directed edge in the list of directed edges es.
 hasDedgeIn :: TileFace -> [Dedge] -> Bool
 hasDedgeIn face es = not $ null $ es `intersect` faceDedges face
+-- hasDedgeIn face es = not $ null $ filter (hasDedge face) es 
 
 -- |completeEdges returns a list of all the edges of the faces (both directions of each edge).
 completeEdges :: HasFaces a => a -> [Dedge]
@@ -896,6 +905,14 @@ bothDirOneWay [] = []
 bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
  -}
 
+-- | efficiently finds missing reverse directions from a list of directed edges (using dedge sets)
+missingRevs:: [Dedge] -> [Dedge]
+missingRevs es = Set.toList $ foldl' check Set.empty es where
+    check eset e = if Set.member e eset 
+                   then Set.delete e eset
+                   else Set.insert (reverseD e) eset
+
+{- Older
 -- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
 missingRevs:: [Dedge] -> [Dedge]
 missingRevs es = revUnmatched es where
@@ -908,7 +925,7 @@ missingRevs es = revUnmatched es where
     revUnmatched [] = []
     revUnmatched (e@(a,b):more) | seekR e = revUnmatched more
                                 | otherwise = (b,a):revUnmatched more
-
+ -}
 
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
