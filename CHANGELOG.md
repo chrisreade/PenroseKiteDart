@@ -8,6 +8,8 @@ Possibly breaking:
    prepareFixAvoid no longer exported (use relabelAvoid instead)
    Moved boundaryVertexSet to Tgraph.Prelude
    Changed vertexFacesMap to take a set rather then list of vertices
+   Changed locateVertices to locateGraphVertices (restricting to Tgraphs only)
+   No longer exporting locateVerticesGen
 
 Other changes:
    Default implementations in Class HasFaces for boundary, maxV, boundaryVFMap

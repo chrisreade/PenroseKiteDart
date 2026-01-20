@@ -151,7 +151,7 @@ import Data.List ((\\), intersect, nub, find)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!))
+import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet)
 import qualified Data.IntSet as IntSet (member,fromList)
             -- used for BoundaryState locations AND faces at boundary vertices
 -- import qualified Data.Maybe(fromMaybe)  -- was used for lazy mustFind only
@@ -174,7 +174,7 @@ Efficient FORCING with
 the boundary directed edges (directed so that faces are on LHS and exterior is on RHS)
 plus 
 a mapping of boundary vertices to their incident faces, plus
-a mapping of boundary vertices to positions (using Tgraph.Prelude.locateVertices).
+a mapping of boundary vertices to positions (using Tgraph.Prelude.locateGraphVertices).
 It also keeps track of all the faces
 and the next vertex label to be used when adding a new vertex.
 -}
@@ -200,11 +200,11 @@ makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g =
   let bdes = boundary g
       bvs = IntSet.fromList (map fst bdes) --boundaryVertexSet g --map fst bdes -- (map snd bdes would also do) for all boundary vertices
-      bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateVertices $ faces g
+      bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
   in 
       BoundaryState
       { boundaryDedges = bdes
-      , bvFacesMap = vertexFacesMap bvs (faces g)
+      , bvFacesMap = vertexFacesMap bvs g
       , bvLocMap = bvLocs
       , allFaces = faces g
       , nextVertex = 1+ maxV g
@@ -661,7 +661,7 @@ tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
                         ," unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n"
                         ,"This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
                         ,"Total number of faces is "
-                        ,show (length $ faces bd)
+                        ,show (faceCount bd)
                         ,"\n"
                         ]
   checkBlocked n (u: more) = case checkUnsafeUpdate bd u of
@@ -773,12 +773,12 @@ tryUpdate bd u@(UnsafeUpdate _) =
        Just bdC -> return bdC
        Nothing ->  failReport "tryUpdate: crossing boundary (touching vertices).\n"
 
--- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateVertices.
+-- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateGraphVertices.
 -- (Used at intervals in tryRecalibratingForce and recalibratingForce).
 recalculateBVLocs :: BoundaryState -> BoundaryState
 recalculateBVLocs bd = bd {bvLocMap = newlocs} where
-    newlocs = VMap.filterWithKey (\k _ -> k `elem` bvs) $ locateVertices $ faces bd
-    bvs = fst <$> boundary bd
+    newlocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices $ recoverGraph bd
+    bvs = VMap.keysSet $ bvLocMap bd -- IntSet.fromList $ fst <$> boundary bd
 
 -- |A version of tryForce that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
 -- This is needed to limit accumulated inaccuracies when large numbers of faces are added in forcing.
@@ -1463,7 +1463,7 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                     ,":\n"
                     ,show (bvFacesMap bd VMap.! b)
                     ,"\nand a total of "
-                    ,show (length $ faces bd)
+                    ,show (faceCount bd)
                     ," faces.\n"
                     ]
            | aAngle < n

@@ -9,8 +9,8 @@ Stability   : experimental
 Introduces Tgraphs and includes operations on vertices, edges and faces as well as Tgraphs.
 Plus VPatch (Vertex Patch) as intermediary between Tgraph and Diagram.
 Conversions and drawing operations (producing Diagrams).
-The module also includes functions to calculate (relative) locations of vertices (locateVertices, addVPoint),
-abd touching vertex checks (touchingVertices, touchingVerticesGen).
+The module also includes functions to calculate (relative) locations of vertices,
+and touching vertex checks (touchingVertices, touchingVerticesGen).
 
 This module re-exports module HalfTile and module Try.
 -}
@@ -173,7 +173,8 @@ module Tgraph.Prelude
   , drawLocatedEdges
   , drawLocatedEdge
     -- * Vertex Location and Touching Vertices
-  , locateVertices
+  , locateGraphVertices
+ -- , locateVertices
   , addVPoint
 --  , axisJoin
 --  , find3Locs
@@ -181,7 +182,7 @@ module Tgraph.Prelude
   , touchingVertices
   , touching
   , touchingVerticesGen
-  , locateVerticesGen
+--  , locateVerticesGen
   --, drawEdges
   --, drawEdge
   ) where
@@ -193,7 +194,7 @@ import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fr
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith, elems, filterWithKey)
 import Data.Maybe (mapMaybe) -- edgeNbrs
-import qualified Data.Set as Set (fromList,member,null,delete,toList,empty,insert) -- used for locateVertices and duplicates
+import qualified Data.Set as Set (fromList,member,null,delete,toList,empty,insert)
 
 import Diagrams.Prelude hiding (union,mapping)
 -- import Diagrams.TwoD.Text (Text)
@@ -270,7 +271,7 @@ vertex locations can be done.
 tryMakeTgraph :: [TileFace] -> Try Tgraph
 tryMakeTgraph fcs =
  do g <- tryTgraphProps fcs -- must be checked first
-    let touchVs = touchingVertices (faces g)
+    let touchVs = touchingVertices g
     if null touchVs
     then Right g
     else failReport ("Found touching vertices: "
@@ -316,7 +317,7 @@ makeUncheckedTgraph = Tgraph
 
 -- |force full evaluation of a list of faces.
 evalFaces :: HasFaces a => a -> a
-evalFaces !a = b where
+evalFaces a = b where
     !b = find (ev . faceVs) (faces a) `seq` a
     ev (x,y,z) = x `seq` y `seq` z `seq` False
  
@@ -711,18 +712,16 @@ makeLK !x !y !z = LK (x,y,z)
 {-# Inline faceVs #-}
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
 faceVs = tileRep
-{- faceVs f = let tr = tileRep f
-               (x,y,z) = tr
-           in x `seq` y `seq` z `seq` tr
- -}
+
 -- |list of (three) face vertices in order clockwise starting with origin
 faceVList::TileFace -> [Vertex]
-faceVList = (\(x,y,z) -> [x,y,z]) . faceVs
-
+-- faceVList = (\(x,y,z) -> [x,y,z]) . faceVs
+faceVList f = [a,b,c] where (a,b,c) = faceVs f
 -- |the set of vertices of a face
 faceVSet :: TileFace -> VertexSet
-faceVSet = IntSet.fromList . faceVList
-
+-- faceVSet = IntSet.fromList . faceVList
+faceVSet f = IntSet.insert a $ IntSet.insert b $ IntSet.insert c IntSet.empty
+             where (a,b,c) = faceVs f
 
 
 -- |firstV, secondV and thirdV vertices of a face are counted clockwise starting with the origin
@@ -802,10 +801,12 @@ we may refer to this as an edge list rather than just a directed edge list.
 
 -- |produces a list of directed edges (clockwise) round a face.
 faceDedges::TileFace -> [Dedge]
-faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
+faceDedges f = [(a,b),(b,c),(c,a)] where (a,b,c) = faceVs f
+{- faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (LK(a,b,c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
+ -}
 
 -- |opposite directed edge.
 reverseD:: Dedge -> Dedge
@@ -1061,11 +1062,11 @@ instance HasFaces VPatch where
     maxV = maxV . faces
  -}
 {-|Convert a Tgraph to a VPatch.
-This uses locateVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
+This uses locateGraphVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis.
 -}
 makeVP::Tgraph -> VPatch
-makeVP g = VPatch {vLocs = locateVertices fcs, vpFaces  = fcs} where fcs = faces g
+makeVP g = VPatch {vLocs = locateGraphVertices g, vpFaces  = faces g}
 
 -- |subFaces a vp, creates a new VPatch from faces in a, using the vertex location map from vp.
 -- The vertices in the faces should have locations assigned in vp vertex locations.
@@ -1085,7 +1086,7 @@ relevantVP vp
   | otherwise = error $ "relevantVP: missing locations for: " ++
                                     show diffList ++ "\n"
   where
-     vs = vertexSet (faces vp)
+     vs = vertexSet vp
      source = VMap.keysSet locVs
      diffList = IntSet.toList $ IntSet.difference vs source
      locVs = VMap.filterWithKey (\ v _ -> v `IntSet.member` vs) $ vLocs vp
@@ -1096,7 +1097,7 @@ relevantVP vp
 -- (Useful when restricting which labels get drawn).
 -- Will raise an error if any vertex in faces of a is not a key in the location map of vp.
 restrictTo:: HasFaces a => a -> VPatch -> VPatch
-restrictTo a vp = relevantVP (subFaces (faces a) vp)
+restrictTo a = relevantVP . subFaces a
 
 -- |Recover a Tgraph from a VPatch by dropping the vertex positions and checking Tgraph properties.
 -- This will fail if the faces do not form a valid Tgraph.
@@ -1251,8 +1252,15 @@ drawLocatedEdge vpMap (a,b) = case (VMap.lookup a vpMap, VMap.lookup b vpMap) of
                          (Just pa, Just pb) -> pa ~~ pb
                          _ -> error $ "drawEdge: location not found for one or both vertices "++ show (a,b) ++ "\n"
 
+{-| locateGraphVertices: processes faces in a Tgraph to associate points for each vertex using a default scale and orientation.
+The default scale is 1 unit for short edges (phi units for long edges).
+It aligns the lowest numbered join of the faces on the x-axis, and returns a vertex-to-point Map.
+-}
+locateGraphVertices:: Tgraph -> VertexLocMap
+locateGraphVertices = locateVertices . faces
 
-{-| locateVertices: processes a list of faces to associate points for each vertex using a default scale and orientation.
+{-| locateVertices - not exported (used in touchingVertices) and can go wrong on arbitrary faces.
+Processes a list of faces to associate points for each vertex using a default scale and orientation.
 The default scale is 1 unit for short edges (phi units for long edges).
 It aligns the lowest numbered join of the faces on the x-axis, and returns a vertex-to-point Map.
 It will raise an error if faces are not connected.
@@ -1298,7 +1306,7 @@ addVPoint face vpMap =
 -- |axisJoin face - 
 -- initialises a vertex to point mapping with locations for the join edge vertices of face
 -- with originV face at the origin and aligned along the x axis with unit length for a half dart
--- and length phi for a half kite. (Used to initialise locateVertices)
+-- and length phi for a half kite.
 axisJoin::TileFace -> VertexLocMap
 axisJoin face =
   VMap.insert (originV face) origin $ VMap.insert (oppV face) (p2 (x,0)) VMap.empty where
@@ -1381,7 +1389,8 @@ thirdVertexLoc face@(RK _) vpMap = case find3Locs (faceVs face) vpMap of
 
 
 {-| 
-touchingVertices finds if any vertices are too close to each other using locateVertices.
+touchingVertices finds if any vertices are too close to each other after locating them.
+It can fail if faces do not satisfy other Tgraph properties (apart from touching vertices).
 If vertices are too close that indicates we may have different vertex labels at the same location
 (the touching vertex problem). 
 It returns pairs of vertices that are too close with higher number first in each pair, and no repeated first numbers.
@@ -1412,8 +1421,9 @@ touching p p1 = quadrance (p .-. p1) < 0.1 -- quadrance is square of length of a
 
 {-| 
 touchingVerticesGen  generalises touchingVertices to allow for multiple faces sharing a directed edge.
-This can arise when applied to the union of faces from 2 Tgraphs which might clash in places.
-It is used in the calculation of commonFaces.  
+This can arise when applied to the union of faces from 2 overlapping Tgraphs which might clash in places.
+It is used in the calculation of commonFaces.  The faces should be connected with no crossing boundaries to enable location
+calculations possible.
 -}
 touchingVerticesGen:: [TileFace] -> [(Vertex,Vertex)]
 touchingVerticesGen fcs = check vpAssoc where

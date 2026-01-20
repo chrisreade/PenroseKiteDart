@@ -118,7 +118,7 @@ commonFaces (g1,e1) (g2,e2) = faces g1 `intersect` relFaces where
 -- The relabelling is based on directed edge e2 in g2 matching e1 in g1 (where the direction is clockwise round a face)
 -- and uses tryRelabelToMatch.
 sameGraph :: (Tgraph,Dedge) -> (Tgraph,Dedge) -> Bool
-sameGraph (g1,e1) (g2,e2) =  length (faces g1) == length (faces g2) &&
+sameGraph (g1,e1) (g2,e2) =  faceCount g1 == faceCount g2 &&
                              ifFail False tryResult where
  tryResult = do g <- tryRelabelToMatch (g1,e1) (g2,e2)
                 return (vertexSet g == vertexSet g1)

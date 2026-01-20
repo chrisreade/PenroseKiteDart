@@ -44,7 +44,7 @@ decompose = makeUncheckedTgraph . decomposeFaces
 -- |Decompose all the faces (using a phiVMap for new vertices).
 decomposeFaces :: HasFaces a => a -> [TileFace]
 decomposeFaces a = newFaces where
-    pvmap = phiVMap (faces a)
+    pvmap = phiVMap a
     newFaces = concatMap (decompFace pvmap) (faces a)
 
 -- |phiVMap fcs produces a finite map from the phi edges (the long edges including kite joins) to assigned new vertices not in fcs.
