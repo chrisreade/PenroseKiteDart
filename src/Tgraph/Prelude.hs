@@ -75,6 +75,8 @@ module Tgraph.Prelude
   , boundaryVsDup
   , boundaryEFMap
   , boundaryVFaces
+  , boundaryEdgeFaces
+  , boundaryJoinFaces
   --, boundaryVFMap
 --  , faces
   , nullFaces
@@ -96,8 +98,6 @@ module Tgraph.Prelude
   , selectVertices
   , vertexFacesMap
   , dedgesFacesMap
-  , boundaryJoinFaces
-  , boundaryEdgeFaces
   , buildEFMap
   , extractLowestJoin
   , lowestJoin
@@ -195,7 +195,6 @@ import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,dele
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith, elems, filterWithKey)
 import Data.Maybe (mapMaybe) -- edgeNbrs
 import qualified Data.Set as Set (fromList,member,null,delete,toList,empty,insert)
-
 import Diagrams.Prelude hiding (union,mapping)
 -- import Diagrams.TwoD.Text (Text)
 
@@ -810,7 +809,7 @@ faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
 
 -- |opposite directed edge.
 reverseD:: Dedge -> Dedge
-reverseD (a,b) = (b,a)
+reverseD (!a,!b) = (b,a)
 
 {-
 -- |firstE, secondE and thirdE are the directed edges of a face counted clockwise from the origin, 
@@ -981,7 +980,7 @@ boundaryJoinFaces :: HasFaces a => a -> [TileFace]
 boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin $ boundaryEFMap a where
     isJoin d f = joinE f == d
 
--- |find the faces with a at least one boundary edge.
+-- |find the faces in a with at least one boundary edge.
 boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
 boundaryEdgeFaces = nub . Map.elems . boundaryEFMap
 
@@ -1003,9 +1002,9 @@ edgeNbs face efMap = mapMaybe getNbr edges where
 
 -- |For an argument with a non-empty list of faces,
 -- find the face with lowest originV (and then lowest oppV).
--- Move this face to the front of the returned list of faces.
+-- Extract this face and return it paired with the remaining list of faces.
 -- This will raise an error if there are no faces.
--- Used by locateVertices to determine the starting point for location calculation
+-- (Used by locateGraphVertices to determine the starting point for location calculation.)
 extractLowestJoin:: HasFaces a => a -> (TileFace,[TileFace])
 extractLowestJoin = getLJ . faces where
   getLJ fcs
@@ -1021,15 +1020,17 @@ extractLowestJoin = getLJ . faces where
 
 
 -- |Return the join edge with lowest origin vertex (and lowest oppV vertex if there is more than one).
--- The resulting edge is always directed from the origin to the opp vertex, i.e (orig,opp).
+-- The resulting edge is always directed from the originV to the oppV vertex.
+-- This will raise an error if there are no faces.
 lowestJoin:: HasFaces a => a -> Dedge
-lowestJoin = lowest . faces where
+lowestJoin a = (originV f, oppV f) where f = fst (extractLowestJoin a)
+{- lowestJoin = lowest . faces where
     lowest fcs | null fcs  = error "lowestJoin: applied to empty list of faces"
     lowest fcs = (a,b) where
         a = minimum (map originV fcs)
         aFaces = filter ((a==) . originV) fcs
         b = minimum (map oppV aFaces)
-
+ -}
 {---------------------
 *********************
 VPatch and Conversions

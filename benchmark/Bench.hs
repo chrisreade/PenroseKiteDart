@@ -10,7 +10,7 @@ main =
   do let wait = threadDelay 100000
      _ <- traceMarkerIO "starting decompositions" 
      wait
-     let kD = {-# SCC "decomposing" #-} decompositions kingGraph !! n
+     let !kD = {-# SCC "decomposing" #-} decompositions kingGraph !! n
      putStrLn $ "Number of faces of a " ++ sn ++ " times decomposed King is " 
                        ++ show (faceCount kD)
      putStrLn $ "Max vertex of a (" ++ sn ++ " times decomposed King) is " 
@@ -18,7 +18,7 @@ main =
      _ <- traceMarkerIO "finished decomposing" 
      wait
      _ <- traceMarkerIO "starting force" 
-     let fkD = {-# SCC "forcingKD" #-} forceF kD
+     let !fkD = {-# SCC "forcingKD" #-} forceF kD
      putStrLn $ "Number of faces of force (" ++ sn ++ " times decomposed King) is " 
                             ++ show (faceCount $ forgetF fkD)
      putStrLn $ "Max vertex of force (" ++ sn ++ " times decomposed King) is " 

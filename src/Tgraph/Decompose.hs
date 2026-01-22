@@ -10,7 +10,7 @@ This module defines decompose and decompositions for Tgraphs, but also exposes
 two auxiliary functions for debugging and experimenting.
 -}
 
-{-# LANGUAGE BangPatterns             #-}
+-- {-# LANGUAGE BangPatterns             #-}
 {-# LANGUAGE Strict                   #-}
 {-# OPTIONS_GHC -Wno-deprecations     #-}
 
@@ -55,8 +55,8 @@ phiVMap :: HasFaces a => a -> Map.Map Dedge Vertex
 phiVMap fcs = edgeVMap where
   phiReps = sort [e | e@(a,b) <- phiEdges fcs, a<b]
   newVs = [v+1..v+n]
-  !n = length phiReps
-  !v = maxV fcs
+  n = length phiReps
+  v = maxV fcs
   edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (map reverseD phiReps) newVs 
 
 -- |Decompose a face producing new faces. 

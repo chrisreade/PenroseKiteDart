@@ -187,31 +187,7 @@ getDWIassumeF isForced g fg =
                , faceMap = dwFMap
                , unMapped = unused
                } where
-  (drts,kts) = partition isDart (faces g)
-  -- special case of vertexFacesMap for dart wings only
-  -- using only relevant vertices where there is a dart wing.
-  -- i.e only wings for darts and only oppVs and originVs for kites.
-  -- The map is built first from darts, then kites are added.
-  (dwFMap,unused) = foldl' insertK (dartWMap,[]) kts 
-                    -- all kite halves added to relevant dart wings of the dart wing map.
-    where           -- the unused list records half kites not added to any dart wing.
-    dartWMap = foldl' insertD VMap.empty drts
-                    -- maps all dart wing vertices to 1 or 2 half darts.
-    insertD vmap f = VMap.alter (addD f) (wingV f) vmap
-    addD f Nothing = Just [f]
-    addD f (Just fs) = Just (f:fs)
-    insertK (vmap,unsd) f = 
-      let opp = oppV f
-          org = originV f
-      in  case (VMap.lookup opp vmap, VMap.lookup org vmap) of
-            (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
-            (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
-            (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, unsd)
-            (Nothing, Nothing)   ->  (vmap, f:unsd) -- kite face not at any dart wing
-
-    addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
-    addK f (Just fs) = Just (f:fs)
-
+  (drts,dwFMap,unused) = dartsMapUnused g
   (allKcs,allDbs,allUnks) = foldl' processD (IntSet.empty, IntSet.empty, IntSet.empty) drts  
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
@@ -219,11 +195,11 @@ getDWIassumeF isForced g fg =
 -- Uses a triple of IntSets rather than lists
   processD (kcs, dbs, unks) drt =
     let w = wingV drt
-        revLongE = reverseD (longE drt)
+        !revLongE = reverseD (longE drt)
     in
         if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else-- already classified
         let
-            fcs = dwFMap VMap.! w -- list of  faces at w
+            !fcs = dwFMap VMap.! w -- list of  faces at w
         in
             if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else 
                     -- wing is a half kite origin => largeDartBase
@@ -239,6 +215,37 @@ getDWIassumeF isForced g fg =
                     -- long edge drt shared with another dart => largeKiteCentre
                 (kcs,dbs,IntSet.insert w unks) -- on the forced boundary so must be unknown
 
+-- |(not exported - only used in getDWIassumeF)
+-- Returns a triple of:
+--   list of all half-darts,
+--   a dart wing to faces map, and 
+--   left over faces (not at a dartwing)
+dartsMapUnused :: Tgraph -> ([TileFace], VMap.IntMap [TileFace],[TileFace])
+dartsMapUnused g = (drts,dwFMap,unused) where
+    (drts,kts) = partition isDart (faces g)
+  -- special case of vertexFacesMap for dart wings only
+  -- using only relevant vertices where there is a dart wing.
+  -- i.e only wings for darts and only oppVs and originVs for kites.
+  -- The map is built first from darts, then kites are added.
+    dartWMap = foldl' insertD VMap.empty drts
+                    -- maps all dart wing vertices to 1 or 2 half darts.
+    (dwFMap,unused) = foldl' insertK (dartWMap,[]) kts 
+                    -- all kite halves added to relevant dart wings of the dart wing map.
+                    -- the unused list records half kites not added to any dart wing.
+    insertD vmap f = VMap.alter (addD f) (wingV f) vmap
+    addD f Nothing = Just [f]
+    addD f (Just fs) = Just (f:fs)
+    insertK (vmap,unsd) f = 
+      let opp = oppV f
+          org = originV f
+      in  case (VMap.lookup opp vmap, VMap.lookup org vmap) of
+            (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
+            (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
+            (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, unsd)
+            (Nothing, Nothing)   ->  (vmap, f:unsd) -- kite face not at any dart wing
+
+    addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
+    addK f (Just fs) = Just (f:fs)
 
 
 -- |partCompFacesAssumeF
@@ -304,7 +311,7 @@ partCompFacesAssumeF isForced dwInfo = (remainder, newFaces) where
 oldPartCompose:: Tgraph -> ([TileFace],Tgraph)
 oldPartCompose g = runTry $ onFail "oldPartCompose:\n" $
   do let dwInfo = oldGetDartWingInfo g 
-         (~remainder,newFaces) = partComposeFacesFrom dwInfo
+         (remainder,newFaces) = partComposeFacesFrom dwInfo
      checked <- tryConnectedNoCross newFaces
      return (remainder,checked)
 
