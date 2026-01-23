@@ -12,11 +12,12 @@ Possibly breaking:
    No longer exporting locateVerticesGen
    Removed oldGetDartWingInfo
    Removed oldPartCompose
-
+   Removed partComposeFacesFrom (use partComposeFaces)
 Other changes:
    Default implementations in Class HasFaces for boundary, maxV, boundaryVFMap
    Added unsafeDom (for use with relabellings)
    Added faceCount
+   Added partCompFaces
    relabelAvoid now exported
    relabelFrom now exported
    relabelContig deprecated. Use (relabelFrom 1)
