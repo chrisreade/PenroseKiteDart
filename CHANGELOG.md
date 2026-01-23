@@ -10,6 +10,8 @@ Possibly breaking:
    Changed vertexFacesMap to take a set rather then list of vertices
    Changed locateVertices to locateGraphVertices (restricting to Tgraphs only)
    No longer exporting locateVerticesGen
+   Removed oldGetDartWingInfo
+   Removed oldPartCompose
 
 Other changes:
    Default implementations in Class HasFaces for boundary, maxV, boundaryVFMap

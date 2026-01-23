@@ -18,7 +18,7 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
-{-# LANGUAGE BangPatterns              #-}
+-- {-# LANGUAGE BangPatterns              #-}
 {-# LANGUAGE StrictData                #-}
 
 module Tgraph.Prelude
@@ -711,11 +711,10 @@ makeLK !x !y !z = LK (x,y,z)
 {-# Inline faceVs #-}
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
 faceVs = tileRep
-
 -- |list of (three) face vertices in order clockwise starting with origin
 faceVList::TileFace -> [Vertex]
 -- faceVList = (\(x,y,z) -> [x,y,z]) . faceVs
-faceVList f = [a,b,c] where (a,b,c) = faceVs f
+faceVList f = [a,b,c] where (!a,!b,!c) = faceVs f
 -- |the set of vertices of a face
 faceVSet :: TileFace -> VertexSet
 -- faceVSet = IntSet.fromList . faceVList
@@ -725,9 +724,9 @@ faceVSet f = IntSet.insert a $ IntSet.insert b $ IntSet.insert c IntSet.empty
 
 -- |firstV, secondV and thirdV vertices of a face are counted clockwise starting with the origin
 firstV,secondV,thirdV:: TileFace -> Vertex
-firstV  face = a where (a,_,_) = faceVs face
-secondV face = b where (_,b,_) = faceVs face
-thirdV  face = c where (_,_,c) = faceVs face
+firstV  face = a where (!a,_,_) = faceVs face
+secondV face = b where (_,!b,_) = faceVs face
+thirdV  face = c where (_,_,!c) = faceVs face
 
 originV,wingV,oppV:: TileFace -> Vertex
 -- |the origin vertex of a face (firstV)
@@ -749,7 +748,7 @@ indexV v face | v==a = 0
               | v==b = 1
               | v==c = 2
               | otherwise = error ("indexV: " ++ show v ++ " not found in " ++ show face)
-              where (a,b,c) = faceVs face
+              where (!a,!b,!c) = faceVs face
 
 {- indexV v face = case elemIndex v (faceVList face) of
                   Just i -> i
@@ -775,7 +774,7 @@ prevV v face = case indexV v face of
 -- |isAtV v f asks if a face f has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool
 isAtV v f = v==a || v==b || v==c
-     where (a,b,c) = faceVs f
+     where (!a,!b,!c) = faceVs f
 {-     
 isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
@@ -800,12 +799,11 @@ we may refer to this as an edge list rather than just a directed edge list.
 
 -- |produces a list of directed edges (clockwise) round a face.
 faceDedges::TileFace -> [Dedge]
-faceDedges f = [(a,b),(b,c),(c,a)] where (a,b,c) = faceVs f
-{- faceDedges (LD(a,b,c)) = [(a,b),(b,c),(c,a)]
-faceDedges (RD(a,b,c)) = [(a,b),(b,c),(c,a)]
-faceDedges (LK(a,b,c)) = [(a,b),(b,c),(c,a)]
-faceDedges (RK(a,b,c)) = [(a,b),(b,c),(c,a)]
- -}
+faceDedges (LD(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
+faceDedges (RD(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
+faceDedges (LK(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
+faceDedges (RK(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
+--  faceDedges !f = [(a,b),(b,c),(c,a)] where (!a,!b,!c) = faceVs f
 
 -- |opposite directed edge.
 reverseD:: Dedge -> Dedge
@@ -821,23 +819,23 @@ thirdE = head . tail . tail . faceDedges
 
 joinE, shortE, longE, joinOfTile:: TileFace -> Dedge
 -- |the join directed edge of a face in the clockwise direction going round the face (see also joinOfTile).
-joinE (LD(a,b,_)) = (a,b)
-joinE (RD(a,_,c)) = (c,a)
-joinE (LK(a,_,c)) = (c,a)
-joinE (RK(a,b,_)) = (a,b)
+joinE (LD(!a,!b,_)) = (a,b)
+joinE (RD(!a,_,!c)) = (c,a)
+joinE (LK(!a,_,!c)) = (c,a)
+joinE (RK(!a,!b,_)) = (a,b)
 -- |The short directed edge of a face in the clockwise direction going round the face.
 -- This is the non-join short edge for darts.
-shortE (LD(_,b,c)) = (b,c)
-shortE (RD(_,b,c)) = (b,c)
-shortE (LK(_,b,c)) = (b,c)
-shortE (RK(_,b,c)) = (b,c)
+shortE (LD(_,!b,!c)) = (b,c)
+shortE (RD(_,!b,!c)) = (b,c)
+shortE (LK(_,!b,!c)) = (b,c)
+shortE (RK(_,!b,!c)) = (b,c)
 
 -- |The long directed edge of a face in the clockwise direction going round the face.
 -- This is the non-join long edge for kites.
-longE (LD(a,_,c)) = (c,a)
-longE (RD(a,b,_)) = (a,b)
-longE (LK(a,b,_)) = (a,b)
-longE (RK(a,_,c)) = (c,a)
+longE (LD(!a,_,!c)) = (c,a)
+longE (RD(!a,!b,_)) = (a,b)
+longE (LK(!a,!b,_)) = (a,b)
+longE (RK(!a,_,!c)) = (c,a)
 
 -- |The join edge of a face directed from the origin (not clockwise for RD and LK)
 joinOfTile face = (originV face, oppV face)
@@ -845,15 +843,24 @@ joinOfTile face = (originV face, oppV face)
 facePhiEdges, faceNonPhiEdges::  TileFace -> [Dedge]
 -- |The phi edges of a face (both directions)
 -- which is long edges for darts, and join and long edges for kites
-facePhiEdges face@(RD _) = [e, reverseD e] where e = longE face
+facePhiEdges (RD(!a,!b,_))  = [(a,b),(b,a)]
+facePhiEdges (LD(!a,_,!c))  = [(c,a),(a,c)]
+facePhiEdges (RK(!a,!b,!c)) = [(a,b),(b,a),(c,a),(a,c)]
+facePhiEdges (LK(!a,!b,!c)) = [(a,b),(b,a),(c,a),(a,c)]
+{- 
+facePhiEdges face@(RD _) = [e, (b,a)] where e@(!a,!b) = longE face
 facePhiEdges face@(LD _) = [e, reverseD e] where e = longE face
 facePhiEdges face        = [e, reverseD e, j, reverseD j]
                          where e = longE face
                                j = joinE face
-
+ -}
 -- |The non-phi edges of a face (both directions)
 -- which is short edges for kites, and join and short edges for darts.
-faceNonPhiEdges face = bothDirOneWay (faceDedges face) \\ facePhiEdges face
+faceNonPhiEdges (RD(!a,!b,!c)) = [(b,c),(c,b),(c,a),(a,c)]
+faceNonPhiEdges (LD(!a,!b,!c)) = [(a,b),(b,a),(c,a),(a,c)]
+faceNonPhiEdges (RK(_,!b,!c))  = [(b,c),(c,b)]
+faceNonPhiEdges (LK(_,!b,!c))  = [(b,c),(c,b)]
+-- faceNonPhiEdges face = bothDirOneWay (faceDedges face) \\ facePhiEdges face
 
 -- |matchingE eselect face is a predicate on tile faces 
 -- where eselect selects a particular edge type of a face
@@ -874,7 +881,7 @@ matchingJoinE  = matchingE joinE
 -- |hasDedge f e returns True if directed edge e is one of the directed edges of face f
 hasDedge :: TileFace -> Dedge -> Bool
 hasDedge f e = e == (a,b) || e == (b,c) || e == (c,a)
-               where (a,b,c) = faceVs f
+               where (!a,!b,!c) = faceVs f
   -- faster than: hasDedge f e = e `elem` faceDedges f
 
 -- |hasDedgeIn f es - is True if face f has a directed edge in the list of directed edges es.
@@ -892,15 +899,12 @@ completeEdges = bothDir . dedges
 bothDir:: [Dedge] -> [Dedge]
 bothDir es = missingRevs es ++ es
 
+{- 
 -- |bothDirOneWay adds all the reverse directed edges to a list of directed edges
 -- without checking for duplicates.
 -- Should be used on lists with single directions only.
 -- If the argument may contain reverse directions, use bothDir to avoid duplicates.
 bothDirOneWay :: [Dedge] -> [Dedge]
-bothDirOneWay des = revPlus des where
-  revPlus ((a,b):es) = (b,a):revPlus es
-  revPlus [] = des
-{- 
 bothDirOneWay [] = []
 bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
  -}

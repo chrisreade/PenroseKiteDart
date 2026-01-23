@@ -43,7 +43,6 @@ data HalfTile rep = LD rep -- ^ Left Dart
 -- | Note this ignores the tileLabels when comparing.
 -- However we should never have 2 different HalfTiles with the same rep
 instance Ord rep => Ord (HalfTile rep) where
--- compare !t1 !t2 = compare (tileRep t1) (tileRep t2)
    compare t1 t2 = compare (tileRep t1) (tileRep t2)
 
 -- |Make Halftile a Functor

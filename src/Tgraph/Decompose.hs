@@ -52,11 +52,12 @@ decomposeFaces a = newFaces where
 -- (Sort is used to fix order of assigned numbers).
 -- (Exported for use in TrackedTgraphs in Tgraphs module).
 phiVMap :: HasFaces a => a -> Map.Map Dedge Vertex
-phiVMap fcs = edgeVMap where
-  phiReps = sort [e | e@(a,b) <- phiEdges fcs, a<b]
+phiVMap x = edgeVMap where
+  --phiReps = sort [e | e@(a,b) <- phiEdges fcs, a<b]
+  phiReps = sort [e | fc <- faces x, e@(a,b) <- facePhiEdges fc , a<b]
   newVs = [v+1..v+n]
   n = length phiReps
-  v = maxV fcs
+  v = maxV x
   edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (map reverseD phiReps) newVs 
 
 -- |Decompose a face producing new faces. 
@@ -66,15 +67,15 @@ phiVMap fcs = edgeVMap where
 decompFace:: Map.Map Dedge Vertex -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
-        where !x = (Map.!) newVFor (a,b)
-              !y = (Map.!) newVFor (c,a)
+        where x = (Map.!) newVFor (a,b)
+              y = (Map.!) newVFor (c,a)
       LK(a,b,c) -> [LK(b,c,y), RK(b,y,x), LD(a,x,y)]
-        where !x = (Map.!) newVFor (a,b)
-              !y = (Map.!) newVFor (c,a)       
+        where x = (Map.!) newVFor (a,b)
+              y = (Map.!) newVFor (c,a)       
       RD(a,b,c) -> [LK(a,x,c), RD(b,c,x)]
-        where !x = (Map.!) newVFor (a,b)
+        where x = (Map.!) newVFor (a,b)
       LD(a,b,c) -> [RK(a,b,x), LD(c,x,b)]
-        where !x = (Map.!) newVFor (a,c)
+        where x = (Map.!) newVFor (a,c)
    
 -- |infinite list of decompositions of a Tgraph     
 decompositions :: Tgraph -> [Tgraph]

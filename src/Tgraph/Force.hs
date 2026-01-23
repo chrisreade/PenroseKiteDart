@@ -679,8 +679,8 @@ tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
 checkUnsafeUpdate:: BoundaryState -> Update -> Maybe BoundaryChange
 checkUnsafeUpdate _  (SafeUpdate _) = error  "checkUnsafeUpdate: applied to safe update.\n"
 checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
-   let !v = nextVertex bd
-       !newface = makeFace v
+   let v = nextVertex bd
+       newface = makeFace v
        oldVPoints = bvLocMap bd
        newVPoints = addVPoint newface oldVPoints
        vPosition = newVPoints VMap.! v -- Just vPosition = VMap.lookup v newVPoints
@@ -932,7 +932,7 @@ boundaryEdgeFilter etype predF bd focus =
 
 -- |makeUpdate f x constructs a safe update if x is Just(..) and an unsafe update if x is Nothing
 makeUpdate:: (Vertex -> TileFace) -> Maybe Vertex ->  Update
-makeUpdate f (Just v) = fv `seq` SafeUpdate fv where fv = f v
+makeUpdate f (Just !v) = fv `seq` SafeUpdate fv where fv = f v
 makeUpdate f Nothing  = UnsafeUpdate f
 
 
@@ -1201,40 +1201,40 @@ queenMissingKite = boundaryEdgeFilter Short predicate where
 --  add a symmetric (mirror) face for a given face at a boundary join edge.
 completeHalf :: UChecker
 completeHalf bd (LD(a,b,_)) = makeUpdate makeFace <$> x where
-        makeFace !v = makeRD a v b --RD (a,v,b)
+        makeFace v = makeRD a v b --RD (a,v,b)
         x = tryFindThirdV bd (b,a) (3,1) --anglesForJoinRD
 completeHalf bd (RD(a,_,b)) = makeUpdate makeFace <$> x where
-        makeFace !v = makeLD a b v --LD (a,b,v)
+        makeFace v = makeLD a b v --LD (a,b,v)
         x = tryFindThirdV bd (a,b) (1,3) --anglesForJoinLD
 completeHalf bd (LK(a,_,b)) = makeUpdate makeFace <$> x where
-        makeFace !v = makeRK a b v --RK (a,b,v)
+        makeFace v = makeRK a b v --RK (a,b,v)
         x = tryFindThirdV bd (a,b) (1,2) --anglesForJoinRK
 completeHalf bd (RK(a,b,_)) = makeUpdate makeFace <$> x where
-        makeFace !v = makeLK a v b --LK (a,v,b)
+        makeFace v = makeLK a v b --LK (a,v,b)
         x = tryFindThirdV bd (b,a) (2,1) --anglesForJoinLK
 
 -- |add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE :: UChecker
 addKiteShortE bd (RD(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace !v = makeLK v c b --LK (v,c,b)
+    makeFace v = makeLK v c b --LK (v,c,b)
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortLK
 addKiteShortE bd (LD(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace !v = makeRK v c b --RK (v,c,b)
+    makeFace v = makeRK v c b --RK (v,c,b)
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (LK(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace !v = makeRK v c b --RK (v,c,b)
+    makeFace v = makeRK v c b --RK (v,c,b)
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (RK(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace !v = makeLK v c b --LK (v,c,b)
+    makeFace v = makeLK v c b --LK (v,c,b)
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortLK
 
 -- |add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: UChecker
 addDartShortE bd (RK(_,b,c)) = makeUpdate makeFace <$> x where
-        makeFace !v = makeLD v c b --LD (v,c,b)
+        makeFace v = makeLD v c b --LD (v,c,b)
         x = tryFindThirdV bd (c,b) (3,1) --anglesForShortLD
 addDartShortE bd (LK(_,b,c)) = makeUpdate makeFace <$> x where
-        makeFace !v = makeRD v c b --RD (v,c,b)
+        makeFace v = makeRD v c b --RD (v,c,b)
         x = tryFindThirdV bd (c,b) (1,3) --anglesForShortRD
 addDartShortE _  _ = error "addDartShortE applied to non-kite face\n"
 
@@ -1247,31 +1247,31 @@ completeSunStar bd fc = if isKite fc
 -- |add a kite to a long edge of a dart or kite
 addKiteLongE :: UChecker
 addKiteLongE bd (LD(a,_,c)) = makeUpdate makeFace <$> x where
-    makeFace !v = makeRK c v a --RK (c,v,a)
+    makeFace v = makeRK c v a --RK (c,v,a)
     x = tryFindThirdV bd (a,c) (2,1) -- anglesForLongRK
 addKiteLongE bd (RD(a,b,_)) = makeUpdate makeFace <$> x where
-    makeFace !v = makeLK b a v --LK (b,a,v)
+    makeFace v = makeLK b a v --LK (b,a,v)
     x = tryFindThirdV bd (b,a) (1,2) -- anglesForLongLK
 addKiteLongE bd (RK(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace !v = makeLK a c v --LK (a,c,v)
+  makeFace v = makeLK a c v --LK (a,c,v)
   x = tryFindThirdV bd (a,c) (1,2) -- anglesForLongLK
 addKiteLongE bd (LK(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace !v = makeRK a v b --RK (a,v,b)
+  makeFace v = makeRK a v b --RK (a,v,b)
   x = tryFindThirdV bd (b,a) (2,1) -- anglesForLongRK
 
 -- |add a half dart on a boundary long edge of a dart or kite
 addDartLongE :: UChecker
 addDartLongE bd (LD(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace !v = makeRD a c v --RD (a,c,v)
+  makeFace v = makeRD a c v --RD (a,c,v)
   x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongRD
 addDartLongE bd (RD(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace !v = makeLD a v b --LD (a,v,b)
+  makeFace v = makeLD a v b --LD (a,v,b)
   x = tryFindThirdV bd (b,a) (1,1) -- anglesForLongLD
 addDartLongE bd (LK(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace !v = makeRD b a v --RD (b,a,v)
+  makeFace v = makeRD b a v --RD (b,a,v)
   x = tryFindThirdV bd (b,a) (1,1) -- anglesForLongRD
 addDartLongE bd (RK(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace !v = makeLD c v a --LD (c,v,a)
+  makeFace v = makeLD c v a --LD (c,v,a)
   x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongLD
 
 {-
