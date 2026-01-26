@@ -150,7 +150,7 @@ module Tgraph.Force
 import Data.List ((\\), intersect, nub, find)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.Map as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
+import qualified Data.Map.Strict as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet)
 import qualified Data.IntSet as IntSet (member,fromList)
             -- used for BoundaryState locations AND faces at boundary vertices
@@ -560,65 +560,50 @@ data BoundaryChange = BoundaryChange
      it extends the list with adjacent boundary edges (to produce 3 or 4 or none).
      It will raise an error if given more than 2 or 2 non-adjacent boundary edges.
      (Used to calculate revisedEdges in a BoundaryChange.
-     (N.B. When a new face is fitted in to a hole with 3 sides there is no new boundary. Hence the need to allow for an empty list.)
+     (N.B. When a new face is fitted in to a hole with 3 sides there is no new boundary.
+     Hence the need to allow for an empty list.)
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bd [e1@(a,b)] = [e0,e1,e2] where
-           bdry = boundary bd
-           e0 = mustFind ((==a).snd) bdry 
-                  (\()-> error $ "affectedBoundary: boundary edge not found with snd = "
-                            ++ show a ++ "\nand edges: " ++ show [e1]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
-           e2 = mustFind ((==b).fst) bdry
-                  (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
+  bdry = boundary bd
+  e0 = case find ((==a).snd) bdry of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary: boundary edge not found with snd = "
+                          ++ show a ++ "\nand edges: " ++ show [e1]
+                          ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
+  e2 = case find ((==b).fst) bdry of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
                             ++ show b ++ "\nand edges: " ++ show [e1]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
 affectedBoundary bd [e1@(a,b),e2@(c,d)] | c==b = [e0,e1,e2,e3] where
-           bdry = boundary bd
-           e0 = mustFind ((==a).snd) bdry 
-                   (\()-> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
+  bdry = boundary bd
+  e0 = case find ((==a).snd) bdry of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
                             ++ show a ++ "\nand edges: " ++ show [e1,e2]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
-           e3 = mustFind ((==d).fst) bdry 
-                   (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
+  e3 = case find ((==d).fst) bdry of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
                             ++ show d ++ "\nand edges: " ++ show [e1,e2]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
 affectedBoundary bd [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
-           bdry = boundary bd
-           e0 = mustFind ((==c).snd) bdry 
-                   (\()-> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
+  bdry = boundary bd
+  e0 = case find ((==c).snd) bdry of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
                             ++ show c ++  "\nand edges: " ++ show [e1,e2]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
-           e3 = mustFind ((==b).fst) bdry 
-                   (\()-> error $ "affectedBoundary: boundary edge not found with fst = "
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
+  e3 = case find ((==b).fst) bdry of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
                             ++ show b ++  "\nand edges: " ++ show [e1,e2]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n")
+                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
 affectedBoundary _ [] = [] -- case for filling a triangular hole
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
                              ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
 
-
-{-| mustFind (older version requires laziness) - an auxiliary function used to search with definite result.
-mustFind p ls default returns the first item in ls satisfying predicate p and returns
-default argument when none found (in finite cases).
-Special case: the default arg may be used to raise an error when nothing is found.
-
-mustFind :: Foldable t => (p -> Bool) -> t p -> p -> p
-mustFind p ls dflt
-  = Data.Maybe.fromMaybe dflt (find p ls)
--}
-
-{-| mustFind (strict version) is an auxiliary function used to search with definite result.
-mustFind' p ls defaulfnt returns the first item in ls satisfying predicate p and returns
-defaultfn () when none found (in finite cases).
-This is a replacement foran older mustFind that relied on laziness.
-This version works in a strict context.
--}
-mustFind :: Foldable t => (p -> Bool) -> t p -> (() -> p) -> p
-mustFind p ls dflt
-  = case find p ls of
-    Just a -> a
-    Nothing -> dflt ()
 
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
