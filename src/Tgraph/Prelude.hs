@@ -637,17 +637,17 @@ faceCount :: HasFaces a => a -> Int
 faceCount = length . faces
 
 ldarts,rdarts,lkites,rkites, kites, darts :: HasFaces a => a -> [TileFace]
--- | selecting left darts from 
+-- | select all left darts from the faces
 ldarts = filter isLD . faces
--- | selecting right darts from the faces
+-- | select all right darts from the faces
 rdarts = filter isRD . faces
--- | selecting left kites from the faces
+-- | select all left kites from the faces
 lkites = filter isLK . faces
--- | selecting right kites from the faces
+-- | select all right kites from the faces
 rkites = filter isRK . faces
--- | selecting half kites from the faces
+-- | select all half kites from the faces
 kites = filter isKite . faces
--- | selecting half darts from the faces
+-- | select all half darts from the faces
 darts = filter isDart . faces
 
 -- |selects faces from a Tgraph (removing any not in the list),
@@ -708,7 +708,6 @@ makeRK !x !y !z = RK (x,y,z)
 makeLK !x !y !z = LK (x,y,z)
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
-{-# Inline faceVs #-}
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
 faceVs = tileRep
 -- |list of (three) face vertices in order clockwise starting with origin
@@ -984,7 +983,7 @@ boundaryJoinFaces :: HasFaces a => a -> [TileFace]
 boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin $ boundaryEFMap a where
     isJoin d f = joinE f == d
 
--- |find the faces in a with at least one boundary edge.
+-- |find the faces in with at least one boundary edge.
 boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
 boundaryEdgeFaces = nub . Map.elems . boundaryEFMap
 

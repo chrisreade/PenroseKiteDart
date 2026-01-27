@@ -327,19 +327,25 @@ instance Forcible Tgraph where
 --  tryForceWith uGen fs - does updates using uGen until there are no more updates.
 --  It produces Left report if it encounters a Forcible representing a stuck/incorrect Tgraph.
 tryForceWith :: Forcible a => UpdateGenerator -> a -> Try a
-tryForceWith ugen = tryFSOpWith ugen (tryForceStateWith ugen) where
+tryForceWith ugen = tryFSOpWith ugen retry where
 --    tryForceStateWith :: UpdateGenerator -> ForceState -> Try ForceState
-    tryForceStateWith uGen = retry where
-      retry fs = case findSafeUpdate (updateMap fs) of
+--    tryForceStateWith uGen = retry where
+  retry fs = do r <- tryOneStepWith ugen fs
+                case r of 
+                 Just (fs',_) -> retry fs'
+                 Nothing -> return fs -- final state (no more updates)
+
+{-       retry fs = case findSafeUpdate (updateMap fs) of
                  Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
-                              fs' <- tryReviseFSWith uGen bdChange fs
+                              fs' <- tryReviseFSWith ugen bdChange fs
                               retry fs'
                  _  -> do maybeBdC <- tryUnsafes fs
                           case maybeBdC of
                             Nothing  -> Right fs -- no more updates
-                            Just bdC -> do fs' <- tryReviseFSWith uGen bdC fs
+                            Just bdC -> do fs' <- tryReviseFSWith ugen bdC fs
                                            retry fs'
-
+ -}
+ 
 -- | try a given number of force steps using a given UpdateGenerator.
 tryStepForceWith :: Forcible a => UpdateGenerator -> Int -> a -> Try a
 tryStepForceWith ugen n =
@@ -566,36 +572,36 @@ data BoundaryChange = BoundaryChange
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bd [e1@(a,b)] = [e0,e1,e2] where
   bdry = boundary bd
-  e0 = case find ((==a).snd) bdry of
+  e0 = case preceding a bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary: boundary edge not found with snd = "
                           ++ show a ++ "\nand edges: " ++ show [e1]
                           ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-  e2 = case find ((==b).fst) bdry of
+  e2 = case following b bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
                             ++ show b ++ "\nand edges: " ++ show [e1]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
 affectedBoundary bd [e1@(a,b),e2@(c,d)] | c==b = [e0,e1,e2,e3] where
   bdry = boundary bd
-  e0 = case find ((==a).snd) bdry of
+  e0 = case preceding a bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
                             ++ show a ++ "\nand edges: " ++ show [e1,e2]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-  e3 = case find ((==d).fst) bdry of
+  e3 = case following d bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
                             ++ show d ++ "\nand edges: " ++ show [e1,e2]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
 affectedBoundary bd [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
   bdry = boundary bd
-  e0 = case find ((==c).snd) bdry of
+  e0 = case preceding c bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
                             ++ show c ++  "\nand edges: " ++ show [e1,e2]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-  e3 = case find ((==b).fst) bdry of
+  e3 = case following b bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
                             ++ show b ++  "\nand edges: " ++ show [e1,e2]
@@ -604,6 +610,13 @@ affectedBoundary _ [] = [] -- case for filling a triangular hole
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
                              ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
 
+-- |return the directed edge following the given vertex round the boundary
+following :: Vertex -> [Dedge] -> Maybe Dedge
+following a = find ((==a).fst)
+
+-- |return the directed edge preceeding the given vertex round the boundary
+preceding :: Vertex -> [Dedge] -> Maybe Dedge
+preceding a = find ((==a).snd)
 
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
@@ -673,7 +686,8 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
        newDedges = map reverseD (fDedges \\ matchedDedges) -- two edges
        resultBd = BoundaryState
-                    { boundaryDedges = newDedges ++ (boundary bd \\ matchedDedges)
+                    { boundaryDedges = insertEdges newDedges $ deleteEdges matchedDedges $ boundaryDedges bd
+                    -- newDedges ++ (boundary bd \\ matchedDedges)
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newface:allFaces bd
@@ -710,7 +724,8 @@ trySafeUpdate bd (SafeUpdate newface) =
        newDedges = map reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
-                   { boundaryDedges = newDedges ++ (boundaryDedges bd \\ matchedDedges)
+                   { boundaryDedges = insertEdges newDedges $ deleteEdges matchedDedges $ boundaryDedges bd
+                    -- newDedges ++ (boundaryDedges bd \\ matchedDedges)
                    , bvFacesMap = foldl' (flip VMap.delete) (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                    , allFaces = newface:allFaces bd
@@ -735,6 +750,12 @@ trySafeUpdate bd (SafeUpdate newface) =
               ,"\n"
               ]
 
+-- |add some edges to the boundary (second arg is boundary)
+insertEdges :: [Dedge] -> [Dedge] -> [Dedge]
+insertEdges = (++)
+-- | remove some edges from the boundary (second arg is boundary)
+deleteEdges :: [Dedge] -> [Dedge] -> [Dedge]
+deleteEdges = flip (\\)
 
 -- | given 2 consecutive directed edges (not necessarily in the right order),
 -- this returns the common vertex (as a singleton list).
@@ -917,7 +938,7 @@ boundaryEdgeFilter etype predF bd focus =
 
 -- |makeUpdate f x constructs a safe update if x is Just(..) and an unsafe update if x is Nothing
 makeUpdate:: (Vertex -> TileFace) -> Maybe Vertex ->  Update
-makeUpdate f (Just !v) = fv `seq` SafeUpdate fv where fv = f v
+makeUpdate f (Just !v) = SafeUpdate (f v) --  fv `seq` SafeUpdate fv where fv = f v
 makeUpdate f Nothing  = UnsafeUpdate f
 
 

@@ -65,7 +65,7 @@ instance Transformable a => Transformable (HalfTile a) where
 
 
 
-{-# INLINE tileRep #-}
+-- {-# INLINE tileRep #-}
 -- |return the representation of a half-tile
 tileRep:: HalfTile rep -> rep
 tileRep (LD r) = r
