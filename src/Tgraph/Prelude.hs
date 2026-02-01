@@ -19,7 +19,7 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
 -- {-# LANGUAGE BangPatterns              #-}
-{-# LANGUAGE StrictData                #-}
+{-# LANGUAGE Strict                #-}
 
 module Tgraph.Prelude
   ( module HalfTile

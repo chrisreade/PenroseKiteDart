@@ -52,6 +52,7 @@ module Tgraph.Force
   , tryOneStepWith
   , tryOneStepForce
 -- * Types for Forcing
+--  , BoundaryDedges
   , BoundaryState(..)
   , ForceState(..)
   , BoundaryChange(..)
@@ -167,7 +168,8 @@ Efficient FORCING with
 ***************************************************************************
 -}
 
-
+-- | type to represent the boundary in a BoundaryState
+type BoundaryDedges = [Dedge]
 
 
 {-| A BoundaryState records
@@ -180,7 +182,7 @@ and the next vertex label to be used when adding a new vertex.
 -}
 data BoundaryState
    = BoundaryState
-     { boundaryDedges:: [Dedge]  -- ^ boundary directed edges (face on LHS, exterior on RHS)
+     { boundaryDedges:: BoundaryDedges  -- ^ boundary directed edges (face on LHS, exterior on RHS)
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex.
      , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex.
      , allFaces:: [TileFace] -- ^ all the tile faces
@@ -199,7 +201,7 @@ instance HasFaces BoundaryState where
 makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g =
   let bdes = boundary g
-      bvs = IntSet.fromList (map fst bdes) --boundaryVertexSet g --map fst bdes -- (map snd bdes would also do) for all boundary vertices
+      bvs = IntSet.fromList (map fst bdes) -- (map snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
   in 
       BoundaryState
@@ -460,6 +462,17 @@ makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
 initFSF :: Forcible a => Forced a -> Forced ForceState
 initFSF (Forced a) = Forced (initFS a)
 
+-- |try to find the right direction on the boundary for a given directed edge
+tryBDOf :: Dedge -> BoundaryDedges -> Try Dedge
+tryBDOf (a,b) bdes = 
+  case (find ((==a).fst) bdes, find ((==b).fst) bdes) of
+    (Just e, Nothing) -> Right e
+    (Nothing, Just e) -> Right e
+    _ -> failReports  ["tryBDOf:  with non-boundary edge "
+                      ,show (a,b)
+                      ,"\n"
+                      ]
+
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as
 -- the correct direction is automatically calculated.
@@ -477,13 +490,7 @@ tryAddHalfKite = tryChangeBoundary . tryAddHalfKiteBoundary where
 -- |tryAddHalfKiteBoundary implements tryAddHalfKite as a BoundaryState change
 -- tryAddHalfKiteBoundary :: Dedge -> BoundaryState -> Try BoundaryChange
     tryAddHalfKiteBoundary e bd =
-      do de <- case [e, reverseD e] `intersect` boundary bd of
-                 [de] -> Right de
-                 _ ->  failReports
-                          ["tryAddHalfKite:  on non-boundary edge "
-                          ,show e
-                          ,"\n"
-                          ]
+      do de <- tryBDOf e (boundaryDedges bd)
          let (fc,etype) = inspectBDedge bd de
          let tryU | etype == Long = addKiteLongE bd fc
                   | etype == Short = addKiteShortE bd fc
@@ -510,13 +517,7 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
 -- |tryAddHalfDartBoundary implements tryAddHalfDart as a BoundaryState change
 -- tryAddHalfDartBoundary :: Dedge -> BoundaryState -> Try BoundaryChange
     tryAddHalfDartBoundary e bd =
-      do de <- case [e, reverseD e] `intersect` boundary bd of
-                [de] -> Right de
-                _ -> failReports
-                        ["tryAddHalfDart:  on non-boundary edge "
-                        ,show e
-                        ,"\n"
-                        ]
+      do de <- tryBDOf e (boundaryDedges bd)
          let (fc,etype) = inspectBDedge bd de
          let tryU | etype == Long = addDartLongE bd fc
                   | etype == Short && isKite fc = addDartShortE bd fc
@@ -526,11 +527,15 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
          tryUpdate bd u
 
 
--- |tryOneStepWith uGen fs does one force step (used for debugging purposes).
--- It returns either (1) a Right(Just (f,bc)) with a new ForceState f paired with a BoundaryChange bc
--- (using uGen to revise updates in the final ForceState), or (2)
--- a Right Nothing indicating forcing has finished and there are no more updates, or (3)
--- a Left report for a stuck/incorrect graph.
+-- |tryOneStepWith uGen fs does one force step.
+-- It returns either 
+--
+-- (1) a Right(Just (f,bc)) with a new ForceState f paired with the BoundaryChange bc.
+-- (bc is only returned for debugging purposes as it has been used with uGen to create the resulting ForceState f), or
+--
+-- (2) a Right Nothing indicating forcing has finished and there are no more updates, or 
+--
+-- (3) a Left report for a stuck/incorrect graph.
 tryOneStepWith :: UpdateGenerator -> ForceState -> Try (Maybe (ForceState,BoundaryChange))
 tryOneStepWith uGen fs =
       case findSafeUpdate (updateMap fs) of
@@ -571,7 +576,7 @@ data BoundaryChange = BoundaryChange
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bd [e1@(a,b)] = [e0,e1,e2] where
-  bdry = boundary bd
+  bdry = boundaryDedges bd
   e0 = case preceding a bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary: boundary edge not found with snd = "
@@ -583,7 +588,7 @@ affectedBoundary bd [e1@(a,b)] = [e0,e1,e2] where
                             ++ show b ++ "\nand edges: " ++ show [e1]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
 affectedBoundary bd [e1@(a,b),e2@(c,d)] | c==b = [e0,e1,e2,e3] where
-  bdry = boundary bd
+  bdry = boundaryDedges bd
   e0 = case preceding a bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
@@ -595,7 +600,7 @@ affectedBoundary bd [e1@(a,b),e2@(c,d)] | c==b = [e0,e1,e2,e3] where
                             ++ show d ++ "\nand edges: " ++ show [e1,e2]
                             ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
 affectedBoundary bd [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
-  bdry = boundary bd
+  bdry = boundaryDedges bd
   e0 = case preceding c bdry of
        Just e  -> e
        Nothing -> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
@@ -611,11 +616,11 @@ affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges 
                              ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
 
 -- |return the directed edge following the given vertex round the boundary
-following :: Vertex -> [Dedge] -> Maybe Dedge
+following :: Vertex -> BoundaryDedges -> Maybe Dedge
 following a = find ((==a).fst)
 
 -- |return the directed edge preceeding the given vertex round the boundary
-preceding :: Vertex -> [Dedge] -> Maybe Dedge
+preceding :: Vertex -> BoundaryDedges -> Maybe Dedge
 preceding a = find ((==a).snd)
 
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
@@ -687,7 +692,6 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        newDedges = map reverseD (fDedges \\ matchedDedges) -- two edges
        resultBd = BoundaryState
                     { boundaryDedges = insertEdges newDedges $ deleteEdges matchedDedges $ boundaryDedges bd
-                    -- newDedges ++ (boundary bd \\ matchedDedges)
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newface:allFaces bd
@@ -719,7 +723,6 @@ trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
        localRevDedges =  [(b,a) | v <- faceVList newface, !f <- bvFacesMap bd VMap.! v, (a,b) <- faceDedges f]
        matchedDedges = fDedges `intersect` localRevDedges -- list of 2 or 3
-       -- matchedDedges = fDedges `intersect` boundary bd -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = map reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
@@ -751,10 +754,10 @@ trySafeUpdate bd (SafeUpdate newface) =
               ]
 
 -- |add some edges to the boundary (second arg is boundary)
-insertEdges :: [Dedge] -> [Dedge] -> [Dedge]
+insertEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
 insertEdges = (++)
 -- | remove some edges from the boundary (second arg is boundary)
-deleteEdges :: [Dedge] -> [Dedge] -> [Dedge]
+deleteEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
 deleteEdges = flip (\\)
 
 -- | given 2 consecutive directed edges (not necessarily in the right order),
@@ -1484,14 +1487,14 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                     ,show (a,b)
                     ,"\n"
                     ]
-           | aAngle == n = case find ((==a) . snd) (boundary bd) of
+           | aAngle == n = case preceding a  (boundaryDedges bd) of
                              Just pr -> Right $ Just (fst pr)
                              Nothing -> failReports
                                           ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
                                           ,show (a,b)
                                           ,"\n"
                                           ]
-           | bAngle == m = case find ((==b) . fst) (boundary bd) of
+           | bAngle == m = case following b  (boundaryDedges bd) of
                              Just pr -> Right $ Just (snd pr)
                              Nothing -> failReports
                                            ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
