@@ -19,8 +19,8 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
 -- {-# LANGUAGE BangPatterns              #-}
-{-# LANGUAGE Strict                #-}
-
+{-# LANGUAGE StrictData                #-}
+-- DISCOVERED changing StrictData to Strict generates a bug in test case (connected x2)
 module Tgraph.Prelude
   ( module HalfTile
   , module Try

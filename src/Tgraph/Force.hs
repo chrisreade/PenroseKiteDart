@@ -462,16 +462,19 @@ makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
 initFSF :: Forcible a => Forced a -> Forced ForceState
 initFSF (Forced a) = Forced (initFS a)
 
--- |try to find the right direction on the boundary for a given directed edge
+-- |try to find the right direction for an edge to be a boundary directed edge.
+-- Fails if neither direction is consistent with boundary directed edges.
 tryBDOf :: Dedge -> BoundaryDedges -> Try Dedge
-tryBDOf (a,b) bdes = 
-  case (find ((==a).fst) bdes, find ((==b).fst) bdes) of
-    (Just e, Nothing) -> Right e
-    (Nothing, Just e) -> Right e
-    _ -> failReports  ["tryBDOf:  with non-boundary edge "
-                      ,show (a,b)
+tryBDOf e bdes = 
+  case find (==e) bdes of
+     Just _ -> Right e
+     Nothing -> case find (==(reverseD e)) bdes of
+                 Just re -> Right re
+                 Nothing -> failReports  ["tryBDOf:  with non-boundary edge "
+                      ,show e
                       ,"\n"
                       ]
+
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as
