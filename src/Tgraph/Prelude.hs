@@ -69,6 +69,8 @@ module Tgraph.Prelude
 -- , boundary
 -- , maxV
   , dedges
+  , evalDedge
+  , evalDedges
   , vertexSet
   , vertices
   , boundaryVertexSet
@@ -314,11 +316,17 @@ renumberFaces prs = map renumberFace where
 makeUncheckedTgraph:: [TileFace] -> Tgraph
 makeUncheckedTgraph = Tgraph
 
--- |force full evaluation of a list of faces.
+-- |fully evaluate a tileface
+evalFace :: TileFace -> TileFace
+evalFace !f@(LD (x,y,z)) = x `seq` y `seq` z `seq` f 
+evalFace !f@(RD (x,y,z)) = x `seq` y `seq` z `seq` f
+evalFace !f@(LK (x,y,z)) = x `seq` y `seq` z `seq` f 
+evalFace !f@(RK (x,y,z)) = x `seq` y `seq` z `seq` f 
+
+-- |fully evaluate a list of tilefaces.
 evalFaces :: HasFaces a => a -> a
-evalFaces a = b where
-    !b = find (ev . faceVs) (faces a) `seq` a
-    ev (x,y,z) = x `seq` y `seq` z `seq` False
+evalFaces a = foldr (seq . evalFace) () (faces a) `seq` a
+
  
 
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
@@ -592,6 +600,15 @@ boundaryVsDup = map fst . boundary
 -- |get all the directed edges (directed clockwise round each face)
 dedges :: HasFaces a => a -> [Dedge]
 dedges = concatMap faceDedges . faces
+
+-- | fully evaluate a directed edge
+evalDedge :: Dedge -> Dedge
+evalDedge !e@(a,b) | a==b = error $ "evalEdge: loop edge found with vertex " ++ show a ++ "\n"
+                 | otherwise = e
+
+-- | fully evaluate a list of directed edges
+evalDedges :: [Dedge] -> [Dedge]           
+evalDedges !es = foldr (seq . evalDedge) () es `seq` es
 
 -- |get the set of vertices in the faces
 vertexSet :: HasFaces a => a -> VertexSet

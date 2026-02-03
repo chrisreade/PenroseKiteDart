@@ -43,7 +43,7 @@ decompose = makeUncheckedTgraph . decomposeFaces
 
 -- |Decompose all the faces (using a phiVMap for new vertices).
 decomposeFaces :: HasFaces a => a -> [TileFace]
-decomposeFaces a = newFaces where
+decomposeFaces a = evalFaces newFaces where
     pvmap = phiVMap a
     newFaces = concatMap (decompFace pvmap) (faces a)
 

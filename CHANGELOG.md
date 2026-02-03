@@ -15,6 +15,7 @@ Possibly breaking:
    Removed partComposeFacesFrom (use partComposeFaces)
 Other changes:
    Default implementations in Class HasFaces for boundary, maxV, boundaryVFMap
+   Added evalDedge, evalDedges, evalFace, evalFaces (for full evaluation)
    Added unsafeDom (for use with relabellings)
    Added faceCount
    Added partComposeFaces

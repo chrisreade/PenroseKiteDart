@@ -269,7 +269,7 @@ partComposeFaces dwInfo = (remainder, newFaces) where
 -- | New composing faces for Forced only (not exported)
 -- Returns remainder faces paired with newly composed faces.
 partCompFacesForced :: DartWingInfo -> ([TileFace], [TileFace])
-partCompFacesForced dwInfo = (remainder, newFaces) where
+partCompFacesForced dwInfo = (remainder, evalFaces newFaces) where
     ~remainder = unMapped dwInfo ++ concatMap (faceMap dwInfo VMap.!) (unknowns dwInfo)
     newFaces = concatMap doDartFor (largeDartBases dwInfo) ++ concatMap doKiteFor (largeKiteCentres dwInfo)
     doDartFor v = 

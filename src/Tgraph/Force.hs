@@ -70,6 +70,7 @@ module Tgraph.Force
   -- , boundaryVFacesBS  (removed)
     -- *  Auxiliary Functions for a force step
   , affectedBoundary
+  , boundaryAt
 --  , mustFind
   , tryReviseUpdates
   , tryReviseFSWith
@@ -569,6 +570,7 @@ data BoundaryChange = BoundaryChange
                        , newFace :: TileFace -- ^ face added in the change
                        } deriving (Show)
 
+
 {-| Given a BoundaryState with a list of one boundary edge or
      two adjacent boundary edges (or exceptionally no boundary edges),
      it extends the list with adjacent boundary edges (to produce 3 or 4 or none).
@@ -577,6 +579,38 @@ data BoundaryChange = BoundaryChange
      (N.B. When a new face is fitted in to a hole with 3 sides there is no new boundary.
      Hence the need to allow for an empty list.)
 -}
+affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
+affectedBoundary bs [e1@(a,b)] = evalDedges [e0,e1,e2] where
+  e0 = case preceding a bs of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary: boundary edge not found with snd = "
+                          ++ show a ++ "\nand edges: " ++ show [e1]  ++ "\n"
+  e2 = case following b bs of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
+                            ++ show b ++ "\nand edges: " ++ show [e1] ++ "\n"
+affectedBoundary bs [e1@(a,b),e2@(c,d)] | c==b = evalDedges [e0,e1,e2,e3] where
+  e0 = case preceding a bs of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
+                            ++ show a ++ "\nand edges: " ++ show [e1,e2] ++ "\n"
+  e3 = case following d bs of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
+                            ++ show d ++ "\nand edges: " ++ show [e1,e2] ++ "\n"
+affectedBoundary bs [e1@(a,b),e2@(c,d)] | a==d  = evalDedges [e0,e2,e1,e3] where
+  e0 = case preceding c bs of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
+                            ++ show c ++  "\nand edges: " ++ show [e1,e2] ++ "\n"
+  e3 = case following b bs of
+       Just e  -> e
+       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
+                            ++ show b ++  "\nand edges: " ++ show [e1,e2] ++ "\n"
+affectedBoundary _ [] = [] -- case for filling a triangular hole
+affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
+                             ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
+{- 
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bd [e1@(a,b)] = [e0,e1,e2] where
   bdry = boundaryDedges bd
@@ -617,15 +651,31 @@ affectedBoundary bd [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
 affectedBoundary _ [] = [] -- case for filling a triangular hole
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
                              ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
+ -}
+ -- |return the directed edge following the given vertex round the boundary
+following :: Vertex -> BoundaryState -> Maybe Dedge
+following a = find ((==a).fst) . boundaryDedges --boundaryAt a  -- (space leak)
 
--- |return the directed edge following the given vertex round the boundary
+-- |return the directed edge preceeding the given vertex round the boundary
+preceding :: Vertex -> BoundaryState -> Maybe Dedge
+preceding a = find ((==a).snd) . boundaryDedges --boundaryAt a -- (space leak)
+
+-- | get the (2) boundary edges at a boundary vertex 
+-- (raises an error if the vertex is not on the boundary).
+-- Currently not used as causing space leak
+boundaryAt :: Vertex -> BoundaryState -> [Dedge]
+boundaryAt v bs = evalDedges es
+    where es = missingRevs [e| f <- facesAtBV bs v, e@(a,b) <- faceDedges f, v==a || v==b]
+
+
+{- -- |return the directed edge following the given vertex round the boundary
 following :: Vertex -> BoundaryDedges -> Maybe Dedge
 following a = find ((==a).fst)
 
 -- |return the directed edge preceeding the given vertex round the boundary
 preceding :: Vertex -> BoundaryDedges -> Maybe Dedge
 preceding a = find ((==a).snd)
-
+ -}
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
 tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
@@ -1490,14 +1540,14 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                     ,show (a,b)
                     ,"\n"
                     ]
-           | aAngle == n = case preceding a  (boundaryDedges bd) of
+           | aAngle == n = case preceding a bd of
                              Just pr -> Right $ Just (fst pr)
                              Nothing -> failReports
                                           ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
                                           ,show (a,b)
                                           ,"\n"
                                           ]
-           | bAngle == m = case following b  (boundaryDedges bd) of
+           | bAngle == m = case following b bd of
                              Just pr -> Right $ Just (snd pr)
                              Nothing -> failReports
                                            ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
