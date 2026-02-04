@@ -223,7 +223,7 @@ dartsMapUnused g = (drts,dwFMap,unused) where
 -- |partComposeFaces (exported only for use in composeK example in Extras)
 -- Assumes not forced, so less efficient.
 partComposeFaces :: DartWingInfo -> ([TileFace],[TileFace])
-partComposeFaces dwInfo = (remainder, newFaces) where
+partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
     ~remainder = recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
      -- all faces except those successfully used in making composed faces.   
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs

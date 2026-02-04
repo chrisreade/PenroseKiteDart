@@ -144,6 +144,7 @@ module Tgraph.Prelude
   , bothDir
 --   , bothDirOneWay
   , missingRevs
+  , missingRevSet
     -- * VPatch and Conversions
   , VPatch(..)
   , VertexLocMap
@@ -196,7 +197,7 @@ import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fr
 import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
 import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith, elems, filterWithKey)
 import Data.Maybe (mapMaybe) -- edgeNbrs
-import qualified Data.Set as Set (fromList,member,null,delete,toList,empty,insert)
+import qualified Data.Set as Set (Set,fromList,member,null,delete,toList,empty,insert)
 import Diagrams.Prelude hiding (union,mapping)
 -- import Diagrams.TwoD.Text (Text)
 
@@ -568,7 +569,7 @@ nullFaces = null . faces
 -- [TileFace], Tgraph, VPatch, BoundaryState, ForceState, Forced, TrackedTgraph.
 --
 -- Note maxV, boundary, boundaryVFMap are included in the class 
--- with the default implementations. These are overiden for
+-- with the default implementations. These are overriden for
 -- BoundaryState, ForceState, Forced (where they are precalculated).
 class HasFaces a where
     -- |get the tileFace list
@@ -926,8 +927,14 @@ bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
  -}
 
 -- | efficiently finds missing reverse directions from a list of directed edges (using dedge sets)
+-- and returning a dedge list.
 missingRevs:: [Dedge] -> [Dedge]
-missingRevs es = Set.toList $ foldl' check Set.empty es where
+missingRevs = Set.toList . missingRevSet
+
+-- | efficiently finds missing reverse directions from a list of directed edges (using dedge sets)
+-- and returning a Dedge set.
+missingRevSet:: [Dedge] -> Set.Set Dedge
+missingRevSet es = foldl' check Set.empty es where
     check eset e = if Set.member e eset 
                    then Set.delete e eset
                    else Set.insert (reverseD e) eset

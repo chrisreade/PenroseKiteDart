@@ -465,17 +465,17 @@ initFSF (Forced a) = Forced (initFS a)
 
 -- |try to find the right direction for an edge to be a boundary directed edge.
 -- Fails if neither direction is consistent with boundary directed edges.
-tryBDOf :: Dedge -> BoundaryDedges -> Try Dedge
-tryBDOf e bdes = 
-  case find (==e) bdes of
+tryOnBoundary :: Dedge -> BoundaryState -> Try Dedge
+tryOnBoundary e bd =
+  let bdes = boundaryDedges bd 
+  in case find (==e) bdes of
      Just _ -> Right e
      Nothing -> case find (==(reverseD e)) bdes of
                  Just re -> Right re
-                 Nothing -> failReports  ["tryBDOf:  with non-boundary edge "
-                      ,show e
-                      ,"\n"
-                      ]
-
+                 Nothing -> failReports  
+                    ["tryOnBoundary:\nNeither "
+                    ,show e, " nor ", show(reverseD e), " are on the boundary\n"
+                    ]
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as
@@ -494,7 +494,7 @@ tryAddHalfKite = tryChangeBoundary . tryAddHalfKiteBoundary where
 -- |tryAddHalfKiteBoundary implements tryAddHalfKite as a BoundaryState change
 -- tryAddHalfKiteBoundary :: Dedge -> BoundaryState -> Try BoundaryChange
     tryAddHalfKiteBoundary e bd =
-      do de <- tryBDOf e (boundaryDedges bd)
+      do de <- tryOnBoundary e bd
          let (fc,etype) = inspectBDedge bd de
          let tryU | etype == Long = addKiteLongE bd fc
                   | etype == Short = addKiteShortE bd fc
@@ -521,7 +521,7 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
 -- |tryAddHalfDartBoundary implements tryAddHalfDart as a BoundaryState change
 -- tryAddHalfDartBoundary :: Dedge -> BoundaryState -> Try BoundaryChange
     tryAddHalfDartBoundary e bd =
-      do de <- tryBDOf e (boundaryDedges bd)
+      do de <- tryOnBoundary e bd
          let (fc,etype) = inspectBDedge bd de
          let tryU | etype == Long = addDartLongE bd fc
                   | etype == Short && isKite fc = addDartShortE bd fc
@@ -580,7 +580,7 @@ data BoundaryChange = BoundaryChange
      Hence the need to allow for an empty list.)
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
-affectedBoundary bs [e1@(a,b)] = evalDedges [e0,e1,e2] where
+affectedBoundary bs [e1@(a,b)] = [e0,e1,e2] where
   e0 = case preceding a bs of
        Just e  -> e
        Nothing -> error $ "affectedBoundary: boundary edge not found with snd = "
@@ -589,7 +589,7 @@ affectedBoundary bs [e1@(a,b)] = evalDedges [e0,e1,e2] where
        Just e  -> e
        Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
                             ++ show b ++ "\nand edges: " ++ show [e1] ++ "\n"
-affectedBoundary bs [e1@(a,b),e2@(c,d)] | c==b = evalDedges [e0,e1,e2,e3] where
+affectedBoundary bs [e1@(a,b),e2@(c,d)] | c==b = [e0,e1,e2,e3] where
   e0 = case preceding a bs of
        Just e  -> e
        Nothing -> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
@@ -598,7 +598,7 @@ affectedBoundary bs [e1@(a,b),e2@(c,d)] | c==b = evalDedges [e0,e1,e2,e3] where
        Just e  -> e
        Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
                             ++ show d ++ "\nand edges: " ++ show [e1,e2] ++ "\n"
-affectedBoundary bs [e1@(a,b),e2@(c,d)] | a==d  = evalDedges [e0,e2,e1,e3] where
+affectedBoundary bs [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
   e0 = case preceding c bs of
        Just e  -> e
        Nothing -> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
@@ -652,11 +652,11 @@ affectedBoundary _ [] = [] -- case for filling a triangular hole
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
                              ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
  -}
- -- |return the directed edge following the given vertex round the boundary
+ -- |find the directed edge following the given vertex round the boundary
 following :: Vertex -> BoundaryState -> Maybe Dedge
 following a = find ((==a).fst) . boundaryDedges --boundaryAt a  -- (space leak)
 
--- |return the directed edge preceeding the given vertex round the boundary
+-- |find the directed edge preceeding the given vertex round the boundary
 preceding :: Vertex -> BoundaryState -> Maybe Dedge
 preceding a = find ((==a).snd) . boundaryDedges --boundaryAt a -- (space leak)
 
