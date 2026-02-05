@@ -152,11 +152,13 @@ module Tgraph.Force
 import Data.List ((\\), intersect, nub, find)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.Map.Strict as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
+import Data.Map.Strict(Map)
+import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet)
 import qualified Data.IntSet as IntSet (member,empty,insert)
             -- used for BoundaryState locations AND faces at boundary vertices
-import qualified Data.Set as Set (Set,insert,delete,foldr')
+import Data.Set (Set)
+import qualified Data.Set as Set (insert,delete,foldr')
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
 
@@ -169,8 +171,8 @@ Efficient FORCING with
 ***************************************************************************
 -}
 
--- | type to represent the boundary in a BoundaryState
-type BoundaryDedges = Set.Set Dedge --[Dedge]
+-- | type to represent the boundary directed edges in a BoundaryState (currently as a Set)
+type BoundaryDedges = Set Dedge -- was [Dedge]
 
 
 {-| A BoundaryState records
@@ -243,7 +245,7 @@ instance Show Update where
 
 -- |UpdateMap: partial map associating updates with (some) boundary directed edges.
 -- (Any boundary directed edge will have the opposite direction in some face.)
-type UpdateMap = Map.Map Dedge Update
+type UpdateMap = Map Dedge Update
 
 -- |ForceState: The force state records information between executing single face updates during forcing
 -- (a BoundaryState and an UpdateMap).
@@ -614,11 +616,11 @@ affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges 
 
  -- |find the directed edge following the given vertex round the boundary
 following :: Vertex -> BoundaryState -> Maybe Dedge
-following a = find ((==a).fst) . boundaryAt a  -- (space leak)
+following a = find ((==a).fst) . boundaryAt a 
 
 -- |find the directed edge preceeding the given vertex round the boundary
 preceding :: Vertex -> BoundaryState -> Maybe Dedge
-preceding a = find ((==a).snd) . boundaryAt a -- (space leak)
+preceding a = find ((==a).snd) . boundaryAt a
 
 -- | get the (2) boundary edges at a boundary vertex 
 -- (raises an error if the vertex is not on the boundary).
@@ -723,7 +725,7 @@ trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
 trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
-       localRevDedges =  [(b,a) | v <- faceVList newface, !f <- bvFacesMap bd VMap.! v, (a,b) <- faceDedges f]
+       localRevDedges =  [(b,a) | v <- faceVList newface, !f <- facesAtBV bd v, (a,b) <- faceDedges f]
        matchedDedges = fDedges `intersect` localRevDedges -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = map reverseD (fDedges \\ matchedDedges) -- one or none
@@ -1448,11 +1450,11 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                    ,"\nwith faces at "
                    ,show a
                    ,":\n"
-                   ,show (bvFacesMap bd VMap.! a)
+                   ,show (facesAtBV bd a)
                    ,"\nand faces at "
                    ,show b
                    ,":\n"
-                   ,show (bvFacesMap bd VMap.! b), 
+                   ,show (facesAtBV bd b), 
                    "\nand a total of "
                    ,show (length $ faces bd)
                    ," faces.\n"
@@ -1468,11 +1470,11 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                     ,"\nwith faces at "
                     ,show a
                     ,":\n"
-                    ,show (bvFacesMap bd VMap.! a)
+                    ,show (facesAtBV bd a)
                     ,"\nand faces at "
                     ,show b
                     ,":\n"
-                    ,show (bvFacesMap bd VMap.! b)
+                    ,show (facesAtBV bd b)
                     ,"\nand a total of "
                     ,show (faceCount bd)
                     ," faces.\n"

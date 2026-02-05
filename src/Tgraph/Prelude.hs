@@ -18,7 +18,6 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
--- {-# LANGUAGE BangPatterns              #-}
 {-# LANGUAGE StrictData                #-}
 -- DISCOVERED changing StrictData to Strict generates a bug in test case (connected x2)
 module Tgraph.Prelude
@@ -69,15 +68,18 @@ module Tgraph.Prelude
   , boundary
 -- , maxV
   , dedges
+  , dedgeSet
   , evalDedge
   , evalDedges
   , vertexSet
   , vertices
   , boundaryVSet
+  , boundaryVertexSet
   , boundaryVsDup
   , boundaryEFMap
   , boundaryVFaces
   , boundaryEFaces
+  , boundaryEdgeFaces
   , boundaryJoinFaces
   --, boundaryVFMap
 --  , faces
@@ -99,7 +101,9 @@ module Tgraph.Prelude
   , removeVertices
   , selectVertices
   , vertexFMap
+  , vertexFacesMap
   , dedgeFMap
+  , dedgesFacesMap
   , buildEFMap
   , extractLowestJoin
   , lowestJoin
@@ -193,11 +197,15 @@ module Tgraph.Prelude
 import Data.List ((\\),intersect,find,nub)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.IntMap.Strict as VMap (IntMap, alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault,elems)
-import qualified Data.IntSet as IntSet (IntSet,union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
-import qualified Data.Map.Strict as Map (Map, fromList, lookup, fromListWith, elems, filterWithKey)
+import Data.IntMap.Strict(IntMap)
+import qualified Data.IntMap.Strict as VMap (alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault,elems)
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as IntSet (union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
+import Data.Map.Strict(Map)
+import qualified Data.Map.Strict as Map (fromList, lookup, fromListWith, elems, filterWithKey)
 import Data.Maybe (mapMaybe) -- edgeNbrs
-import qualified Data.Set as Set (Set,fromList,member,null,delete,toList,elems,empty,insert,foldr')
+import Data.Set (Set)
+import qualified Data.Set as Set (fromList,member,null,delete,elems,empty,insert,foldl')
 import Diagrams.Prelude hiding (union,mapping)
 -- import Diagrams.TwoD.Text (Text)
 
@@ -223,7 +231,7 @@ type Vertex = Int
 -- | directed edge
 type Dedge = (Vertex,Vertex)
 -- | vertex set
-type VertexSet = IntSet.IntSet
+type VertexSet = IntSet
 
 -- |A TileFace is a HalfTile with 3 vertex labels (clockwise starting with the origin vertex).
 -- Usually referred to simply as a face.
@@ -246,7 +254,7 @@ newtype Tgraph = Tgraph [TileFace]
 data EdgeType = Short | Long | Join deriving (Show,Eq)
 
 -- |Mappings with vertex keys.
-type VertexMap a = VMap.IntMap a
+type VertexMap = IntMap
 
 
 {-
@@ -423,7 +431,7 @@ duplicates = check [] [] where
 -- |duplicates finds any duplicated items in a list (unique results).
 duplicates :: Ord a => [a] -> [a]
 duplicates = check Set.empty Set.empty where
-  check dups _ [] = Set.toList dups
+  check dups _ [] = Set.elems dups
   check dups seen (x:xs) | x `Set.member` dups = check dups seen xs
                          | x `Set.member` seen = check (Set.insert x dups) seen xs
                          | otherwise = check dups (Set.insert x seen) xs
@@ -581,8 +589,8 @@ class HasFaces a where
            maxV' fcs = IntSet.findMax $ vertexSet fcs
     -- |the set of directed edges of the boundary
     -- (direction with a tileface on the left and exterior on right).
-    boundaryESet :: a -> Set.Set Dedge
-    boundaryESet = missingRevSet . dedges
+    boundaryESet :: a -> Set Dedge
+    boundaryESet = missingRevSet . dedgeSet --missingRevSet . dedges
 
     -- |create a map associating to each boundary vertex, a list of faces at the vertex
     boundaryVFMap :: a -> VertexMap [TileFace]
@@ -602,7 +610,7 @@ boundary = Set.elems . boundaryESet
 -- May have duplicates when applied to an arbitrary list of TileFace or VPatch.
 -- but no duplicates for Tgraph, BoundaryState, Forced, TrackedTgraph. 
 boundaryVsDup :: HasFaces a => a -> [Vertex]
-boundaryVsDup = Set.foldr' ((:).fst) [] . boundaryESet . faces
+boundaryVsDup = Set.foldl' (flip ((:).fst)) [] . boundaryESet
    -- map fst . boundary
 
 -- |get all the directed edges (directed clockwise round each face)
@@ -623,7 +631,7 @@ vertexSet :: HasFaces a => a -> VertexSet
 vertexSet = mconcat . map faceVSet . faces
 
 -- |create a directed edge to face map from the (reverse direction of the) boundary edges
-boundaryEFMap :: HasFaces a => a -> Map.Map Dedge TileFace
+boundaryEFMap :: HasFaces a => a -> Map Dedge TileFace
 boundaryEFMap fcs = Map.fromList (assocFaces des) where
        des = map reverseD $ boundary fcs
        vfMap = boundaryVFMap fcs
@@ -640,9 +648,13 @@ boundaryVFaces :: HasFaces a => a -> [TileFace]
 boundaryVFaces a = nub $ concat $ VMap.elems $ boundaryVFMap a 
 
 -- |get the set of boundary vertices
-boundaryVSet :: HasFaces a => a -> IntSet.IntSet
+boundaryVSet :: HasFaces a => a -> VertexSet
 boundaryVSet = IntSet.fromList . boundaryVsDup
 
+{-# DEPRECATED boundaryVertexSet "Use boundaryVSet" #-}
+-- |get the set of boundary vertices
+boundaryVertexSet :: HasFaces a => a -> VertexSet
+boundaryVertexSet = boundaryVSet
 
 -- |A list of tilefaces is in class HasFaces
 instance HasFaces [TileFace] where
@@ -928,33 +940,28 @@ bothDirOneWay [] = []
 bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
  -}
 
--- | efficiently finds missing reverse directions from a list of directed edges (using dedge sets)
--- and returning a dedge list.
+-- | efficiently finds missing reverse directions from a list of directed edges
+-- and returning a dedge list. (It uses missingRevSet)
 missingRevs:: [Dedge] -> [Dedge]
-missingRevs = Set.toList . missingRevSet
-
--- | efficiently finds missing reverse directions from a list of directed edges (using dedge sets)
--- and returning a Dedge set.
-missingRevSet:: [Dedge] -> Set.Set Dedge
-missingRevSet es = foldl' check Set.empty es where
+--missingRevs = Set.elems . missingRevSet . Set.fromList
+--missingRevs:: Set Dedge -> Set Dedge
+missingRevs es = Set.elems $ foldl' check Set.empty es where
     check eset e = if Set.member e eset 
                    then Set.delete e eset
                    else Set.insert (reverseD e) eset
 
-{- Older
--- | efficiently finds missing reverse directions from a list of directed edges (using IntMap)
-missingRevs:: [Dedge] -> [Dedge]
-missingRevs es = revUnmatched es where
-    vmap = VMap.fromListWith (++) $ map singleton es
-    singleton (a,b) = (a,[b])
-    seekR (a,b) = case VMap.lookup b vmap of
-                   Nothing -> False
-                   Just vs -> a `elem` vs
+-- | efficiently finds missing reverse directions from a set of directed edges,
+-- and returns them as a set.
+missingRevSet:: Set Dedge -> Set Dedge
+missingRevSet es = Set.foldl' check Set.empty es where
+    check eset e = if Set.member e eset 
+                   then Set.delete e eset
+                   else Set.insert (reverseD e) eset
 
-    revUnmatched [] = []
-    revUnmatched (e@(a,b):more) | seekR e = revUnmatched more
-                                | otherwise = (b,a):revUnmatched more
- -}
+-- |produces a set of all directed edges (clockwise) round the faces.
+dedgeSet :: HasFaces a => a -> Set Dedge
+dedgeSet = mconcat . map (Set.fromList . faceDedges) . faces
+
 
 -- |two tile faces are edge neighbours
 edgeNb::TileFace -> TileFace -> Bool
@@ -972,13 +979,16 @@ vertexFMap vs = foldl' insertf startVF . faces where
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
+{-# DEPRECATED vertexFacesMap "Use vertexFMap . IntSet.fromList" #-}
+vertexFacesMap :: HasFaces a => [Vertex] -> a -> VertexMap [TileFace]
+vertexFacesMap = vertexFMap . IntSet.fromList
 
 -- | dedgeFMap des a - Produces an edge-face map. Each directed edge in des is associated with
 -- a unique face in a that has that directed edge (if there is one).
 -- It will report an error if more than one face in a has the same directed edge in des. 
 -- If the directed edges are all the ones in a, buildEFMap will be more efficient.
 -- If the edges are just the boundary edges, use boundaryEFMap instead.
-dedgeFMap:: HasFaces a => [Dedge] -> a -> Map.Map Dedge TileFace
+dedgeFMap:: HasFaces a => [Dedge] -> a -> Map Dedge TileFace
 dedgeFMap des fcs =  Map.fromList (assocFaces des) where
    vset = IntSet.fromList (map fst des) `IntSet.union` IntSet.fromList (map snd des)
    vfMap = vertexFMap vset fcs
@@ -990,6 +1000,10 @@ dedgeFMap des fcs =  Map.fromList (assocFaces des) where
            _   -> error $ "dedgeFMap: more than one Tileface has the same directed edge: "
                           ++ show d ++ "\n"
 
+{-# DEPRECATED dedgesFacesMap "dedgeFMapt" #-}
+dedgesFacesMap:: HasFaces a => [Dedge] -> a -> Map Dedge TileFace
+dedgesFacesMap = dedgeFMap
+
 -- |select the faces with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
 boundaryJoinFaces :: HasFaces a => a -> [TileFace]
@@ -1000,18 +1014,23 @@ boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin $ boundaryEFMap a whe
 boundaryEFaces :: HasFaces a => a -> [TileFace]
 boundaryEFaces = nub . Map.elems . boundaryEFMap
 
+{-# DEPRECATED boundaryEdgeFaces "Use boundaryEFaces" #-}
+-- |find the faces in with at least one boundary edge.
+boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
+boundaryEdgeFaces = boundaryEFaces
+
 -- |Build a full Map from all directed edges to faces (the unique face containing the directed edge)
-buildEFMap:: HasFaces a  => a -> Map.Map Dedge TileFace
+buildEFMap:: HasFaces a  => a -> Map Dedge TileFace
 buildEFMap = Map.fromList . concatMap assignFace . faces where
   assignFace f = map (,f) (faceDedges f)
 
 -- | look up a face for an edge in an edge-face map
-faceForEdge :: Dedge -> Map.Map Dedge TileFace ->  Maybe TileFace
+faceForEdge :: Dedge -> Map Dedge TileFace ->  Maybe TileFace
 faceForEdge = Map.lookup
 
 -- |Given a tileface (face) and a map from each directed edge to the tileface containing it (efMap)
 -- return the list of edge neighbours of face.
-edgeNbs:: TileFace -> Map.Map Dedge TileFace -> [TileFace]
+edgeNbs:: TileFace -> Map Dedge TileFace -> [TileFace]
 edgeNbs face efMap = mapMaybe getNbr edges where
     getNbr e = Map.lookup e efMap
     edges = reverseD <$> faceDedges face
@@ -1054,7 +1073,7 @@ VPatch and Conversions
 -----------------------}
 
 -- |Abbreviation for finite mappings from Vertex to Location (i.e Point)
-type VertexLocMap = VMap.IntMap (Point V2 Double)
+type VertexLocMap = VertexMap (Point V2 Double)
 
 
 -- |A VPatch has a map from vertices to points along with a list of tile faces.
@@ -1473,12 +1492,12 @@ The third argument is the mapping of vertices to points.
         fcOther' = foldl' (flip Set.delete) fcOther nbs
         vpMap' = addVPoint f vpMap
 -- Generalises buildEFMap by allowing for multiple faces on a directed edge.
--- buildEFMapGen:: [TileFace] -> Map.Map Dedge [TileFace]
+-- buildEFMapGen:: [TileFace] -> Map Dedge [TileFace]
     buildEFMapGen = Map.fromListWith (++) . concatMap processFace
     processFace f = (,[f]) <$> faceDedges f
 
 -- Generalised edgeNbs allowing for multiple faces on a directed edge.
--- edgeNbsGen:: Map.Map Dedge [TileFace] -> TileFace -> [TileFace]
+-- edgeNbsGen:: Map Dedge [TileFace] -> TileFace -> [TileFace]
     edgeNbsGen f = concat $ mapMaybe getNbrs edges where
       getNbrs e = Map.lookup e efMapGen
       edges = map reverseD (faceDedges f)

@@ -43,7 +43,7 @@ module Tgraph.Compose
 import Data.List (find,(\\),partition,nub)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.IntMap.Strict as VMap (IntMap,lookup,(!),alter,empty,elems)
+import qualified Data.IntMap.Strict as VMap (lookup,(!),alter,empty,elems)
 import Data.Maybe (catMaybes,mapMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)
 
@@ -122,7 +122,7 @@ data DartWingInfo =  DartWingInfo
      { largeKiteCentres  :: [Vertex] -- ^ dart wing vertices classified as large kite centres.
      , largeDartBases  :: [Vertex]  -- ^ dart wing vertices classified as large dart bases.
      , unknowns :: [Vertex] -- ^ unclassified (boundary) dart wing vertices.
-     , faceMap :: VMap.IntMap [TileFace] -- ^ a mapping from dart wing vertices to faces at the vertex.
+     , faceMap :: VertexMap [TileFace] -- ^ a mapping from dart wing vertices to faces at the vertex.
      , unMapped :: [TileFace] -- ^ any faces not at a dart wing vertex (necessarily kites)
      } deriving Show
 
@@ -192,7 +192,7 @@ getDWIassumeF isForced g fg =
 --   list of all half-darts,
 --   a dart wing to faces map, and 
 --   left over faces (not at a dartwing)
-dartsMapUnused :: Tgraph -> ([TileFace], VMap.IntMap [TileFace],[TileFace])
+dartsMapUnused :: Tgraph -> ([TileFace], VertexMap [TileFace],[TileFace])
 dartsMapUnused g = (drts,dwFMap,unused) where
     (drts,kts) = partition isDart (faces g)
   -- special case of vertexFacesMap for dart wings only

@@ -23,7 +23,8 @@ module Tgraph.Decompose
   , decompFace
   ) where
 
-import qualified Data.Map.Strict as Map (Map, (!), fromList)
+import Data.Map.Strict(Map)
+import qualified Data.Map.Strict as Map ((!), fromList)
 import Data.List(sort)
 
 import Tgraph.Prelude
@@ -51,7 +52,7 @@ decomposeFaces a = evalFaces newFaces where
 -- Both (a,b) and (b,a) get the same new vertex number. This is used(in decompFace, decompFaces and decompose.
 -- (Sort is used to fix order of assigned numbers).
 -- (Exported for use in TrackedTgraphs in Tgraphs module).
-phiVMap :: HasFaces a => a -> Map.Map Dedge Vertex
+phiVMap :: HasFaces a => a -> Map Dedge Vertex
 phiVMap x = edgeVMap where
   --phiReps = sort [e | e@(a,b) <- phiEdges fcs, a<b]
   phiReps = sort [e | fc <- faces x, e@(a,b) <- facePhiEdges fc , a<b]
@@ -64,7 +65,7 @@ phiVMap x = edgeVMap where
 -- This requires an edge to vertex map to get a unique new vertex assigned to each phi edge
 -- (as created by phiVMap).
 -- (Exported for use in TrackedTgraphs in Tgraph.Extras module).
-decompFace:: Map.Map Dedge Vertex -> TileFace -> [TileFace]
+decompFace:: Map Dedge Vertex -> TileFace -> [TileFace]
 decompFace newVFor fc = case fc of
       RK(a,b,c) -> [RK(c,x,b), LK(c,y,x), RD(a,x,y)]
         where x = (Map.!) newVFor (a,b)

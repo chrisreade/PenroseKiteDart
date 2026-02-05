@@ -4,11 +4,6 @@ Since 1.5.1
 Possibly breaking:
    Replaced boundary in class HasFaces with boundaryESet (Set instead of list)
             (boundary now derived from boundaryESet)
-   Renamed boundaryVertexSet as boundaryVSet (and moved to Tgraph,Prelude)
-   Renamed boundaryEdgeFaces as boundaryEFaces
-   Renamed dedgesFacesMap as dedgeFMap
-   Renamed vertexFacesMap as vertexFMap AND changed to take a vertex set instead of list
-   
    Removed data constructor Relabelling from export
    Renamed relabelGraph as uncheckedRelabelGraph
    Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
@@ -20,9 +15,15 @@ Possibly breaking:
    Removed partComposeFacesFrom (use partComposeFaces)
 Other changes:
    Default implementations in Class HasFaces for boundaryESet, maxV, boundaryVFMap
+   Deprecated boundaryVertexSet (use boundaryVSet)
+   Deprecated boundaryEdgeFaces (use boundaryEFaces)
+   Deprecated dedgesFacesMap (use dedgeFMap)
+   Deprecated vertexFacesMap (use vertexFMap . IntSet.fromList)
+   Added boundaryVSet, boundaryEFaces, dedgeFMap, vertexFMap
    Added evalDedge, evalDedges, evalFace, evalFaces (for full evaluation)
    Added unsafeDom (for use with relabellings)
-   Added faceCount, missingRevSet
+   Added faceCount
+   Added dedgeSet, missingRevSet
    Added partComposeFaces
    relabelAvoid now exported
    relabelFrom now exported

@@ -57,7 +57,7 @@ module Tgraph.Relabelling
 
 
 import Data.List (intersect, (\\), union,find,partition,nub)
-import qualified Data.IntMap.Strict as VMap (IntMap, findWithDefault, fromList, fromDistinctAscList, elems, keysSet, union)
+import qualified Data.IntMap.Strict as VMap (findWithDefault, fromList, fromDistinctAscList, elems, keysSet, union)
 import qualified Data.IntSet as IntSet (fromList,intersection,findMax,elems,(\\),null,member,disjoint,delete)
 
 import Tgraph.Prelude
@@ -138,7 +138,7 @@ the /unsafe domain/ of the relabelling.
 A relabelling is guaranteed to be 1-1 on any set (of positive integers)
 that is disjoint from its unsafe domain.
 -}
-newtype Relabelling = Relabelling (VMap.IntMap Vertex)
+newtype Relabelling = Relabelling (VertexMap Vertex)
 
 -- | newRelabelling prs - make a relabelling from a finite list of vertex pairs.
 -- The first item in each pair relabels to the second in the pair.

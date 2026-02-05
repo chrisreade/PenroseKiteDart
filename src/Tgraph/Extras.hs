@@ -105,7 +105,8 @@ import Diagrams.Prelude hiding (union)
 import Data.List (intersect, union, (\\), find, transpose)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.Set as Set  (Set,null,intersection,deleteFindMin)-- used for boundary covers
+import Data.Set(Set) 
+import qualified Data.Set as Set  (null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 import Data.Maybe (fromMaybe)
@@ -350,7 +351,7 @@ successfully forced forcibles are correct.
 -}
 boundaryECovering:: Forced BoundaryState -> [Forced BoundaryState]
 boundaryECovering forcedbs = covers [(forcedbs, boundaryESet (forgetF forcedbs))] where
-  covers:: [(Forced BoundaryState, Set.Set Dedge)] -> [Forced BoundaryState]
+  covers:: [(Forced BoundaryState, Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((fbs,es):opens)
     | Set.null es = fbs:covers opens -- bs is a completed cover
@@ -361,7 +362,7 @@ boundaryECovering forcedbs = covers [(forcedbs, boundaryESet (forgetF forcedbs))
 
 
 -- | commonBdry des a - returns those directed edges in des that are boundary directed edges of a
-commonBdry:: HasFaces a => Set.Set Dedge -> a -> Set.Set Dedge
+commonBdry:: HasFaces a => Set Dedge -> a -> Set Dedge
 commonBdry des a = des `Set.intersection` boundaryESet a
 
 {-| boundaryVCovering fbd - similar to boundaryECovering, but produces a list of all possible covers of 
@@ -372,7 +373,7 @@ boundaryVCovering:: Forced BoundaryState -> [Forced BoundaryState]
 boundaryVCovering fbd = covers [(fbd, startbds)] where
   startbds = boundaryESet $ forgetF fbd
   startbvs = boundaryVSet $ forgetF fbd
---covers:: [(Forced BoundaryState,Set.Set Dedge)] -> [Forced BoundaryState]
+--covers:: [(Forced BoundaryState,Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((open,es):opens)
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary $ forgetF open) of
