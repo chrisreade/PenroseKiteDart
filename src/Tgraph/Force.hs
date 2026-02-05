@@ -154,9 +154,9 @@ import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import qualified Data.Map.Strict as Map (Map, empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet)
-import qualified Data.IntSet as IntSet (member,fromList)
+import qualified Data.IntSet as IntSet (member,empty,insert)
             -- used for BoundaryState locations AND faces at boundary vertices
--- import qualified Data.Maybe(fromMaybe)  -- was used for lazy mustFind only
+import qualified Data.Set as Set (Set,insert,delete,foldr')
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
 
@@ -170,7 +170,7 @@ Efficient FORCING with
 -}
 
 -- | type to represent the boundary in a BoundaryState
-type BoundaryDedges = [Dedge]
+type BoundaryDedges = Set.Set Dedge --[Dedge]
 
 
 {-| A BoundaryState records
@@ -194,20 +194,20 @@ data BoundaryState
 -- Note the default implementations are overiden to use precalculated information
 instance HasFaces BoundaryState where
     faces = allFaces
-    boundary = boundaryDedges  -- (overrides default) boundary already calculated
+    boundaryESet = boundaryDedges  -- (overrides default) boundary already calculated
     maxV bd = nextVertex bd - 1 -- (overrides default)
     boundaryVFMap = bvFacesMap -- (overrides default) already calculated
 
 -- |Calculates BoundaryState information from a Tgraph.
 makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g =
-  let bdes = boundary g
-      bvs = IntSet.fromList (map fst bdes) -- (map snd bdes would also do) for all boundary vertices
+  let bdes = boundaryESet g
+      bvs = Set.foldr' ((IntSet.insert).fst) IntSet.empty bdes --IntSet.fromList (map fst $ Set.toList bdes) -- (map snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
   in 
       BoundaryState
       { boundaryDedges = bdes
-      , bvFacesMap = vertexFacesMap bvs g
+      , bvFacesMap = vertexFMap bvs g
       , bvLocMap = bvLocs
       , allFaces = faces g
       , nextVertex = 1+ maxV g
@@ -256,7 +256,7 @@ data ForceState = ForceState
 -- (using the boundaryState implementations)
 instance HasFaces ForceState where
     faces = faces . boundaryState
-    boundary = boundary . boundaryState
+    boundaryESet = boundaryESet . boundaryState
     maxV = maxV . boundaryState
     boundaryVFMap = boundaryVFMap . boundaryState
 
@@ -425,7 +425,7 @@ newtype Forced a = Forced { -- | forget the explicit Forced labelling
 -- |Extend HasFaces ops from a to Forced a
 instance HasFaces a => HasFaces (Forced a) where
     faces = faces . forgetF
-    boundary = boundary . forgetF
+    boundaryESet = boundaryESet . forgetF
     maxV = maxV . forgetF
     boundaryVFMap = boundaryVFMap . forgetF
 
@@ -466,16 +466,17 @@ initFSF (Forced a) = Forced (initFS a)
 -- |try to find the right direction for an edge to be a boundary directed edge.
 -- Fails if neither direction is consistent with boundary directed edges.
 tryOnBoundary :: Dedge -> BoundaryState -> Try Dedge
-tryOnBoundary e bd =
-  let bdes = boundaryDedges bd 
+tryOnBoundary e@(a,b) bd =
+  let bdes = boundaryAt a bd 
   in case find (==e) bdes of
      Just _ -> Right e
-     Nothing -> case find (==(reverseD e)) bdes of
+     Nothing -> case find (==(b,a)) bdes of
                  Just re -> Right re
                  Nothing -> failReports  
                     ["tryOnBoundary:\nNeither "
                     ,show e, " nor ", show(reverseD e), " are on the boundary\n"
                     ]
+
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as
@@ -610,72 +611,20 @@ affectedBoundary bs [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
 affectedBoundary _ [] = [] -- case for filling a triangular hole
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
                              ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
-{- 
-affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
-affectedBoundary bd [e1@(a,b)] = [e0,e1,e2] where
-  bdry = boundaryDedges bd
-  e0 = case preceding a bdry of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary: boundary edge not found with snd = "
-                          ++ show a ++ "\nand edges: " ++ show [e1]
-                          ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-  e2 = case following b bdry of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show b ++ "\nand edges: " ++ show [e1]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-affectedBoundary bd [e1@(a,b),e2@(c,d)] | c==b = [e0,e1,e2,e3] where
-  bdry = boundaryDedges bd
-  e0 = case preceding a bdry of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
-                            ++ show a ++ "\nand edges: " ++ show [e1,e2]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-  e3 = case following d bdry of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show d ++ "\nand edges: " ++ show [e1,e2]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-affectedBoundary bd [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
-  bdry = boundaryDedges bd
-  e0 = case preceding c bdry of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
-                            ++ show c ++  "\nand edges: " ++ show [e1,e2]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-  e3 = case following b bdry of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show b ++  "\nand edges: " ++ show [e1,e2]
-                            ++ "\nwith boundary:\n" ++ show bdry ++ "\n"
-affectedBoundary _ [] = [] -- case for filling a triangular hole
-affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
-                             ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
- -}
+
  -- |find the directed edge following the given vertex round the boundary
 following :: Vertex -> BoundaryState -> Maybe Dedge
-following a = find ((==a).fst) . boundaryDedges --boundaryAt a  -- (space leak)
+following a = find ((==a).fst) . boundaryAt a  -- (space leak)
 
 -- |find the directed edge preceeding the given vertex round the boundary
 preceding :: Vertex -> BoundaryState -> Maybe Dedge
-preceding a = find ((==a).snd) . boundaryDedges --boundaryAt a -- (space leak)
+preceding a = find ((==a).snd) . boundaryAt a -- (space leak)
 
 -- | get the (2) boundary edges at a boundary vertex 
 -- (raises an error if the vertex is not on the boundary).
--- Currently not used as causing space leak
 boundaryAt :: Vertex -> BoundaryState -> [Dedge]
-boundaryAt v bs = evalDedges es
-    where es = missingRevs [e| f <- facesAtBV bs v, e@(a,b) <- faceDedges f, v==a || v==b]
+boundaryAt v bs = missingRevs [e| f <- facesAtBV bs v, e@(a,b) <- faceDedges f, v==a || v==b]
 
-
-{- -- |return the directed edge following the given vertex round the boundary
-following :: Vertex -> BoundaryDedges -> Maybe Dedge
-following a = find ((==a).fst)
-
--- |return the directed edge preceeding the given vertex round the boundary
-preceding :: Vertex -> BoundaryDedges -> Maybe Dedge
-preceding a = find ((==a).snd)
- -}
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
 tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
@@ -808,10 +757,10 @@ trySafeUpdate bd (SafeUpdate newface) =
 
 -- |add some edges to the boundary (second arg is boundary)
 insertEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-insertEdges = (++)
+insertEdges = flip (foldl' (flip Set.insert)) -- (++)
 -- | remove some edges from the boundary (second arg is boundary)
 deleteEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-deleteEdges = flip (\\)
+deleteEdges = flip (foldl' (flip Set.delete)) --flip (\\)
 
 -- | given 2 consecutive directed edges (not necessarily in the right order),
 -- this returns the common vertex (as a singleton list).

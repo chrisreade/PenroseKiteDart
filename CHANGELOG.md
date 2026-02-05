@@ -2,19 +2,24 @@
 
 Since 1.5.1 
 Possibly breaking:
+   Replaced boundary in class HasFaces with boundaryESet (Set instead of list)
+            (boundary now derived from boundaryESet)
+   Renamed boundaryVertexSet as boundaryVSet (and moved to Tgraph,Prelude)
+   Renamed boundaryEdgeFaces as boundaryEFaces
+   Renamed dedgesFacesMap as dedgeFMap
+   Renamed vertexFacesMap as vertexFMap AND changed to take a vertex set instead of list
+   
    Removed data constructor Relabelling from export
    Renamed relabelGraph as uncheckedRelabelGraph
    Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
    prepareFixAvoid no longer exported (use relabelAvoid instead)
-   Moved boundaryVertexSet to Tgraph.Prelude
-   Changed vertexFacesMap to take a set rather then list of vertices
-   Changed locateVertices to locateGraphVertices (restricting to Tgraphs only)
+   Renamed locateVertices as locateGraphVertices AND restricted to Tgraphs only.
    No longer exporting locateVerticesGen
    Removed oldGetDartWingInfo
    Removed oldPartCompose
    Removed partComposeFacesFrom (use partComposeFaces)
 Other changes:
-   Default implementations in Class HasFaces for boundary, maxV, boundaryVFMap
+   Default implementations in Class HasFaces for boundaryESet, maxV, boundaryVFMap
    Added evalDedge, evalDedges, evalFace, evalFaces (for full evaluation)
    Added unsafeDom (for use with relabellings)
    Added faceCount, missingRevSet
@@ -32,7 +37,7 @@ Removed deprecated:
    restrictSmart Use smartOn
    selectFacesVP Use (flip restrictTo)
    removeFacesVP Use (flip removeFacesFromVP)
-   boundaryFaces Use boundaryVFaces or boundaryEdgeFaces
+   boundaryFaces Use boundaryVFaces or boundaryEFaces
    pieceEdges Use drawnEdges
    dashjPiece Use drawjPiece
    dashjP3 Use drawjP3

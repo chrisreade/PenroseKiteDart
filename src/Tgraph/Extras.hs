@@ -58,7 +58,7 @@ module Tgraph.Extras
   , tryDartAndKiteF
   , tryCheckCasesDKF
   , checkCasesDKF
-  , boundaryEdgeSet
+  , boundaryESet
   , commonBdry
   , internalVertexSet
   , drawFBCovering
@@ -105,7 +105,7 @@ import Diagrams.Prelude hiding (union)
 import Data.List (intersect, union, (\\), find, transpose)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.Set as Set  (Set,fromList,null,intersection,deleteFindMin)-- used for boundary covers
+import qualified Data.Set as Set  (Set,null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
 import Data.Maybe (fromMaybe)
@@ -349,7 +349,7 @@ In which case, fbd represents an important counter example to the hypothesis tha
 successfully forced forcibles are correct.
 -}
 boundaryECovering:: Forced BoundaryState -> [Forced BoundaryState]
-boundaryECovering forcedbs = covers [(forcedbs, boundaryEdgeSet (forgetF forcedbs))] where
+boundaryECovering forcedbs = covers [(forcedbs, boundaryESet (forgetF forcedbs))] where
   covers:: [(Forced BoundaryState, Set.Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((fbs,es):opens)
@@ -360,13 +360,9 @@ boundaryECovering forcedbs = covers [(forcedbs, boundaryEdgeSet (forgetF forcedb
                              (runTry $ tryCheckCasesDKF de fbs)
 
 
--- |Make a set of the directed boundary edges from tilefaces
-boundaryEdgeSet:: HasFaces a => a -> Set.Set Dedge
-boundaryEdgeSet = Set.fromList . boundary
-
 -- | commonBdry des a - returns those directed edges in des that are boundary directed edges of a
 commonBdry:: HasFaces a => Set.Set Dedge -> a -> Set.Set Dedge
-commonBdry des a = des `Set.intersection` boundaryEdgeSet a
+commonBdry des a = des `Set.intersection` boundaryESet a
 
 {-| boundaryVCovering fbd - similar to boundaryECovering, but produces a list of all possible covers of 
     the boundary vertices in fbd (rather than just boundary edges).
@@ -374,8 +370,8 @@ commonBdry des a = des `Set.intersection` boundaryEdgeSet a
  -}
 boundaryVCovering:: Forced BoundaryState -> [Forced BoundaryState]
 boundaryVCovering fbd = covers [(fbd, startbds)] where
-  startbds = boundaryEdgeSet $ forgetF fbd
-  startbvs = boundaryVertexSet $ forgetF fbd
+  startbds = boundaryESet $ forgetF fbd
+  startbvs = boundaryVSet $ forgetF fbd
 --covers:: [(Forced BoundaryState,Set.Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((open,es):opens)
@@ -387,7 +383,7 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
 
 -- | returns the set of internal vertices of a tilefaces
 internalVertexSet :: HasFaces a => a -> VertexSet
-internalVertexSet a = vertexSet a IntSet.\\ boundaryVertexSet a
+internalVertexSet a = vertexSet a IntSet.\\ boundaryVSet a
 
 -- | tryDartAndKite de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b. Each of the results is a Try.
@@ -602,7 +598,7 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
 -- reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
     reportCover bd des = map (tileLabel . getf) des where
-      efmap = dedgesFacesMap des bd  -- more efficient than using graphEFMap?
+      efmap = dedgeFMap des bd  -- more efficient than using graphEFMap?
 --      efmap = graphEFMap (recoverGraph bd)
       getf e = fromMaybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
                                     (faceForEdge e efmap)
