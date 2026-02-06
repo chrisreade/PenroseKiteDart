@@ -18,7 +18,7 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
-{-# LANGUAGE StrictData                #-}
+{-# LANGUAGE Strict                #-}
 -- DISCOVERED changing StrictData to Strict generates a bug in test case (connected x2)
 module Tgraph.Prelude
   ( module HalfTile
@@ -65,10 +65,11 @@ module Tgraph.Prelude
 --  , connectedBy
    -- * HasFaces operations
   , HasFaces(..) -- faces, boundaryESet, maxV, boundaryVFMap
+  , boundaryEdgeSet
   , boundary
 -- , maxV
-  , dedges
   , dedgeSet
+  , dedges
   , evalDedge
   , evalDedges
   , vertexSet
@@ -428,7 +429,8 @@ duplicates = check [] [] where
                         | otherwise = check dups (x:seen) xs
  -}
 
--- |duplicates finds any duplicated items in a list (unique results).
+-- |duplicates finds any duplicated items in a list.
+-- It produces unique results (that is duplicates (duplicates es) == [] ).
 duplicates :: Ord a => [a] -> [a]
 duplicates = check Set.empty Set.empty where
   check dups _ [] = Set.elems dups
@@ -555,10 +557,10 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
     | IntSet.null unvisited = (IntSet.toList visited ++ IntSet.toList done,[])
     | IntSet.null visited = (IntSet.toList done, IntSet.toList unvisited)  -- any unvisited are not connected
     | otherwise =
-        search (IntSet.insert x done) (IntSet.union newVs visited') (unvisited IntSet.\\ newVs)
-        where (x,visited') = IntSet.deleteFindMin visited
-              newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x
-           
+        let (x,visited') = IntSet.deleteFindMin visited
+            newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x
+        in  search (IntSet.insert x done) (IntSet.union newVs visited') (unvisited IntSet.\\ newVs)
+          
 {-             x = IntSet.findMin visited
               visited' = IntSet.deleteMin visited
               newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x
@@ -579,8 +581,8 @@ nullFaces = null . faces
 -- Used to define common functions on 
 -- [TileFace], Tgraph, VPatch, BoundaryState, ForceState, Forced, TrackedTgraph.
 --
--- Note maxV, boundary, boundaryVFMap are included in the class 
--- with the default implementations. These are overriden for
+-- Note maxV, boundaryESet, boundaryVFMap are included in the class 
+-- with default implementations. These are overriden for
 -- BoundaryState, ForceState, Forced (where they are precalculated).
 class HasFaces a where
     -- |get the tileFace list
@@ -600,18 +602,27 @@ class HasFaces a where
     boundaryVFMap a = vertexFMap (boundaryVSet fcs) fcs
                        where fcs = faces a
 
+{-# DEPRECATED boundaryEdgeSet "Use boundaryESet" #-}
+-- |get the set of boundary directed edges
+boundaryEdgeSet :: HasFaces a => a -> Set Dedge
+boundaryEdgeSet = boundaryESet
+
 -- |An ascending list of the vertices occuring in faces (without duplicates)
 vertices :: HasFaces a => a -> [Vertex]
 vertices = IntSet.elems . vertexSet
+
+-- |get the set of vertices occuring in the faces
+vertexSet :: HasFaces a => a -> VertexSet
+vertexSet = mconcat . map faceVSet . faces
 
 -- |get the list of directed edges of the boundary in ascending order.
 -- (direction with a tileface on the left and exterior on right).
 boundary :: HasFaces a => a -> [Dedge]
 boundary = Set.elems . boundaryESet
 
--- |List of boundary vertices (with possible duplicates).
--- May have duplicates when applied to an arbitrary list of TileFace or VPatch.
--- but no duplicates for Tgraph, BoundaryState, Forced, TrackedTgraph. 
+-- |get the list of boundary vertices (with possible duplicates).
+-- This may have duplicates when applied to an arbitrary list of TileFace or VPatch.
+-- but has no duplicates for Tgraph, BoundaryState, Forced, TrackedTgraph. 
 boundaryVsDup :: HasFaces a => a -> [Vertex]
 boundaryVsDup = Set.foldl' (flip ((:).fst)) [] . boundaryESet
    -- map fst . boundary
@@ -629,9 +640,6 @@ evalDedge !e@(a,b) | a==b = error $ "evalEdge: loop edge found with vertex " ++ 
 evalDedges :: [Dedge] -> [Dedge]           
 evalDedges !es = foldr (seq . evalDedge) () es `seq` es
 
--- |get the set of vertices in the faces
-vertexSet :: HasFaces a => a -> VertexSet
-vertexSet = mconcat . map faceVSet . faces
 
 -- |create a directed edge to face map from the (reverse direction of the) boundary edges
 boundaryEFMap :: HasFaces a => a -> Map Dedge TileFace
@@ -987,6 +995,8 @@ vertexFMap vs = foldl' insertf startVF . faces where
                             addf (Just fs) = Just (f:fs)
 
 {-# DEPRECATED vertexFacesMap "Use vertexFMap . IntSet.fromList" #-}
+-- |For vertex list vs and faces from a,
+-- create a VertexMap from each vertex in vs to a list of those faces in a that are at that vertex.
 vertexFacesMap :: HasFaces a => [Vertex] -> a -> VertexMap [TileFace]
 vertexFacesMap = vertexFMap . IntSet.fromList
 
@@ -1007,7 +1017,8 @@ dedgeFMap des fcs =  Map.fromList (assocFaces des) where
            _   -> error $ "dedgeFMap: more than one Tileface has the same directed edge: "
                           ++ show d ++ "\n"
 
-{-# DEPRECATED dedgesFacesMap "dedgeFMapt" #-}
+{-# DEPRECATED dedgesFacesMap "Use dedgeFMap" #-}
+-- |same as dedgeFMap
 dedgesFacesMap:: HasFaces a => [Dedge] -> a -> Map Dedge TileFace
 dedgesFacesMap = dedgeFMap
 
@@ -1017,7 +1028,7 @@ boundaryJoinFaces :: HasFaces a => a -> [TileFace]
 boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin $ boundaryEFMap a where
     isJoin d f = joinE f == d
 
--- |find the faces in with at least one boundary edge.
+-- |get the faces with at least one boundary edge.
 boundaryEFaces :: HasFaces a => a -> [TileFace]
 boundaryEFaces = nub . Map.elems . boundaryEFMap
 
@@ -1027,6 +1038,9 @@ boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
 boundaryEdgeFaces = boundaryEFaces
 
 -- |Build a full Map from all directed edges to faces (the unique face containing the directed edge)
+-- The faces should not contain conflicting dedges. 
+-- That is, if more than one face has the same dedge, 
+-- only one of them will be associated with the dedge.
 buildEFMap:: HasFaces a  => a -> Map Dedge TileFace
 buildEFMap = Map.fromList . concatMap assignFace . faces where
   assignFace f = map (,f) (faceDedges f)
@@ -1147,8 +1161,8 @@ restrictTo a = relevantVP . subFaces a
 graphFromVP:: VPatch -> Tgraph
 graphFromVP = checkedTgraph . faces
 
--- |remove faces from a VPatch (ignoring faces not in the VPatch)
-removeFacesFromVP :: HasFaces a => a -> VPatch -> VPatch
+-- |remove a list of faces from a VPatch (ignoring faces not in the VPatch)
+removeFacesFromVP :: [TileFace] -> VPatch -> VPatch
 removeFacesFromVP a vp = restrictTo (faces vp \\ faces a) vp
 
 -- |removeVerticesFromVP vs vp - removes any vertex in the list vs from vp

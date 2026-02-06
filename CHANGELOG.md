@@ -1,13 +1,12 @@
 # Revision history for PenroseKiteDart
 
-Since 1.5.1 
+## version v1.6
 Possibly breaking:
    Replaced boundary in class HasFaces with boundaryESet (Set instead of list)
             (boundary now derived from boundaryESet)
    Removed data constructor Relabelling from export
    Renamed relabelGraph as uncheckedRelabelGraph
    Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
-   prepareFixAvoid no longer exported (use relabelAvoid instead)
    Renamed locateVertices as locateGraphVertices AND restricted to Tgraphs only.
    No longer exporting locateVerticesGen
    Removed oldGetDartWingInfo
@@ -15,6 +14,7 @@ Possibly breaking:
    Removed partComposeFacesFrom (use partComposeFaces)
 Other changes:
    Default implementations in Class HasFaces for boundaryESet, maxV, boundaryVFMap
+   Deprecated boundaryEdgeSet (use boundaryESet)
    Deprecated boundaryVertexSet (use boundaryVSet)
    Deprecated boundaryEdgeFaces (use boundaryEFaces)
    Deprecated dedgesFacesMap (use dedgeFMap)

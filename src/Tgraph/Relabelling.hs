@@ -47,7 +47,7 @@ module Tgraph.Relabelling
   -- * Auxiliary Functions
   , relabelFace
   , relabelV
---  , prepareFixAvoid
+  , prepareFixAvoid
     --  * Renumbering (not necessarily 1-1)
 --  , tryMatchFace
 --  , twoVMatch
@@ -428,7 +428,7 @@ relabelAvoid avoid g =
   -- assert: the relabelling preserves Tgraph properties
   -- assert: the relabelled Tgraph does not have vertices in the set avoid
   
-{-|prepareFixAvoid fix avoid g - no longer exported after v1.5.1.
+{-|prepareFixAvoid fix avoid g
 Same as relabelAvoid avoid g except that the list of items fix is removed from the avoid set.
 
  Any vertex in g that is in the set avoid but not in the list fix will be changed to a new vertex that is

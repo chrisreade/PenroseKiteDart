@@ -11,7 +11,7 @@ such as tryStepForce, tryAddHalfKite and tryAddHalfDart.
 It introduces BoundaryState and ForceState types and includes a Forcible class with instances for
 Tgraph, BoundaryState, and ForceState.
 
-The module is made strict (to remove many space leaks).
+The module is made strict to avoid space leaks.
 -}
 
 {-# LANGUAGE Strict                 #-} 
@@ -176,12 +176,15 @@ type BoundaryDedges = Set Dedge -- was [Dedge]
 
 
 {-| A BoundaryState records
-the boundary directed edges (directed so that faces are on LHS and exterior is on RHS)
-plus 
-a mapping of boundary vertices to their incident faces, plus
-a mapping of boundary vertices to positions (using Tgraph.Prelude.locateGraphVertices).
-It also keeps track of all the faces
-and the next vertex label to be used when adding a new vertex.
+a mapping of boundary vertices to their incident faces,
+a mapping of boundary vertices to positions (using Tgraph.Prelude.locateGraphVertices),
+a list of all the faces,
+the next vertex label to be used when adding a new vertex,
+the set of boundary directed edges (directed so that faces are on LHS and exterior is on RHS).
+
+N.B the boundary edges kept in a BoundaryState are not used once forcing has started,
+but they cost very little to keep track of and provide a quick way to get the boundary
+at any stage.
 -}
 data BoundaryState
    = BoundaryState
