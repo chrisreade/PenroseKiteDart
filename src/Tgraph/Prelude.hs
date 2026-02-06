@@ -200,7 +200,7 @@ import Data.Foldable (Foldable(..))
 import Data.IntMap.Strict(IntMap)
 import qualified Data.IntMap.Strict as VMap (alter, lookup, fromList, fromListWith, (!), map, filterWithKey,insert, empty, toList, assocs, keys, keysSet, findWithDefault,elems)
 import Data.IntSet (IntSet)
-import qualified Data.IntSet as IntSet (union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteMin,findMin,findMax,member,difference,elems)
+import qualified Data.IntSet as IntSet (union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteFindMin,findMin,findMax,member,difference,elems)
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map (fromList, lookup, fromListWith, elems, filterWithKey)
 import Data.Maybe (mapMaybe) -- edgeNbrs
@@ -556,11 +556,14 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
     | IntSet.null visited = (IntSet.toList done, IntSet.toList unvisited)  -- any unvisited are not connected
     | otherwise =
         search (IntSet.insert x done) (IntSet.union newVs visited') (unvisited IntSet.\\ newVs)
-        where x = IntSet.findMin visited
+        where (x,visited') = IntSet.deleteFindMin visited
+              newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x
+           
+{-             x = IntSet.findMin visited
               visited' = IntSet.deleteMin visited
               newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x
 
-
+ -}
 
 
 -- |The empty Tgraph
@@ -835,6 +838,12 @@ faceDedges (RD(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
 faceDedges (LK(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
 faceDedges (RK(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
 --  faceDedges !f = [(a,b),(b,c),(c,a)] where (!a,!b,!c) = faceVs f
+-- |produces a list of directed edges (clockwise) round a face.
+faceDedgeSet::TileFace -> Set Dedge
+faceDedgeSet (LD(!a,!b,!c)) = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
+faceDedgeSet (RD(!a,!b,!c)) = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
+faceDedgeSet (LK(!a,!b,!c)) = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
+faceDedgeSet (RK(!a,!b,!c)) = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
 
 -- |opposite directed edge.
 reverseD:: Dedge -> Dedge
@@ -946,21 +955,19 @@ missingRevs:: [Dedge] -> [Dedge]
 --missingRevs = Set.elems . missingRevSet . Set.fromList
 --missingRevs:: Set Dedge -> Set Dedge
 missingRevs es = Set.elems $ foldl' check Set.empty es where
-    check eset e = if Set.member e eset 
-                   then Set.delete e eset
-                   else Set.insert (reverseD e) eset
+    check eset e@(a,b) | Set.member e eset = Set.delete e eset
+                 | otherwise = Set.insert (b,a) eset
 
 -- | efficiently finds missing reverse directions from a set of directed edges,
 -- and returns them as a set.
 missingRevSet:: Set Dedge -> Set Dedge
 missingRevSet es = Set.foldl' check Set.empty es where
-    check eset e = if Set.member e eset 
-                   then Set.delete e eset
-                   else Set.insert (reverseD e) eset
+    check eset e@(a,b) | Set.member e eset = Set.delete e eset
+                       | otherwise = Set.insert (b,a) eset
 
 -- |produces a set of all directed edges (clockwise) round the faces.
 dedgeSet :: HasFaces a => a -> Set Dedge
-dedgeSet = mconcat . map (Set.fromList . faceDedges) . faces
+dedgeSet = mconcat . map faceDedgeSet . faces
 
 
 -- |two tile faces are edge neighbours

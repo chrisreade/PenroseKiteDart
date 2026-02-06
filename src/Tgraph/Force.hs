@@ -584,36 +584,26 @@ data BoundaryChange = BoundaryChange
 -}
 affectedBoundary :: BoundaryState -> [Dedge] -> [Dedge]
 affectedBoundary bs [e1@(a,b)] = [e0,e1,e2] where
-  e0 = case preceding a bs of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary: boundary edge not found with snd = "
-                          ++ show a ++ "\nand edges: " ++ show [e1]  ++ "\n"
-  e2 = case following b bs of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show b ++ "\nand edges: " ++ show [e1] ++ "\n"
+  e0 = preceding a bs
+  e2 = following b bs
 affectedBoundary bs [e1@(a,b),e2@(c,d)] | c==b = [e0,e1,e2,e3] where
-  e0 = case preceding a bs of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary (c==b): boundary edge not found with snd = "
-                            ++ show a ++ "\nand edges: " ++ show [e1,e2] ++ "\n"
-  e3 = case following d bs of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show d ++ "\nand edges: " ++ show [e1,e2] ++ "\n"
+  e0 = preceding a bs 
+  e3 = following d bs
 affectedBoundary bs [e1@(a,b),e2@(c,d)] | a==d  = [e0,e2,e1,e3] where
-  e0 = case preceding c bs of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary (a==d): boundary edge not found with snd = "
-                            ++ show c ++  "\nand edges: " ++ show [e1,e2] ++ "\n"
-  e3 = case following b bs of
-       Just e  -> e
-       Nothing -> error $ "affectedBoundary: boundary edge not found with fst = "
-                            ++ show b ++  "\nand edges: " ++ show [e1,e2] ++ "\n"
+  e0 = preceding c bs
+  e3 = following b bs
 affectedBoundary _ [] = [] -- case for filling a triangular hole
 affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges "
                              ++ show edges ++ "\n(Either more than 2 or 2 not adjacent)\n"
 
+ -- |find the directed edge following the given vertex round the boundary
+following :: Vertex -> BoundaryState -> Dedge
+following a = snd . oboundaryAt a 
+
+-- |find the directed edge preceeding the given vertex round the boundary
+preceding :: Vertex -> BoundaryState -> Dedge
+preceding a = fst . oboundaryAt a
+{- 
  -- |find the directed edge following the given vertex round the boundary
 following :: Vertex -> BoundaryState -> Maybe Dedge
 following a = find ((==a).fst) . boundaryAt a 
@@ -621,11 +611,19 @@ following a = find ((==a).fst) . boundaryAt a
 -- |find the directed edge preceeding the given vertex round the boundary
 preceding :: Vertex -> BoundaryState -> Maybe Dedge
 preceding a = find ((==a).snd) . boundaryAt a
-
+ -}
 -- | get the (2) boundary edges at a boundary vertex 
 -- (raises an error if the vertex is not on the boundary).
 boundaryAt :: Vertex -> BoundaryState -> [Dedge]
 boundaryAt v bs = missingRevs [e| f <- facesAtBV bs v, e@(a,b) <- faceDedges f, v==a || v==b]
+
+-- | get the (2) boundary edges at a boundary vertex in order as a pair
+-- (raises an error if the vertex is not on the boundary).
+oboundaryAt :: Vertex -> BoundaryState -> (Dedge, Dedge)
+oboundaryAt v = order . boundaryAt v
+  where order [e1@(_,b),e2@(c,_)]| b==c = (e1,e2)
+                                 | otherwise = (e2,e1)
+        order _ = error $ "oboundaryAt: Crossing boundary found at " ++ show v ++ "\n"
 
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
@@ -1491,20 +1489,8 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
                     ,show (a,b)
                     ,"\n"
                     ]
-           | aAngle == n = case preceding a bd of
-                             Just pr -> Right $ Just (fst pr)
-                             Nothing -> failReports
-                                          ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
-                                          ,show (a,b)
-                                          ,"\n"
-                                          ]
-           | bAngle == m = case following b bd of
-                             Just pr -> Right $ Just (snd pr)
-                             Nothing -> failReports
-                                           ["tryFindThirdV: Impossible boundary. No predecessor/successor Dedge for Dedge "
-                                           ,show (a,b)
-                                           ,"\n"
-                                           ]
+           | aAngle == n = Right $ Just $ fst $ preceding a bd
+           | bAngle == m = Right $ Just $ snd $ following b bd
            | otherwise =   Right  Nothing
 
 -- |externalAngle bd v - calculates the external angle at boundary vertex v in BoundaryState bd as an

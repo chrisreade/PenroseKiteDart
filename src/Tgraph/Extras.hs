@@ -58,7 +58,6 @@ module Tgraph.Extras
   , tryDartAndKiteF
   , tryCheckCasesDKF
   , checkCasesDKF
-  , boundaryESet
   , commonBdry
   , internalVertexSet
   , drawFBCovering
