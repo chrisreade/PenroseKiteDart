@@ -1,79 +1,99 @@
 # Revision history for PenroseKiteDart
 
+Since v1.6
+
+- Possibly breaking:
+    - Changed type for boundaryDedges in BoundaryState
+
+- Other changes:
+
+     - changed emphasizeFaces to use smartOn (so only boundary joins are drawn)
+        (used in commonFaces)
+
 ## version v1.6
-Possibly breaking:
-   Replaced boundary in class HasFaces with boundaryESet (Set instead of list)
+- Possibly breaking:
+
+   - Replaced boundary in class HasFaces with boundaryESet (Set instead of list)
             (boundary now derived from boundaryESet)
-   Removed data constructor Relabelling from export
-   Renamed relabelGraph as uncheckedRelabelGraph
-   Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
-   Renamed locateVertices as locateGraphVertices AND restricted to Tgraphs only.
-   No longer exporting locateVerticesGen
-   Removed oldGetDartWingInfo
-   Removed oldPartCompose
-   Removed partComposeFacesFrom (use partComposeFaces)
-Other changes:
-   Default implementations in Class HasFaces for boundaryESet, maxV, boundaryVFMap
-   Deprecated boundaryEdgeSet (use boundaryESet)
-   Deprecated boundaryVertexSet (use boundaryVSet)
-   Deprecated boundaryEdgeFaces (use boundaryEFaces)
-   Deprecated dedgesFacesMap (use dedgeFMap)
-   Deprecated vertexFacesMap (use vertexFMap . IntSet.fromList)
-   Added boundaryVSet, boundaryEFaces, dedgeFMap, vertexFMap
-   Added evalDedge, evalDedges, evalFace, evalFaces (for full evaluation)
-   Added unsafeDom (for use with relabellings)
-   Added faceCount
-   Added dedgeSet, missingRevSet
-   Added partComposeFaces
-   relabelAvoid now exported
-   relabelFrom now exported
-   relabelContig deprecated. Use (relabelFrom 1)
-   checkRelabelGraph deprecated. Use (relabelGraph)
-   Changed Tgraph definition so no record type used
+   - Removed data constructor Relabelling from export
+   - Renamed relabelGraph as uncheckedRelabelGraph
+   - Renamed checkRelabelGraph as relabelGraph (now using unsafeDom check)
+   - Renamed locateVertices as locateGraphVertices AND restricted to Tgraphs only.
+   - No longer exporting locateVerticesGen
+   - Removed oldGetDartWingInfo
+   - Removed oldPartCompose
+   - Removed partComposeFacesFrom (use partComposeFaces)
+
+- Other changes:
+
+   - Default implementations in Class HasFaces for boundaryESet, maxV, boundaryVFMap
+   - Deprecated boundaryEdgeSet (use boundaryESet)
+   - Deprecated boundaryVertexSet (use boundaryVSet)
+   - Deprecated boundaryEdgeFaces (use boundaryEFaces)
+   - Deprecated dedgesFacesMap (use dedgeFMap)
+   - Deprecated vertexFacesMap (use vertexFMap . IntSet.fromList)
+   - Added boundaryVSet, boundaryEFaces, dedgeFMap, vertexFMap
+   - Added evalDedge, evalDedges, evalFace, evalFaces (for full evaluation)
+   - Added unsafeDom (for use with relabellings)
+   - Added faceCount
+   - Added dedgeSet, missingRevSet
+   - Added partComposeFaces
+   - relabelAvoid now exported
+   - relabelFrom now exported
+   - relabelContig deprecated. Use (relabelFrom 1)
+   - checkRelabelGraph deprecated. Use (relabelGraph)
+   - Changed Tgraph definition so no record type used
      (this was hidden anyway but visible when a Tgraph was shown)
 
-Removed deprecated:
-   subVP Use (flip subFaces)
-   restrictVP Use (flip restrictTo)
-   restrictSmart Use smartOn
-   selectFacesVP Use (flip restrictTo)
-   removeFacesVP Use (flip removeFacesFromVP)
-   boundaryFaces Use boundaryVFaces or boundaryEFaces
-   pieceEdges Use drawnEdges
-   dashjPiece Use drawjPiece
-   dashjP3 Use drawjP3
+- Removed deprecated:
+
+   - subVP Use (flip subFaces)
+   - restrictVP Use (flip restrictTo)
+   - restrictSmart Use smartOn
+   - selectFacesVP Use (flip restrictTo)
+   - removeFacesVP Use (flip removeFacesFromVP)
+   - boundaryFaces Use boundaryVFaces or boundaryEFaces
+   - pieceEdges Use drawnEdges
+   - dashjPiece Use drawjPiece
+   - dashjP3 Use drawjP3
 
 ## version v1.5.1
 
-possibly breaking:
+- possibly breaking:
     added boundaryVFMap to class HasFaces
 
-generalised:
-    boundaryJoinFaces
-    drawBoundaryJoins
-    drawJoinsFor
-added:
-    boundaryEFMap
-    smartOn (replacing deprecated restrictSmart)
-    restrictTo (replacing deprecated restrictVP)
-    subFaces (replacing deprecated subVP)
-    boundaryVFaces (replacing deprecated boundaryFaces)
-    boundaryEdgeFaces
-    removeFacesFromVP (replacing deprecated removeFacesVP)
-    removeVerticesFromVP
-    selectVerticesFromVP
-deprecated:
-    selectFacesVP
-    restrictSmart
-    restrictVP
-    subVP
-    boundaryFaces
-    removeFacesVP
+- generalised:
 
-warning avoided for import of foldl'
+    - boundaryJoinFaces
+    - drawBoundaryJoins
+    - drawJoinsFor
 
-joinDashing changed appearance (no longer ultraThin by default)
-added: dashJOnly, drawJPiece, and drawJ 
+- added:
+
+    - boundaryEFMap
+    - smartOn (replacing deprecated restrictSmart)
+    - restrictTo (replacing deprecated restrictVP)
+    - subFaces (replacing deprecated subVP)
+    - boundaryVFaces (replacing deprecated boundaryFaces)
+    - boundaryEdgeFaces
+    - removeFacesFromVP (replacing deprecated removeFacesVP)
+    - removeVerticesFromVP
+    - selectVerticesFromVP
+
+- deprecated:
+
+    - selectFacesVP
+    - restrictSmart
+    - restrictVP
+    - subVP
+    - boundaryFaces
+    - removeFacesVP
+
+- warning avoided for import of foldl'
+
+- joinDashing changed appearance (no longer ultraThin by default)
+
+- added: dashJOnly, drawJPiece, and drawJ 
 (alongside dashjOnly, drawjPiece, and drawj which still use ultraThin) 
 
 ## version v1.5 2025-8-9

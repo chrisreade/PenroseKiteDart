@@ -223,7 +223,7 @@ dartsMapUnused g = (drts,dwFMap,unused) where
 -- |partComposeFaces (exported only for use in composeK example in Extras)
 -- Assumes not forced, so less efficient.
 partComposeFaces :: DartWingInfo -> ([TileFace],[TileFace])
-partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
+partComposeFaces dwInfo = (remainder, newFaces) where
     ~remainder = recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
      -- all faces except those successfully used in making composed faces.   
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
@@ -231,7 +231,7 @@ partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
     newRDs = map makenewRD groupRDs 
     groupRDs = mapMaybe groupRD (largeDartBases dwInfo)
     makenewRD [rd,lk] = makeRD (originV lk) (originV rd) (oppV lk) 
-    makenewRD _       = error "composedFaceGroups: RD case"
+    makenewRD _       = error "partComposeFaces: RD case"
     groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
@@ -240,7 +240,7 @@ partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
     newLDs = map makenewLD groupLDs 
     groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
     makenewLD [ld,rk] = makeLD (originV rk) (oppV rk) (originV ld)
-    makenewLD _       = error "composedFaceGroups: LD case"
+    makenewLD _       = error "partComposeFaces: LD case"
     groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
@@ -249,7 +249,7 @@ partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
     newRKs = map makenewRK groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
     makenewRK [rd,_,rk] = makeRK (originV rd) (wingV rk) (originV rk)
-    makenewRK _         = error "composedFaceGroups: RK case"
+    makenewRK _         = error "cpartComposeFaces: RK case"
     groupRK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
                     lk <- find (matchingShortE rd) fcs
@@ -259,7 +259,7 @@ partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
     newLKs = map makenewLK groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
     makenewLK [ld,_,lk] = makeLK (originV ld) (originV lk) (wingV lk)
-    makenewLK _         = error "composedFaceGroups: LK case"
+    makenewLK _         = error "partComposeFaces: LK case"
     groupLK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs
                     rk <- find (matchingShortE ld) fcs
@@ -269,14 +269,14 @@ partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
 -- | New composing faces for Forced only (not exported)
 -- Returns remainder faces paired with newly composed faces.
 partCompFacesForced :: DartWingInfo -> ([TileFace], [TileFace])
-partCompFacesForced dwInfo = (remainder, evalFaces newFaces) where
+partCompFacesForced dwInfo = (remainder, newFaces) where
     ~remainder = unMapped dwInfo ++ concatMap (faceMap dwInfo VMap.!) (unknowns dwInfo)
     newFaces = concatMap doDartFor (largeDartBases dwInfo) ++ concatMap doKiteFor (largeKiteCentres dwInfo)
     doDartFor v = 
         case VMap.lookup v (faceMap dwInfo) of
-        Nothing -> error $ "partComoseF: Dart base vertex not found in map (" ++ show v ++ ")/n"
+        Nothing -> error $ "partCompFacesForced: Dart base vertex not found in map (" ++ show v ++ ")/n"
         Just fcs -> catMaybes [largeRD fcs, largeLD fcs]
-    largeRD:: [TileFace] -> Maybe TileFace             
+--    largeRD:: [TileFace] -> Maybe TileFace             
     largeRD fcs = do rd <- find isRD fcs
                      lk <- find ((==oppV rd) . wingV) fcs
                      return $ makeRD (originV lk) (originV rd) (wingV rd)
@@ -287,7 +287,7 @@ partCompFacesForced dwInfo = (remainder, evalFaces newFaces) where
     
     doKiteFor v = 
         case VMap.lookup v (faceMap dwInfo) of
-        Nothing -> error $ "partComoseF: Kite centre vertex not found in map (" ++ show v ++ ")/n"
+        Nothing -> error $ "partCompFacesForced: Kite centre vertex not found in map (" ++ show v ++ ")/n"
         Just fcs -> catMaybes [largeRK fcs, largeLK fcs]
 
     largeRK fcs = do rd  <- find isRD fcs

@@ -10,7 +10,6 @@ This module defines decompose and decompositions for Tgraphs, but also exposes
 two auxiliary functions for debugging and experimenting.
 -}
 
--- {-# LANGUAGE BangPatterns             #-}
 {-# LANGUAGE Strict                   #-}
 {-# OPTIONS_GHC -Wno-deprecations     #-}
 
@@ -44,7 +43,7 @@ decompose = makeUncheckedTgraph . decomposeFaces
 
 -- |Decompose all the faces (using a phiVMap for new vertices).
 decomposeFaces :: HasFaces a => a -> [TileFace]
-decomposeFaces a = evalFaces newFaces where
+decomposeFaces a = newFaces where
     pvmap = phiVMap a
     newFaces = concatMap (decompFace pvmap) (faces a)
 

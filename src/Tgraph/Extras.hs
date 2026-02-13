@@ -251,9 +251,9 @@ drawCommonFaces (g1,e1) (g2,e2) = emphasizeFaces (commonFaces (g1,e1) (g2,e2)) g
 -- |emphasizeFaces a g - emphasizes the faces that are in a and g, overlaid on the background draw g.
 emphasizeFaces :: (OKBackend b, HasFaces a) =>
                   a -> Tgraph -> Diagram b
-emphasizeFaces a g =  (drawj emphvp # lw thin) <> (draw vp # lw ultraThin) where
-    vp = makeVP g
-    emphvp = subFaces (faces a `intersect` faces g) vp
+emphasizeFaces a g = (smartOn a draw vp # lw thin) <> 
+                     (smartOn g draw vp # lw ultraThin)
+                     where vp = makeVP g
 
 
 -- | For illustrating an unsound version of composition which defaults to kites when there are unknown

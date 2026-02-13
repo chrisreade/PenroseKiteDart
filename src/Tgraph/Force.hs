@@ -154,11 +154,13 @@ import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for UpdateMap
-import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet)
+import Data.IntMap.Strict(IntMap)
+import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet
+                                            , fromAscList, fromList, assocs,insert)
 import qualified Data.IntSet as IntSet (member,empty,insert)
             -- used for BoundaryState locations AND faces at boundary vertices
 import Data.Set (Set)
-import qualified Data.Set as Set (insert,delete,foldr')
+import qualified Data.Set as Set (foldr',elems,fromList)
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
 
@@ -172,7 +174,17 @@ Efficient FORCING with
 -}
 
 -- | type to represent the boundary directed edges in a BoundaryState (currently as a Set)
-type BoundaryDedges = Set Dedge -- was [Dedge]
+type BoundaryDedges = (IntMap Vertex, IntMap Vertex)
+--type BoundaryDedges = Set Dedge -- was [Dedge]
+
+fromBDESet :: Set Dedge -> (IntMap Vertex, IntMap Vertex)
+fromBDESet eset = (prev, next) where
+    next = VMap.fromAscList (Set.elems eset)
+    prev = VMap.fromList $ map reverseD (Set.elems eset)
+
+
+toBDESet :: (IntMap Vertex, IntMap Vertex) -> Set Dedge
+toBDESet = Set.fromList . VMap.assocs . snd -- (overrides default) boundary already calculated
 
 
 {-| A BoundaryState records
@@ -199,7 +211,7 @@ data BoundaryState
 -- Note the default implementations are overiden to use precalculated information
 instance HasFaces BoundaryState where
     faces = allFaces
-    boundaryESet = boundaryDedges  -- (overrides default) boundary already calculated
+    boundaryESet = toBDESet . boundaryDedges  -- (overrides default) boundary already calculated
     maxV bd = nextVertex bd - 1 -- (overrides default)
     boundaryVFMap = bvFacesMap -- (overrides default) already calculated
 
@@ -211,7 +223,7 @@ makeBoundaryState g =
       bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
   in 
       BoundaryState
-      { boundaryDedges = bdes
+      { boundaryDedges = fromBDESet bdes
       , bvFacesMap = vertexFMap bvs g
       , bvLocMap = bvLocs
       , allFaces = faces g
@@ -343,16 +355,6 @@ tryForceWith ugen = tryFSOpWith ugen retry where
                  Just (fs',_) -> retry fs'
                  Nothing -> return fs -- final state (no more updates)
 
-{-       retry fs = case findSafeUpdate (updateMap fs) of
-                 Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
-                              fs' <- tryReviseFSWith ugen bdChange fs
-                              retry fs'
-                 _  -> do maybeBdC <- tryUnsafes fs
-                          case maybeBdC of
-                            Nothing  -> Right fs -- no more updates
-                            Just bdC -> do fs' <- tryReviseFSWith ugen bdC fs
-                                           retry fs'
- -}
  
 -- | try a given number of force steps using a given UpdateGenerator.
 tryStepForceWith :: Forcible a => UpdateGenerator -> Int -> a -> Try a
@@ -601,32 +603,17 @@ affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges 
 
  -- |find the directed edge following the given vertex round the boundary
 following :: Vertex -> BoundaryState -> Dedge
-following a = snd . oboundaryAt a 
+following a bs = (a, (snd $ boundaryDedges bs) VMap.! a) -- snd . snd . oboundaryAt a 
 
 -- |find the directed edge preceeding the given vertex round the boundary
 preceding :: Vertex -> BoundaryState -> Dedge
-preceding a = fst . oboundaryAt a
-{- 
- -- |find the directed edge following the given vertex round the boundary
-following :: Vertex -> BoundaryState -> Maybe Dedge
-following a = find ((==a).fst) . boundaryAt a 
+preceding a bs = ((fst $ boundaryDedges bs) VMap.! a,a) -- fst . oboundaryAt a
 
--- |find the directed edge preceeding the given vertex round the boundary
-preceding :: Vertex -> BoundaryState -> Maybe Dedge
-preceding a = find ((==a).snd) . boundaryAt a
- -}
 -- | get the (2) boundary edges at a boundary vertex 
 -- (raises an error if the vertex is not on the boundary).
 boundaryAt :: Vertex -> BoundaryState -> [Dedge]
-boundaryAt v bs = missingRevs [e| f <- facesAtBV bs v, e@(a,b) <- faceDedges f, v==a || v==b]
-
--- | get the (2) boundary edges at a boundary vertex in order as a pair
--- (raises an error if the vertex is not on the boundary).
-oboundaryAt :: Vertex -> BoundaryState -> (Dedge, Dedge)
-oboundaryAt v = order . boundaryAt v
-  where order [e1@(_,b),e2@(c,_)]| b==c = (e1,e2)
-                                 | otherwise = (e2,e1)
-        order _ = error $ "oboundaryAt: Crossing boundary found at " ++ show v ++ "\n"
+boundaryAt v bs = [preceding v bs, following v bs]
+-- boundaryAt v bs = missingRevs [e| f <- facesAtBV bs v, e@(a,b) <- faceDedges f, v==a || v==b]
 
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
@@ -643,12 +630,13 @@ tryReviseFSWith ugen bdC fs =
     do umap <- tryReviseUpdates ugen bdC (updateMap fs)
        return $ ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap}
 
-
 -- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
 findSafeUpdate:: UpdateMap -> Maybe Update
+-- slower to use filter
+-- findSafeUpdate umap = fmap snd $ Map.lookupMin $ Map.filter isSafeUpdate umap where
 findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
-  isSafeUpdate (SafeUpdate _ ) = True
-  isSafeUpdate (UnsafeUpdate _ ) = False
+      isSafeUpdate (SafeUpdate _ ) = True
+      isSafeUpdate (UnsafeUpdate _ ) = False
 
 {-| tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap.
    tryUnsafes works through the unsafe updates in (directed edge) key order and
@@ -757,14 +745,24 @@ trySafeUpdate bd (SafeUpdate newface) =
               ,show nbrFaces
               ,"\n"
               ]
+-- |add some edges to the boundary (second arg is boundary)
+insertEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+insertEdges = flip (foldl' insertE) -- (++)
+  where insertE (prev,next) (!a,!b) = (VMap.insert b a prev, VMap.insert a b next)
 
+
+-- | remove some edges from the boundary (second arg is boundary)
+deleteEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+deleteEdges = flip (foldl' deleteE) where --flip (\\)
+   deleteE (prev,next) (a,b) = (VMap.delete b prev, VMap.delete a next)
+{- 
 -- |add some edges to the boundary (second arg is boundary)
 insertEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
 insertEdges = flip (foldl' (flip Set.insert)) -- (++)
 -- | remove some edges from the boundary (second arg is boundary)
 deleteEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
 deleteEdges = flip (foldl' (flip Set.delete)) --flip (\\)
-
+ -}
 -- | given 2 consecutive directed edges (not necessarily in the right order),
 -- this returns the common vertex (as a singleton list).
 -- Exceptionally it may be given 3 consecutive directed edges forming a triangle
@@ -1388,9 +1386,13 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
 inspectBDedge:: BoundaryState -> Dedge -> (TileFace, EdgeType)
 inspectBDedge bd (a,b) = (face,edgeType (b,a) face) where
-      face = case filter (isAtV a) $ facesAtBV bd b of
+      face = case find (isAtV a) $ facesAtBV bd b of
+             Just f -> f
+             Nothing   -> error $ "inspectBDedge: Not a boundary directed edge " ++ show (a,b) ++ "\n"
+{-       face = case filter (isAtV a) $ facesAtBV bd b of
              [f] -> f
              _   -> error $ "inspectBDedge: Not a boundary directed edge " ++ show (a,b) ++ "\n"
+ -}
  {-
      face = case facesAtBV bd a `intersect` facesAtBV bd b of
          [f] -> f

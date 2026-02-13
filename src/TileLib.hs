@@ -17,6 +17,7 @@ There is also a decompose operation for Patches (decompPatch) and sun and star e
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE FlexibleInstances         #-} -- needed for Drawable Patch
 {-# LANGUAGE TypeOperators             #-} -- needed for type equality constraints ~
+{-# LANGUAGE Strict                    #-} 
 
 module TileLib 
   ( OKBackend
