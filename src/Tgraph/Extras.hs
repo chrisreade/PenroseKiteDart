@@ -381,7 +381,7 @@ boundaryVCovering fbd = covers [(fbd, startbds)] where
     | otherwise =  covers $ map (\b -> (b, commonBdry des (forgetF b))) (atLeastOne $  tryDartAndKiteF de (forgetF open)) ++opens
                    where (de,des) = Set.deleteFindMin es
 
--- | returns the set of internal vertices of a tilefaces
+-- | returns the set of internal vertices of all tilefaces
 internalVertexSet :: HasFaces a => a -> VertexSet
 internalVertexSet a = vertexSet a IntSet.\\ boundaryVSet a
 

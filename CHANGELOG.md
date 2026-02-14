@@ -3,7 +3,8 @@
 Since v1.6
 
 - Possibly breaking:
-    - Changed type for boundaryDedges in BoundaryState
+    - Changed type of BoundaryDedges in BoundaryState 
+       (This does not affect boundary or boundaryESet functions)
 
 - Other changes:
 

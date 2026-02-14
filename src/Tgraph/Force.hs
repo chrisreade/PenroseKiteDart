@@ -173,18 +173,6 @@ Efficient FORCING with
 ***************************************************************************
 -}
 
--- | type to represent the boundary directed edges in a BoundaryState (currently as a Set)
-type BoundaryDedges = (IntMap Vertex, IntMap Vertex)
---type BoundaryDedges = Set Dedge -- was [Dedge]
-
-fromBDESet :: Set Dedge -> (IntMap Vertex, IntMap Vertex)
-fromBDESet eset = (prev, next) where
-    next = VMap.fromAscList (Set.elems eset)
-    prev = VMap.fromList $ map reverseD (Set.elems eset)
-
-
-toBDESet :: (IntMap Vertex, IntMap Vertex) -> Set Dedge
-toBDESet = Set.fromList . VMap.assocs . snd -- (overrides default) boundary already calculated
 
 
 {-| A BoundaryState records
@@ -192,11 +180,8 @@ a mapping of boundary vertices to their incident faces,
 a mapping of boundary vertices to positions (using Tgraph.Prelude.locateGraphVertices),
 a list of all the faces,
 the next vertex label to be used when adding a new vertex,
-the set of boundary directed edges (directed so that faces are on LHS and exterior is on RHS).
-
-N.B the boundary edges kept in a BoundaryState are not used once forcing has started,
-but they cost very little to keep track of and provide a quick way to get the boundary
-at any stage.
+the boundary directed edges (directed so that faces are on LHS and exterior is on RHS).
+These boundary directed edges are represented using type BoundaryDedges.
 -}
 data BoundaryState
    = BoundaryState
@@ -206,6 +191,38 @@ data BoundaryState
      , allFaces:: [TileFace] -- ^ all the tile faces
      , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
+
+-- | A type to represent the boundary directed edges in a BoundaryState 
+-- (direction with face on LHS, exterior on RHS).
+-- This is now a pair of vertex to vertex maps, one giving the next vertex round the boundary,
+-- and one giving the previous vertex round the boundary.
+-- This representation is both convenient for some BoundaryState operations and is simple to update.
+-- The representation relies on the no crossing boundaries property of Tgraphs.
+data BoundaryDedges = BoundaryDedges {prevBV::IntMap Vertex, nextBV::IntMap Vertex}
+     deriving(Show)
+--type BoundaryDedges = Set Dedge -- was [Dedge]
+
+-- |convert a set of boundary directed edges to BoundaryDedges
+fromBDESet :: Set Dedge -> BoundaryDedges --(IntMap Vertex, IntMap Vertex)
+fromBDESet eset = BoundaryDedges{prevBV=prev, nextBV=next} where
+    next = VMap.fromAscList (Set.elems eset)
+    prev = VMap.fromList $ map reverseD (Set.elems eset)
+
+-- |convert BoundaryDedges to a set of boundary directed edges
+toBDESet :: BoundaryDedges -> Set Dedge
+toBDESet = Set.fromList . VMap.assocs . nextBV -- (overrides default) boundary already calculated
+
+-- |add some edges to the boundary (second arg is boundary)
+insertBDedges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+insertBDedges = flip (foldl' insertE) -- (++)
+  where insertE bdes (!a,!b) = 
+         bdes{prevBV=VMap.insert b a $ prevBV bdes, nextBV=VMap.insert a b $ nextBV bdes}
+
+-- | remove some edges from the boundary (second arg is boundary)
+deleteBDedges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+deleteBDedges = flip (foldl' deleteE) where --flip (\\)
+   deleteE bdes (a,b) =
+    bdes{prevBV=VMap.delete b $ prevBV bdes, nextBV=VMap.delete a $ nextBV bdes}
 
 -- |BoundaryState is in class HasFaces.
 -- Note the default implementations are overiden to use precalculated information
@@ -603,11 +620,13 @@ affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges 
 
  -- |find the directed edge following the given vertex round the boundary
 following :: Vertex -> BoundaryState -> Dedge
-following a bs = (a, (snd $ boundaryDedges bs) VMap.! a) -- snd . snd . oboundaryAt a 
+following a bs = let b = (nextBV $ boundaryDedges bs) VMap.! a
+                 in (a, b) -- snd . snd . oboundaryAt a 
 
 -- |find the directed edge preceeding the given vertex round the boundary
 preceding :: Vertex -> BoundaryState -> Dedge
-preceding a bs = ((fst $ boundaryDedges bs) VMap.! a,a) -- fst . oboundaryAt a
+preceding a bs = let b = (prevBV $ boundaryDedges bs) VMap.! a
+                 in (b,a)  -- fst . oboundaryAt a
 
 -- | get the (2) boundary edges at a boundary vertex 
 -- (raises an error if the vertex is not on the boundary).
@@ -684,7 +703,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
        newDedges = map reverseD (fDedges \\ matchedDedges) -- two edges
        resultBd = BoundaryState
-                    { boundaryDedges = insertEdges newDedges $ deleteEdges matchedDedges $ boundaryDedges bd
+                    { boundaryDedges = insertBDedges newDedges $ deleteBDedges matchedDedges $ boundaryDedges bd
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newface:allFaces bd
@@ -720,7 +739,7 @@ trySafeUpdate bd (SafeUpdate newface) =
        newDedges = map reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
-                   { boundaryDedges = insertEdges newDedges $ deleteEdges matchedDedges $ boundaryDedges bd
+                   { boundaryDedges = insertBDedges newDedges $ deleteBDedges matchedDedges $ boundaryDedges bd
                     -- newDedges ++ (boundaryDedges bd \\ matchedDedges)
                    , bvFacesMap = foldl' (flip VMap.delete) (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
@@ -745,23 +764,14 @@ trySafeUpdate bd (SafeUpdate newface) =
               ,show nbrFaces
               ,"\n"
               ]
--- |add some edges to the boundary (second arg is boundary)
-insertEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-insertEdges = flip (foldl' insertE) -- (++)
-  where insertE (prev,next) (!a,!b) = (VMap.insert b a prev, VMap.insert a b next)
 
-
--- | remove some edges from the boundary (second arg is boundary)
-deleteEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-deleteEdges = flip (foldl' deleteE) where --flip (\\)
-   deleteE (prev,next) (a,b) = (VMap.delete b prev, VMap.delete a next)
 {- 
 -- |add some edges to the boundary (second arg is boundary)
-insertEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-insertEdges = flip (foldl' (flip Set.insert)) -- (++)
+insertBDedges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+insertBDedges = flip (foldl' (flip Set.insert)) -- (++)
 -- | remove some edges from the boundary (second arg is boundary)
-deleteEdges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-deleteEdges = flip (foldl' (flip Set.delete)) --flip (\\)
+deleteBDedges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+deleteBDedges = flip (foldl' (flip Set.delete)) --flip (\\)
  -}
 -- | given 2 consecutive directed edges (not necessarily in the right order),
 -- this returns the common vertex (as a singleton list).
