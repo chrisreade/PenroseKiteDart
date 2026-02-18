@@ -203,24 +203,25 @@ data BoundaryDedges = BoundaryDedges {prevBV::IntMap Vertex, nextBV::IntMap Vert
 --type BoundaryDedges = Set Dedge -- was [Dedge]
 
 -- |convert a set of boundary directed edges to BoundaryDedges
-fromBDESet :: Set Dedge -> BoundaryDedges --(IntMap Vertex, IntMap Vertex)
-fromBDESet eset = BoundaryDedges{prevBV=prev, nextBV=next} where
-    next = VMap.fromAscList (Set.elems eset)
-    prev = VMap.fromList $ map reverseD (Set.elems eset)
+bdesFromSet :: Set Dedge -> BoundaryDedges --(IntMap Vertex, IntMap Vertex)
+bdesFromSet eset = BoundaryDedges{prevBV=prev, nextBV=next} where
+    blist = Set.elems eset
+    next = VMap.fromAscList blist
+    prev = VMap.fromList $ map reverseD blist
 
 -- |convert BoundaryDedges to a set of boundary directed edges
-toBDESet :: BoundaryDedges -> Set Dedge
-toBDESet = Set.fromList . VMap.assocs . nextBV -- (overrides default) boundary already calculated
+bdesToSet :: BoundaryDedges -> Set Dedge
+bdesToSet = Set.fromList . VMap.assocs . nextBV -- (overrides default) boundary already calculated
 
 -- |add some edges to the boundary (second arg is boundary)
-insertBDedges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-insertBDedges = flip (foldl' insertE) -- (++)
+bdesInsert :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+bdesInsert = flip (foldl' insertE) -- (++)
   where insertE bdes (!a,!b) = 
          bdes{prevBV=VMap.insert b a $ prevBV bdes, nextBV=VMap.insert a b $ nextBV bdes}
 
 -- | remove some edges from the boundary (second arg is boundary)
-deleteBDedges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-deleteBDedges = flip (foldl' deleteE) where --flip (\\)
+bdesIDelete :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+bdesIDelete = flip (foldl' deleteE) where --flip (\\)
    deleteE bdes (a,b) =
     bdes{prevBV=VMap.delete b $ prevBV bdes, nextBV=VMap.delete a $ nextBV bdes}
 
@@ -228,7 +229,7 @@ deleteBDedges = flip (foldl' deleteE) where --flip (\\)
 -- Note the default implementations are overiden to use precalculated information
 instance HasFaces BoundaryState where
     faces = allFaces
-    boundaryESet = toBDESet . boundaryDedges  -- (overrides default) boundary already calculated
+    boundaryESet = bdesToSet . boundaryDedges  -- (overrides default) boundary already calculated
     maxV bd = nextVertex bd - 1 -- (overrides default)
     boundaryVFMap = bvFacesMap -- (overrides default) already calculated
 
@@ -240,7 +241,7 @@ makeBoundaryState g =
       bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
   in 
       BoundaryState
-      { boundaryDedges = fromBDESet bdes
+      { boundaryDedges = bdesFromSet bdes
       , bvFacesMap = vertexFMap bvs g
       , bvLocMap = bvLocs
       , allFaces = faces g
@@ -254,7 +255,7 @@ recoverGraph = makeUncheckedTgraph . faces
 -- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
 changeVFMap f vfm = foldl' insertf vfm (faceVList f) where
-   insertf vmap v = VMap.alter consf v vmap
+   insertf = flip (VMap.alter consf) -- v vmap
    consf Nothing = Just [f]
    consf (Just fs) = Just (f:fs)
 
@@ -703,7 +704,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
        newDedges = map reverseD (fDedges \\ matchedDedges) -- two edges
        resultBd = BoundaryState
-                    { boundaryDedges = insertBDedges newDedges $ deleteBDedges matchedDedges $ boundaryDedges bd
+                    { boundaryDedges = bdesInsert newDedges $ bdesIDelete matchedDedges $ boundaryDedges bd
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newface:allFaces bd
@@ -733,13 +734,14 @@ trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
 trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
-       localRevDedges =  [(b,a) | v <- faceVList newface, !f <- facesAtBV bd v, (a,b) <- faceDedges f]
-       matchedDedges = fDedges `intersect` localRevDedges -- list of 2 or 3
+       localBoundary =  [e | v <- faceVList newface, e <- boundaryAt v bd] -- WITH duplicates
+       --       localRevDedges =  [(b,a) | v <- faceVList newface, !f <- facesAtBV bd v, (a,b) <- faceDedges f]
+       matchedDedges = fDedges `intersect` localBoundary -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newDedges = map reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
-                   { boundaryDedges = insertBDedges newDedges $ deleteBDedges matchedDedges $ boundaryDedges bd
+                   { boundaryDedges = bdesInsert newDedges $ bdesIDelete matchedDedges $ boundaryDedges bd
                     -- newDedges ++ (boundaryDedges bd \\ matchedDedges)
                    , bvFacesMap = foldl' (flip VMap.delete) (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
@@ -765,14 +767,7 @@ trySafeUpdate bd (SafeUpdate newface) =
               ,"\n"
               ]
 
-{- 
--- |add some edges to the boundary (second arg is boundary)
-insertBDedges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-insertBDedges = flip (foldl' (flip Set.insert)) -- (++)
--- | remove some edges from the boundary (second arg is boundary)
-deleteBDedges :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-deleteBDedges = flip (foldl' (flip Set.delete)) --flip (\\)
- -}
+
 -- | given 2 consecutive directed edges (not necessarily in the right order),
 -- this returns the common vertex (as a singleton list).
 -- Exceptionally it may be given 3 consecutive directed edges forming a triangle
@@ -1355,7 +1350,7 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
         | mustbeDeuce bd (oppV f) || mustbeJack bd (oppV f) = mapItem (addDartShortE bd f)
         | mustbeQueen bd (wingV f) || isDartOrigin bd (wingV f) = mapItem (addKiteShortE bd f)
         | otherwise = Right Map.empty
-
+ --     mapItem :: Try Update -> Try UpdateMap
       mapItem = fmap (\u -> Map.insert e u Map.empty)
 
 {- defaultAllUGen :: UpdateGenerator

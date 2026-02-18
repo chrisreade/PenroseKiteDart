@@ -86,6 +86,7 @@ module Tgraph.Prelude
 --  , faces
   , nullFaces
   , evalFaces
+--  , evalFace
   , faceCount
   , ldarts
   , rdarts
@@ -324,7 +325,7 @@ renumberFaces prs = map renumberFace where
 -- |Creates a (possibly invalid) Tgraph from a list of faces.
 -- It does not perform checks on the faces. 
 makeUncheckedTgraph:: [TileFace] -> Tgraph
-makeUncheckedTgraph = Tgraph . evalFaces
+makeUncheckedTgraph = Tgraph
 
 -- |fully evaluate a tileface
 evalFace :: TileFace -> TileFace

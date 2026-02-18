@@ -8,8 +8,8 @@ import Control.Concurrent (threadDelay)
 main :: IO ()
 main = 
   do let wait = threadDelay 100000
-     _ <- traceMarkerIO "starting decompositions" 
      wait
+     _ <- traceMarkerIO "starting decompositions" 
      let !kD = {-# SCC "decomposing" #-} decompositions kingGraph !! n
      putStrLn $ "Number of faces of a " ++ sn ++ " times decomposed King is " 
                        ++ show (faceCount kD)

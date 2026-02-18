@@ -43,7 +43,7 @@ module Tgraph.Compose
 import Data.List (find,(\\),partition,nub)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.IntMap.Strict as VMap (lookup,(!),alter,empty,elems)
+import qualified Data.IntMap.Strict as VMap (lookup,(!),alter,empty,elems,keys)
 import Data.Maybe (catMaybes,mapMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)
 
@@ -100,9 +100,40 @@ tryPartComposeFaces g =
 -- The fact that the function is total and the result is also Forced relies on theorems
 -- established for composing.
 -- The calculation of remainder faces is also more efficient with a known forced Tgraph.
+-- Also dartWingInfo does not need to be calculated for composing a forced Tgraph.
 partComposeF:: Forced Tgraph -> ([TileFace], Forced Tgraph)
-partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
-  (~remainder,newfaces) = partCompFacesForced $ getDartWingInfoForced fg
+partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph (evalFaces newfaces)) where
+  (_,dwFMap,unused) = dartsMapUnused (forgetF fg)
+  (~remainder,newfaces) = process (VMap.keys dwFMap) (unused,[])
+  process [] res = res
+  process (w:more) (rems, nfcs) = 
+      let fcs = dwFMap  VMap.! w--VMap.deleteFindMin mp
+      in case length fcs of
+           -- 8 faces = large dart base, 6 faces = lrge kite centre, 3 faces = unknown on boundary
+           8 -> process more (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs)
+           6 -> process more (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs)
+           3 -> process more (fcs++rems, nfcs)
+           other -> error $ 
+                     "fastPartComposeF: Not possible for forced Tgraph\n" ++
+                     "Number of faces should be 8,6,or 3 but found " ++ show other ++
+                     "\nat dart wing vertex: " ++ show w ++ "\n"
+  largeRD fcs = do rd <- find isRD fcs
+                   lk <- find ((==oppV rd) . wingV) fcs
+                   return $ makeRD (originV lk) (originV rd) (wingV rd)
+                   
+  largeLD fcs = do ld <- find isLD fcs
+                   rk <- find ((==oppV ld) . wingV) fcs
+                   return $ makeLD (originV rk) (wingV ld) (originV ld)
+
+  largeRK fcs = do rd  <- find isRD fcs
+                   lk <- find ((==oppV rd) . wingV) fcs
+                   rk <- find (matchingJoinE lk) fcs
+                   return $ makeRK (originV rd) (wingV rk) (originV lk)
+
+  largeLK fcs = do ld  <- find isLD fcs
+                   rk <- find ((==oppV ld) . wingV) fcs
+                   lk <- find (matchingJoinE rk) fcs
+                   return $ makeLK (originV ld) (originV rk) (wingV lk)
 
 
 -- |composeF - produces a composed Forced Tgraph from a Forced Tgraph.
@@ -209,7 +240,7 @@ dartsMapUnused g = (drts,dwFMap,unused) where
     addD f (Just fs) = Just (f:fs)
     insertK (vmap,unsd) f = 
       let opp = oppV f
-          org = originV f
+          org = originV f  -- cannot have a kite wingV at a dart originV
       in  case (VMap.lookup opp vmap, VMap.lookup org vmap) of
             (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
             (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
@@ -266,7 +297,7 @@ partComposeFaces dwInfo = (remainder, newFaces) where
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
--- | New composing faces for Forced only (not exported)
+{- -- | New composing faces for Forced only (not exported)
 -- Returns remainder faces paired with newly composed faces.
 partCompFacesForced :: DartWingInfo -> ([TileFace], [TileFace])
 partCompFacesForced dwInfo = (remainder, newFaces) where
@@ -299,5 +330,4 @@ partCompFacesForced dwInfo = (remainder, newFaces) where
                      lk <- find (matchingJoinE rk) fcs
                      return $ makeLK (originV ld) (originV rk) (wingV lk)
 
-
-
+ -}
