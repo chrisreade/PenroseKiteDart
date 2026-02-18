@@ -149,7 +149,7 @@ module Tgraph.Force
 
 
 
-import Data.List ((\\), intersect, nub, find)
+import Data.List ((\\), intersect, nub, find, partition)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
@@ -220,8 +220,8 @@ bdesInsert = flip (foldl' insertE) -- (++)
          bdes{prevBV=VMap.insert b a $ prevBV bdes, nextBV=VMap.insert a b $ nextBV bdes}
 
 -- | remove some edges from the boundary (second arg is boundary)
-bdesIDelete :: [Dedge] -> BoundaryDedges -> BoundaryDedges
-bdesIDelete = flip (foldl' deleteE) where --flip (\\)
+bdesDelete :: [Dedge] -> BoundaryDedges -> BoundaryDedges
+bdesDelete = flip (foldl' deleteE) where --flip (\\)
    deleteE bdes (a,b) =
     bdes{prevBV=VMap.delete b $ prevBV bdes, nextBV=VMap.delete a $ nextBV bdes}
 
@@ -699,12 +699,11 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        newface = makeFace v
        oldVPoints = bvLocMap bd
        newVPoints = addVPoint newface oldVPoints
-       vPosition = newVPoints VMap.! v -- Just vPosition = VMap.lookup v newVPoints
-       fDedges = faceDedges newface
-       matchedDedges = filter (\(x,y) -> x /= v && y /= v) fDedges -- singleton
-       newDedges = map reverseD (fDedges \\ matchedDedges) -- two edges
+       vPosition = newVPoints VMap.! v
+       (unmatched, matchedDedges) = partition (\(x,y) -> x == v || y == v) (faceDedges newface) -- (two edges,singleton)
+       newBdry = map reverseD unmatched -- two edges
        resultBd = BoundaryState
-                    { boundaryDedges = bdesInsert newDedges $ bdesIDelete matchedDedges $ boundaryDedges bd
+                    { boundaryDedges = bdesInsert newBdry $ bdesDelete matchedDedges $ boundaryDedges bd
                     , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newface:allFaces bd
@@ -713,8 +712,8 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     }
        bdChange = BoundaryChange
                     { newBoundaryState = resultBd
-                    , removedEdges = matchedDedges
-                    , revisedEdges = affectedBoundary resultBd newDedges
+                    , removedEdges = matchedDedges -- singleton
+                    , revisedEdges = affectedBoundary resultBd newBdry -- 4 edges
                     , newFace = newface
                     }
    in if touchCheck vPosition oldVPoints -- true if new vertex is blocked because it touches the boundary elsewhere
@@ -738,11 +737,11 @@ trySafeUpdate bd (SafeUpdate newface) =
        --       localRevDedges =  [(b,a) | v <- faceVList newface, !f <- facesAtBV bd v, (a,b) <- faceDedges f]
        matchedDedges = fDedges `intersect` localBoundary -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
-       newDedges = map reverseD (fDedges \\ matchedDedges) -- one or none
+       newBdry = map reverseD (fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
-                   { boundaryDedges = bdesInsert newDedges $ bdesIDelete matchedDedges $ boundaryDedges bd
-                    -- newDedges ++ (boundaryDedges bd \\ matchedDedges)
+                   { boundaryDedges = bdesInsert newBdry $ bdesDelete matchedDedges $ boundaryDedges bd
+                    -- newBdry ++ (boundaryDedges bd \\ matchedDedges)
                    , bvFacesMap = foldl' (flip VMap.delete) (changeVFMap newface $ bvFacesMap bd) removedBVs
 --                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
                    , allFaces = newface:allFaces bd
@@ -753,8 +752,8 @@ trySafeUpdate bd (SafeUpdate newface) =
                    }
        bdChange = BoundaryChange
                    { newBoundaryState = resultBd
-                   , removedEdges = matchedDedges
-                   , revisedEdges = affectedBoundary resultBd newDedges
+                   , removedEdges = matchedDedges -- 2 or 3 edges
+                   , revisedEdges = affectedBoundary resultBd newBdry -- 3 or 0 edges
                    , newFace = newface
                    }
    in if noNewConflict newface nbrFaces

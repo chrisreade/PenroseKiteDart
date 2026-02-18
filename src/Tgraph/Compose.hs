@@ -11,9 +11,9 @@ tryPartCompose and the more efficient versions composeF, partComposeF (for expli
 It also exposes 
 auxiliary functions
 tryGetDartWingInfo, getDartWingInfoForced (and type DartWingInfo)
-and partComposeFacesFrom for debugging.
+for debugging but getDartWingInfoForced is no longer used internally.
 -}
-{-# LANGUAGE Strict                #-} 
+-- {-# LANGUAGE Strict                #-} 
 {-# OPTIONS_GHC -Wno-deprecations  #-}
 
 module Tgraph.Compose 
@@ -80,8 +80,7 @@ partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
 -- of faces from g which will not compose. 
 tryPartCompose:: Tgraph -> Try ([TileFace],Tgraph)
 tryPartCompose g = 
-  do dwInfo <- tryGetDartWingInfo g 
-     let (~remainder,newFaces) = partComposeFaces dwInfo
+  do (remainder,newFaces) <- tryPartComposeFaces g
      checked <- onFail "tryPartCompose:\n" $ tryConnectedNoCross newFaces
      return (remainder,checked)
 
@@ -102,19 +101,20 @@ tryPartComposeFaces g =
 -- The calculation of remainder faces is also more efficient with a known forced Tgraph.
 -- Also dartWingInfo does not need to be calculated for composing a forced Tgraph.
 partComposeF:: Forced Tgraph -> ([TileFace], Forced Tgraph)
-partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph (evalFaces newfaces)) where
+partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph evalnewfaces) where
+  !evalnewfaces = evalFaces newfaces
   (_,dwFMap,unused) = dartsMapUnused (forgetF fg)
-  (~remainder,newfaces) = process (VMap.keys dwFMap) (unused,[])
+  (remainder,newfaces) = process (VMap.keys dwFMap) (unused,[])
   process [] res = res
   process (w:more) (rems, nfcs) = 
-      let fcs = dwFMap  VMap.! w--VMap.deleteFindMin mp
+      let fcs = dwFMap  VMap.! w
       in case length fcs of
            -- 8 faces = large dart base, 6 faces = lrge kite centre, 3 faces = unknown on boundary
            8 -> process more (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs)
            6 -> process more (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs)
            3 -> process more (fcs++rems, nfcs)
            other -> error $ 
-                     "fastPartComposeF: Not possible for forced Tgraph\n" ++
+                     "partComposeF: Not possible for a forced Tgraph\n" ++
                      "Number of faces should be 8,6,or 3 but found " ++ show other ++
                      "\nat dart wing vertex: " ++ show w ++ "\n"
   largeRD fcs = do rd <- find isRD fcs
@@ -206,8 +206,9 @@ getDWIassumeF isForced g fg =
         in
             if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else 
                     -- wing is a half kite origin => largeDartBase
-            if revLongE `elem` map longE (filter isDart fcs) then (IntSet.insert w kcs,dbs,unks) else 
-                    -- long edge drt shared with another dart => largeKiteCentre
+ --           if revLongE `elem` map longE (filter isDart fcs) then (IntSet.insert w kcs,dbs,unks) else 
+            if any (matchingLongE drt) (filter isDart fcs) then (IntSet.insert w kcs,dbs,unks) else 
+                     -- long edge drt shared with another dart => largeKiteCentre
             if isForced then (kcs, dbs, IntSet.insert w unks) else
             let     -- (when not already forced) do same checks but with forced faces 
                 ffcs = filter (isAtV w) (faces fg)
@@ -218,7 +219,7 @@ getDWIassumeF isForced g fg =
                     -- long edge drt shared with another dart => largeKiteCentre
                 (kcs,dbs,IntSet.insert w unks) -- on the forced boundary so must be unknown
 
--- |(not exported - only used in getDWIassumeF)
+-- |Not exported - used in partComposeF and in getDWIassumeF.
 -- Returns a triple of:
 --   list of all half-darts,
 --   a dart wing to faces map, and 
@@ -251,11 +252,11 @@ dartsMapUnused g = (drts,dwFMap,unused) where
     addK f (Just fs) = Just (f:fs)
 
 
--- |partComposeFaces (exported only for use in composeK example in Extras)
+-- |partComposeFaces. Used only in tryPartComposeFaces (exported only for use in composeK example in Extras)
 -- Assumes not forced, so less efficient.
 partComposeFaces :: DartWingInfo -> ([TileFace],[TileFace])
-partComposeFaces dwInfo = (remainder, newFaces) where
-    ~remainder = recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
+partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
+    remainder = recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
      -- all faces except those successfully used in making composed faces.   
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
 
@@ -297,37 +298,3 @@ partComposeFaces dwInfo = (remainder, newFaces) where
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
 
-{- -- | New composing faces for Forced only (not exported)
--- Returns remainder faces paired with newly composed faces.
-partCompFacesForced :: DartWingInfo -> ([TileFace], [TileFace])
-partCompFacesForced dwInfo = (remainder, newFaces) where
-    ~remainder = unMapped dwInfo ++ concatMap (faceMap dwInfo VMap.!) (unknowns dwInfo)
-    newFaces = concatMap doDartFor (largeDartBases dwInfo) ++ concatMap doKiteFor (largeKiteCentres dwInfo)
-    doDartFor v = 
-        case VMap.lookup v (faceMap dwInfo) of
-        Nothing -> error $ "partCompFacesForced: Dart base vertex not found in map (" ++ show v ++ ")/n"
-        Just fcs -> catMaybes [largeRD fcs, largeLD fcs]
---    largeRD:: [TileFace] -> Maybe TileFace             
-    largeRD fcs = do rd <- find isRD fcs
-                     lk <- find ((==oppV rd) . wingV) fcs
-                     return $ makeRD (originV lk) (originV rd) (wingV rd)
-                     
-    largeLD fcs = do ld <- find isLD fcs
-                     rk <- find ((==oppV ld) . wingV) fcs
-                     return $ makeLD (originV rk) (wingV ld) (originV ld)
-    
-    doKiteFor v = 
-        case VMap.lookup v (faceMap dwInfo) of
-        Nothing -> error $ "partCompFacesForced: Kite centre vertex not found in map (" ++ show v ++ ")/n"
-        Just fcs -> catMaybes [largeRK fcs, largeLK fcs]
-
-    largeRK fcs = do rd  <- find isRD fcs
-                     lk <- find ((==oppV rd) . wingV) fcs
-                     rk <- find (matchingJoinE lk) fcs
-                     return $ makeRK (originV rd) (wingV rk) (originV lk)
-    largeLK fcs = do ld  <- find isLD fcs
-                     rk <- find ((==oppV ld) . wingV) fcs
-                     lk <- find (matchingJoinE rk) fcs
-                     return $ makeLK (originV ld) (originV rk) (wingV lk)
-
- -}
