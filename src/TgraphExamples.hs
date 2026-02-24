@@ -119,7 +119,7 @@ chunks n
 -- The result is a single diagram.
 arrangeRowsGap :: OKBackend b =>
                   Double -> Int -> [Diagram b] -> Diagram b
-arrangeRowsGap s n = centerY . vsep s . fmap (centerX . hsep s) . chunks n
+arrangeRowsGap s n = centerY . vsep s . map (centerX . hsep s) . chunks n
 
 -- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
 -- The result is a single diagram (seperation is 1 unit vertically and horizontally).
@@ -211,7 +211,7 @@ pCompFig = padBorder $ vsep 3 [center pCompFig1, center pCompFig2]
 
 -- |diagram of foolDminus and the result of forcing.  
 forceFoolDminus :: OKBackend b => Diagram b
-forceFoolDminus = padBorder $ hsep 1 $ fmap (labelled drawj) [foolDminus, force foolDminus]
+forceFoolDminus = padBorder $ hsep 1 $ map (labelled drawj) [foolDminus, force foolDminus]
 
 
 forceDartD5Fig,forceKiteD5Fig,forceSunD5Fig,forceFig :: OKBackend b => Diagram b
@@ -243,13 +243,13 @@ badlyBrokenDart = removeFaces deleted bbd where
 
 -- |brokenDartFig shows the faces removed from dartD4 to make brokenDart and badlyBrokenDart.
 brokenDartFig  :: OKBackend b => Diagram b
-brokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [dartD4, brokenDart, badlyBrokenDart]
+brokenDartFig = padBorder $ lw thin $ hsep 1 $ map (labelled drawj) [dartD4, brokenDart, badlyBrokenDart]
 
 -- |badlyBrokenDartFig shows badlyBrokenDart, followed by its composition, followed by the faces 
 -- that would result from an unchecked second composition which are not tile-connected.
 -- (Simply applying compose twice to badlyBrokenDart will raise an error).
 badlyBrokenDartFig :: OKBackend b => Diagram b
-badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ fmap (labelled drawj) [vp, vpComp, vpFailed] where
+badlyBrokenDartFig = padBorder $ lw thin $ hsep 1 $ map (labelled drawj) [vp, vpComp, vpFailed] where
     vp = makeVP badlyBrokenDart
     comp = compose badlyBrokenDart
     vpComp = restrictTo (faces comp) vp
@@ -280,7 +280,7 @@ vertexTypesFig = padBorder $ hsep 1 lTypeFigs
  vTypeFigs = zipWith drawVertex
                [sunGraph, starGraph, jackGraph, queenGraph, kingGraph, aceGraph,  deuceGraph]
                [(1,2),    (1,2),     (1,2),     (1,2),      (1,2),     (3,6),     (2,6)] -- alignments
- drawVertex g alm = alignBefore (lw thin . showOrigin . drawj) alm g
+ drawVertex g alm = aligning alm (lw thin . showOrigin . drawj) g
 
 jackGraph,kingGraph,queenGraph,aceGraph,deuceGraph,starGraph::Tgraph
 -- |Tgraph for vertex type jack.
@@ -334,7 +334,7 @@ starGraph = makeTgraph
 -- |forceVFigures is a list of 7 diagrams - force of 7 vertex types.
 forceVFigures :: OKBackend b => [Diagram b]
 forceVFigures = rotations [0,0,9,5,0,0,1] $
-                fmap (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
+                map (center . drawForce) [sunGraph,starGraph,jackGraph,queenGraph,kingGraph,aceGraph,deuceGraph]
 
 
 sun3Dart :: Tgraph
@@ -355,7 +355,7 @@ superForceFig = padBorder $ lw thin $ rotate (ttangle 1) $ drawSuperForce g wher
 -- of sun3Dart. The decompositions are in red with normal force additions in black and superforce additions in blue.
 superForceRocketsFig :: OKBackend b => Diagram b
 superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
-   fmap drawSuperForce decomps where
+   map drawSuperForce decomps where
       decomps = take 4 $ decompositions sun3Dart
 
 boundaryFDart4, boundaryFDart5 :: Tgraph
@@ -390,8 +390,8 @@ boundaryGap5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) drawj 
 boundaryVCoveringFigs :: OKBackend b =>
                          Forced BoundaryState -> [Diagram b]
 boundaryVCoveringFigs bd =
-    lw ultraThin . (redg <>) . alignBefore draw alig . (recoverGraph . forgetF) <$> boundaryVCovering bd
-      where redg = lc red $ draw g --alignBefore draw alig g
+    lw ultraThin . (redg <>) . aligning alig draw  . (recoverGraph . forgetF) <$> boundaryVCovering bd
+      where redg = lc red $ draw g
             alig = defaultAlignment g
             g = recoverGraph $ forgetF bd
 
@@ -400,7 +400,7 @@ boundaryVCoveringFigs bd =
 boundaryECoveringFigs :: OKBackend b =>
                          Forced BoundaryState -> [Diagram b]
 boundaryECoveringFigs bd =
-    lw ultraThin . (redg <>) . alignBefore draw alig . recoverGraph . forgetF  <$> boundaryECovering bd
+    lw ultraThin . (redg <>) . aligning alig draw  . recoverGraph . forgetF  <$> boundaryECovering bd
       where redg = lc red $ draw g
             alig = defaultAlignment g
             g = recoverGraph $ forgetF bd
@@ -422,24 +422,22 @@ kingEmpire2Fig = showEmpire2 kingGraph
 
 -- |emplaceChoices forces then maximally composes. At this top level it
 -- produces a list of forced choices for each of the unknowns of this top level Tgraph.
--- It then repeatedly applies (force . decompose) back to the starting level to return a list of Tgraphs.
+-- It then repeatedly applies (forceF . decompose . forgetF) back to the starting level to return a list of Forced Tgraphs.
 -- This version relies on compForce theorem and related theorems
-emplaceChoices:: Tgraph -> [Tgraph]
-emplaceChoices = emplaceChoicesForced . forceF  where
+emplaceChoices:: Tgraph -> [Forced Tgraph]
+emplaceChoices = emplaceChoicesF . forceF  where
 
-  emplaceChoicesForced:: Forced Tgraph -> [Tgraph]
-  emplaceChoicesForced fg | nullFaces g' = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, forgetF fg)]
-                          | otherwise    = force . decompose <$> emplaceChoicesForced fg'
-                          where fg' = composeF fg
-                                g' = forgetF fg'
-
-  chooseUnknowns :: [([Vertex],Tgraph)] -> [Tgraph]
+  emplaceChoicesF:: Forced Tgraph -> [Forced Tgraph]
+  emplaceChoicesF fg | nullFaces compfg = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, fg)]
+                          | otherwise    = forceF . decompose . forgetF <$> emplaceChoicesF compfg
+                          where compfg = composeF fg
+  chooseUnknowns :: [([Vertex],Forced Tgraph)] -> [Forced Tgraph]
   chooseUnknowns [] = []
   chooseUnknowns (([],g0):more) = g0:chooseUnknowns more
   chooseUnknowns ((u:unks,g0): more)
      =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
-        where newgs = map recoverGraph $ atLeastOne $ fmap forgetF <$> tryDartAndKiteF (findDartLongForWing u bd) bd
-              bd = makeBoundaryState g0
+        where newgs = map recoverGraphF $ atLeastOne $ (tryDartAndKiteF (findDartLongForWing u bd) bd)
+              bd = makeBoundaryState (forgetF g0)
               remainingunks startunks g' = (startunks `intersect` boundaryVsDup g', g')
 
   findDartLongForWing :: Vertex -> BoundaryState -> Dedge
@@ -450,10 +448,10 @@ emplaceChoices = emplaceChoicesForced . forceF  where
 
 -- |Example showing emplaceChoices for foolD with foolD shown in red in each choice
 emplaceChoicesFig :: OKBackend b => Diagram b
-emplaceChoicesFig =  lw thin $ hsep 1 $ map overlayg $ emplaceChoices g
+emplaceChoicesFig =  lw thin $ hsep 1 $  (overlayg . forgetF) <$> emplaceChoices g
     where g = foolD
-          overlayg g' = smartAlignBefore draw algmnt g # lc red <> alignBefore draw algmnt g'
-          algmnt = defaultAlignment g
+          overlayg g' = smartAligning algmnt draw g # lc red <> aligning algmnt draw  g'
+          algmnt = defaultAlignment $ maxCompForce g
 
 -- | An example to illustrate drawing P3 tiling (rhombuses).
 -- The top part (filled) is a 5 times decomposed sunGraph converted to rhombuses (P3) when drawn.

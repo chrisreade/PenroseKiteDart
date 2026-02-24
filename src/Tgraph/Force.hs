@@ -366,12 +366,10 @@ instance Forcible Tgraph where
 --  It produces Left report if it encounters a Forcible representing a stuck/incorrect Tgraph.
 tryForceWith :: Forcible a => UpdateGenerator -> a -> Try a
 tryForceWith ugen = tryFSOpWith ugen retry where
---    tryForceStateWith :: UpdateGenerator -> ForceState -> Try ForceState
---    tryForceStateWith uGen = retry where
   retry fs = do r <- tryOneStepWith ugen fs
                 case r of 
-                 Just (fs',_) -> retry fs'
-                 Nothing -> return fs -- final state (no more updates)
+                  Just (fs',_) -> retry fs'
+                  Nothing -> return fs -- final state (no more updates)
 
  
 -- | try a given number of force steps using a given UpdateGenerator.
@@ -454,10 +452,12 @@ instance HasFaces a => HasFaces (Forced a) where
     maxV = maxV . forgetF
     boundaryVFMap = boundaryVFMap . forgetF
 
+{-# WARNING labelAsForced 
+    ["This should only be used when when the argument is known to be a fully forced Forcible."
+    ,"Consider using forceF or tryForceF instead for safety reasons."
+    ]
+#-}
 -- | Constructs an explicitly Forced type.
---
--- WARNING: this should only be used when the argument is known to be a fully forced Forcible.
--- Consider using forceF or tryForceF instead for safety reasons.
 -- Used in partComposeF and composeF
 labelAsForced :: a -> Forced a
 labelAsForced = Forced
@@ -622,18 +622,18 @@ affectedBoundary _ edges = error $ "affectedBoundary: unexpected boundary edges 
  -- |find the directed edge following the given vertex round the boundary
 following :: Vertex -> BoundaryState -> Dedge
 following a bs = let b = (nextBV $ boundaryDedges bs) VMap.! a
-                 in (a, b) -- snd . snd . oboundaryAt a 
+                 in (a, b) 
 
 -- |find the directed edge preceeding the given vertex round the boundary
 preceding :: Vertex -> BoundaryState -> Dedge
 preceding a bs = let b = (prevBV $ boundaryDedges bs) VMap.! a
-                 in (b,a)  -- fst . oboundaryAt a
+                 in (b,a)  
 
--- | get the (2) boundary edges at a boundary vertex 
--- (raises an error if the vertex is not on the boundary).
+-- |boundaryAt v bs - get the (2) boundary edges at boundary vertex v in BoundaryState bs.
+-- Raises an error if v is not on the boundary.
+-- Otherwise returns the two edges in boundary direction order - e.g. [(a,v),(v,b)]
 boundaryAt :: Vertex -> BoundaryState -> [Dedge]
 boundaryAt v bs = [preceding v bs, following v bs]
--- boundaryAt v bs = missingRevs [e| f <- facesAtBV bs v, e@(a,b) <- faceDedges f, v==a || v==b]
 
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.

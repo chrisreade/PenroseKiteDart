@@ -26,18 +26,13 @@ module Tgraph.Compose
   , tryPartCompose
   , tryPartComposeFaces
   -- * Exported auxiliary functions (and type)
-  -- , partCompFacesAssumeF
- , partComposeFaces
-  -- , partComposeFacesF
-  -- , partComposeFacesFrom --new
+  , partComposeDWI
+  , partComposeFaces
   , DartWingInfo(..)
   -- , getDWIassumeF
   -- , getDartWingInfo
   , tryGetDartWingInfo
   , getDartWingInfoForced
- -- , composedFaceGroups
- -- , oldGetDartWingInfo
- --  , oldPartCompose
   ) where
 
 import Data.List (find,(\\),partition,nub)
@@ -219,6 +214,7 @@ getDWIassumeF isForced g fg =
                     -- long edge drt shared with another dart => largeKiteCentre
                 (kcs,dbs,IntSet.insert w unks) -- on the forced boundary so must be unknown
 
+
 -- |Not exported - used in partComposeF and in getDWIassumeF.
 -- Returns a triple of:
 --   list of all half-darts,
@@ -242,6 +238,7 @@ dartsMapUnused g = (drts,dwFMap,unused) where
     insertK (vmap,unsd) f = 
       let opp = oppV f
           org = originV f  -- cannot have a kite wingV at a dart originV
+          -- kite origin cases not needed for forced Tgraph, but included for completeness of the map
       in  case (VMap.lookup opp vmap, VMap.lookup org vmap) of
             (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
             (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
@@ -251,11 +248,18 @@ dartsMapUnused g = (drts,dwFMap,unused) where
     addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
     addK f (Just fs) = Just (f:fs)
 
-
--- |partComposeFaces. Used only in tryPartComposeFaces (exported only for use in composeK example in Extras)
--- Assumes not forced, so less efficient.
+{-# DEPRECATED partComposeFaces "Use partComposeDWI" #-}
+-- |partComposeFaces has been renamed as partComposeDWI.
 partComposeFaces :: DartWingInfo -> ([TileFace],[TileFace])
-partComposeFaces dwInfo = (remainder, evalFaces newFaces) where
+partComposeFaces = partComposeDWI --dwInfo = (remainder, evalFaces newFaces) where
+ 
+-- |partComposeDWI constructs a pair of (remainder,composedfaces) from dart wing information (DWI).
+-- This is used in defining tryPartComposeFaces but also exported
+-- for use in the composeK example in Extras.
+-- It does not assume the dart wing info has come from a forced Tgraph
+-- so the resulting composed faces may not form a valid Tgraph.
+partComposeDWI :: DartWingInfo -> ([TileFace],[TileFace])
+partComposeDWI dwInfo = (remainder, evalFaces newFaces) where
     remainder = recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
      -- all faces except those successfully used in making composed faces.   
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs

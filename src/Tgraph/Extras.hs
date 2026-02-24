@@ -24,12 +24,14 @@ It also defines experimental TrackedTgraphs (used for tracking subsets of faces 
 
 module Tgraph.Extras
   ( smart
-  , drawBoundaryJoins
-  , drawJoinsFor
   , smartdraw
   , smartOn
+  , smartRotating
+  , smartAligning
   , smartRotateBefore
   , smartAlignBefore
+  , drawBoundaryJoins
+  , drawJoinsFor
     -- * Overlaid drawing tools for Tgraphs
   , drawPCompose
   , drawForce
@@ -89,6 +91,9 @@ module Tgraph.Extras
   , decomposeTracked
     -- *  Drawing TrackedTgraphs
   , drawTrackedTgraph
+  , drawTrackedTgraphRotating
+  , drawTrackedTgraphAligning
+
   , drawTrackedTgraphRotated
   , drawTrackedTgraphAligned
   ) where
@@ -121,9 +126,7 @@ import Data.Maybe (fromMaybe)
 -- smart (labelSize normal draw) g
 smart :: OKBackend b =>
          (VPatch -> Diagram b) -> Tgraph -> Diagram b
-smart dr g = drawBoundaryJoins g vp <> dr vp
-  where vp = makeVP g
-
+smart dr g = (drawBoundaryJoins g <> dr) (makeVP g)
 
 -- |drawBoundaryJoins a vp - draw boundary join edges of faces in a, using a given suitable VPatch
 -- Will raise an error if any vertex in the faces does not have a location in the VPatch.
@@ -139,34 +142,56 @@ drawBoundaryJoins g vp = drawEdgesVP vp (map joinE $ boundaryJoinFaces g) # join
 -- Will raise an error if any vertex in the faces does not have a location in the VPatch.
 drawJoinsFor::  (HasFaces a, OKBackend b) =>
                 a -> VPatch -> Diagram b
-drawJoinsFor a vp = drawWith dashJOnly (restrictTo a vp)
+drawJoinsFor a = drawWith dashJOnly . restrictTo a
 
 -- |same as draw except adding dashed lines on boundary join edges. 
 smartdraw :: OKBackend b => Tgraph -> Diagram b
 smartdraw = smart draw
 
--- |smartOn a dr vp - assumes vp has locations for vertices in faces of a.
--- It uses the VPatch drawing function dr to draw g and adds dashed boundary joins.
+
+
+-- |smartOn a dr vp - assumes the VPatch vp has locations for vertices in faces of a.
+-- It uses the VPatch drawing function dr to draw faces in a and adds dashed boundary joins.
 -- This can be used instead of smart when an appropriate vp is already available.
 smartOn :: (HasFaces a, OKBackend b) =>
            a -> (VPatch -> Diagram b) -> VPatch -> Diagram b
-smartOn a dr vp = drawBoundaryJoins a rvp <> dr rvp where rvp = restrictTo a vp
+smartOn a dr = (drawBoundaryJoins a <> dr) . restrictTo a
 
--- |smartRotateBefore vfun a g - a tricky combination of smart with rotateBefore.
--- Uses vfun to produce a Diagram after converting g to a rotated VPatch but also adds the dashed boundary join edges of g.
+-- |smartRotating angle vfun g - a tricky combination of smart with rotating.
+-- Uses vfun to produce a Diagram after converting g to a rotated VPatch (rotated by angle)
+-- then adds the dashed boundary join edges of g.
 --
--- Example: smartRotateBefore (labelled draw) angle g
+-- Example: smartRotating angle (labelled draw) g
+smartRotating :: OKBackend b =>
+                Angle Double -> (VPatch -> Diagram b) -> Tgraph -> Diagram b
+smartRotating angle vfun g = rotating angle (smartOn g vfun) g
+
+{-# DEPRECATED smartRotateBefore "Use (flip smartRotating)" #-}
+-- |smartRotateBefore vfun angle g - a tricky combination of smart with rotateBefore.
+-- Uses vfun to produce a Diagram after converting g to a rotated VPatch (rotated by angle)
+-- then adds the dashed boundary join edges of g.
 smartRotateBefore :: OKBackend b =>
                      (VPatch -> Diagram b) -> Angle Double -> Tgraph -> Diagram b
-smartRotateBefore vfun angle g = rotateBefore (smartOn g vfun) angle g
+smartRotateBefore = flip smartRotating
 
--- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with alignBefore.
--- Uses vfun to produce a Diagram after converting g to an aligned VPatch but also adds the dashed boundary join edges of g.
--- 
--- Example: smartAlignBefore (labelled draw) (a,b) g
+-- |smartAligning (a,b) vfun g - a tricky combination of smart with aligning.
+-- Uses vfun to produce a Diagram after converting g to an aligned VPatch
+-- then adds the dashed boundary join edges of g.
+-- Vertex a is centered and vertex b aligned on the positive x-axis.
+-- Will raise an error if either a or b is not a vertex in g.
+--
+-- Example: smartAligning (a,b) (labelled draw) g
+smartAligning :: OKBackend b =>
+              (Vertex,Vertex) -> (VPatch -> Diagram b) ->  Tgraph -> Diagram b
+smartAligning (a,b) vfun g = aligning (a,b) (smartOn g vfun) g
+
+{-# DEPRECATED smartAlignBefore "Use (flip smartAligning)" #-}
+-- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with aligning.
+-- Uses vfun to produce a Diagram after converting g to an aligned VPatch
+-- then adds the dashed boundary join edges of g.
 smartAlignBefore :: OKBackend b =>
                     (VPatch -> Diagram b) -> (Vertex,Vertex) -> Tgraph -> Diagram b
-smartAlignBefore vfun (a,b) g = alignBefore (smartOn g vfun) (a,b) g
+smartAlignBefore = flip smartAligning 
 
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g.
 -- It adds dashed join edges on the boundary of g.
@@ -256,8 +281,10 @@ emphasizeFaces a g = (smartOn a draw vp # lw thin) <>
                      where vp = makeVP g
 
 
--- | For illustrating an unsound version of composition which defaults to kites when there are unknown
--- dart wings on the boundary (with just a half kite and the half dart at the dart wing).
+-- | For illustrating an unsound version of composition.
+-- This composition defaults to 
+-- forming a large half kite when there is an unknown
+-- dart wing on the boundary with a complete kite at the short edge of the half dart.
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 -- E.g. when applied to force queenGraph.
 composeK :: Tgraph -> Tgraph
@@ -266,24 +293,14 @@ composeK g = runTry $
       let changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
                               , unknowns = []
                               }
-          ( _ , newfaces) = partComposeFaces changedInfo
+          ( _ , newfaces) = partComposeDWI changedInfo
       tryConnectedNoCross newfaces
-{- composeK :: Tgraph -> Tgraph
-composeK g = runTry $ tryConnectedNoCross newfaces where
-    dwInfo = runTry $ tryGetDartWingInfo g
-    changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
-                        , unknowns = []
-                        }
---    newfaces = snd $ partCompFacesFrom changedInfo
-    compositions = composedFaceGroups changedInfo
-    newfaces = map fst compositions
- -}
 
 -- |compForce is a partial function similar to (compose . force),
 -- i.e it does a force then compose (raising an error if the force fails with an incorrect Tgraph).
 -- However it produces an explicitly Forced Tgraph, 
 -- and is more efficient because it omits the check for connected, and no crossing boundaries
--- (and uses getDartWingInfoForced instead of getDartWingInfo)
+-- and uses a faster composition method for forced Tgraphs.
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
 -- (We also have a proof that the result must be a forced Tgraph when the initial force succeeds.)
 -- This will raise an error if the initial force fails with an incorrect Tgraph.
@@ -353,7 +370,7 @@ boundaryECovering forcedbs = covers [(forcedbs, boundaryESet (forgetF forcedbs))
   covers:: [(Forced BoundaryState, Set Dedge)] -> [Forced BoundaryState]
   covers [] = []
   covers ((fbs,es):opens)
-    | Set.null es = fbs:covers opens -- bs is a completed cover
+    | Set.null es = fbs:covers opens -- fbs is a completed cover
     | otherwise = covers (newcases ++ opens)
        where (de,des) = Set.deleteFindMin es
              newcases = map (\b -> (b, commonBdry des (forgetF b)))
@@ -773,12 +790,41 @@ drawTrackedTgraph drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList
     The angle argument is used to rotate the common vertex location map (anticlockwise) before drawing
     to ensure labels are not rotated.
 -}
+drawTrackedTgraphRotating :: OKBackend b => Angle Double -> [VPatch -> Diagram b] -> TrackedTgraph -> Diagram b
+drawTrackedTgraphRotating a drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
+    vp = rotate a $ makeVP (tgraph ttg)
+    untracked = faces vp \\ concat (tracked ttg)
+    vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
+
+{-# DEPRECATED drawTrackedTgraphRotated "Use (flip drawTrackedTgraphRotating)" #-}
+{-|
+    To draw a TrackedTgraph rotated.
+    Same as drawTrackedTgraph but with additional angle argument for the rotation.
+    This is useful when labels are being drawn.
+    The angle argument is used to rotate the common vertex location map (anticlockwise) before drawing
+    to ensure labels are not rotated.
+-}
 drawTrackedTgraphRotated :: OKBackend b => [VPatch -> Diagram b] -> Angle Double -> TrackedTgraph -> Diagram b
 drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
     vp = rotate a $ makeVP (tgraph ttg)
     untracked = faces vp \\ concat (tracked ttg)
     vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
 
+{-|
+    To draw a TrackedTgraph aligned.
+    Same as drawTrackedTgraph but with additional vertex pair argument for the (x-axis) alignment.
+    This is useful when labels are being drawn.
+    The vertex pair argument is used to align the common vertex location map before drawing
+    (to ensure labels are not rotated).
+    This will raise an error if either of the pair of vertices is not a vertex of (the tgraph of) the TrackedTgraph
+-}
+drawTrackedTgraphAligning :: OKBackend b => (Vertex,Vertex) -> [VPatch -> Diagram b] -> TrackedTgraph -> Diagram b
+drawTrackedTgraphAligning (a,b) drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
+    vp = makeAlignedVP (a,b) (tgraph ttg)
+    untracked = faces vp \\ concat (tracked ttg)
+    vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
+
+{-# DEPRECATED drawTrackedTgraphAligned "Use (flip drawTrackedTgraphAligning)" #-}
 {-|
     To draw a TrackedTgraph aligned.
     Same as drawTrackedTgraph but with additional vertex pair argument for the (x-axis) alignment.

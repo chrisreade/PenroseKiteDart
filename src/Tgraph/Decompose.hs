@@ -48,9 +48,9 @@ decomposeFaces a = newFaces where
     newFaces = concatMap (decompFace pvmap) (faces a)
 
 -- |phiVMap fcs produces a finite map from the phi edges (the long edges including kite joins) to assigned new vertices not in fcs.
--- Both (a,b) and (b,a) get the same new vertex number. This is used(in decompFace, decompFaces and decompose.
--- (Sort is used to fix order of assigned numbers).
--- (Exported for use in TrackedTgraphs in Tgraphs module).
+-- Both (a,b) and (b,a) get the same new vertex number. This is used in decompFace, decompFaces and decompose.
+-- Sort is used to fix order of assigned numbers.
+-- Exported for use in TrackedTgraphs in Tgraph.Extras module.
 phiVMap :: HasFaces a => a -> Map Dedge Vertex
 phiVMap x = edgeVMap where
   --phiReps = sort [e | e@(a,b) <- phiEdges fcs, a<b]

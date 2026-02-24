@@ -167,6 +167,7 @@ module Tgraph.Prelude
   , DrawableLabelled(..)
   , labelSize
   , labelled
+  , rotating
   , rotateBefore
   , dropLabels
 -- * VPatch alignment with vertices
@@ -174,6 +175,7 @@ module Tgraph.Prelude
   , alignXaxis
   , alignments
   , alignAll
+  , aligning
   , alignBefore
   , makeAlignedVP
     -- *  Drawing Edges
@@ -1226,11 +1228,18 @@ labelled :: (OKBackend b, DrawableLabelled a) =>
             (Patch -> Diagram b) -> a -> Diagram b
 labelled = labelColourSize red small --(normalized 0.023)
 
+{-# DEPRECATED rotateBefore "Use (flip rotating)" #-}
 -- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
--- E.g. rotateBefore (labelled draw) angle graph.
 rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
-rotateBefore vfun angle = vfun . rotate angle . makeVP
+rotateBefore = flip rotating
+
+-- |rotating a vfun g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
+-- Tgraphs need to be rotating after a VPatch is calculated but before any labelled drawing.
+--
+-- E.g. rotating angle (labelled draw) graph.
+rotating :: Angle Double -> (VPatch -> a) -> Tgraph -> a
+rotating angle vfun = vfun . rotate angle . makeVP
 
 -- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
 centerOn :: Vertex -> VPatch -> VPatch
@@ -1268,18 +1277,27 @@ alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
 alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]
 alignAll (a,b) = map (alignXaxis (a,b))
 
+-- |aligning (a,b) vfun g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
+-- before applying the VPatch function vfun
+-- Will raise an error if either a or b is not a vertex in g.
+-- Tgraphs need to be aligned after a VPatch is calculated but before any labelled drawing.
+--
+-- E.g. aligning (a,b) (labelled draw) g
+aligning ::  (Vertex,Vertex) -> (VPatch -> a) -> Tgraph -> a
+aligning vs vfun = vfun . alignXaxis vs . makeVP
+
+{-# DEPRECATED alignBefore "Use (flip aligning)" #-}
 -- |alignBefore vfun (a,b) g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
 -- before applying the VPatch function vfun
 -- Will raise an error if either a or b is not a vertex in g.
 -- Tgraphs need to be aligned after a VPatch is calculated but before any labelled drawing.
--- E.g. alignBefore (labelled draw) (a,b) g
 alignBefore :: (VPatch -> a) -> (Vertex,Vertex) -> Tgraph -> a
-alignBefore vfun vs = vfun . alignXaxis vs . makeVP
+alignBefore = flip aligning
 
--- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligned on the x-axis.
+-- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligning on the x-axis.
 -- Will raise an error if either a or b is not a vertex in g.
-makeAlignedVP:: (Vertex,Vertex) ->  Tgraph -> VPatch
-makeAlignedVP = alignBefore id
+makeAlignedVP:: (Vertex,Vertex) -> Tgraph -> VPatch
+makeAlignedVP vs = aligning vs id
 
 
 -- |produce a diagram of a list of edges (given a suitable VPatch)

@@ -3,13 +3,17 @@
 Since v1.6
 
 - Possibly breaking:
-    - Changed type of BoundaryDedges in BoundaryState 
+    - Changed (unexported) type of BoundaryDedges in BoundaryState 
        (This does not affect boundary or boundaryESet functions)
 
 - Other changes:
-
-     - changed emphasizeFaces to use smartOn (so only boundary joins are drawn)
-        (used in commonFaces)
+    - Added rotating, aligning, smartRotating, smartAligning, drawTrackedTgraphAligning, drawTrackedTgraphRotating, partComposeDWI.
+    - Deprecated smartRotateBefore (Use (flip smartRotating))
+    - Deprecated smartAlignBefore (Use (flip smartAligning))
+    - Deprecated drawTrackedTgraphAligned (Use (flip drawTrackedTgraphAligning))
+    - Deprecated drawTrackedTgraphRotated (Use (flip drawTrackedTgraphRotating))
+    - Deprecated partComposeFaces (now renamed as partComposeDWI)
+    - Changed emphasizeFaces to use smartOn so only boundary joins are drawn (used in commonFaces)
 
 ## version v1.6
 - Possibly breaking:

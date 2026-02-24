@@ -2,7 +2,7 @@
 
 Author: Chris Reade
 
-March 2021 - 2025
+March 2021 - 2026
 
 See LICENSE file
 
