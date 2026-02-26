@@ -52,8 +52,8 @@ module Tgraph.Force
   , tryOneStepWith
   , tryOneStepForce
 -- * Types for Forcing
---  , BoundaryDedges
   , BoundaryState(..)
+  , BoundaryDedges()
   , ForceState(..)
   , BoundaryChange(..)
   , Update(..)
@@ -948,7 +948,7 @@ boundaryEdgeFilter etype predF bd focus =
 
 -- |makeUpdate f x constructs a safe update if x is Just(..) and an unsafe update if x is Nothing
 makeUpdate:: (Vertex -> TileFace) -> Maybe Vertex ->  Update
-makeUpdate f (Just !v) = SafeUpdate (f v) --  fv `seq` SafeUpdate fv where fv = f v
+makeUpdate f (Just !v) = SafeUpdate (f v) -- let fc = evalFace (f v) in SafeUpdate fc
 makeUpdate f Nothing  = UnsafeUpdate f
 
 

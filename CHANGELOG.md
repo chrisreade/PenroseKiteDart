@@ -1,15 +1,18 @@
 # Revision history for PenroseKiteDart
 
-Since v1.6
+## version v1.6.1
 
-- Possibly breaking:
-    - Changed (unexported) type of BoundaryDedges in BoundaryState 
-       (This does not affect boundary or boundaryESet functions)
+- Internal Representation change:
+    - Changed type of BoundaryDedges in BoundaryState (constructors not exported)
+       (This does not affect boundary or boundaryESet functions).
+    - boundaryAt is much more efficient (using new representation for BoundaryDedges) and returns the two boundary directed edges in direction order.
 
 - Other changes:
     - Added rotating, aligning, smartRotating, smartAligning, drawTrackedTgraphAligning, drawTrackedTgraphRotating, partComposeDWI.
     - Deprecated smartRotateBefore (Use (flip smartRotating))
     - Deprecated smartAlignBefore (Use (flip smartAligning))
+    - Deprecated rotateBefore (Use (flip rotating))
+    - Deprecated alignBefore (Use (flip aligning))
     - Deprecated drawTrackedTgraphAligned (Use (flip drawTrackedTgraphAligning))
     - Deprecated drawTrackedTgraphRotated (Use (flip drawTrackedTgraphRotating))
     - Deprecated partComposeFaces (now renamed as partComposeDWI)

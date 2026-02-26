@@ -86,7 +86,7 @@ module Tgraph.Prelude
 --  , faces
   , nullFaces
   , evalFaces
---  , evalFace
+  , evalFace
   , faceCount
   , ldarts
   , rdarts
@@ -163,21 +163,21 @@ module Tgraph.Prelude
   , removeVerticesFromVP
   , selectVerticesFromVP
   , findLoc
-    -- * Drawing Tgraphs and Vpatches with Labels
+    -- * Drawing Tgraphs and VPatches with Labels
   , DrawableLabelled(..)
   , labelSize
   , labelled
   , rotating
   , rotateBefore
   , dropLabels
--- * VPatch alignment with vertices
+-- * Tgraph and VPatch alignment with vertices
+  , aligning
+  , alignBefore
+  , makeAlignedVP
   , centerOn
   , alignXaxis
   , alignments
   , alignAll
-  , aligning
-  , alignBefore
-  , makeAlignedVP
     -- *  Drawing Edges
   , drawEdgesVP
   , drawEdgeVP
@@ -745,13 +745,13 @@ defaultAlignment g | nullFaces g = error "defaultAlignment: applied to null list
 
 makeRD,makeLD,makeRK,makeLK :: Vertex -> Vertex -> Vertex -> TileFace
 -- |make an RD (strict in arguments)
-makeRD !x !y !z = RD (x,y,z)
+makeRD x y z = RD (x,y,z)
 -- |make an LD (strict in arguments)
-makeLD !x !y !z = LD (x,y,z)
+makeLD x y z = LD (x,y,z)
 -- |make an RK (strict in arguments)
-makeRK !x !y !z = RK (x,y,z)
+makeRK x y z = RK (x,y,z)
 -- |make an LK (strict in arguments)
-makeLK !x !y !z = LK (x,y,z)
+makeLK x y z = LK (x,y,z)
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
 faceVs::TileFace -> (Vertex,Vertex,Vertex)

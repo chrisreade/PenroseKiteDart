@@ -96,8 +96,8 @@ tryPartComposeFaces g =
 -- The calculation of remainder faces is also more efficient with a known forced Tgraph.
 -- Also dartWingInfo does not need to be calculated for composing a forced Tgraph.
 partComposeF:: Forced Tgraph -> ([TileFace], Forced Tgraph)
-partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph evalnewfaces) where
-  !evalnewfaces = evalFaces newfaces
+partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
+  -- !evalnewfaces = evalFaces newfaces
   (_,dwFMap,unused) = dartsMapUnused (forgetF fg)
   (remainder,newfaces) = process (VMap.keys dwFMap) (unused,[])
   process [] res = res
@@ -114,21 +114,22 @@ partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph evalnewfaces) 
                      "\nat dart wing vertex: " ++ show w ++ "\n"
   largeRD fcs = do rd <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
-                   return $ makeRD (originV lk) (originV rd) (wingV rd)
-                   
+                   let f = evalFace $ makeRD (originV lk) (originV rd) (wingV rd)
+                   return f
   largeLD fcs = do ld <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
-                   return $ makeLD (originV rk) (wingV ld) (originV ld)
-
+                   let f = evalFace $ makeLD (originV rk) (wingV ld) (originV ld)
+                   return f
   largeRK fcs = do rd  <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
                    rk <- find (matchingJoinE lk) fcs
-                   return $ makeRK (originV rd) (wingV rk) (originV lk)
-
+                   let f = evalFace $ makeRK (originV rd) (wingV rk) (originV lk)
+                   return f
   largeLK fcs = do ld  <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
                    lk <- find (matchingJoinE rk) fcs
-                   return $ makeLK (originV ld) (originV rk) (wingV lk)
+                   let f = evalFace $ makeLK (originV ld) (originV rk) (wingV lk)
+                   return f
 
 
 -- |composeF - produces a composed Forced Tgraph from a Forced Tgraph.
