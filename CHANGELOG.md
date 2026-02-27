@@ -8,6 +8,7 @@
     - boundaryAt is much more efficient (using new representation for BoundaryDedges) and returns the two boundary directed edges in direction order.
 
 - Other changes:
+    - Added nextBV and prevBV
     - Added rotating, aligning, smartRotating, smartAligning, drawTrackedTgraphAligning, drawTrackedTgraphRotating, partComposeDWI.
     - Deprecated smartRotateBefore (Use (flip smartRotating))
     - Deprecated smartAlignBefore (Use (flip smartAligning))
