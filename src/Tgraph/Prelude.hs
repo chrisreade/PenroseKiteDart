@@ -146,7 +146,9 @@ module Tgraph.Prelude
   , matchingJoinE
   , hasDedge
   , hasDedgeIn
+  , completeEdgeSet
   , completeEdges
+  , bothDirSet
   , bothDir
 --   , bothDirOneWay
   , missingRevs
@@ -944,11 +946,20 @@ hasDedgeIn face es = not $ null $ es `intersect` faceDedges face
 completeEdges :: HasFaces a => a -> [Dedge]
 completeEdges = bothDir . dedges
 
+-- |completeEdgeSet returns a set of all the edges of the faces (both directions of each edge).
+completeEdgeSet :: HasFaces a => a -> Set Dedge
+completeEdgeSet = bothDirSet . dedgeSet
+
 -- |bothDir adds missing reverse directed edges to a list of directed edges
 -- to complete edges (Result is a complete edge list)
 -- It assumes no duplicates in argument.
 bothDir:: [Dedge] -> [Dedge]
 bothDir es = missingRevs es ++ es
+
+-- |bothDirSet adds missing reverse directed edges to a set of directed edges
+-- to complete edges (Result is a complete edge set)
+bothDirSet:: Set Dedge -> Set Dedge
+bothDirSet es = missingRevSet es <> es
 
 {- 
 -- |bothDirOneWay adds all the reverse directed edges to a list of directed edges

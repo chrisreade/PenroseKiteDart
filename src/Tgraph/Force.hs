@@ -73,6 +73,9 @@ module Tgraph.Force
   , boundaryAt
   , nextBV
   , prevBV
+  , isBoundaryV
+  , isBoundaryDE
+  , tryOnBoundary
 --  , mustFind
   , tryReviseUpdates
   , tryReviseFSWith
@@ -157,8 +160,8 @@ import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import Data.IntMap.Strict(IntMap)
-import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet
-                                            , fromAscList, fromList, assocs,insert)
+import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet, member
+                                            , fromAscList, fromList, assocs, insert)
 import qualified Data.IntSet as IntSet (member,empty,insert)
             -- used for BoundaryState locations AND faces at boundary vertices
 import Data.Set (Set)
@@ -238,6 +241,16 @@ prevBV :: Vertex -> BoundaryState -> Vertex
 prevBV v bs = case VMap.lookup v (prevBVMap $ boundaryDedges bs) of
                 Nothing -> error $ "prevBV: Vertex not found on boundary: " ++ show v ++ "\n"
                 Just v1 -> v1
+
+-- Check if a directed edge is on the boundary of a BoundaryState (in the correct boundary direction)
+isBoundaryDE :: Dedge -> BoundaryState -> Bool
+isBoundaryDE (a,b) bs = case VMap.lookup a (nextBVMap $ boundaryDedges bs) of
+                Nothing -> False
+                Just c -> c == b
+
+-- | Check if a vertex is on the boundary
+isBoundaryV :: Vertex -> BoundaryState -> Bool
+isBoundaryV v = VMap.member v . nextBVMap . boundaryDedges
 
 -- |BoundaryState is in class HasFaces.
 -- Note the default implementations are overiden to use precalculated information
@@ -505,17 +518,28 @@ initFSF (Forced a) = Forced (initFS a)
 -- |try to find the right direction for an edge to be a boundary directed edge.
 -- Fails if neither direction is consistent with boundary directed edges.
 tryOnBoundary :: Dedge -> BoundaryState -> Try Dedge
+tryOnBoundary e bd 
+  | isBoundaryDE e bd = Right e
+  | isBoundaryDE (reverseD e) bd = Right (reverseD e)
+  | otherwise = failReports  
+                 [ "tryOnBoundary:\nNeither "
+                 , show e, " nor ", show(reverseD e), " are on the boundary\n"
+                 ]
+
+{- -- |try to find the right direction for an edge to be a boundary directed edge.
+-- Fails if neither direction is consistent with boundary directed edges.
+tryOnBoundary :: Dedge -> BoundaryState -> Try Dedge
 tryOnBoundary e@(a,b) bd =
   let bdes = boundaryAt a bd 
   in case find (==e) bdes of
      Just _ -> Right e
      Nothing -> case find (==(b,a)) bdes of
-                 Just re -> Right re
+                 Just reve -> Right reve
                  Nothing -> failReports  
                     ["tryOnBoundary:\nNeither "
                     ,show e, " nor ", show(reverseD e), " are on the boundary\n"
                     ]
-
+ -}
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as
@@ -806,7 +830,7 @@ tryUpdate bd u@(UnsafeUpdate _) =
 recalculateBVLocs :: BoundaryState -> BoundaryState
 recalculateBVLocs bd = bd {bvLocMap = newlocs} where
     newlocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices $ recoverGraph bd
-    bvs = VMap.keysSet $ bvLocMap bd -- IntSet.fromList $ fst <$> boundary bd
+    bvs = VMap.keysSet $ bvLocMap bd
 
 -- |A version of tryForce that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
 -- This is needed to limit accumulated inaccuracies when large numbers of faces are added in forcing.

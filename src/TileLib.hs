@@ -38,6 +38,8 @@ module TileLib
   , drawjPiece
   , drawJPiece
   , joinDashing
+  , joinDashing'
+  , defaultJoinDashSize
   , dashjOnly
   , dashJOnly
   , drawRoundPiece
@@ -54,6 +56,8 @@ module TileLib
   , draw
   , drawj
   , drawJ
+  , drawj'
+  , drawJ'
   , fillDK
   , fillKD
   -- , fillMaybeDK
@@ -186,10 +190,19 @@ dashJOnly :: OKBackend b =>
              Piece -> Diagram b
 dashJOnly = joinDashing . drawJoin
 
--- |changes line style to ultraThin dashed lines (for drawing join edges)
+-- |A default size for dashing (used for join edges)
+defaultJoinDashSize :: Measure Double
+defaultJoinDashSize = normalized 0.003  `atLeast` output 1.0
+
+-- |changes line style to dashed lines (for drawing join edges)
+-- using joinDashing' with defaultJoinDashSize
 joinDashing :: (HasStyle c, N c ~ Double) => c -> c
-joinDashing = dashing [dashmeasure,dashmeasure] 0
-                     where dashmeasure = normalized 0.003  `atLeast` output 0.5
+joinDashing = joinDashing' defaultJoinDashSize
+
+-- |changes line style to dashed lines (for drawing join edges) using the supplied measure
+-- for dashes (usually normalized 0.003  `atLeast` output 1.0)
+joinDashing' :: (HasStyle c, N c ~ Double) => Measure Double -> c -> c
+joinDashing' dashmeasure = dashing [dashmeasure,dashmeasure] 0
 
 -- |draw join edge only.
 drawJoin :: OKBackend b =>
@@ -283,17 +296,33 @@ draw :: (Drawable a, OKBackend b) =>
         a -> Diagram b
 draw = drawWith drawPiece
 
--- | alternative default case for drawing, adding faint dashed lines for join edges.
--- J for plain dashed  Join, j for faint dashed join
+-- | normal draw but adding faint dashed lines for join edges,
+-- using drawj' with defaultJoinDashSize.
+-- Note also J for plain dashed joins, j for ultraThin dashed joins
 drawj :: (Drawable a, OKBackend b) =>
          a -> Diagram b
-drawj = drawWith drawjPiece
+drawj = drawj' defaultJoinDashSize
 
--- | alternative default case for drawing, adding dashed lines for join edges.
--- J for plain dashed  Join, j for faint dashed join
+-- | normal draw but adding faint dashed lines for join edges,
+-- where dashmeasure is size of dashing (usually normalized 0.003 `atLeast` output 1.0)
+-- Note also J for plain dashed joins, j for ultraThin dashed joins
+drawj' :: (OKBackend b, Drawable a) => Measure Double -> a -> Diagram b
+drawj' dashmeasure = drawWith (drawPiece <> (lw ultraThin . joinDashing' dashmeasure . drawJoin))
+
+-- | normal draw but adding dashed lines for join edges,
+-- using drawJ' with defaultJoinDashSize
+-- Note also J for plain dashed joins, j for ultraThin dashed joins
 drawJ :: (Drawable a, OKBackend b) =>
          a -> Diagram b
-drawJ = drawWith drawJPiece
+drawJ = drawJ' defaultJoinDashSize
+
+-- | normal draw but adding dashed lines for join edges,
+-- where dashmeasure is size of dashing (usually normalized 0.003 `atLeast` output 1.0)
+-- Note also J for plain dashed joins, j for ultraThin dashed joins
+drawJ' :: (Drawable a, OKBackend b) => 
+          Measure Double -> a -> Diagram b
+drawJ' dashmeasure = drawWith (drawPiece <> (joinDashing' dashmeasure . drawJoin))
+
 
 fillDK, fillKD :: (Drawable a, OKBackend b, Color c1, Color c2) =>
                   c1 -> c2 -> a -> Diagram b
@@ -305,7 +334,7 @@ fillDK c1 c2 = drawWith (fillPieceDK c1 c2)
 -- |fillKD kcol dcol a - draws and fills a with colour kcol for kites and dcol for darts.
 -- Note the order K D.
 -- Works with AlphaColours as well as Colours.
-fillKD c1 c2 = fillDK c2 c1
+fillKD = flip fillDK
 
 -- |colourDKG (c1,c2,c3) p - fill in a drawable with colour c1 for darts, colour c2 for kites and
 -- colour c3 for grout (that is, the non-join edges).

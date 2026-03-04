@@ -366,9 +366,9 @@ boundaryFDart5 = makeUncheckedTgraph $ boundaryVFaces $ force $ makeBoundaryStat
 
 boundaryFDart4Fig,boundaryFDart5Fig :: OKBackend b => Diagram b
 -- |figure of the boundary faces only of a forced graph (dartDs!!4).
-boundaryFDart4Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryFDart4
+boundaryFDart4Fig = padBorder $ lw ultraThin $ smart (labelSize tiny draw) boundaryFDart4
 -- |figure of the boundary faces only of a forced graph (dartDs!!5).
-boundaryFDart5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) drawj boundaryFDart5
+boundaryFDart5Fig = padBorder $ lw ultraThin $ smart (labelSize (normalized 0.006) draw) boundaryFDart5
 
 boundaryGapFDart4, boundaryGapFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph - with extra faces removed to make a gap
@@ -381,9 +381,9 @@ boundaryGapFDart5 = removeVertices [1467] boundaryFDart5
 
 boundaryGap4Fig, boundaryGap5Fig  :: OKBackend b => Diagram b
 -- |figure for the boundary gap graph boundaryGapFDart4.
-boundaryGap4Fig = padBorder $ lw ultraThin $ labelSize tiny drawj boundaryGapFDart4
+boundaryGap4Fig = padBorder $ lw ultraThin $ smart (labelSize tiny draw) boundaryGapFDart4
 -- |figure for the boundary gap graph boundaryGapFDart5.
-boundaryGap5Fig = padBorder $ lw ultraThin $ labelSize (normalized 0.006) drawj boundaryGapFDart5
+boundaryGap5Fig = padBorder $ lw ultraThin $ smart (labelSize (normalized 0.006) draw) boundaryGapFDart5
 
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
 -- (with the Tgraph represented by bd shown in red in each case).

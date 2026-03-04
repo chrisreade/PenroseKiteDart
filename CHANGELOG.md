@@ -1,5 +1,12 @@
 # Revision history for PenroseKiteDart
 
+## Since v1.6.1
+
+  - Added joinDashing', dashj', dashJ', defaultJoinDashSize
+  - Added completeEdgeSet, bothDirSet
+  - Exported tryOnBoundary, isBoundaryDE, isBoundaryV
+  - Used smart on boundaryFDart.. and boundaryGap.. example figures.
+
 ## version v1.6.1
 
 - Internal Representation change:
@@ -8,7 +15,7 @@
     - boundaryAt is much more efficient (using new representation for BoundaryDedges) and returns the two boundary directed edges in direction order.
 
 - Other changes:
-    - Added nextBV and prevBV
+    - Added nextBV and prevBV (efficient)
     - Added rotating, aligning, smartRotating, smartAligning, drawTrackedTgraphAligning, drawTrackedTgraphRotating, partComposeDWI.
     - Deprecated smartRotateBefore (Use (flip smartRotating))
     - Deprecated smartAlignBefore (Use (flip smartAligning))
