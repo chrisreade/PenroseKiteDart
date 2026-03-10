@@ -68,10 +68,10 @@ instance Transformable a => Transformable (HalfTile a) where
 -- {-# INLINE tileRep #-}
 -- |return the representation of a half-tile
 tileRep:: HalfTile rep -> rep
-tileRep (LD r) = r
-tileRep (RD r) = r
-tileRep (LK r) = r
-tileRep (RK r) = r
+tileRep (LD !r) = r
+tileRep (RD !r) = r
+tileRep (LK !r) = r
+tileRep (RK !r) = r
 
 -- |half-tile predicate
 isLD,isRD,isLK,isRK,isDart,isKite :: HalfTile rep -> Bool

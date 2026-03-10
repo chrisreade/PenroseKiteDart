@@ -205,7 +205,7 @@ data BoundaryState
 -- The representation relies on the no crossing boundaries property of Tgraphs.
 data BoundaryDedges = BoundaryDedges {prevBVMap::IntMap Vertex, nextBVMap::IntMap Vertex}
      deriving(Show)
---type BoundaryDedges = Set Dedge -- was [Dedge]
+
 
 -- |convert a set of boundary directed edges to BoundaryDedges
 bdesFromSet :: Set Dedge -> BoundaryDedges --(IntMap Vertex, IntMap Vertex)
@@ -516,7 +516,8 @@ initFSF :: Forcible a => Forced a -> Forced ForceState
 initFSF (Forced a) = Forced (initFS a)
 
 -- |try to find the right direction for an edge to be a boundary directed edge.
--- Fails if neither direction is consistent with boundary directed edges.
+-- Returns either Right de where de is the correct direction for the edge on the boundary,
+-- or returns Left failreport.. if neither direction is consistent with boundary directed edges.
 tryOnBoundary :: Dedge -> BoundaryState -> Try Dedge
 tryOnBoundary e bd 
   | isBoundaryDE e bd = Right e
@@ -525,21 +526,6 @@ tryOnBoundary e bd
                  [ "tryOnBoundary:\nNeither "
                  , show e, " nor ", show(reverseD e), " are on the boundary\n"
                  ]
-
-{- -- |try to find the right direction for an edge to be a boundary directed edge.
--- Fails if neither direction is consistent with boundary directed edges.
-tryOnBoundary :: Dedge -> BoundaryState -> Try Dedge
-tryOnBoundary e@(a,b) bd =
-  let bdes = boundaryAt a bd 
-  in case find (==e) bdes of
-     Just _ -> Right e
-     Nothing -> case find (==(b,a)) bdes of
-                 Just reve -> Right reve
-                 Nothing -> failReports  
-                    ["tryOnBoundary:\nNeither "
-                    ,show e, " nor ", show(reverseD e), " are on the boundary\n"
-                    ]
- -}
 
 -- |addHalfKite is for adding a single half kite on a chosen boundary Dedge of a Forcible.
 -- The Dedge must be a boundary edge but the direction is not important as
@@ -1544,6 +1530,8 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
 externalAngle:: BoundaryState -> Vertex -> Int
 externalAngle bd v = 10 - sum (map (intAngleAt v) $ facesAtBV bd v)
 
+{- New intAngleAt has faceIntAngles inlined. Older versions were
+
 -- |intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
 -- in terms of tenth turns, so returning an Int (1,2,or 3).
 intAngleAt :: Vertex -> TileFace -> Int
@@ -1555,6 +1543,32 @@ faceIntAngles :: TileFace -> [Int]
 faceIntAngles (LD _) = [1,3,1]
 faceIntAngles (RD _) = [1,1,3]
 faceIntAngles _      = [1,2,2] -- LK and RK
+
+ -}
+
+-- |intAngleAt v fc gives the internal angle of the face fc at vertex v (which must be a vertex of the face)
+-- in terms of tenth turns, so returning an Int (1,2,or 3).
+intAngleAt :: Vertex -> TileFace -> Int
+intAngleAt v face@(LD (a,b,c)) 
+   | v==a = 1
+   | v==b = 3
+   | v==c = 1
+   | otherwise = error ("intAngleAt: Vertex " ++ show v ++ " not found in face " ++ show face)
+intAngleAt v face@(RD (a,b,c)) 
+   | v==a = 1
+   | v==b = 1
+   | v==c = 3
+   | otherwise = error ("intAngleAt: Vertex " ++ show v ++ " not found in face " ++ show face)
+intAngleAt v face@(LK (a,b,c)) 
+   | v==a = 1
+   | v==b = 2
+   | v==c = 2
+   | otherwise = error ("intAngleAt: Vertex " ++ show v ++ " not found in face " ++ show face)
+intAngleAt v face@(RK (a,b,c)) 
+   | v==a = 1
+   | v==b = 2
+   | v==c = 2
+   | otherwise = error ("intAngleAt: Vertex " ++ show v ++ " not found in face " ++ show face)
 
 
 {-------------------------

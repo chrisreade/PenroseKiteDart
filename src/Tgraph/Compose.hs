@@ -114,21 +114,21 @@ partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) wher
                      "\nat dart wing vertex: " ++ show w ++ "\n"
   largeRD fcs = do rd <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
-                   let f = evalFace $ makeRD (originV lk) (originV rd) (wingV rd)
+                   let !f = evalFace $ makeRD (originV lk) (originV rd) (wingV rd)
                    return f
   largeLD fcs = do ld <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
-                   let f = evalFace $ makeLD (originV rk) (wingV ld) (originV ld)
+                   let !f = evalFace $ makeLD (originV rk) (wingV ld) (originV ld)
                    return f
   largeRK fcs = do rd  <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
                    rk <- find (matchingJoinE lk) fcs
-                   let f = evalFace $ makeRK (originV rd) (wingV rk) (originV lk)
+                   let !f = evalFace $ makeRK (originV rd) (wingV rk) (originV lk)
                    return f
   largeLK fcs = do ld  <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
                    lk <- find (matchingJoinE rk) fcs
-                   let f = evalFace $ makeLK (originV ld) (originV rk) (wingV lk)
+                   let !f = evalFace $ makeLK (originV ld) (originV rk) (wingV lk)
                    return f
 
 

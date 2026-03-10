@@ -333,16 +333,23 @@ makeUncheckedTgraph = Tgraph
 
 -- |fully evaluate a tileface
 evalFace :: TileFace -> TileFace
-evalFace !f@(LD (x,y,z)) = x `seq` y `seq` z `seq` f 
-evalFace !f@(RD (x,y,z)) = x `seq` y `seq` z `seq` f
-evalFace !f@(LK (x,y,z)) = x `seq` y `seq` z `seq` f 
-evalFace !f@(RK (x,y,z)) = x `seq` y `seq` z `seq` f 
+evalFace !f@(LD (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
+evalFace !f@(RD (!x,!y,!z)) = x `seq` y `seq` z `seq` f
+evalFace !f@(LK (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
+evalFace !f@(RK (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
 
+
+{- -- |evaluate a tileface (and check for edgeloops)
+evalFace :: TileFace -> TileFace
+evalFace f = if x==y || x==z || y==z 
+             then error $ "evalFace : Edge loop found for face " ++ show f
+             else f
+             where (x,y,z) = faceVs f
+ -}
 -- |fully evaluate a list of tilefaces.
 evalFaces :: HasFaces a => a -> a
-evalFaces a = foldr (seq . evalFace) () (faces a) `seq` a
+evalFaces !a = foldr (seq . evalFace) () (faces a) `seq` a
 
- 
 
 {-| Creates a Tgraph from a list of faces using tryTgraphProps to check required properties
 and producing an error if a check fails.
@@ -493,18 +500,18 @@ noNewConflict face fcs = all legal shared where
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   
 legal:: (TileFace,EdgeType,TileFace,EdgeType) -> Bool
-legal (LK _, e1,    RK _ , e2    ) = e1 == e2
-legal (RK _, e1,    LK _ , e2    ) = e1 == e2
-legal (LK _, Short, RD _ , Short) = True
-legal (RD _, Short, LK _ , Short) = True
-legal (LK _, Long,  RD _ , Long ) = True
-legal (RD _, Long,  LK _ , Long ) = True
+legal (LK _, e1,    RK _ , e2   ) = e1 == e2
+legal (RK _, e1,    LK _ , e2   ) = e1 == e2
 legal (LD _, Join,  RD _ , Join ) = True
 legal (RD _, Join,  LD _ , Join ) = True
-legal (LD _, Long,  RD _ , Long ) = True
-legal (RD _, Long,  LD _ , Long ) = True
+legal (LK _, Short, RD _ , Short) = True
+legal (RD _, Short, LK _ , Short) = True
 legal (LD _, Short, RK _ , Short) = True
 legal (RK _, Short, LD _ , Short) = True
+legal (LK _, Long,  RD _ , Long ) = True
+legal (RD _, Long,  LK _ , Long ) = True
+legal (LD _, Long,  RD _ , Long ) = True
+legal (RD _, Long,  LD _ , Long ) = True
 legal (LD _, Long,  RK _ , Long ) = True
 legal (RK _, Long,  LD _ , Long ) = True
 legal _ = False
@@ -939,8 +946,8 @@ hasDedge f e = e == (a,b) || e == (b,c) || e == (c,a)
 
 -- |hasDedgeIn f es - is True if face f has a directed edge in the list of directed edges es.
 hasDedgeIn :: TileFace -> [Dedge] -> Bool
-hasDedgeIn face es = not $ null $ es `intersect` faceDedges face
--- hasDedgeIn face es = not $ null $ filter (hasDedge face) es 
+--hasDedgeIn face es = not $ null $ es `intersect` faceDedges face
+hasDedgeIn face = any (hasDedge face)
 
 -- |completeEdges returns a list of all the edges of the faces (both directions of each edge).
 completeEdges :: HasFaces a => a -> [Dedge]
@@ -1152,13 +1159,13 @@ subFaces a vp = vp {vpFaces  = faces a}
 -- relevantVP vp will raise an error if any vertex in the faces of vp is not a key in the location map of vp.
 relevantVP :: VPatch -> VPatch
 relevantVP vp
-  | null diffList = vp{vLocs = locVs}
+  | IntSet.null diffSet = vp{vLocs = locVs}
   | otherwise = error $ "relevantVP: missing locations for: " ++
-                                    show diffList ++ "\n"
+                                    show diffSet ++ "\n"
   where
      vs = vertexSet vp
      source = VMap.keysSet locVs
-     diffList = IntSet.toList $ IntSet.difference vs source
+     diffSet = IntSet.difference vs source
      locVs = VMap.filterWithKey (\ v _ -> v `IntSet.member` vs) $ vLocs vp
 
 -- |A combination of subFaces and relevantVP. 
@@ -1467,7 +1474,7 @@ It is used in touchingVertices and touchingVerticesGen and Force.touchCheck).
 -}
 touching :: Point V2 Double -> Point V2 Double -> Bool
 touching p p1 = quadrance (p .-. p1) < 0.1 -- quadrance is square of length of a vector
---  0.1 represents a distance of about 0.316 units (= sqrt 0.1)
+-- quadrance 0.1 represents a distance of about 0.316 units (= sqrt 0.1)
 
 
 {-*  Generalised Touching Vertices
