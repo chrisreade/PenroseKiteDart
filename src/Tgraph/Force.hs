@@ -160,7 +160,7 @@ import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import Data.IntMap.Strict(IntMap)
-import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, delete, lookup, (!), keysSet, member
+import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, adjust, delete, lookup, (!), keysSet, member
                                             , fromAscList, fromList, assocs, insert)
 import qualified Data.IntSet as IntSet (member,empty,insert)
             -- used for BoundaryState locations AND faces at boundary vertices
@@ -279,12 +279,20 @@ makeBoundaryState g =
 recoverGraph:: BoundaryState -> Tgraph
 recoverGraph = makeUncheckedTgraph . faces
 
--- |changeVFMap f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
-changeVFMap::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
-changeVFMap f vfm = foldl' insertf vfm (faceVList f) where
+-- |changeVFMapUnsafe f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
+-- This is used in the unsafe addition case where one of the vertices will be new to the map.
+changeVFMapUnsafe::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
+changeVFMapUnsafe f vfm = foldl' insertf vfm (faceVList f) where
    insertf = flip (VMap.alter consf) -- v vmap
    consf Nothing = Just [f]
    consf (Just fs) = Just (f:fs)
+
+-- |changeVFMapSafe f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
+-- This is used in the safe addition case where no new vertices are added to the map.
+-- If this is done after deletions, one or three of the vertices will not be in the map.
+changeVFMapSafe::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
+changeVFMapSafe f vfm = foldl' insertf vfm (faceVList f) where
+   insertf = flip (VMap.adjust (f:)) -- v vmap
 
 -- |facesAtBV bd v - returns the faces found at v (which must be a boundary vertex)
 facesAtBV:: BoundaryState -> Vertex -> [TileFace]
@@ -726,7 +734,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
        newBdry = map reverseD unmatched -- two edges
        resultBd = BoundaryState
                     { boundaryDedges = bdesInsert newBdry $ bdesDelete matchedDedges $ boundaryDedges bd
-                    , bvFacesMap = changeVFMap newface (bvFacesMap bd)
+                    , bvFacesMap = changeVFMapUnsafe newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
                     , allFaces = newface:allFaces bd
                     -- allFaces = newface:faces bd <<<CAUSES SPACE LEAK>>>>
@@ -763,11 +771,9 @@ trySafeUpdate bd (SafeUpdate newface) =
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
                    { boundaryDedges = bdesInsert newBdry $ bdesDelete matchedDedges $ boundaryDedges bd
-                    -- newBdry ++ (boundaryDedges bd \\ matchedDedges)
-                   , bvFacesMap = foldl' (flip VMap.delete) (changeVFMap newface $ bvFacesMap bd) removedBVs
---                   , bvFacesMap = changeVFMap newface (bvFacesMap bd)
+                   , bvFacesMap = changeVFMapSafe newface $ foldl' (flip VMap.delete) (bvFacesMap bd) removedBVs
+                    -- do deletions first then only adds for vertices still on the boundary.
                    , allFaces = newface:allFaces bd
- --                  , bvLocMap = foldr VMap.delete (bvLocMap bd) removedBVs
                    , bvLocMap = foldl' (flip VMap.delete) (bvLocMap bd) removedBVs
                               --remove vertex/vertices no longer on boundary
                    , nextVertex = nextVertex bd

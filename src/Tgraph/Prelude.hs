@@ -727,7 +727,7 @@ removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
 -- for required properties  e.g. connectedness and no crossing boundaries
 -- and will raise an error if these fail.
 selectVertices :: [Vertex] -> Tgraph -> Tgraph
-selectVertices vs g = selectFaces (filter (hasVIn vs) (faces g)) g
+selectVertices vs g = runTry $ tryConnectedNoCross $ filter (hasVIn vs) $ faces g
 
 -- |internal edges are shared by two faces. That is, all edges except those at the boundary.
 -- Both directions of each internal directed edge will appear in the result.
