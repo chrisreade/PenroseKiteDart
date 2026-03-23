@@ -1473,8 +1473,9 @@ vertex locations for 2 different vertices in a VPatch using unit scale for short
 It is used in touchingVertices and touchingVerticesGen and Force.touchCheck).
 -}
 touching :: Point V2 Double -> Point V2 Double -> Bool
-touching p p1 = quadrance (p .-. p1) < 0.1 -- quadrance is square of length of a vector
+touching p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
 -- quadrance 0.1 represents a distance of about 0.316 units (= sqrt 0.1)
+-- quadrance 0.25 represents a distance of 0.5 units
 
 
 {-*  Generalised Touching Vertices

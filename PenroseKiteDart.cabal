@@ -41,6 +41,7 @@ library
       Tgraph.Extras
       TgraphExamples
   other-modules:
+      Tgraph.Grid
       Paths_PenroseKiteDart
   hs-source-dirs:
       src

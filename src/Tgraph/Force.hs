@@ -168,6 +168,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set (foldr',elems,fromList)
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
+import Tgraph.Grid
 
 {-
 ***************************************************************************   
@@ -283,8 +284,8 @@ recoverGraph = makeUncheckedTgraph . faces
 -- This is used in the unsafe addition case where one of the vertices will be new to the map.
 changeVFMapUnsafe::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
 changeVFMapUnsafe f vfm = foldl' insertf vfm (faceVList f) where
-   insertf = flip (VMap.alter consf) -- v vmap
-   consf Nothing = Just [f]
+   insertf = flip (VMap.alter consf)
+   consf Nothing = Just [f] -- new case
    consf (Just fs) = Just (f:fs)
 
 -- |changeVFMapSafe f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
@@ -292,7 +293,7 @@ changeVFMapUnsafe f vfm = foldl' insertf vfm (faceVList f) where
 -- If this is done after deletions, one or three of the vertices will not be in the map.
 changeVFMapSafe::  TileFace -> VertexMap [TileFace] -> VertexMap [TileFace]
 changeVFMapSafe f vfm = foldl' insertf vfm (faceVList f) where
-   insertf = flip (VMap.adjust (f:)) -- v vmap
+   insertf = flip (VMap.adjust (f:))
 
 -- |facesAtBV bd v - returns the faces found at v (which must be a boundary vertex)
 facesAtBV:: BoundaryState -> Vertex -> [TileFace]
