@@ -161,14 +161,14 @@ import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import Data.IntMap.Strict(IntMap)
 import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, adjust, delete, lookup, (!), keysSet, member
-                                            , fromAscList, fromList, assocs, insert)
+                                            , fromAscList, fromList, assocs, insert, elems)
 import qualified Data.IntSet as IntSet (member,empty,insert)
             -- used for BoundaryState locations AND faces at boundary vertices
 import Data.Set (Set)
 import qualified Data.Set as Set (foldr',elems,fromList)
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
-import Tgraph.Grid
+import Tgraph.Grid 
 
 {-
 ***************************************************************************   
@@ -184,6 +184,7 @@ Efficient FORCING with
 {-| A BoundaryState records
 a mapping of boundary vertices to their incident faces,
 a mapping of boundary vertices to positions (using Tgraph.Prelude.locateGraphVertices),
+a grid of positions (for fast touching checks),
 a list of all the faces,
 the next vertex label to be used when adding a new vertex,
 the boundary directed edges (directed so that faces are on LHS and exterior is on RHS).
@@ -194,6 +195,7 @@ data BoundaryState
      { boundaryDedges:: BoundaryDedges  -- ^ boundary directed edges (face on LHS, exterior on RHS)
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex.
      , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex.
+     , grid:: Grid -- ^ a grid of locations to avoid (initially boundary vertex locations).
      , allFaces:: [TileFace] -- ^ all the tile faces
      , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
@@ -206,7 +208,6 @@ data BoundaryState
 -- The representation relies on the no crossing boundaries property of Tgraphs.
 data BoundaryDedges = BoundaryDedges {prevBVMap::IntMap Vertex, nextBVMap::IntMap Vertex}
      deriving(Show)
-
 
 -- |convert a set of boundary directed edges to BoundaryDedges
 bdesFromSet :: Set Dedge -> BoundaryDedges --(IntMap Vertex, IntMap Vertex)
@@ -267,11 +268,13 @@ makeBoundaryState g =
   let bdes = boundaryESet g
       bvs = Set.foldr' ((IntSet.insert).fst) IntSet.empty bdes --IntSet.fromList (map fst $ Set.toList bdes) -- (map snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
+      newgrid = createGrid $ VMap.elems bvLocs
   in 
       BoundaryState
       { boundaryDedges = bdesFromSet bdes
       , bvFacesMap = vertexFMap bvs g
       , bvLocMap = bvLocs
+      , grid = newgrid
       , allFaces = faces g
       , nextVertex = 1+ maxV g
       }
@@ -726,17 +729,22 @@ tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
 checkUnsafeUpdate:: BoundaryState -> Update -> Maybe BoundaryChange
 checkUnsafeUpdate _  (SafeUpdate _) = error  "checkUnsafeUpdate: applied to safe update.\n"
 checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
-   let v = nextVertex bd
-       newface = makeFace v
-       oldVPoints = bvLocMap bd
-       newVPoints = addVPoint newface oldVPoints
-       vPosition = newVPoints VMap.! v
+  let v = nextVertex bd
+      newface = makeFace v
+      oldVPoints = bvLocMap bd
+      newVPoints = addVPoint newface oldVPoints
+      vPosition = newVPoints VMap.! v
+  in case insertGridCheck vPosition (grid bd) of
+    Nothing -> Nothing
+    Just newgrid ->
+     let 
        (unmatched, matchedDedges) = partition (\(x,y) -> x == v || y == v) (faceDedges newface) -- (two edges,singleton)
        newBdry = map reverseD unmatched -- two edges
        resultBd = BoundaryState
                     { boundaryDedges = bdesInsert newBdry $ bdesDelete matchedDedges $ boundaryDedges bd
                     , bvFacesMap = changeVFMapUnsafe newface (bvFacesMap bd)
                     , bvLocMap = newVPoints
+                    , grid = newgrid
                     , allFaces = newface:allFaces bd
                     -- allFaces = newface:faces bd <<<CAUSES SPACE LEAK>>>>
                     , nextVertex = v+1
@@ -747,10 +755,11 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     , revisedEdges = affectedBoundary resultBd newBdry -- 4 edges
                     , newFace = newface
                     }
-   in if touchCheck vPosition oldVPoints -- true if new vertex is blocked because it touches the boundary elsewhere
+     in Just bdChange
+{-        in if touchCheck vPosition oldVPoints -- true if new vertex is blocked because it touches the boundary elsewhere
       then Nothing -- don't proceed when v is a touching vertex
       else Just bdChange
-
+ -}
 {-| trySafeUpdate bd u adds a new face by completing a safe update u on BoundaryState bd
     (raising an error if u is an unsafe update).
      It returns a Right BoundaryChange (containing a new BoundaryState, removed boundary edges and
@@ -777,6 +786,7 @@ trySafeUpdate bd (SafeUpdate newface) =
                    , allFaces = newface:allFaces bd
                    , bvLocMap = foldl' (flip VMap.delete) (bvLocMap bd) removedBVs
                               --remove vertex/vertices no longer on boundary
+                   , grid = grid bd
                    , nextVertex = nextVertex bd
                    }
        bdChange = BoundaryChange
@@ -819,9 +829,12 @@ tryUpdate bd u@(UnsafeUpdate _) =
        Nothing ->  failReport "tryUpdate: crossing boundary (touching vertices).\n"
 
 -- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateGraphVertices.
+-- and a new grid of positions
 -- (Used at intervals in tryRecalibratingForce and recalibratingForce).
 recalculateBVLocs :: BoundaryState -> BoundaryState
-recalculateBVLocs bd = bd {bvLocMap = newlocs} where
+recalculateBVLocs bd = bd { bvLocMap = newlocs
+                          , grid = createGrid $ VMap.elems newlocs
+                          } where
     newlocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices $ recoverGraph bd
     bvs = VMap.keysSet $ bvLocMap bd
 

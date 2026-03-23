@@ -39,9 +39,9 @@ library
       Tgraph.Force
       Tgraph.Relabelling
       Tgraph.Extras
+      Tgraph.Grid
       TgraphExamples
   other-modules:
-      Tgraph.Grid
       Paths_PenroseKiteDart
   hs-source-dirs:
       src

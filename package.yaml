@@ -50,6 +50,7 @@ library:
     - Tgraph.Force
     - Tgraph.Relabelling
     - Tgraph.Extras
+    - Tgraph.Grid
     - TgraphExamples
 tests:
   PenroseKiteDart-test:
