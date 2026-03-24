@@ -148,7 +148,7 @@ module Tgraph.Force
   -- , tryFindThirdV
   , externalAngle
 
-  , touchCheck
+--  , touchCheck
 
   )  where
 
@@ -160,7 +160,7 @@ import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for UpdateMap
 import Data.IntMap.Strict(IntMap)
-import qualified Data.IntMap.Strict as VMap (null, filter, filterWithKey, alter, adjust, delete, lookup, (!), keysSet, member
+import qualified Data.IntMap.Strict as VMap (filterWithKey, alter, adjust, delete, lookup, (!), keysSet, member
                                             , fromAscList, fromList, assocs, insert, elems)
 import qualified Data.IntSet as IntSet (member,empty,insert)
             -- used for BoundaryState locations AND faces at boundary vertices
@@ -195,7 +195,7 @@ data BoundaryState
      { boundaryDedges:: BoundaryDedges  -- ^ boundary directed edges (face on LHS, exterior on RHS)
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex.
      , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex.
-     , grid:: Grid -- ^ a grid of locations to avoid (initially boundary vertex locations).
+     , grid:: Grid () -- ^ a grid of locations to avoid (initially boundary vertex locations).
      , allFaces:: [TileFace] -- ^ all the tile faces
      , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
@@ -268,7 +268,7 @@ makeBoundaryState g =
   let bdes = boundaryESet g
       bvs = Set.foldr' ((IntSet.insert).fst) IntSet.empty bdes --IntSet.fromList (map fst $ Set.toList bdes) -- (map snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
-      newgrid = createGrid $ VMap.elems bvLocs
+      newgrid = createPointGrid $ VMap.elems bvLocs
   in 
       BoundaryState
       { boundaryDedges = bdesFromSet bdes
@@ -734,9 +734,9 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
       oldVPoints = bvLocMap bd
       newVPoints = addVPoint newface oldVPoints
       vPosition = newVPoints VMap.! v
-  in case insertGridCheck vPosition (grid bd) of
-    Nothing -> Nothing
-    Just newgrid ->
+  in case insertGridCheck ((),vPosition) (grid bd) of
+    Left _  -> Nothing
+    Right newgrid ->
      let 
        (unmatched, matchedDedges) = partition (\(x,y) -> x == v || y == v) (faceDedges newface) -- (two edges,singleton)
        newBdry = map reverseD unmatched -- two edges
@@ -833,7 +833,7 @@ tryUpdate bd u@(UnsafeUpdate _) =
 -- (Used at intervals in tryRecalibratingForce and recalibratingForce).
 recalculateBVLocs :: BoundaryState -> BoundaryState
 recalculateBVLocs bd = bd { bvLocMap = newlocs
-                          , grid = createGrid $ VMap.elems newlocs
+                          , grid = createPointGrid $ VMap.elems newlocs
                           } where
     newlocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices $ recoverGraph bd
     bvs = VMap.keysSet $ bvLocMap bd
@@ -1597,9 +1597,10 @@ Touching vertex checking
 ********************************************
 requires Diagrams.Prelude for Point and V2
 --------------------------------------------}
-
+{- 
 -- |touchCheck p vpMap - check if a vertex location p touches (is too close to) any other vertex location in the mapping vpMap
 touchCheck:: Point V2 Double -> VertexMap (Point V2 Double) -> Bool
 touchCheck p vpMap = not $ VMap.null $ VMap.filter (touching p) vpMap
   -- filtering the map has better performance than checking a list
-  -- touchCheck p vpMap = any (touching p) (VMap.elems vpMap)
+  -- touchCheck p vpMap = any (touching p) (VMap.elems vpMap) 
+-}

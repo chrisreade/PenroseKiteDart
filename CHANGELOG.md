@@ -3,8 +3,9 @@
 ## Since v1.6.1
 
 - Internal Representation change:
-  - Added grid to BoundaryState with type Grid and module Tgraph.Grid 
+  - Added grid to BoundaryState with type Grid () and module Tgraph.Grid 
     (for much faster touching vertex checks).
+  - Removed touchCheck
 
 - Other changes
 

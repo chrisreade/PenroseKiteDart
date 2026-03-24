@@ -187,13 +187,13 @@ module Tgraph.Prelude
   , drawLocatedEdge
     -- * Vertex Location and Touching Vertices
   , locateGraphVertices
- -- , locateVertices
+--  , locateVertices
   , addVPoint
 --  , axisJoin
 --  , find3Locs
 --  , thirdVertexLoc
   , touchingVertices
-  , touching
+ -- , touching
   , touchingVerticesGen
 --  , locateVerticesGen
   --, drawEdges
@@ -218,6 +218,8 @@ import Diagrams.Prelude hiding (union,mapping)
 import TileLib
 import HalfTile
 import Try
+import Tgraph.Grid
+
 
 
 
@@ -1461,22 +1463,13 @@ Complexity has order of the square of the number of vertices.
 This is used in makeTgraph and fullUnion (via correctTouchingVertices).
 -}
 touchingVertices:: HasFaces a => a -> [(Vertex,Vertex)]
-touchingVertices fcs = check vpAssoc where
+touchingVertices fcs = check vpAssoc emptyGrid where
   vpAssoc = VMap.assocs $ locateVertices fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
-  check [] = []
-  check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ check (filter ((`notElem` nearv).fst) more)
-                        where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
-
-{-|touching checks if two points are considered close.
-Close means the square of the distance between them is less than a certain number (currently 0.1) so they cannot be
-vertex locations for 2 different vertices in a VPatch using unit scale for short edges.
-It is used in touchingVertices and touchingVerticesGen and Force.touchCheck).
--}
-touching :: Point V2 Double -> Point V2 Double -> Bool
-touching p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of a vector
--- quadrance 0.1 represents a distance of about 0.316 units (= sqrt 0.1)
--- quadrance 0.25 represents a distance of 0.5 units
-
+  check [] _ = []
+  check ((v,p):more) gd =
+      case insertGridCheck (v,p) gd of
+          Right gd' -> check more gd'
+          Left v' -> (v,v'):check more gd -- v' was there first so v>v'
 
 {-*  Generalised Touching Vertices
 -}
@@ -1487,12 +1480,14 @@ This can arise when applied to the union of faces from 2 overlapping Tgraphs whi
 It is used in the calculation of commonFaces.  The faces should be connected with no crossing boundaries to enable location
 calculations.
 -}
-touchingVerticesGen:: [TileFace] -> [(Vertex,Vertex)]
-touchingVerticesGen fcs = check vpAssoc where
-  vpAssoc = VMap.assocs $ locateVerticesGen fcs  -- assocs puts in key order so that check returns (higher,lower) pairs  
-  check [] = []
-  check ((v,p):more) = [(v1,v) | v1 <- nearv ] ++ check (filter ((`notElem` nearv).fst) more)
-                        where nearv = [v1 | (v1,p1) <- more, touching p p1 ]
+touchingVerticesGen:: HasFaces a => a -> [(Vertex,Vertex)]
+touchingVerticesGen fcs = check vpAssoc emptyGrid where
+  vpAssoc = VMap.assocs $ locateVerticesGen fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
+  check [] _ = []
+  check ((v,p):more) gd =
+      case insertGridCheck (v,p) gd of
+          Right gd' -> check more gd'
+          Left v' -> (v,v'):check more gd
 
 {-| locateVerticesGen  (not exported but used in touchingVerticesGen). This generalises locateVertices to allow for multiple faces sharing an edge.
 This can arise when applied to the union of faces from 2 Tgraphs (e.g. in commonFaces).
