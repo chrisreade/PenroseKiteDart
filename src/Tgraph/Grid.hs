@@ -19,6 +19,7 @@ module Tgraph.Grid
 (
     insertGridCheck
   , createGridCheck
+  , insertGrid
   , createGrid
   , emptyGrid
   , Grid
@@ -77,7 +78,7 @@ insertGridCheck a gd =
 insertGrid :: ValuedPoint a => a -> Grid a -> Grid a
 insertGrid ap gd = Grid $ IMap.alter column n (gridmap gd)
    where (n,m) = gridCoords ap
-         column Nothing = Just $ IMap.insert n [ap] IMap.empty
+         column Nothing = Just $ IMap.insert m [ap] IMap.empty
          column (Just imp) = Just $ IMap.alter ht m imp
          ht Nothing = Just [ap]
          ht (Just aps) = Just (ap:aps)
@@ -91,7 +92,7 @@ fromGrid gd n =
                           Nothing -> []
                           Just aps -> aps)
 
--- | get the list of (valued) points from 9 grid cells (aound the one with given Int coords)         
+-- | get the list of (valued) points from 9 grid cells (around the one with given Int coords)         
 fromGridNear :: Grid a -> Int -> Int -> [a]
 fromGridNear gd n m =  
     let g0 = fromGrid gd n
