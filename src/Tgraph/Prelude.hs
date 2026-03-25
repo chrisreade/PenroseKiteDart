@@ -1469,8 +1469,17 @@ touchingVertices fcs = check vpAssoc emptyGrid where
   check ((v,p):more) gd =
       case insertGridCheck (v,p) gd of
           Right gd' -> check more gd'
+          Left (v',_) -> (v,v'):check more gd -- v' was there first so v>v'
+{- 
+touchingVertices:: HasFaces a => a -> [(Vertex,Vertex)]
+touchingVertices fcs = check vpAssoc emptyGrid where
+  vpAssoc = VMap.assocs $ locateVertices fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
+  check [] _ = []
+  check ((v,p):more) gd =
+      case insertGridCheck (v,p) gd of
+          Right gd' -> check more gd'
           Left v' -> (v,v'):check more gd -- v' was there first so v>v'
-
+ -}
 {-*  Generalised Touching Vertices
 -}
 
@@ -1487,7 +1496,7 @@ touchingVerticesGen fcs = check vpAssoc emptyGrid where
   check ((v,p):more) gd =
       case insertGridCheck (v,p) gd of
           Right gd' -> check more gd'
-          Left v' -> (v,v'):check more gd
+          Left (v',_) -> (v,v'):check more gd -- v' was there first so v>v'
 
 {-| locateVerticesGen  (not exported but used in touchingVerticesGen). This generalises locateVertices to allow for multiple faces sharing an edge.
 This can arise when applied to the union of faces from 2 Tgraphs (e.g. in commonFaces).

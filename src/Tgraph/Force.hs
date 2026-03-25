@@ -195,7 +195,7 @@ data BoundaryState
      { boundaryDedges:: BoundaryDedges  -- ^ boundary directed edges (face on LHS, exterior on RHS)
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex.
      , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex.
-     , grid:: Grid () -- ^ a grid of locations to avoid (initially boundary vertex locations).
+     , grid:: Grid (Point V2 Double) -- ^ a grid of locations to avoid (initially boundary vertex locations).
      , allFaces:: [TileFace] -- ^ all the tile faces
      , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
@@ -268,7 +268,7 @@ makeBoundaryState g =
   let bdes = boundaryESet g
       bvs = Set.foldr' ((IntSet.insert).fst) IntSet.empty bdes --IntSet.fromList (map fst $ Set.toList bdes) -- (map snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
-      newgrid = createPointGrid $ VMap.elems bvLocs
+      newgrid = createGrid $ VMap.elems bvLocs
   in 
       BoundaryState
       { boundaryDedges = bdesFromSet bdes
@@ -734,7 +734,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
       oldVPoints = bvLocMap bd
       newVPoints = addVPoint newface oldVPoints
       vPosition = newVPoints VMap.! v
-  in case insertGridCheck ((),vPosition) (grid bd) of
+  in case insertGridCheck vPosition (grid bd) of
     Left _  -> Nothing
     Right newgrid ->
      let 
@@ -833,7 +833,7 @@ tryUpdate bd u@(UnsafeUpdate _) =
 -- (Used at intervals in tryRecalibratingForce and recalibratingForce).
 recalculateBVLocs :: BoundaryState -> BoundaryState
 recalculateBVLocs bd = bd { bvLocMap = newlocs
-                          , grid = createPointGrid $ VMap.elems newlocs
+                          , grid = createGrid $ VMap.elems newlocs
                           } where
     newlocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices $ recoverGraph bd
     bvs = VMap.keysSet $ bvLocMap bd
