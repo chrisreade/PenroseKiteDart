@@ -73,6 +73,13 @@ testCrossingBoundary = [LK (1,8,3),RD (2,3,8),RK (1,3,9),LD (4,9,3),LK (5,10,13)
 extraBrokenDart :: Tgraph
 extraBrokenDart = removeFaces [RK(25,60,61),LK(25,24,60)] badlyBrokenDart
 
+-- | Example to test fullUnion
+fullunionGraph :: Tgraph
+fullunionGraph = fullUnion  (g1, (1,15)) (g2,(1,10)) where
+    g1 = removeFaces [RK (1,31,41)] $ removeVertices [74,79,29] sunD2
+    g2 = relabelFrom 1 $ removeVertices [8,7,6,23] $ force sunD2
+    sunD2 = sunDs !!2
+
 graphPropSpec :: Spec
 graphPropSpec = describe "Test Properties of Tgraphs" $ do
     context "When fcs (a list of tile-faces) has any face with a repeated vertex" $
@@ -145,4 +152,7 @@ graphLabelCheck = describe "Label critical examples check" $ do
     context "superForceFig" $
       it "Number of faces of superForceFig should be 398" $         
          faceCount (superForce $ addHalfDart (220,221) $ force $ decompositions fool !!3) `shouldBe` 398
-  
+    context "fullUnion" $
+      it "Number of faces of fullunionGraph should be 106" $         
+         faceCount fullunionGraph `shouldBe` 106
+ 

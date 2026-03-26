@@ -174,7 +174,7 @@ import Tgraph.Grid
 ***************************************************************************   
 Efficient FORCING with 
   BoundaryState, ForceState 
-  Touching Vertex Check
+  Touching Vertex Check Using a Grid
   Incremented Update Maps
 ***************************************************************************
 -}
@@ -184,7 +184,7 @@ Efficient FORCING with
 {-| A BoundaryState records
 a mapping of boundary vertices to their incident faces,
 a mapping of boundary vertices to positions (using Tgraph.Prelude.locateGraphVertices),
-a grid of positions (for fast touching checks),
+a grid of positions (for fast touching vertex checks),
 a list of all the faces,
 the next vertex label to be used when adding a new vertex,
 the boundary directed edges (directed so that faces are on LHS and exterior is on RHS).
@@ -244,7 +244,7 @@ prevBV v bs = case VMap.lookup v (prevBVMap $ boundaryDedges bs) of
                 Nothing -> error $ "prevBV: Vertex not found on boundary: " ++ show v ++ "\n"
                 Just v1 -> v1
 
--- Check if a directed edge is on the boundary of a BoundaryState (in the correct boundary direction)
+-- | Check if a directed edge is on the boundary of a BoundaryState (in the correct boundary direction)
 isBoundaryDE :: Dedge -> BoundaryState -> Bool
 isBoundaryDE (a,b) bs = case VMap.lookup a (nextBVMap $ boundaryDedges bs) of
                 Nothing -> False
@@ -593,6 +593,7 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
          tryUpdate bd u
 
 
+
 -- |tryOneStepWith uGen fs does one force step.
 -- It returns either 
 --
@@ -633,6 +634,7 @@ data BoundaryChange = BoundaryChange
                        } deriving (Show)
 
 
+
 {-| Given a BoundaryState with a list of one boundary edge or
      two adjacent boundary edges (or exceptionally no boundary edges),
      it extends the list with adjacent boundary edges (to produce 3 or 4 or none).
@@ -669,6 +671,7 @@ preceding a bs = (prevBV a bs, a)
 boundaryAt :: Vertex -> BoundaryState -> [Dedge]
 boundaryAt v bs = [preceding v bs, following v bs]
 
+{-# INLINE tryReviseUpdates #-}
 -- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
 -- using uGen to calculate new updates.
 tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
@@ -684,6 +687,7 @@ tryReviseFSWith ugen bdC fs =
     do umap <- tryReviseUpdates ugen bdC (updateMap fs)
        return $ ForceState{ boundaryState = newBoundaryState bdC, updateMap = umap}
 
+{-# INLINE findSafeUpdate #-}
 -- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
 findSafeUpdate:: UpdateMap -> Maybe Update
 -- slower to use filter
@@ -756,10 +760,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     , newFace = newface
                     }
      in Just bdChange
-{-        in if touchCheck vPosition oldVPoints -- true if new vertex is blocked because it touches the boundary elsewhere
-      then Nothing -- don't proceed when v is a touching vertex
-      else Just bdChange
- -}
+
 {-| trySafeUpdate bd u adds a new face by completing a safe update u on BoundaryState bd
     (raising an error if u is an unsafe update).
      It returns a Right BoundaryChange (containing a new BoundaryState, removed boundary edges and
@@ -846,7 +847,7 @@ tryRecalibratingForce = tryFSOp recalibrating where
        fs' <- tryStepForce 20000 fs
        if null $ updateMap fs'
        then return fs'
-       else recalibrating $ fs' {boundaryState = recalculateBVLocs $ boundaryState fs'}
+       else recalibrating fs' {boundaryState = recalculateBVLocs $ boundaryState fs'}
 
 -- |A version of force that recalibrates at 20,000 step intervals by recalculating boundary vertex positions from scratch.
 -- This is needed to limit accumulation of errors when large numbers of faces are added in forcing.
@@ -1467,7 +1468,7 @@ Touching Vertex check:
 If only one edge of a new face is on the boundary, we need to create a new vertex.
 This will need to have its position checked against other (boundary) vertices to avoid
 creating a touching vertex/crossing boundary. This is why BoundaryStates keep track of boundary vertex positions.
-(The check is done in tryUnsafeUpdate.)
+(The check is done in checkUnsafeUpdate.)
 -}
 
 {-|tryFindThirdV tries to find a neighbouring third vertex on the boundary either side of the dedge
@@ -1544,6 +1545,7 @@ tryFindThirdV bd (a,b) (n,m) = maybeV where
            | bAngle == m = Right $ Just $ snd $ following b bd
            | otherwise =   Right  Nothing
 
+{-# INLINE externalAngle #-}
 -- |externalAngle bd v - calculates the external angle at boundary vertex v in BoundaryState bd as an
 -- integer multiple of tt (tenth turn), so 1..9.  It relies on there being no crossing boundaries,
 -- so that there is a single external angle at each boundary vertex. 

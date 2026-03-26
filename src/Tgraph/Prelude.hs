@@ -1463,35 +1463,11 @@ A Grid is used to find near points efficiently.
 This is used in makeTgraph and fullUnion.
 -}
 touchingVertices:: HasFaces a => a -> [(Vertex,Vertex)]
-touchingVertices fcs = check vpAssoc emptyGrid where
-  vpAssoc = VMap.assocs $ locateVertices fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
-  check [] _ = []
-  check (ap:more) gd =
-      case insertGridCheck ap gd of
-          Right gd' -> check more gd'
-          Left (v,_) -> (fst ap,v):check more gd
+touchingVertices fcs = check vpAssocs where
+  vpAssocs = VMap.assocs $ locateVertices fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
+  check = allClashes fst
+ 
 
-
-{-
-
-{-| 
-slowTouchingVertices finds if any vertices are too close to each other after locating them.
-It can fail if faces do not satisfy other Tgraph properties (apart from touching vertices).
-If vertices are too close that indicates we may have different vertex labels at the same location
-(the touching vertex problem). 
-It returns pairs of vertices that are too close with higher number first in each pair, and no repeated first numbers.
-An empty list is returned if there are no touching vertices.
-Complexity has order of the square of the number of vertices.
--}
-
-slowTouchingVertices:: HasFaces a => a -> [(Vertex,Vertex)]
-slowTouchingVertices fcs = check vpAssoc where
-  vpAssoc = VMap.assocs $ locateVertices fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
-  check [] = []
-  check ((v,p):more) = case find (touching p . snd) more of
-                        Just (v',_) -> (v',v): check more
-                        Nothing -> check more
--}
 
 
 {-*  Generalised Touching Vertices
@@ -1504,13 +1480,9 @@ It is used in the calculation of commonFaces.  The faces should be connected wit
 calculations.
 -}
 touchingVerticesGen:: HasFaces a => a -> [(Vertex,Vertex)]
-touchingVerticesGen fcs = check vpAssoc emptyGrid where
-  vpAssoc = VMap.assocs $ locateVerticesGen fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
-  check [] _ = []
-  check ((v,p):more) gd =
-      case insertGridCheck (v,p) gd of
-          Right gd' -> check more gd'
-          Left (v',_) -> (v,v'):check more gd -- v' was there first so v>v'
+touchingVerticesGen fcs = check vpAssocs where
+  vpAssocs = VMap.assocs $ locateVerticesGen fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
+  check = allClashes fst
 
 {-| locateVerticesGen  (not exported but used in touchingVerticesGen). This generalises locateVertices to allow for multiple faces sharing an edge.
 This can arise when applied to the union of faces from 2 Tgraphs (e.g. in commonFaces).

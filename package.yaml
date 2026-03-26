@@ -19,12 +19,12 @@ category:  Graphics
 # common to point users to the README.md file.
 description:  Library to explore Penrose's Kite and Dart Tilings using Haskell Diagrams. Please see README.md
 
-language: GHC2021 # newly added
+language: GHC2021
 
 dependencies:
 - base >=4.9 && <4.22
 - diagrams-lib >= 1.4.6 && < 1.6
-- containers >= 0.6.7 && < 0.8 # added for Data.Map
+- containers >= 0.6.7 && < 0.8
 ghc-options:
 - -Wall
 - -Wcompat
