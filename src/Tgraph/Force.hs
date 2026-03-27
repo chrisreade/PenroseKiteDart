@@ -338,7 +338,7 @@ instance HasFaces ForceState where
 The functions can be applied using the unwrapper applyUG
 and produce a (Try) UpdateMap when given a BoundaryState and a focus list of particular directed boundary edges.  
 Each forcing rule has a particular UpdateGenerator,
-but they can also be combined (e.g in sequence - allUGenerator or otherwise - defaultAllUGenerator).
+but they can also be combined (e.g in sequence - allUGenerator or otherwise - defaultAllUGen).
 -}
 newtype UpdateGenerator = UpdateGenerator {applyUG :: BoundaryState -> [Dedge] -> Try UpdateMap}
 
@@ -492,7 +492,7 @@ instance HasFaces a => HasFaces (Forced a) where
     boundaryVFMap = boundaryVFMap . forgetF
 
 {-# WARNING labelAsForced 
-    ["This should only be used when when the argument is known to be a fully forced Forcible."
+    ["This should only be used when the argument is known to be a fully forced Forcible."
     ,"Consider using forceF or tryForceF instead for safety reasons."
     ]
 #-}

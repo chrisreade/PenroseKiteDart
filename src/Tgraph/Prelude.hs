@@ -483,6 +483,7 @@ sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
                    , f2 <- filter (`hasDedge` d2) fcs
                   ]
 
+{-# INLINE newSharedEdges #-}
 -- |A version of sharedEdges comparing a single face against a list of faces.
 -- This does not look at shared edges within the list, but just the new face against the list.
 newSharedEdges:: TileFace -> [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]

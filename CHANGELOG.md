@@ -1,10 +1,12 @@
 # Revision history for PenroseKiteDart
 
-## Since v1.6.1
+## version v1.7
 
-- Internal Representation change:
-  - Added grid to BoundaryState with newtype Grid a from new module Tgraph.Grid.
-    This provides much faster touching vertex checks. A Grid is also used for touchingVertices.
+Significant speed up of forcing.
+
+- Possibly breaking change (internal representation change):
+  - Added grid to BoundaryState with newtype (Grid a) defined in new module Tgraph.Grid.
+    This provides much faster touching vertex checks. Grid is also used for touchingVertices.
   - Removed touchCheck
 
 - Other changes

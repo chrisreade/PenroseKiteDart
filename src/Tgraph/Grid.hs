@@ -24,7 +24,7 @@ module Tgraph.Grid
   , emptyGrid
   , Grid
   , touching
-  , ValuedPoint
+  , ValuedPoint(..)
   , allClashes
 
 ) where
