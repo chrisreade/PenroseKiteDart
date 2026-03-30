@@ -113,7 +113,7 @@ import Data.Set(Set)
 import qualified Data.Set as Set  (null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
-import Data.Maybe (fromMaybe)
+
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
@@ -314,7 +314,7 @@ compForce = composeF . forceF
 -- The definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
 allCompForce:: Tgraph -> [Forced Tgraph]
-allCompForce = takeWhile (not . nullFaces . forgetF) . iterate composeF . forceF
+allCompForce = takeWhile (not . nullFaces) . iterate composeF . forceF
 
 
 -- |maxCompForce g produces the maximally composed (non-null) Tgraph starting from force g, provided g is not the emptyTgraph
@@ -614,12 +614,15 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
 -- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
 -- reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
-    reportCover bd des = map (tileLabel . getf) des where
+    reportCover bd des = map getLabel des where
       efmap = dedgeFMap des bd  -- more efficient than using graphEFMap?
 --      efmap = graphEFMap (recoverGraph bd)
-      getf e = fromMaybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
+      getLabel e = case faceForEdge e efmap of
+                 Nothing -> error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e
+                 Just f -> tileLabel f
+{-       getf e = fromMaybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
                                     (faceForEdge e efmap)
-
+ -}
 -- |Tries to create a new Tgraph from all faces with a boundary vertex in a Tgraph.
 -- The resulting faces could have a crossing boundary and also could be disconnected if there is a hole in the starting Tgraph
 -- so these conditions are checked for, producing a Try result.

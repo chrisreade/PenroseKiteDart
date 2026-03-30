@@ -154,7 +154,7 @@ module Tgraph.Force
 
 
 
-import Data.List ((\\), intersect, nub, find, partition)
+import Data.List ((\\), nub, find, partition)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
@@ -482,15 +482,16 @@ tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 newtype Forced a = Forced { -- | forget the explicit Forced labelling
                             forgetF :: a  
                           }                 
-   deriving (Show)
+   deriving (Show,HasFaces)
 
--- |Extend HasFaces ops from a to Forced a
+{- -- |Extend HasFaces ops from a to Forced a
 instance HasFaces a => HasFaces (Forced a) where
     faces = faces . forgetF
     boundaryESet = boundaryESet . forgetF
     maxV = maxV . forgetF
     boundaryVFMap = boundaryVFMap . forgetF
-
+ -}
+ 
 {-# WARNING labelAsForced 
     ["This should only be used when the argument is known to be a fully forced Forcible."
     ,"Consider using forceF or tryForceF instead for safety reasons."
@@ -739,7 +740,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
       newVPoints = addVPoint newface oldVPoints
       vPosition = newVPoints VMap.! v
   in case insertGridCheck vPosition (grid bd) of
-    Left _  -> Nothing
+    Left _  -> Nothing  -- blocked by touching vertex
     Right newgrid ->
      let 
        (unmatched, matchedDedges) = partition (\(x,y) -> x == v || y == v) (faceDedges newface) -- (two edges,singleton)
@@ -774,11 +775,11 @@ trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
 trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
-       localBoundary =  [e | v <- faceVList newface, e <- boundaryAt v bd] -- WITH duplicates
-       --       localRevDedges =  [(b,a) | v <- faceVList newface, !f <- facesAtBV bd v, (a,b) <- faceDedges f]
-       matchedDedges = fDedges `intersect` localBoundary -- list of 2 or 3
+       localBoundary = nub [e | v <- faceVList newface, e <- boundaryAt v bd] -- duplicates removed
+       (matchedDedges, unmatched) = partition (`elem` localBoundary) fDedges
+       -- matchedDedges = fDedges `intersect` localBoundary -- list of 2 or 3
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
-       newBdry = map reverseD (fDedges \\ matchedDedges) -- one or none
+       newBdry = map reverseD unmatched --(fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
        resultBd = BoundaryState
                    { boundaryDedges = bdesInsert newBdry $ bdesDelete matchedDedges $ boundaryDedges bd

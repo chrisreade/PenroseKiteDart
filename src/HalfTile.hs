@@ -1,6 +1,6 @@
 {-|
 Module      : HalfTile
-Description : Introducing a generic type for half tiles of darts and kites
+Description : Introducing a (polymorphic) type for half tiles of darts and kites
 Copyright   : (c) Chris Reade, 2021
 License     : BSD-style
 Maintainer  : chrisreade@mac.com
@@ -29,8 +29,8 @@ import Diagrams.Prelude (V,N, Transformable(..)) -- needed to make HalfTile a Tr
 import qualified Control.Monad (void) -- used for tileLabel
 
 {-|
-Representing Half Tile Pieces Polymorphicly.
-Common code for both graphs and vector representations of tilings. 
+Representing half tile pieces polymorphicly.
+The type parameter (rep) is specialised for graphs and vector representations of tilings. 
 For Pieces - rep is V2 Double
 For TileFaces (in Tgraphs) rep is (Vertex,Vertex,Vertex)
 -}
@@ -40,7 +40,7 @@ data HalfTile rep = LD rep -- ^ Left Dart
                   | RK rep -- ^ Right Kite
                   deriving (Show,Eq)
 
--- | Note this ignores the tileLabels when comparing.
+-- | Note this ignores the tile constructors (tileLabels) when comparing.
 -- However we should never have 2 different HalfTiles with the same rep
 instance Ord rep => Ord (HalfTile rep) where
    compare t1 t2 = compare (tileRep t1) (tileRep t2)

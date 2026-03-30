@@ -20,6 +20,7 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE Strict                    #-}
 
+
 module Tgraph.Prelude
   ( module HalfTile
   , module Try
@@ -1214,6 +1215,19 @@ dropLabels vp = map convert (faces vp) where
     (Just p, Just p') -> fmap (const (p' .-. p)) face `at` p -- using HalfTile functor fmap
     _ -> error $ "dropLabels: Vertex location not found for some vertices:\n    "
                 ++ show (faceVList face \\ VMap.keys locations)  ++ "\n"
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- |Tgraphs are Drawable
 instance Drawable Tgraph where
