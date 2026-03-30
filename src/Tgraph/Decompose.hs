@@ -38,8 +38,8 @@ DECOMPOSING - decompose
 
 
 -- |Decompose a Tgraph.
-decompose :: Tgraph -> Tgraph
-decompose = makeUncheckedTgraph . decomposeFaces
+decompose :: HasGraph a => a -> Tgraph
+decompose = makeUncheckedTgraph . decomposeFaces . recoverGraph
 
 -- |Decompose all the faces (using a phiVMap for new vertices).
 decomposeFaces :: HasFaces a => a -> [TileFace]
@@ -78,8 +78,8 @@ decompFace newVFor fc = case fc of
         where x = (Map.!) newVFor (a,c)
    
 -- |infinite list of decompositions of a Tgraph     
-decompositions :: Tgraph -> [Tgraph]
-decompositions = iterate decompose
+decompositions :: HasGraph a => a -> [Tgraph]
+decompositions = iterate decompose . recoverGraph
 
 
 

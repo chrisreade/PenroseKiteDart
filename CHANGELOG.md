@@ -1,5 +1,13 @@
 # Revision history for PenroseKiteDart
 
+
+## Since v1.7
+
+  - Introduced class HasGraph (instances Tgraph, BoundaryState, ForceState, and Forced versions)
+  - Generalised recoverGraph (and many other functions now using HasGraph)
+  - Introduced withForced
+  - Deprecated recoverGraphF, boundaryStateF, makeBoundaryStateF (by using withForced)
+
 ## version v1.7
 
 Significant speed up of forcing.

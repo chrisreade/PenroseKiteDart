@@ -124,9 +124,9 @@ import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lo
 -- smart (labelled draw) g
 --
 -- smart (labelSize normal draw) g
-smart :: OKBackend b =>
-         (VPatch -> Diagram b) -> Tgraph -> Diagram b
-smart dr g = (drawBoundaryJoins g <> dr) (makeVP g)
+smart :: (OKBackend b, HasGraph a) =>
+         (VPatch -> Diagram b) -> a -> Diagram b
+smart dr a = (drawBoundaryJoins g <> dr) (makeVP g) where g = recoverGraph a
 
 -- |drawBoundaryJoins a vp - draw boundary join edges of faces in a, using a given suitable VPatch
 -- Will raise an error if any vertex in the faces does not have a location in the VPatch.
@@ -145,7 +145,7 @@ drawJoinsFor::  (HasFaces a, OKBackend b) =>
 drawJoinsFor a = drawWith dashJOnly . restrictTo a
 
 -- |same as draw except adding dashed lines on boundary join edges. 
-smartdraw :: OKBackend b => Tgraph -> Diagram b
+smartdraw :: (OKBackend b, HasGraph a) => a -> Diagram b
 smartdraw = smart draw
 
 
@@ -162,9 +162,9 @@ smartOn a dr = (drawBoundaryJoins a <> dr) . restrictTo a
 -- then adds the dashed boundary join edges of g.
 --
 -- Example: smartRotating angle (labelled draw) g
-smartRotating :: OKBackend b =>
-                Angle Double -> (VPatch -> Diagram b) -> Tgraph -> Diagram b
-smartRotating angle vfun g = rotating angle (smartOn g vfun) g
+smartRotating :: (OKBackend b, HasGraph a) =>
+                Angle Double -> (VPatch -> Diagram b) -> a -> Diagram b
+smartRotating angle vfun a = rotating angle (smartOn g vfun) g where g = recoverGraph a
 
 {-# DEPRECATED smartRotateBefore "Use (flip smartRotating)" #-}
 -- |smartRotateBefore vfun angle g - a tricky combination of smart with rotateBefore.
@@ -181,9 +181,9 @@ smartRotateBefore = flip smartRotating
 -- Will raise an error if either a or b is not a vertex in g.
 --
 -- Example: smartAligning (a,b) (labelled draw) g
-smartAligning :: OKBackend b =>
-              (Vertex,Vertex) -> (VPatch -> Diagram b) ->  Tgraph -> Diagram b
-smartAligning (a,b) vfun g = aligning (a,b) (smartOn g vfun) g
+smartAligning :: (OKBackend b, HasGraph a) =>
+              (Vertex,Vertex) -> (VPatch -> Diagram b) ->  a -> Diagram b
+smartAligning (a,b) vfun c = aligning (a,b) (smartOn g vfun) g where g = recoverGraph c
 
 {-# DEPRECATED smartAlignBefore "Use (flip smartAligning)" #-}
 -- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with aligning.
@@ -207,7 +207,7 @@ drawForce' :: OKBackend b =>
               Colour Double -> Tgraph -> Diagram b
 drawForce' c g =
     smartOn g draw vp # lc c <> draw vp
-    where vp = makeVP $ force g
+    where vp = makeVP $ forceF g
 
 -- |applies partCompose to a Tgraph g, then draws the composed Tgraph
 -- along with the remainder faces (drawn in lime).
@@ -304,8 +304,8 @@ composeK g = runTry $
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
 -- (We also have a proof that the result must be a forced Tgraph when the initial force succeeds.)
 -- This will raise an error if the initial force fails with an incorrect Tgraph.
-compForce:: Tgraph -> Forced Tgraph
-compForce = composeF . forceF
+compForce:: (Forcible a, HasGraph a) => a -> Forced Tgraph
+compForce = composeF . withForced recoverGraph . forceF
 
 
 -- |allCompForce g produces a list of the non-null iterated (forced) compositions of force g.
@@ -313,22 +313,22 @@ compForce = composeF . forceF
 -- The list will be [] if g is the emptyTgraph, otherwise the list begins with force g (when the force succeeds).
 -- The definition relies on (1) a proof that the composition of a forced Tgraph is forced  and
 -- (2) a proof that composition does not need to be checked for a forced Tgraph.
-allCompForce:: Tgraph -> [Forced Tgraph]
-allCompForce = takeWhile (not . nullFaces) . iterate composeF . forceF
+allCompForce:: (Forcible a, HasGraph a) => a -> [Forced Tgraph]
+allCompForce = takeWhile (not . nullFaces) . iterate composeF . withForced recoverGraph . forceF
 
 
 -- |maxCompForce g produces the maximally composed (non-null) Tgraph starting from force g, provided g is not the emptyTgraph
 -- and just the emptyTgraph otherwise.
 -- It will raise an error if the initial force fails with an incorrect Tgraph.
-maxCompForce:: Tgraph -> Forced Tgraph
-maxCompForce g | nullFaces g = labelAsForced g -- forceF g
+maxCompForce:: (Forcible a, HasGraph a) => a -> Forced Tgraph
+maxCompForce g | nullFaces (recoverGraph g) = labelAsForced emptyTgraph -- forceF g
                | otherwise = last $ allCompForce g
 
 
 -- | allForceDecomps g - produces an infinite list (starting with g) 
 -- of forced decompositions of g (raising an error if a force fails with an incorrect Tgraph).
-allForceDecomps:: Tgraph -> [Tgraph]
-allForceDecomps = iterate (force . decompose)
+allForceDecomps:: HasGraph a => a -> [Tgraph]
+allForceDecomps = iterate (force . decompose) . recoverGraph
 
 {-| forcedBoundaryECovering g - produces a list of all boundary covers of force g.
 Each boundary cover is a forced Tgraph that extends force g and covers the entire boundary directed edges of force g.
@@ -339,7 +339,7 @@ The common faces of the covers constitute an empire (level 1) of g.
 This will raise an error if the initial force fails with an incorrect/stuck Tgraph.
 -}
 forcedBoundaryECovering:: Tgraph -> [Forced Tgraph]
-forcedBoundaryECovering g = recoverGraphF <$> boundaryECovering gforcedBdry where
+forcedBoundaryECovering g = withForced recoverGraph <$> boundaryECovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryECovering:Initial force failed (incorrect Tgraph)\n" $
                              tryForceF $ makeBoundaryState g
 
@@ -348,7 +348,7 @@ forcedBoundaryECovering g but covering all boundary vertices rather than just bo
 This will raise an error if the initial force fails with an incorrect/stuck Tgraph.                      
 -}
 forcedBoundaryVCovering:: Tgraph -> [Forced Tgraph]
-forcedBoundaryVCovering g = recoverGraphF <$> boundaryVCovering gforcedBdry where
+forcedBoundaryVCovering g = withForced recoverGraph <$> boundaryVCovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryVCovering:Initial force failed (incorrect Tgraph)\n" $
                              tryForceF $ makeBoundaryState g
 
@@ -508,7 +508,7 @@ empire1 g =
 -- at the head, followed by the original faces of g.
 empire2:: Tgraph -> TrackedTgraph
 empire2 g = 
-  case map (recoverGraph . forgetF) covers2 of
+  case map recoverGraph covers2 of
     [] -> error "empire2: empty list of secondary boundary covers found"
     (g0:others) -> makeTrackedTgraph g0 [fcs, faces g]
       where fcs = foldl' intersect (faces g0) $ map g0Intersect others
@@ -525,7 +525,7 @@ empire2 g =
 -- Raises an error if force g fails with a stuck/incorrect Tgraph.
 empire2Plus:: Tgraph -> TrackedTgraph
 empire2Plus g = 
-  case map (recoverGraph . forgetF) covers2 of
+  case map recoverGraph covers2 of
     [] -> error "empire2: empty list of secondary boundary covers found"
     (g0:others) -> makeTrackedTgraph g0 [fcs, faces g]
       where fcs = foldl' intersect (faces g0) $ map g0Intersect others
@@ -569,21 +569,21 @@ showEmpire2 = drawEmpire . empire2
 -- This will raise an error if force encounters a stuck (incorrect) tiling or if
 -- both forced extensions fail for some boundary edge.
 -- Otherwise, the result has exactly two correct possible extensions for each boundary edge.
-superForce:: Forcible a => a -> a
+superForce:: Forcible a => a -> Forced a
 superForce g = runTry $ trySuperForce g
 
 -- |trySuperForce g - this looks for single choice edges after trying to force g.
 -- If there is at least one, it makes that choice and recurses.
 -- It returns a Left s if force fails or if both choices fail for some edge (where s is a failure report).
 -- Otherwise Right g' is returned where g' is the super forced g.
-trySuperForce:: Forcible a => a -> Try a
-trySuperForce = tryFSOp trySuperForceFS where
+trySuperForce:: Forcible a => a -> Try (Forced a)
+trySuperForce = fmap labelAsForced . tryFSOp trySuperForceFS where
     -- |trySuperForceFS - implementation of trySuperForce for force states only
     trySuperForceFS :: ForceState -> Try ForceState
     trySuperForceFS fs =
         do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
                        tryForceF fs
-           case singleChoiceEdges $ boundaryStateF forcedFS of
+           case singleChoiceEdges $ withForced boundaryState forcedFS of
               [] -> return $ forgetF forcedFS
               (elpr:_) -> do extended <- addSingle elpr $ forgetF forcedFS
                              trySuperForceFS extended
@@ -694,14 +694,15 @@ pathFromBoundaryLoops vlocs loops = toPath $ map (locateLoop . map (vlocs VMap.!
 data TrackedTgraph = TrackedTgraph{ tgraph:: Tgraph, tracked::[[TileFace]]} deriving Show
 
 -- |newTrackedTgraph g creates a TrackedTgraph from a Tgraph g with an empty tracked list
-newTrackedTgraph :: Tgraph -> TrackedTgraph
-newTrackedTgraph g = makeTrackedTgraph g []
+newTrackedTgraph :: HasGraph a => a -> TrackedTgraph
+newTrackedTgraph g = makeTrackedTgraph (recoverGraph g) []
 
 -- |makeTrackedTgraph g trackedlist creates a TrackedTgraph from a Tgraph g
 -- from trackedlist where each list in trackedlist is a subset of the faces of g.
 -- Any faces not in g are ignored.
-makeTrackedTgraph :: Tgraph -> [[TileFace]] -> TrackedTgraph
-makeTrackedTgraph g trackedlist = TrackedTgraph{ tgraph = g, tracked = map (`intersect` faces g) trackedlist}
+makeTrackedTgraph :: HasGraph a => a -> [[TileFace]] -> TrackedTgraph
+makeTrackedTgraph a trackedlist = TrackedTgraph{ tgraph = g, tracked = map (`intersect` faces g) trackedlist}
+             where g = recoverGraph a
 
 -- |trackFaces ttg - pushes the maingraph tilefaces onto the stack of tracked subsets of ttg
 trackFaces:: TrackedTgraph -> TrackedTgraph

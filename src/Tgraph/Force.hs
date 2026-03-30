@@ -38,6 +38,7 @@ module Tgraph.Force
   , forgetF
   , tryForceF
   , forceF
+  , withForced
   , recoverGraphF
   , boundaryStateF
   , makeBoundaryStateF
@@ -64,7 +65,7 @@ module Tgraph.Force
     -- *  BoundaryState operations
   , makeBoundaryState
   -- , boundary (part of HasFaces class)
-  , recoverGraph
+ --  , recoverGraph --now in HasGraph
 --  , changeVFMap -- Now HIDDEN
   , facesAtBV
   -- , boundaryVFacesBS  (removed)
@@ -279,9 +280,14 @@ makeBoundaryState g =
       , nextVertex = 1+ maxV g
       }
 
--- |Converts a BoundaryState back to a Tgraph
+-- |A Tgraph can be recovered from a BoundaryState
+instance HasGraph BoundaryState where
+    recoverGraph = makeUncheckedTgraph . allFaces
+
+{- -- |Converts a BoundaryState back to a Tgraph
 recoverGraph:: BoundaryState -> Tgraph
 recoverGraph = makeUncheckedTgraph . faces
+ -}
 
 -- |changeVFMapUnsafe f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 -- This is used in the unsafe addition case where one of the vertices will be new to the map.
@@ -333,6 +339,10 @@ instance HasFaces ForceState where
     boundaryESet = boundaryESet . boundaryState
     maxV = maxV . boundaryState
     boundaryVFMap = boundaryVFMap . boundaryState
+
+-- |A Tgraph can be recovered from a ForceState
+instance HasGraph ForceState where
+    recoverGraph = recoverGraph . boundaryState
 
 {-|UpdateGenerator is a newtype for functions which capture one or more of the forcing rules.
 The functions can be applied using the unwrapper applyUG
@@ -482,7 +492,7 @@ tryChangeBoundary = tryChangeBoundaryWith defaultAllUGen
 newtype Forced a = Forced { -- | forget the explicit Forced labelling
                             forgetF :: a  
                           }                 
-   deriving (Show,HasFaces)
+   deriving (Show,HasFaces,HasGraph)
 
 {- -- |Extend HasFaces ops from a to Forced a
 instance HasFaces a => HasFaces (Forced a) where
@@ -512,17 +522,28 @@ tryForceF = fmap Forced . tryForce
 forceF:: Forcible a => a -> Forced a
 forceF = runTry . tryForceF
 
+-- |withForced f - Use f to convert a (Forced a) to a (Forced b)
+-- Both a and b should be Forcible
+withForced :: (a->b) -> Forced a -> Forced b
+withForced f (Forced a) = Forced (f a)
+
+{-# DEPRECATED recoverGraphF "Use (withForced recoverGraph)" #-}
 -- | recoverGraphF is an explicitly forced version of recoverGraph
 recoverGraphF :: Forced BoundaryState -> Forced Tgraph
-recoverGraphF (Forced bs) = Forced (recoverGraph bs)
+recoverGraphF = withForced recoverGraph 
+   -- recoverGraphF(Forced bs) = Forced (recoverGraph bs)
 
+{-# DEPRECATED boundaryStateF "Use (withForced boundaryState)" #-}
 -- | boundaryStateF is an explicitly forced version of boundaryState
 boundaryStateF :: Forced ForceState -> Forced BoundaryState
-boundaryStateF (Forced fs) = Forced (boundaryState fs)
+boundaryStateF = withForced boundaryState
+             -- boundaryStateF (Forced fs) = Forced (boundaryState fs)
 
+{-# DEPRECATED makeBoundaryStateF "Use (withForced makeBoundaryState)" #-}
 -- | makeBoundaryStateF is an explicitly forced version of makeBoundaryState
 makeBoundaryStateF :: Forced Tgraph -> Forced BoundaryState
-makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
+makeBoundaryStateF = withForced makeBoundaryState
+       -- makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
 
 -- | initFSF is an explicitly forced version of initFS
 initFSF :: Forcible a => Forced a -> Forced ForceState

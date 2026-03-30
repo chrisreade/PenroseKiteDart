@@ -55,7 +55,7 @@ COMPOSING compose, partCompose, tryPartCompose, ...
 -- (i.e. if it fails the connectedness, no crossing boundary check).
 -- It does not assume the given Tgraph is forced.
 -- It can raise an error if the Tgraph is found to be incorrect (when getting dartwing info).
-compose:: Tgraph -> Tgraph
+compose:: HasGraph a => a -> Tgraph
 compose = snd . partCompose
 
 -- |partCompose g is a partial function producing a pair consisting of remainder faces (faces from g which will not compose) 
@@ -64,8 +64,8 @@ compose = snd . partCompose
 -- raising an error if this check fails.
 -- It does not assume the given Tgraph is forced.
 -- It can raise an error if the Tgraph is found to be incorrect (when getting dartwing info).
-partCompose:: Tgraph -> ([TileFace],Tgraph)
-partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
+partCompose:: HasGraph a => a -> ([TileFace],Tgraph)
+partCompose = runTry . onFail "partCompose:\n" . tryPartCompose . recoverGraph
 
 -- |tryPartCompose g tries to produce a Tgraph by composing faces which uniquely compose in g,
 -- It uses tryGetDartWingInfo g which can fail if g is found to be incorrect when forced.
@@ -73,7 +73,7 @@ partCompose g = runTry $ onFail "partCompose:\n" $ tryPartCompose g
 -- If both the above succeed, the result is Right (remainder, g')
 -- where g' is the composed Tgraph and remainder is a list
 -- of faces from g which will not compose. 
-tryPartCompose:: Tgraph -> Try ([TileFace],Tgraph)
+tryPartCompose:: HasGraph a => a -> Try ([TileFace],Tgraph)
 tryPartCompose g = 
   do (remainder,newFaces) <- tryPartComposeFaces g
      checked <- onFail "tryPartCompose:\n" $ tryConnectedNoCross newFaces
@@ -81,7 +81,7 @@ tryPartCompose g =
 
 -- |Get the remainder and composed faces (without checking the composed faces make a valid Tgraph)
 -- It uses tryGetDartWingInfo g which can fail if g is found to be incorrect when forced.
-tryPartComposeFaces:: Tgraph -> Try ([TileFace],[TileFace])
+tryPartComposeFaces:: HasGraph a => a -> Try ([TileFace],[TileFace])
 tryPartComposeFaces g = 
   do dwInfo <- tryGetDartWingInfo g 
      return $ partComposeFaces dwInfo
@@ -95,10 +95,10 @@ tryPartComposeFaces g =
 -- established for composing.
 -- The calculation of remainder faces is also more efficient with a known forced Tgraph.
 -- Also dartWingInfo does not need to be calculated for composing a forced Tgraph.
-partComposeF:: Forced Tgraph -> ([TileFace], Forced Tgraph)
+partComposeF:: HasGraph a => Forced a -> ([TileFace], Forced Tgraph)
 partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
   -- !evalnewfaces = evalFaces newfaces
-  (_,dwFMap,unused) = dartsMapUnused (forgetF fg)
+  (_,dwFMap,unused) = dartsMapUnused (recoverGraph fg)
   (remainder,newfaces) = process (VMap.keys dwFMap) (unused,[])
   process [] res = res
   process (w:more) (rems, nfcs) = 
@@ -136,7 +136,7 @@ partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) wher
 -- Since the argument is a forced Tgraph it does not need a check for validity of the composed Tgraph.
 -- The fact that the function is total and the result is also Forced relies on theorems
 -- established for composing.
-composeF:: Forced Tgraph -> Forced Tgraph
+composeF:: HasGraph a => Forced a -> Forced Tgraph
 composeF = snd . partComposeF
 
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
@@ -163,9 +163,10 @@ recoverFaces dwInfo =  nub $ concat (unMapped dwInfo : VMap.elems (faceMap dwInf
 -- Getting the dart wing information makes use of the forced version
 -- as well as the Tgraph so this uses tryForce first which can fail if
 -- the Tgraph is found to be incorrect.
-tryGetDartWingInfo :: Tgraph -> Try DartWingInfo
-tryGetDartWingInfo g =
-    do fg <- onFail "tryGetDartWingInfo: incorrect Tgraph found.\n" $ tryForceF g
+tryGetDartWingInfo :: HasGraph a => a -> Try DartWingInfo
+tryGetDartWingInfo a =
+    do let g = recoverGraph a
+       fg <- onFail "tryGetDartWingInfo: incorrect Tgraph found.\n" $ tryForceF g
        return $ getDWIassumeF False g fg
 
 -- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg

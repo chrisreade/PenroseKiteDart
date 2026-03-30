@@ -66,6 +66,7 @@ module Tgraph.Prelude
 --  , connectedBy
    -- * HasFaces operations
   , HasFaces(..) -- faces, boundaryESet, maxV, boundaryVFMap
+  , HasGraph(..)
   , boundaryEdgeSet
   , boundary
 -- , maxV
@@ -257,6 +258,15 @@ type TileFace = HalfTile (Vertex,Vertex,Vertex)
 -}
 newtype Tgraph = Tgraph [TileFace] 
                  deriving (Show)
+
+-- |A class for types from which a Tgraph can be recovered.
+class HasGraph a where
+  recoverGraph :: a -> Tgraph
+
+-- |A Tgraph has a Tgraph
+instance HasGraph Tgraph where
+   recoverGraph = id
+
 
 -- |A type used to classify edges of faces.
 -- Each (halftile) face has a long edge, a short edge and a join edge. 
@@ -711,27 +721,30 @@ darts = filter isDart . faces
 
 -- |selects faces from a Tgraph (removing any not in the list),
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
-selectFaces :: [TileFace] -> Tgraph -> Tgraph
-selectFaces fcs g = runTry $ tryConnectedNoCross $ faces g `intersect` fcs
+selectFaces :: HasGraph a => [TileFace] -> a -> Tgraph
+selectFaces fcs a = runTry $ tryConnectedNoCross $ faces g `intersect` fcs
+                    where g = recoverGraph a
 
 -- |removes faces from a Tgraph,
 -- but checks resulting Tgraph for connectedness and no crossing boundaries.
-removeFaces :: [TileFace] -> Tgraph -> Tgraph
-removeFaces fcs g = runTry $ tryConnectedNoCross $ faces g \\ fcs
-
+removeFaces :: HasGraph a => [TileFace] -> a -> Tgraph
+removeFaces fcs a = runTry $ tryConnectedNoCross $ faces g \\ fcs
+                    where g = recoverGraph a
+                    
 -- |removeVertices vs g - removes any vertex in the list vs from g
 -- by removing all faces at those vertices. The resulting Tgraph is checked
 -- for required properties  e.g. connectedness and no crossing boundaries
 -- and will raise an error if these fail.
-removeVertices :: [Vertex] -> Tgraph -> Tgraph
-removeVertices vs g = removeFaces (filter (hasVIn vs) (faces g)) g
+removeVertices :: HasGraph a => [Vertex] -> a -> Tgraph
+removeVertices vs a = removeFaces (filter (hasVIn vs) (faces g)) g
+                      where g = recoverGraph a
 
 -- |selectVertices vs g - removes any face that does not have at least one vertex in the list vs from g.
 -- Resulting Tgraph is checked
 -- for required properties  e.g. connectedness and no crossing boundaries
 -- and will raise an error if these fail.
-selectVertices :: [Vertex] -> Tgraph -> Tgraph
-selectVertices vs g = runTry $ tryConnectedNoCross $ filter (hasVIn vs) $ faces g
+selectVertices :: HasGraph a => [Vertex] -> a -> Tgraph
+selectVertices vs = runTry . tryConnectedNoCross . filter (hasVIn vs) . faces . recoverGraph
 
 -- |internal edges are shared by two faces. That is, all edges except those at the boundary.
 -- Both directions of each internal directed edge will appear in the result.
@@ -1142,12 +1155,13 @@ instance HasFaces VPatch where
     boundary = boundary . faces
     maxV = maxV . faces
  -}
-{-|Convert a Tgraph to a VPatch.
+{-|Convert something with a Tgraph to a VPatch.
 This uses locateGraphVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis.
 -}
-makeVP::Tgraph -> VPatch
-makeVP g = VPatch {vLocs = locateGraphVertices g, vpFaces  = faces g}
+makeVP::HasGraph a => a -> VPatch
+makeVP a = VPatch {vLocs = locateGraphVertices g, vpFaces  = faces g}
+           where g = recoverGraph a
 
 -- |subFaces a vp, creates a new VPatch from faces in a, using the vertex location map from vp.
 -- The vertices in the faces should have locations assigned in vp vertex locations.
@@ -1217,18 +1231,6 @@ dropLabels vp = map convert (faces vp) where
                 ++ show (faceVList face \\ VMap.keys locations)  ++ "\n"
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 -- |Tgraphs are Drawable
 instance Drawable Tgraph where
     drawWith pd = drawWith pd . makeVP
@@ -1273,7 +1275,7 @@ rotateBefore = flip rotating
 -- Tgraphs need to be rotating after a VPatch is calculated but before any labelled drawing.
 --
 -- E.g. rotating angle (labelled draw) graph.
-rotating :: Angle Double -> (VPatch -> a) -> Tgraph -> a
+rotating :: HasGraph a => Angle Double -> (VPatch -> b) -> a -> b
 rotating angle vfun = vfun . rotate angle . makeVP
 
 -- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
@@ -1318,7 +1320,7 @@ alignAll (a,b) = map (alignXaxis (a,b))
 -- Tgraphs need to be aligned after a VPatch is calculated but before any labelled drawing.
 --
 -- E.g. aligning (a,b) (labelled draw) g
-aligning ::  (Vertex,Vertex) -> (VPatch -> a) -> Tgraph -> a
+aligning ::  HasGraph a => (Vertex,Vertex) -> (VPatch -> b) -> a -> b
 aligning vs vfun = vfun . alignXaxis vs . makeVP
 
 {-# DEPRECATED alignBefore "Use (flip aligning)" #-}
@@ -1331,7 +1333,7 @@ alignBefore = flip aligning
 
 -- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligning on the x-axis.
 -- Will raise an error if either a or b is not a vertex in g.
-makeAlignedVP:: (Vertex,Vertex) -> Tgraph -> VPatch
+makeAlignedVP:: HasGraph a => (Vertex,Vertex) -> a -> VPatch
 makeAlignedVP vs = aligning vs id
 
 

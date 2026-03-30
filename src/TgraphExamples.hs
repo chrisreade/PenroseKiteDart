@@ -390,20 +390,20 @@ boundaryGap5Fig = padBorder $ lw ultraThin $ smart (labelSize (normalized 0.006)
 boundaryVCoveringFigs :: OKBackend b =>
                          Forced BoundaryState -> [Diagram b]
 boundaryVCoveringFigs bd =
-    lw ultraThin . (redg <>) . aligning alig draw  . (recoverGraph . forgetF) <$> boundaryVCovering bd
+    lw ultraThin . (redg <>) . aligning alig draw  . recoverGraph <$> boundaryVCovering bd
       where redg = lc red $ draw g
             alig = defaultAlignment g
-            g = recoverGraph $ forgetF bd
+            g = recoverGraph bd
 
 -- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
 -- (with the Tgraph represented by bd shown in red in each case).
 boundaryECoveringFigs :: OKBackend b =>
                          Forced BoundaryState -> [Diagram b]
 boundaryECoveringFigs bd =
-    lw ultraThin . (redg <>) . aligning alig draw  . recoverGraph . forgetF  <$> boundaryECovering bd
+    lw ultraThin . (redg <>) . aligning alig draw  . recoverGraph <$> boundaryECovering bd
       where redg = lc red $ draw g
             alig = defaultAlignment g
-            g = recoverGraph $ forgetF bd
+            g = recoverGraph bd
 
 kingECoveringFig,kingVCoveringFig :: OKBackend b => Diagram b
 -- | diagram showing the boundaryECovering of a forced kingGraph.
@@ -422,21 +422,21 @@ kingEmpire2Fig = showEmpire2 kingGraph
 
 -- |emplaceChoices forces then maximally composes. At this top level it
 -- produces a list of forced choices for each of the unknowns of this top level Tgraph.
--- It then repeatedly applies (forceF . decompose . forgetF) back to the starting level to return a list of Forced Tgraphs.
+-- It then repeatedly applies (forceF . decompose ) back to the starting level to return a list of Forced Tgraphs.
 -- This version relies on compForce theorem and related theorems
 emplaceChoices:: Tgraph -> [Forced Tgraph]
 emplaceChoices = emplaceChoicesF . forceF  where
 
   emplaceChoicesF:: Forced Tgraph -> [Forced Tgraph]
   emplaceChoicesF fg | nullFaces compfg = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, fg)]
-                          | otherwise    = forceF . decompose . forgetF <$> emplaceChoicesF compfg
+                          | otherwise    = forceF . decompose <$> emplaceChoicesF compfg
                           where compfg = composeF fg
   chooseUnknowns :: [([Vertex],Forced Tgraph)] -> [Forced Tgraph]
   chooseUnknowns [] = []
   chooseUnknowns (([],g0):more) = g0:chooseUnknowns more
   chooseUnknowns ((u:unks,g0): more)
      =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
-        where newgs = map recoverGraphF $ atLeastOne $ (tryDartAndKiteF (findDartLongForWing u bd) bd)
+        where newgs = map (withForced recoverGraph) $ atLeastOne $ (tryDartAndKiteF (findDartLongForWing u bd) bd)
               bd = makeBoundaryState (forgetF g0)
               remainingunks startunks g' = (startunks `intersect` boundaryVsDup g', g')
 
@@ -448,7 +448,7 @@ emplaceChoices = emplaceChoicesF . forceF  where
 
 -- |Example showing emplaceChoices for foolD with foolD shown in red in each choice
 emplaceChoicesFig :: OKBackend b => Diagram b
-emplaceChoicesFig =  lw thin $ hsep 1 $  (overlayg . forgetF) <$> emplaceChoices g
+emplaceChoicesFig =  lw thin $ hsep 1 $  overlayg <$> emplaceChoices g
     where g = foolD
           overlayg g' = smartAligning algmnt draw g # lc red <> aligning algmnt draw  g'
           algmnt = defaultAlignment $ maxCompForce g
