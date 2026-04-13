@@ -19,7 +19,7 @@ This module re-exports module HalfTile and module Try.
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE Strict                    #-}
-
+{-# LANGUAGE UndecidableInstances      #-}
 
 module Tgraph.Prelude
   ( module HalfTile
@@ -64,9 +64,14 @@ module Tgraph.Prelude
   , crossingBoundaries
   , connected
 --  , connectedBy
-   -- * HasFaces operations
-  , HasFaces(..) -- faces, boundaryESet, maxV, boundaryVFMap
+   -- * HasGraph operations
   , HasGraph(..)
+  , selectFaces
+  , removeFaces
+  , removeVertices
+  , selectVertices
+     -- * HasFaces operations
+  , HasFaces(..) -- faces, boundaryESet, maxV, boundaryVFMap
   , boundaryEdgeSet
   , boundary
 -- , maxV
@@ -87,6 +92,7 @@ module Tgraph.Prelude
   --, boundaryVFMap
 --  , faces
   , nullFaces
+  , nullGraph
   , evalFaces
   , evalFace
   , faceCount
@@ -100,10 +106,6 @@ module Tgraph.Prelude
   , phiEdges
   , nonPhiEdges
   , defaultAlignment
-  , selectFaces
-  , removeFaces
-  , removeVertices
-  , selectVertices
   , vertexFMap
   , vertexFacesMap
   , dedgeFMap
@@ -172,12 +174,14 @@ module Tgraph.Prelude
   , labelSize
   , labelled
   , rotating
-  , rotateBefore
+  , rotatedVP
+  , rotateBefore -- deprecated
   , dropLabels
 -- * Tgraph and VPatch alignment with vertices
   , aligning
-  , alignBefore
-  , makeAlignedVP
+  , alignBefore -- deprecated
+  , alignedVP
+  , makeAlignedVP -- deprecated
   , centerOn
   , alignXaxis
   , alignments
@@ -266,7 +270,6 @@ class HasGraph a where
 -- |A Tgraph has a Tgraph
 instance HasGraph Tgraph where
    recoverGraph = id
-
 
 -- |A type used to classify edges of faces.
 -- Each (halftile) face has a long edge, a short edge and a join edge. 
@@ -601,6 +604,10 @@ emptyTgraph = Tgraph []
 -- |are there no faces?
 nullFaces:: HasFaces a => a -> Bool
 nullFaces = null . faces
+
+-- |does the graph have no faces?
+nullGraph :: HasGraph a => a -> Bool
+nullGraph g = nullFaces (recoverGraph g)
 
 -- |Class HasFaces for operations using (a list of) TileFaces.
 -- 
@@ -1148,13 +1155,16 @@ type instance N VPatch = Double
 instance Transformable VPatch where
     transform t vp = vp {vLocs = VMap.map (transform t) (vLocs vp)}
 
+
 -- |VPatch is in class HasFace
 instance HasFaces VPatch where
     faces = vpFaces
-{-     boundaryVFMap = boundaryVFMap . faces -- need for nub (from [TileFace] instance)
+{-  Default implementations for
+    boundaryVFMap = boundaryVFMap . faces -- need for nub (from [TileFace] instance)
     boundary = boundary . faces
     maxV = maxV . faces
  -}
+
 {-|Convert something with a Tgraph to a VPatch.
 This uses locateGraphVertices to form an intermediate VertexLocMap (mapping of vertices to positions).
 This makes the join of the face with lowest origin and lowest oppV align on the positive x axis.
@@ -1271,12 +1281,17 @@ labelled = labelColourSize red small --(normalized 0.023)
 rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
 rotateBefore = flip rotating
 
--- |rotating a vfun g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
--- Tgraphs need to be rotating after a VPatch is calculated but before any labelled drawing.
+-- |rotating a vfun g - makes a VPatch from g then rotates by angle a before applying vfun 
+-- (a VPatch continuation function - usually a drawing function).
+-- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
 --
 -- E.g. rotating angle (labelled draw) graph.
 rotating :: HasGraph a => Angle Double -> (VPatch -> b) -> a -> b
-rotating angle vfun = vfun . rotate angle . makeVP
+rotating angle vfun = vfun . rotatedVP angle
+
+-- |rotatedVP angle g - make a VP for g then rotate by angle
+rotatedVP :: HasGraph a => Angle Double -> a -> VPatch
+rotatedVP angle = rotate angle . makeVP
 
 -- |center a VPatch on a particular vertex. (Raises an error if the vertex is not in the VPatch vertices)
 centerOn :: Vertex -> VPatch -> VPatch
@@ -1300,28 +1315,29 @@ alignXaxis (a,b) vp =  rotate angle newvp
 
 -- |alignments takes a list of vertex pairs for respective alignments of VPatches in the second list.
 -- For a pair (a,b) the corresponding VPatch is centered on a then b is aligned along the positive x axis. 
--- The vertex pair list can be shorter than the list of VPatch - the remaining VPatch are left as they are.
+-- The vertex pair list can be shorter than the list of VPatch - the remaining VPatches are left as they are.
 -- (Raises an error if either vertex in a pair is not in the corresponding VPatch vertices)
 alignments :: [(Vertex, Vertex)] -> [VPatch] -> [VPatch]
-alignments [] vps = vps
-alignments _  [] = error "alignments: Too many alignment pairs.\n"  -- non-null list of pairs
-alignments ((a,b):more) (vp:vps) =  alignXaxis (a,b) vp : alignments more vps
+alignments prs vps = if length prs > length vps
+                     then error "alignments: Too many alignment pairs.\n"
+                     else zipWith alignXaxis prs vps
 
+{-# DEPRECATED alignAll "Use (map . alignXaxis)" #-}
 -- |alignAll (a,b) vpList
 -- provided both vertices a and b exist in each VPatch in vpList, the VPatch are all aligned
 -- centred on a, with b on the positive x axis.
 -- An error is raised if any VPatch does not contain both a and b vertices.
 alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]
-alignAll (a,b) = map (alignXaxis (a,b))
+alignAll  = map . alignXaxis
 
 -- |aligning (a,b) vfun g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
--- before applying the VPatch function vfun
+-- before applying vfun (a VPatch continuation function - usually a drawing function)
 -- Will raise an error if either a or b is not a vertex in g.
 -- Tgraphs need to be aligned after a VPatch is calculated but before any labelled drawing.
 --
 -- E.g. aligning (a,b) (labelled draw) g
 aligning ::  HasGraph a => (Vertex,Vertex) -> (VPatch -> b) -> a -> b
-aligning vs vfun = vfun . alignXaxis vs . makeVP
+aligning vs vfun = vfun . alignedVP vs
 
 {-# DEPRECATED alignBefore "Use (flip aligning)" #-}
 -- |alignBefore vfun (a,b) g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
@@ -1333,8 +1349,14 @@ alignBefore = flip aligning
 
 -- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligning on the x-axis.
 -- Will raise an error if either a or b is not a vertex in g.
+alignedVP:: HasGraph a => (Vertex,Vertex) -> a -> VPatch
+alignedVP vs = alignXaxis vs . makeVP
+
+{-# DEPRECATED makeAlignedVP "Renamed as alignedVP" #-}
+-- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligning on the x-axis.
+-- Will raise an error if either a or b is not a vertex in g.
 makeAlignedVP:: HasGraph a => (Vertex,Vertex) -> a -> VPatch
-makeAlignedVP vs = aligning vs id
+makeAlignedVP = alignedVP
 
 
 -- |produce a diagram of a list of edges (given a suitable VPatch)
@@ -1482,7 +1504,7 @@ This is used in makeTgraph and fullUnion.
 touchingVertices:: HasFaces a => a -> [(Vertex,Vertex)]
 touchingVertices fcs = check vpAssocs where
   vpAssocs = VMap.assocs $ locateVertices fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
-  check = allClashes fst
+  check = allTouching fst -- using Grid to check (fst is used to extract Vertex numbers for the results)
  
 
 
@@ -1499,7 +1521,7 @@ calculations.
 touchingVerticesGen:: HasFaces a => a -> [(Vertex,Vertex)]
 touchingVerticesGen fcs = check vpAssocs where
   vpAssocs = VMap.assocs $ locateVerticesGen fcs  -- assocs puts in increasing key order so that check returns (higher,lower) pairs
-  check = allClashes fst
+  check = allTouching fst -- using Grid to check (fst is used to extract Vertex numbers for the results)
 
 {-| locateVerticesGen  (not exported but used in touchingVerticesGen). This generalises locateVertices to allow for multiple faces sharing an edge.
 This can arise when applied to the union of faces from 2 Tgraphs (e.g. in commonFaces).

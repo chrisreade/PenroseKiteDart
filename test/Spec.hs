@@ -126,14 +126,14 @@ graphOpSpec = describe "Main Tgraph Operations Test" $ do
          faceCount dD6  `shouldBe` 466
     context "Composing Forced Tgraphs" $
       it "Number of faces of maxCompForce (dartDs !!6) should be 6" $
-         faceCount (forgetF $ maxCompForce dD6) `shouldBe` 6
+         faceCount (maxCompForce dD6) `shouldBe` 6
     context "Forcing Tgraphs" $
       it "Number of faces of force (dartDs !!6) should be 7546" $
          faceCount(force dD6) `shouldBe` 7546
-    context "partCompose and Force" $
+    context "partCompose and force" $
       it "Number of remainder faces when part composing force (dartDs !!3) should be 58" $
          faceCount(fst $ partCompose $ force $ dartDs !!3) `shouldBe` 58
-    context "partComposeF and ForceF" $
+    context "partComposeF and forceF" $
       it "Number of remainder faces when part composing forceF (dartDs !!3) should be 58" $
          faceCount(fst $ partComposeF $ forceF $ dartDs !!3) `shouldBe` 58
     context "partCompose of reduced Tgraph (extraBrokenDart)" $

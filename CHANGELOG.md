@@ -3,10 +3,15 @@
 
 ## Since v1.7
 
-  - Introduced class HasGraph (instances Tgraph, BoundaryState, ForceState, and Forced versions)
-  - Generalised recoverGraph (and many other functions now using HasGraph)
-  - Introduced withForced
-  - Deprecated recoverGraphF, boundaryStateF, makeBoundaryStateF (by using withForced)
+  - Introduced class HasGraph (instances Tgraph, BoundaryState, ForceState, and Forced versions of these)
+  - Generalised recoverGraph (and many other functions now using HasGraph such as compose, decompose,...)
+  - Reinstated nullGraph (with HasGraph constraint)
+  - Introduced withForced, alignedVP, rotatedVP
+  - Deprecated recoverGraphF, boundaryStateF, makeBoundaryStateF, initFSF (by using withForced)
+  - Deprecated makeAlignedVP (renamed as alignedVP)
+  - Deprecated alignAll (use (map. alignXaxis))
+  - superForce now produces Forced Tgraph (compose with forgetF to obtain Tgraph)
+
 
 ## version v1.7
 

@@ -360,9 +360,9 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 
 boundaryFDart4, boundaryFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph (dartDs!!4)
-boundaryFDart4 = makeUncheckedTgraph $ boundaryVFaces $ force $ makeBoundaryState dartD4
+boundaryFDart4 = runTry $ tryBoundaryFaceGraph $ force $ makeBoundaryState dartD4
 -- |graph of the boundary faces only of a forced graph (dartDs!!5)
-boundaryFDart5 = makeUncheckedTgraph $ boundaryVFaces $ force $ makeBoundaryState (dartDs!!5)
+boundaryFDart5 = runTry $ tryBoundaryFaceGraph $ force $ makeBoundaryState (dartDs!!5)
 
 boundaryFDart4Fig,boundaryFDart5Fig :: OKBackend b => Diagram b
 -- |figure of the boundary faces only of a forced graph (dartDs!!4).
@@ -428,7 +428,7 @@ emplaceChoices:: Tgraph -> [Forced Tgraph]
 emplaceChoices = emplaceChoicesF . forceF  where
 
   emplaceChoicesF:: Forced Tgraph -> [Forced Tgraph]
-  emplaceChoicesF fg | nullFaces compfg = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, fg)]
+  emplaceChoicesF fg | nullGraph compfg = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, fg)]
                           | otherwise    = forceF . decompose <$> emplaceChoicesF compfg
                           where compfg = composeF fg
   chooseUnknowns :: [([Vertex],Forced Tgraph)] -> [Forced Tgraph]

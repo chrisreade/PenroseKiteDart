@@ -25,6 +25,7 @@ module Tgraph.Grid
   , Grid
   , touching
   , ValuedPoint(..)
+  , allTouching
   , allClashes
 
 ) where
@@ -138,13 +139,18 @@ createGridCheck aps = insertAll aps (Grid IMap.empty) where
     do gd1 <- insertGridCheck ap gd
        insertAll more gd1
 
--- |Use a grid to find all clashing (touching) valued points.
+-- |Use a grid to find all touching valued points.
 -- The function argument is used to extract values from valued points.
-allClashes :: ValuedPoint a => (a -> b) -> [a] -> [(b,b)]
-allClashes f aps = check aps (Grid IMap.empty) []  where
+allTouching :: ValuedPoint a => (a -> b) -> [a] -> [(b,b)]
+allTouching f aps = check aps (Grid IMap.empty) []  where
   check [] _ cs = cs
   check (ap:more) gd cs =
       case insertGridCheck ap gd of
           Right gd' -> check more gd' cs
           Left ap'  -> check more gd ((f ap, f ap'):cs) 
           -- note ap' earlier than ap in the incoming list
+
+{-# DEPRECATED allClashes "Renamed as allTouching)" #-}
+-- | another name for allTouching
+allClashes :: ValuedPoint a => (a -> b) -> [a] -> [(b, b)]
+allClashes = allTouching

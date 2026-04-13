@@ -170,7 +170,7 @@ import qualified Data.Set as Set (foldr',elems,fromList)
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
 import Tgraph.Grid 
-
+-- import TileLib ( Drawable ) 
 {-
 ***************************************************************************   
 Efficient FORCING with 
@@ -255,13 +255,6 @@ isBoundaryDE (a,b) bs = case VMap.lookup a (nextBVMap $ boundaryDedges bs) of
 isBoundaryV :: Vertex -> BoundaryState -> Bool
 isBoundaryV v = VMap.member v . nextBVMap . boundaryDedges
 
--- |BoundaryState is in class HasFaces.
--- Note the default implementations are overiden to use precalculated information
-instance HasFaces BoundaryState where
-    faces = allFaces
-    boundaryESet = bdesToSet . boundaryDedges  -- (overrides default) boundary already calculated
-    maxV bd = nextVertex bd - 1 -- (overrides default)
-    boundaryVFMap = bvFacesMap -- (overrides default) already calculated
 
 -- |Calculates BoundaryState information from a Tgraph.
 makeBoundaryState:: Tgraph -> BoundaryState
@@ -280,14 +273,17 @@ makeBoundaryState g =
       , nextVertex = 1+ maxV g
       }
 
+-- |BoundaryState is in class HasFaces.
+-- Note the default implementations are overiden to use precalculated information
+instance HasFaces BoundaryState where
+    faces = allFaces
+    boundaryESet = bdesToSet . boundaryDedges  -- (overrides default) boundary already calculated
+    maxV bd = nextVertex bd - 1 -- (overrides default)
+    boundaryVFMap = bvFacesMap -- (overrides default) already calculated
+
 -- |A Tgraph can be recovered from a BoundaryState
 instance HasGraph BoundaryState where
     recoverGraph = makeUncheckedTgraph . allFaces
-
-{- -- |Converts a BoundaryState back to a Tgraph
-recoverGraph:: BoundaryState -> Tgraph
-recoverGraph = makeUncheckedTgraph . faces
- -}
 
 -- |changeVFMapUnsafe f vfmap - adds f to the list of faces associated with each v in f, returning a revised vfmap
 -- This is used in the unsafe addition case where one of the vertices will be new to the map.
@@ -494,13 +490,6 @@ newtype Forced a = Forced { -- | forget the explicit Forced labelling
                           }                 
    deriving (Show,HasFaces,HasGraph)
 
-{- -- |Extend HasFaces ops from a to Forced a
-instance HasFaces a => HasFaces (Forced a) where
-    faces = faces . forgetF
-    boundaryESet = boundaryESet . forgetF
-    maxV = maxV . forgetF
-    boundaryVFMap = boundaryVFMap . forgetF
- -}
  
 {-# WARNING labelAsForced 
     ["This should only be used when the argument is known to be a fully forced Forcible."
@@ -529,9 +518,8 @@ withForced f (Forced a) = Forced (f a)
 
 {-# DEPRECATED recoverGraphF "Use (withForced recoverGraph)" #-}
 -- | recoverGraphF is an explicitly forced version of recoverGraph
-recoverGraphF :: Forced BoundaryState -> Forced Tgraph
+recoverGraphF :: Forced ForceState -> Forced Tgraph
 recoverGraphF = withForced recoverGraph 
-   -- recoverGraphF(Forced bs) = Forced (recoverGraph bs)
 
 {-# DEPRECATED boundaryStateF "Use (withForced boundaryState)" #-}
 -- | boundaryStateF is an explicitly forced version of boundaryState
@@ -545,9 +533,10 @@ makeBoundaryStateF :: Forced Tgraph -> Forced BoundaryState
 makeBoundaryStateF = withForced makeBoundaryState
        -- makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
 
+{-# DEPRECATED initFSF "Use (withForced initFS)" #-}
 -- | initFSF is an explicitly forced version of initFS
 initFSF :: Forcible a => Forced a -> Forced ForceState
-initFSF (Forced a) = Forced (initFS a)
+initFSF = withForced initFS
 
 -- |try to find the right direction for an edge to be a boundary directed edge.
 -- Returns either Right de where de is the correct direction for the edge on the boundary,

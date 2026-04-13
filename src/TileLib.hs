@@ -467,18 +467,18 @@ filledSun6 = fillDK darkmagenta indigo sun6 # lw thin # lc gold
 -- It will raise an error if the integer list is longer than the list of items to be rotated.
 -- (Rotations by an angle are anti-clockwise)
 rotations :: (Transformable a, V a ~ V2, N a ~ Double) => [Int] -> [a] -> [a]
-rotations (n:ns) (d:ds) = rotate (ttangle n) d: rotations ns ds
-rotations [] ds = ds
-rotations _  [] = error "rotations: too many rotation integers"
+rotations ns xs = if length ns > length xs
+                  then error "rotations: too many rotation integers"
+                  else zipWith (rotate . ttangle) ns xs
 
 -- |scales takes a list of doubles for respective scalings of items in the second list (things to be scaled).
 -- This includes Diagrams, Pieces, Patches, VPatches.
 -- The list of doubles can be shorter than the list of items - the remaining items are left unscaled.
 -- It will raise an error if the integer list is longer than the list of items to be scaled.
 scales :: (Transformable a, V a ~ V2, N a ~ Double) => [Double] -> [a] -> [a]
-scales (s:ss) (d:ds) = scale s d: scales ss ds
-scales [] ds = ds
-scales _  [] = error "scales: too many scalars"
+scales ss xs = if length ss > length xs
+               then error "scales: too many scalars"
+               else zipWith scale ss xs
 
 -- |increasing scales by a factor of phi along a list starting with 1.
 phiScales:: (Transformable a, V a ~ V2, N a ~ Double) => [a] -> [a]
