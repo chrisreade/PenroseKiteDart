@@ -325,7 +325,7 @@ type UpdateMap = Map Dedge Update
 -- (a BoundaryState and an UpdateMap).
 data ForceState = ForceState
                    { boundaryState:: BoundaryState
-                   , updateMap:: UpdateMap
+                   , updateMap:: ~UpdateMap
                    } deriving (Show)
 
 -- |ForceState is in class HasFaces.

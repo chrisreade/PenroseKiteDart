@@ -388,28 +388,28 @@ boundaryGap5Fig = padBorder $ lw ultraThin $ smart (labelSize (normalized 0.006)
 -- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
 -- (with the Tgraph represented by bd shown in red in each case).
 boundaryVCoveringFigs :: OKBackend b =>
-                         Forced BoundaryState -> [Diagram b]
-boundaryVCoveringFigs bd =
-    lw ultraThin . (redg <>) . aligning alig draw  . recoverGraph <$> boundaryVCovering bd
+                         Forced ForceState -> [Diagram b]
+boundaryVCoveringFigs fs =
+    lw ultraThin . (redg <>) . aligning alig draw  . recoverGraph <$> boundaryVCovering fs
       where redg = lc red $ draw g
             alig = defaultAlignment g
-            g = recoverGraph bd
+            g = recoverGraph fs
 
 -- | boundaryECoveringFigs bd - produces a list of diagrams for the boundaryECovering of bd  
 -- (with the Tgraph represented by bd shown in red in each case).
 boundaryECoveringFigs :: OKBackend b =>
-                         Forced BoundaryState -> [Diagram b]
-boundaryECoveringFigs bd =
-    lw ultraThin . (redg <>) . aligning alig draw  . recoverGraph <$> boundaryECovering bd
+                         Forced ForceState -> [Diagram b]
+boundaryECoveringFigs fs =
+    lw ultraThin . (redg <>) . aligning alig draw  . recoverGraph <$> boundaryECovering fs
       where redg = lc red $ draw g
             alig = defaultAlignment g
-            g = recoverGraph bd
+            g = recoverGraph fs
 
 kingECoveringFig,kingVCoveringFig :: OKBackend b => Diagram b
 -- | diagram showing the boundaryECovering of a forced kingGraph.
-kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoveringFigs $ forceF $ makeBoundaryState kingGraph
+kingECoveringFig = padBorder $ arrangeRows 3 $ boundaryECoveringFigs $ forceF $ initFS kingGraph
 -- | diagram showing the boundaryVCovering of a forced kingGraph.
-kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoveringFigs $ forceF $ makeBoundaryState kingGraph
+kingVCoveringFig = padBorder $ arrangeRows 3 $ boundaryVCoveringFigs $ forceF $ initFS kingGraph
 
 kingEmpiresFig, kingEmpire1Fig, kingEmpire2Fig :: OKBackend b => Diagram b
 -- | figure showing King's empires (1 and 2).
@@ -436,8 +436,9 @@ emplaceChoices = emplaceChoicesF . forceF  where
   chooseUnknowns (([],g0):more) = g0:chooseUnknowns more
   chooseUnknowns ((u:unks,g0): more)
      =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
-        where newgs = map (withForced recoverGraph) $ atLeastOne $ (tryDartAndKiteF (findDartLongForWing u bd) bd)
-              bd = makeBoundaryState (forgetF g0)
+        where newgs = map (withForced recoverGraph) $ runTry $ tryCheckCasesDKF de g0
+--        where newgs = map (withForced recoverGraph) $ atLeastOne $ (tryDartAndKiteF (findDartLongForWing u bd) bd)
+              de = findDartLongForWing u $ makeBoundaryState (forgetF g0)
               remainingunks startunks g' = (startunks `intersect` boundaryVsDup g', g')
 
   findDartLongForWing :: Vertex -> BoundaryState -> Dedge

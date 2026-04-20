@@ -340,17 +340,18 @@ This will raise an error if the initial force fails with an incorrect/stuck Tgra
 -}
 forcedBoundaryECovering:: Tgraph -> [Forced Tgraph]
 forcedBoundaryECovering g = withForced recoverGraph <$> boundaryECovering gforcedBdry where
-     gforcedBdry = runTry $ onFail "forcedBoundaryECovering:Initial force failed (incorrect Tgraph)\n" $
-                             tryForceF $ makeBoundaryState g
+     gforcedBdry = runTry $ onFail "forcedBoundaryECovering:Initial force failed (incorrect Tgraph)\n" 
+                          $ tryInitFS g  >>= tryForceF
 
 {-| forcedBoundaryVCovering g - produces a list of all boundary covers of force g as with
 forcedBoundaryECovering g but covering all boundary vertices rather than just boundary edges.
 This will raise an error if the initial force fails with an incorrect/stuck Tgraph.                      
 -}
 forcedBoundaryVCovering:: Tgraph -> [Forced Tgraph]
-forcedBoundaryVCovering g = withForced recoverGraph <$> boundaryVCovering gforcedBdry where
-     gforcedBdry = runTry $ onFail "forcedBoundaryVCovering:Initial force failed (incorrect Tgraph)\n" $
-                             tryForceF $ makeBoundaryState g
+forcedBoundaryVCovering g = withForced recoverGraph <$> boundaryVCovering ffs where
+     ffs = runTry $ onFail "forcedBoundaryVCovering:Initial force failed (incorrect Tgraph)\n"
+                  $ tryInitFS g  >>= tryForceF 
+
 
 {-| boundaryECovering - for an explicitly Forced BoundaryState fbd,
 produces a list of all possible covers of the boundary directed edges in fbd.
@@ -365,37 +366,37 @@ This can raise an error if both choices on a boundary edge fail when forced (usi
 In which case, fbd represents an important counter example to the hypothesis that
 successfully forced forcibles are correct.
 -}
-boundaryECovering:: Forced BoundaryState -> [Forced BoundaryState]
-boundaryECovering forcedbs = covers [(forcedbs, boundaryESet forcedbs)] where
-  covers:: [(Forced BoundaryState, Set Dedge)] -> [Forced BoundaryState]
-  covers [] = []
-  covers ((fbs,es):opens)
-    | Set.null es = fbs:covers opens -- fbs is a completed cover
-    | otherwise = covers (newcases ++ opens)
-       where (de,des) = Set.deleteFindMin es
-             newcases = map (\b -> (b, commonBdry des b))
-                             (checkCasesDKF de fbs)
+boundaryECovering:: Forced ForceState -> [Forced ForceState]
+boundaryECovering forcedfs = covers [(forcedfs, boundaryESet forcedfs)] where
+      covers:: [(Forced ForceState, Set Dedge)] -> [Forced ForceState]
+      covers [] = []
+      covers ((ffs,es):opens)
+        | Set.null es = ffs:covers opens -- fs is a completed cover
+        | otherwise = covers (newcases ++ opens)
+           where (de,des) = Set.deleteFindMin es
+                 newcases = map (\x -> (x, commonBdry des x))
+                                (runTry $ tryCheckCasesDKF de ffs)
 
 
 -- | commonBdry des a - returns those directed edges in des that are boundary directed edges of a
 commonBdry:: HasFaces a => Set Dedge -> a -> Set Dedge
 commonBdry des a = des `Set.intersection` boundaryESet a
 
-{-| boundaryVCovering fbd - similar to boundaryECovering, but produces a list of all possible covers of 
-    the boundary vertices in fbd (rather than just boundary edges).
+{-| boundaryVCovering fs - similar to boundaryECovering, but produces a list of all possible covers of 
+    the boundary vertices in fs (rather than just boundary edges).
     This can raise an error if both choices on a boundary edge fail when forced (using tryCheckCasesDKF).
  -}
-boundaryVCovering:: Forced BoundaryState -> [Forced BoundaryState]
-boundaryVCovering fbd = covers [(fbd, startbds)] where
-  startbds = boundaryESet fbd
-  startbvs = boundaryVSet fbd
---covers:: [(Forced BoundaryState,Set Dedge)] -> [Forced BoundaryState]
+boundaryVCovering:: Forced ForceState -> [Forced ForceState]
+boundaryVCovering ffs = covers [(ffs, startbds)] where
+  startbds = boundaryESet ffs
+  startbvs = boundaryVSet ffs
+  covers:: [(Forced ForceState, Set Dedge)] -> [Forced ForceState]
   covers [] = []
   covers ((open,es):opens)
     | Set.null es = case find (\(a,_) -> IntSet.member a startbvs) (boundary open) of
         Nothing -> open:covers opens
         Just dedge -> covers $ map (,es) (runTry $ tryCheckCasesDKF dedge open) ++opens
-    | otherwise =  covers $ map (\b -> (b, commonBdry des b)) (atLeastOne $  tryDartAndKiteF de (forgetF open)) ++opens
+    | otherwise =  covers $ map (\b -> (b, commonBdry des b)) (runTry $ tryCheckCasesDKF de open) ++opens
                    where (de,des) = Set.deleteFindMin es
 
 -- | returns the set of internal vertices of all tilefaces
@@ -429,9 +430,9 @@ tryDartAndKiteF de b =
 tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try a]
 tryDartAndKiteForced de b = 
     [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
-        tryAddHalfDart de b >>= tryForce
+        tryFSOp (\fs -> tryAddHalfDart de fs >>= tryForce) b -- tryAddHalfDart de b >>= tryForce
     , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
-        tryAddHalfKite de b >>= tryForce
+        tryFSOp (\fs -> tryAddHalfKite de fs >>= tryForce) b
     ]
 
 -- | tryCheckCasesDKF dedge fb (where fb is an explicitly forced Forcible
@@ -515,7 +516,7 @@ empire2 g =
             g0Intersect g1 = commonFaces (g0,de) (g1,de)
   where
      covers1 = boundaryECovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
-              $ tryForceF $ makeBoundaryState g
+               $ tryInitFS g >>= tryForceF
      covers2 = concatMap boundaryECovering covers1
      de = defaultAlignment g
      
@@ -532,7 +533,7 @@ empire2Plus g =
             g0Intersect g1 = commonFaces (g0,de) (g1,de)
   where
      covers1 = boundaryVCovering $ runTry $ onFail "empire2:Initial force failed (incorrect Tgraph)\n"
-              $ tryForceF $ makeBoundaryState g
+               $ tryInitFS g >>= tryForceF
      covers2 = concatMap boundaryVCovering covers1
      de = defaultAlignment g
      
@@ -583,7 +584,7 @@ trySuperForce = fmap labelAsForced . tryFSOp trySuperForceFS where
     trySuperForceFS fs =
         do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
                        tryForceF fs
-           case singleChoiceEdges $ withForced boundaryState forcedFS of
+           case singleChoiceEdges $ forcedFS of
               [] -> return $ forgetF forcedFS
               (elpr:_) -> do extended <- addSingle elpr $ forgetF forcedFS
                              trySuperForceFS extended
@@ -593,7 +594,7 @@ trySuperForce = fmap labelAsForced . tryFSOp trySuperForceFS where
 -- which have a single choice (i.e. the other choice is incorrect), by inspecting boundary edge covers of bd.
 -- The result is a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
-singleChoiceEdges :: Forced BoundaryState -> [(Dedge,HalfTileLabel)]
+singleChoiceEdges :: Forced ForceState -> [(Dedge,HalfTileLabel)]
 singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstate) (boundary bstate)
   where
 -- commonToCovering bds edgeList - when bds are all the boundary edge covers of some forced Tgraph
