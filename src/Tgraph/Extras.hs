@@ -56,10 +56,10 @@ module Tgraph.Extras
   , boundaryECovering
   , boundaryVCovering
   , tryDartAndKite
-  , tryDartAndKiteForced
-  , tryDartAndKiteF
+  --, tryDartAndKiteForced
+  --, tryDartAndKiteF
   , tryCheckCasesDKF
-  , checkCasesDKF
+  --, checkCasesDKF
   , commonBdry
   , internalVertexSet
   , drawFBCovering
@@ -412,7 +412,7 @@ tryDartAndKite de b =
     , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $
         tryAddHalfKite de b
     ]
-
+{- 
 -- | tryDartAndKiteF de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b and then tries forcing.
 -- Each of the results is a Try of an explicitly Forced type.
@@ -423,8 +423,9 @@ tryDartAndKiteF de b =
     , onFail ("tryDartAndKiteF: Kite on edge: " ++ show de ++ "\n") $
         tryAddHalfKite de b >>= tryForceF
     ]
+ -}
 
--- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
+{- -- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
 -- to edge de of a Forcible b and then tries forcing.
 -- Each of the results is a Try.
 tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try a]
@@ -434,7 +435,8 @@ tryDartAndKiteForced de b =
     , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
         tryFSOp (\fs -> tryAddHalfKite de fs >>= tryForce) b
     ]
-
+ -}
+ 
 -- | tryCheckCasesDKF dedge fb (where fb is an explicitly forced Forcible
 -- and dedge is a directed boundary edge of fb) tries to add both a half kite and a half dart to the edge
 -- then tries forcing each result.
@@ -448,6 +450,25 @@ tryDartAndKiteForced de b =
 -- (If both legal additions to a boundary edge are incorrect,
 -- then the (Forced) Forcible must be incorrect).
 tryCheckCasesDKF :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
+tryCheckCasesDKF de ffs = 
+    onFail ("tryCheckCasesDKF: <<< Counter Example Found!! >>>\n"
+            ++ "\nBoth legal extensions to directed edge " 
+            ++ show de
+            ++ " \nare incorrrect for a Forced ForceState.\n"
+            ++ "This shows a successfully forced forcible can still be incorrect\n"
+            ++ "which is a counter example to the hypothesis that successful forcing\n"
+            ++ "returns correct tilings.\n\n"
+            ++ "The incorrect Forced ForceState has Tgraph:\n"
+            ++ show  (forgetF ffs)
+           ) $
+    fmap (map labelAsForced) $ tryAtLeastOne
+    [ onFail ("tryCheckCasesDKF: Dart on edge: " ++ show de ++ "\n") $
+        tryFSOp (\fs -> tryAddHalfDart de fs >>= tryForce) a
+    , onFail ("tryCheckCasesDKF: Kite on edge: " ++ show de ++ "\n") $
+        tryFSOp (\fs -> tryAddHalfKite de fs >>= tryForce) a
+    ] where a = forgetF ffs
+
+{- tryCheckCasesDKF :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
 tryCheckCasesDKF dedge fb = 
     onFail ("tryCheckCasesDKF: <<< Counter Example Found!! >>>\n"
             ++ "\nBoth legal extensions to directed edge " ++ show dedge
@@ -459,7 +480,9 @@ tryCheckCasesDKF dedge fb =
             ++ show fb
            )
     $ tryAtLeastOne $ tryDartAndKiteF dedge (forgetF fb)
+ -}
 
+{- 
 -- | checkCasesDKF dedge fb (where fb is an explicitly forced Forcible
 -- and dedge is a directed boundary edge of fb) tries to add both a half kite and a half dart to the edge
 -- then tries forcing each result.
@@ -474,7 +497,8 @@ tryCheckCasesDKF dedge fb =
 -- then the (Forced) Forcible must be incorrect).
 checkCasesDKF :: (Forcible a, Show a) => Dedge -> Forced a -> [Forced a]
 checkCasesDKF dedge = runTry . tryCheckCasesDKF dedge
- 
+ -} 
+
 -- |A test function to draw (as a column) the list of covers resulting from forcedBoundaryVCovering
 -- for a given Tgraph.
 drawFBCovering :: OKBackend b =>
@@ -719,14 +743,14 @@ Forcing and Decomposing TrackedTgraphs
 
 -- | TrackedTgraphs are Forcible    
 instance Forcible TrackedTgraph where
-    tryFSOpWith ugen f ttg = do
-        g' <- tryFSOpWith ugen f $ recoverGraph ttg
+    tryFSOp f ttg = do
+        g' <- tryFSOp f $ recoverGraph ttg
         return ttg{ tgraph = g' }
-    tryInitFSWith ugen = tryInitFSWith ugen . recoverGraph 
-    tryChangeBoundaryWith ugen f ttg = do
-        g' <- tryChangeBoundaryWith ugen f $ recoverGraph ttg
+    tryInitFS = tryInitFS . recoverGraph 
+    tryChangeBoundary f ttg = do
+        g' <- tryChangeBoundary f $ recoverGraph ttg
         return ttg{ tgraph = g' }
---    boundaryState = boundaryState . tgraph
+
 
 -- |TrackedTgraph is in class HasFaces
 instance HasFaces TrackedTgraph where

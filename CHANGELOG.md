@@ -3,10 +3,22 @@
 
 ## Since v1.7
 
+Change to class Forcible and data type ForceState with changes to some forcing operations.
+The ForceState now carries an UpdateGenerator and Forcible class operations now assume defaultAllUGen or take the UpdateGenerator from the ForceState.
+The Forcible class operations are now
+  - tryInitFS (replacing tryInitFSWith)
+  - tryFSOp (replacing tryFSOpWith)
+  - tryChangeBoundary (replacing tryChangeBoundaryWith)
+(tryFSOpWith and tryInitFSWith are as before but now defined in terms of the new class operations.)
+
+  - tryOneStepForce RENAMED as tryOneStep 
+  - No longer Exported tryReviseUpdates, tryReviseFSWith, tryOneStepWith, tryDartAndKiteF, tryDartAndKiteForced, checkCasesDKF (use runTry . tryCheckCasesDKF)
+
   - Introduced class HasGraph (instances Tgraph, BoundaryState, ForceState, and Forced versions of these)
   - Generalised recoverGraph (and many other functions now using HasGraph such as compose, decompose,...)
   - Reinstated nullGraph (with HasGraph constraint)
   - Introduced withForced, alignedVP, rotatedVP
+
   - Deprecated recoverGraphF, boundaryStateF, makeBoundaryStateF, initFSF (by using withForced)
   - Deprecated makeAlignedVP (renamed as alignedVP)
   - Deprecated alignAll (use (map. alignXaxis))
