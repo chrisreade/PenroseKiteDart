@@ -387,8 +387,8 @@ commonBdry des a = des `Set.intersection` boundaryESet a
     This can raise an error if both choices on a boundary edge fail when forced (using tryCheckCasesDKF).
  -}
 boundaryVCovering:: Forced ForceState -> [Forced ForceState]
-boundaryVCovering ffs = covers [(ffs, startbds)] where
-  startbds = boundaryESet ffs
+boundaryVCovering ffs = covers [(ffs, startbdes)] where
+  startbdes = boundaryESet ffs
   startbvs = boundaryVSet ffs
   covers:: [(Forced ForceState, Set Dedge)] -> [Forced ForceState]
   covers [] = []
@@ -582,16 +582,16 @@ trySuperForce = fmap labelAsForced . tryFSOp trySuperForceFS where
     -- |trySuperForceFS - implementation of trySuperForce for force states only
     trySuperForceFS :: ForceState -> Try ForceState
     trySuperForceFS fs =
-        do forcedFS <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
-                       tryForceF fs
-           case singleChoiceEdges $ forcedFS of
-              [] -> return $ forgetF forcedFS
-              (elpr:_) -> do extended <- addSingle elpr $ forgetF forcedFS
+        do ffs <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
+                  tryForceF fs
+           case singleChoiceEdges $ ffs of
+              [] -> return $ forgetF ffs
+              (elpr:_) -> do extended <- addSingle elpr $ forgetF ffs
                              trySuperForceFS extended
     addSingle (e,l) fs = if isDart l then tryAddHalfDart e fs else tryAddHalfKite e fs
 
--- |singleChoiceEdges bd - if bd is an explicitly Forced boundary state (of a forced Tgraph) this finds those boundary edges of bd
--- which have a single choice (i.e. the other choice is incorrect), by inspecting boundary edge covers of bd.
+-- |singleChoiceEdges ffs - if ffs is an explicitly Forced ForceState (of a forced Tgraph) this finds those boundary edges of ffs
+-- which have a single choice (i.e. the other choice is incorrect), by inspecting boundary edge covers of ffs.
 -- The result is a list of pairs of (edge,label) where edge is a boundary edge with a single choice
 -- and label indicates the choice as the common face label.
 singleChoiceEdges :: Forced ForceState -> [(Dedge,HalfTileLabel)]
@@ -601,9 +601,9 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
 -- whose boundary edges were edgeList, this looks for edges in edgeList that have the same tile label added in all covers.
 -- This indicates there is a single choice for such an edge (the other choice is incorrect).
 -- The result is a list of pairs: edge and a common tile label.
--- commonToCovering :: [BoundaryState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
-    commonToCovering bds edgeList = common edgeList (transpose labellists) where
-      labellists = map (`reportCover` edgeList) bds
+    commonToCovering :: [ForceState] -> [Dedge] -> [(Dedge,HalfTileLabel)]
+    commonToCovering ffs edgeList = common edgeList (transpose labellists) where
+      labellists = map (`reportCover` edgeList) ffs
       common [] [] = []
       common [] (_:_) = error "singleChoiceEdges:commonToCovering: label list is longer than edge list"
       common (_:_) [] = error "singleChoiceEdges:commonToCovering: label list is shorter than edge list"
@@ -612,18 +612,15 @@ singleChoiceEdges bstate = commonToCovering (forgetF <$> boundaryECovering bstat
                                      then (e,l):common more lls
                                      else common more lls
       
--- |reportCover bd edgelist - when bd is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
+-- |reportCover fs edgelist - when fs is a boundary edge cover of some forced Tgraph whose boundary edges are edgelist,
 -- this returns the tile label for the face covering each edge in edgelist (in corresponding order).
--- reportCover :: BoundaryState -> [Dedge] -> [HalfTileLabel]
-    reportCover bd des = map getLabel des where
-      efmap = dedgeFMap des bd  -- more efficient than using graphEFMap?
---      efmap = graphEFMap (recoverGraph bd)
+    reportCover :: ForceState -> [Dedge] -> [HalfTileLabel]
+    reportCover fs des = map getLabel des where
+      efmap = dedgeFMap des fs  -- more efficient than using graphEFMap?
       getLabel e = case faceForEdge e efmap of
                  Nothing -> error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e
                  Just f -> tileLabel f
-{-       getf e = fromMaybe (error $ "singleChoiceEdges:reportCover: no face found with directed edge " ++ show e)
-                                    (faceForEdge e efmap)
- -}
+
 -- |Tries to create a new Tgraph from all faces with a boundary vertex in a Tgraph.
 -- The resulting faces could have a crossing boundary and also could be disconnected if there is a hole in the starting Tgraph
 -- so these conditions are checked for, producing a Try result.

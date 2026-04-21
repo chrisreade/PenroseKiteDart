@@ -360,9 +360,9 @@ superForceRocketsFig = padBorder $ lw veryThin $ vsep 1 $ rotations [8,9,9,8] $
 
 boundaryFDart4, boundaryFDart5 :: Tgraph
 -- |graph of the boundary faces only of a forced graph (dartDs!!4)
-boundaryFDart4 = runTry $ tryBoundaryFaceGraph $ force $ makeBoundaryState dartD4
+boundaryFDart4 = runTry $ tryBoundaryFaceGraph $ force $ initFS dartD4
 -- |graph of the boundary faces only of a forced graph (dartDs!!5)
-boundaryFDart5 = runTry $ tryBoundaryFaceGraph $ force $ makeBoundaryState (dartDs!!5)
+boundaryFDart5 = runTry $ tryBoundaryFaceGraph $ force $ initFS (dartDs!!5)
 
 boundaryFDart4Fig,boundaryFDart5Fig :: OKBackend b => Diagram b
 -- |figure of the boundary faces only of a forced graph (dartDs!!4).
@@ -385,8 +385,8 @@ boundaryGap4Fig = padBorder $ lw ultraThin $ smart (labelSize tiny draw) boundar
 -- |figure for the boundary gap graph boundaryGapFDart5.
 boundaryGap5Fig = padBorder $ lw ultraThin $ smart (labelSize (normalized 0.006) draw) boundaryGapFDart5
 
--- | boundaryVCoveringFigs bd - produces a list of diagrams for the boundaryVCovering of bd 
--- (with the Tgraph represented by bd shown in red in each case).
+-- | boundaryVCoveringFigs fs - produces a list of diagrams for the boundaryVCovering of fs 
+-- (with the Tgraph represented by fs shown in red in each case).
 boundaryVCoveringFigs :: OKBackend b =>
                          Forced ForceState -> [Diagram b]
 boundaryVCoveringFigs fs =
