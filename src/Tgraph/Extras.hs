@@ -353,9 +353,9 @@ forcedBoundaryVCovering g = withForced recoverGraph <$> boundaryVCovering ffs wh
                   $ tryInitFS g  >>= tryForceF 
 
 
-{-| boundaryECovering - for an explicitly Forced BoundaryState fbd,
-produces a list of all possible covers of the boundary directed edges in fbd.
-A cover is an explicitly Forced extension (of fbd) such that the original boundary directed edges of fbd are all internal edges.
+{-| boundaryECovering - for an explicitly Forced ForceState ffs,
+produces a list of all possible covers of the boundary directed edges in ffs.
+A cover is an explicitly Forced extension (of ffs) such that the original boundary directed edges of ffs are all internal edges.
 Extensions are made by choosing any edge on the original boundary that is still on the boundary,
 adding both possible legal faces, and forcing each result (keeping only successes - using
 tryCheckCasesDKF) then 
@@ -363,7 +363,7 @@ repeating this process until the orignal boundary is all internal edges.
 The resulting covers account for all possible ways the boundary can be extended.
 
 This can raise an error if both choices on a boundary edge fail when forced (using tryCheckCasesDKF).
-In which case, fbd represents an important counter example to the hypothesis that
+In which case, ffs represents an important counter example to the hypothesis that
 successfully forced forcibles are correct.
 -}
 boundaryECovering:: Forced ForceState -> [Forced ForceState]
@@ -382,8 +382,8 @@ boundaryECovering forcedfs = covers [(forcedfs, boundaryESet forcedfs)] where
 commonBdry:: HasFaces a => Set Dedge -> a -> Set Dedge
 commonBdry des a = des `Set.intersection` boundaryESet a
 
-{-| boundaryVCovering fs - similar to boundaryECovering, but produces a list of all possible covers of 
-    the boundary vertices in fs (rather than just boundary edges).
+{-| boundaryVCovering ffs - similar to boundaryECovering, but produces a list of all possible covers of 
+    the boundary vertices in ffs (rather than just boundary edges).
     This can raise an error if both choices on a boundary edge fail when forced (using tryCheckCasesDKF).
  -}
 boundaryVCovering:: Forced ForceState -> [Forced ForceState]
@@ -412,31 +412,7 @@ tryDartAndKite de b =
     , onFail ("tryDartAndKite: Kite on edge: " ++ show de ++ "\n") $
         tryAddHalfKite de b
     ]
-{- 
--- | tryDartAndKiteF de b - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de of a Forcible b and then tries forcing.
--- Each of the results is a Try of an explicitly Forced type.
-tryDartAndKiteF:: Forcible a => Dedge -> a -> [Try (Forced a)]
-tryDartAndKiteF de b =
-    [ onFail ("tryDartAndKiteF: Dart on edge: " ++ show de ++ "\n") $
-        tryAddHalfDart de b >>= tryForceF
-    , onFail ("tryDartAndKiteF: Kite on edge: " ++ show de ++ "\n") $
-        tryAddHalfKite de b >>= tryForceF
-    ]
- -}
 
-{- -- | tryDartAndKiteForced de b - returns the list of (2) results after adding a dart (respectively kite)
--- to edge de of a Forcible b and then tries forcing.
--- Each of the results is a Try.
-tryDartAndKiteForced:: Forcible a => Dedge -> a -> [Try a]
-tryDartAndKiteForced de b = 
-    [ onFail ("tryDartAndKiteForced: Dart on edge: " ++ show de ++ "\n") $
-        tryFSOp (\fs -> tryAddHalfDart de fs >>= tryForce) b -- tryAddHalfDart de b >>= tryForce
-    , onFail ("tryDartAndKiteForced: Kite on edge: " ++ show de ++ "\n") $
-        tryFSOp (\fs -> tryAddHalfKite de fs >>= tryForce) b
-    ]
- -}
- 
 -- | tryCheckCasesDKF dedge fb (where fb is an explicitly forced Forcible
 -- and dedge is a directed boundary edge of fb) tries to add both a half kite and a half dart to the edge
 -- then tries forcing each result.
@@ -450,7 +426,7 @@ tryDartAndKiteForced de b =
 -- (If both legal additions to a boundary edge are incorrect,
 -- then the (Forced) Forcible must be incorrect).
 tryCheckCasesDKF :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
-tryCheckCasesDKF de ffs = 
+tryCheckCasesDKF de fa = 
     onFail ("tryCheckCasesDKF: <<< Counter Example Found!! >>>\n"
             ++ "\nBoth legal extensions to directed edge " 
             ++ show de
@@ -459,14 +435,14 @@ tryCheckCasesDKF de ffs =
             ++ "which is a counter example to the hypothesis that successful forcing\n"
             ++ "returns correct tilings.\n\n"
             ++ "The incorrect Forced ForceState has Tgraph:\n"
-            ++ show  (forgetF ffs)
+            ++ show  (forgetF fa)
            ) $
     fmap (map labelAsForced) $ tryAtLeastOne
     [ onFail ("tryCheckCasesDKF: Dart on edge: " ++ show de ++ "\n") $
         tryFSOp (\fs -> tryAddHalfDart de fs >>= tryForce) a
     , onFail ("tryCheckCasesDKF: Kite on edge: " ++ show de ++ "\n") $
         tryFSOp (\fs -> tryAddHalfKite de fs >>= tryForce) a
-    ] where a = forgetF ffs
+    ] where a = forgetF fa
 
 {- tryCheckCasesDKF :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
 tryCheckCasesDKF dedge fb = 
@@ -480,9 +456,7 @@ tryCheckCasesDKF dedge fb =
             ++ show fb
            )
     $ tryAtLeastOne $ tryDartAndKiteF dedge (forgetF fb)
- -}
-
-{- 
+  
 -- | checkCasesDKF dedge fb (where fb is an explicitly forced Forcible
 -- and dedge is a directed boundary edge of fb) tries to add both a half kite and a half dart to the edge
 -- then tries forcing each result.
@@ -694,7 +668,6 @@ findLoops = collectLoops . VMap.fromList where
                                         ++ show a ++
                                         "\nwith loop vertices "++ show (reverse sofar) ++"\n"
 
-
 -- | Given a suitable vertex to location map and boundary loops (represented as a list of lists of vertices),
 -- this will return a (Diagrams) Path for the boundary.  It will raise an error if any vertex listed is not a map key.
 -- (The resulting path can be filled when converted to a diagram.)
@@ -836,10 +809,7 @@ drawTrackedTgraphRotating a drawList ttg = mconcat $ reverse $ zipWith ($) drawL
     to ensure labels are not rotated.
 -}
 drawTrackedTgraphRotated :: OKBackend b => [VPatch -> Diagram b] -> Angle Double -> TrackedTgraph -> Diagram b
-drawTrackedTgraphRotated drawList a ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
-    vp = rotate a $ makeVP (tgraph ttg)
-    untracked = faces vp \\ concat (tracked ttg)
-    vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
+drawTrackedTgraphRotated = flip drawTrackedTgraphRotating
 
 {-|
     To draw a TrackedTgraph aligned.
@@ -865,10 +835,7 @@ drawTrackedTgraphAligning (a,b) drawList ttg = mconcat $ reverse $ zipWith ($) d
     This will raise an error if either of the pair of vertices is not a vertex of (the tgraph of) the TrackedTgraph
 -}
 drawTrackedTgraphAligned :: OKBackend b => [VPatch -> Diagram b] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram b
-drawTrackedTgraphAligned drawList (a,b) ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
-    vp = makeAlignedVP (a,b) (tgraph ttg)
-    untracked = faces vp \\ concat (tracked ttg)
-    vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
+drawTrackedTgraphAligned = flip drawTrackedTgraphAligning
 
 
 

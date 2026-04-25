@@ -448,14 +448,6 @@ findEdgeLoop = duplicates . faceVList
 hasEdgeLoops:: HasFaces a => a  -> Bool
 hasEdgeLoops = not . null . findEdgeLoops
 
-{- -- |duplicates finds any duplicated items in a list (unique results).
-duplicates :: Eq a => [a] -> [a]
-duplicates = check [] [] where
- check dups _ [] = reverse dups
- check dups seen (x:xs) | x `elem` dups = check dups seen xs
-                        | x `elem` seen = check (x:dups) seen xs
-                        | otherwise = check dups (x:seen) xs
- -}
 
 -- |duplicates finds any duplicated items in a list.
 -- It produces unique results (that is duplicates (duplicates es) == [] ).

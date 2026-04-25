@@ -50,7 +50,7 @@ module Tgraph.Force
   , addHalfDart
   , tryAddHalfDart
 --  , tryOneStepWith
---  , tryOneStepForce
+  , tryOneStepForce -- dep
   , tryOneStep
 -- * Types for Forcing
   , BoundaryState(..)
@@ -362,19 +362,20 @@ newtype UpdateGenerator = UpdateGenerator {applyUG :: BoundaryState -> [Dedge] -
 -- and then to a ForceState (which keeps track of possible updates during forcing).
 -- Thus we introduce a Forcible class which will have Tgraph, BoundaryState, ForceState as instances.
 --
--- Forcible class has operations to (indirectly) implement forcing and single step forcing
--- for any Forcible. The class operations are more general to allow for other
+-- Forcible class has operations to (indirectly) implement force and stepForce and other operations.
+-- The class operations allow for other
 -- force related operations to be generalised for use on any Forcible.
 -- For example tryAddHalfKite and tryAddHalfDart are implemented using tryChangeBoundary.
 class Forcible a where
     -- | tryFSOp (try ForseState Operation), generalises a (try) ForceState operation to a (try) Forcible operation.
     --
     -- To improve performance of a sequence of force related operations, express each as a
-    -- ForceState -> Try ForceState, then use (\<=\<) or (\>=\>) from Control.Monad to combine and pass to tryFSOpWith.
+    -- ForceState -> Try ForceState, then compose (e.g. using (\<=\<) or (\>=\>) from Control.Monad) and pass to tryFSOp.
     -- This ensures there are no unnecessary conversions between steps.
     tryFSOp :: (ForceState -> Try ForceState) -> a -> Try a
     -- | tryInitFS (try initialising a ForceState) tries to create an initial ForceState (ready for forcing) from a Forcible.
-    -- The update generator is not changed when the instance is a ForceState.
+    -- This uses defaultAllUGen for Tgraphs and BoundaryStates but stored update generator when the instance is a ForceState.
+    -- (See also tryFSOpWith).
     tryInitFS :: a -> Try ForceState
     -- | tryChangeBoundary, converts a (try) BoundaryState changing operation to a (try) Forcible operation.
     tryChangeBoundary :: (BoundaryState -> Try BoundaryChange) -> a -> Try a
@@ -413,7 +414,8 @@ trySetUG ugen fs = do
     ~umap <- applyUG ugen (boundaryState fs) (boundary fs)
     return $ fs { updateMap = umap, updater = ugen }
 
--- |ForceState only operation to do all update steps. Generalised as tryForce
+-- |ForceState only operation to do all update steps.
+-- Used to define the more general tryForce
 tryFinishFS :: ForceState -> Try ForceState
 tryFinishFS fs =  do 
     r <- tryOneStep fs
@@ -421,22 +423,22 @@ tryFinishFS fs =  do
       Just (fs',_) -> tryFinishFS fs'
       Nothing -> return fs -- final state (no more updates)
 
+-- |A version of tryFSOp that uses the supplied update generator rather than the default.
+tryFSOpWith :: Forcible a => UpdateGenerator -> (ForceState -> Try ForceState) -> a -> Try a
+tryFSOpWith ugen f = tryFSOp (\fs -> trySetUG ugen fs >>= f)
+
 -- | try forcing using a given UpdateGenerator.
 --  tryForceWith uGen fs - does updates using uGen until there are no more updates.
 --  It produces Left report if it encounters a Forcible representing a stuck/incorrect Tgraph.
 tryForceWith :: Forcible a => UpdateGenerator -> a -> Try a
 tryForceWith ug = tryFSOpWith ug tryFinishFS
 
--- |A version of tryFSOp using a given update generator.
-tryFSOpWith :: Forcible a => UpdateGenerator -> (ForceState -> Try ForceState) -> a -> Try a
-tryFSOpWith ugen f = tryFSOp (\fs -> trySetUG ugen fs >>= f)
-
--- |A try version of the main force function using defaultAllUGen representing all 10 rules for updates.
+-- |A try version of the main force function (using defaultAllUGen representing all 10 rules for updates).
 -- This returns Left report on discovering a stuck Tgraph and Right a (with a the resulting forcible) otherwise.
 tryForce:: Forcible a => a -> Try a
 tryForce = tryFSOp tryFinishFS
 
--- |The main force (partial) function using defaultAllUGen representing all 10 rules for updates.
+-- |The main force (partial) function (using defaultAllUGen representing all 10 rules for updates).
 -- This raises an error on discovering a stuck/incorrect Forcible.
 force:: Forcible a => a -> a
 force = runTry . tryForce
@@ -445,7 +447,7 @@ force = runTry . tryForce
 wholeTiles:: Forcible a => a -> a
 wholeTiles = forceWith wholeTileUpdates
 
--- | forceWith ugen: force using the given UpdateGenerator
+-- | forceWith ugen: force using the supplied UpdateGenerator ugen.
 -- This raises an error on discovering a stuck/incorrect Forcible.
 forceWith:: Forcible a => UpdateGenerator -> a -> a
 forceWith ugen = runTry . tryForceWith ugen
@@ -457,7 +459,8 @@ initFS = runTry . tryInitFS
 
 -- |tryStepForce n a - produces a (Right) intermediate Forcible after n steps (n face additions) starting from Forcible a.
 -- or a Left report if it encounters a stuck/incorrect Forcible within n steps.
--- If forcing finishes successfully in n or fewer steps, it will return that final Forcible. 
+-- If forcing finishes successfully in n or fewer steps, it will return that final Forcible.
+-- It will raise an error if n<0. 
 tryStepForce :: Forcible a => Int -> a -> Try a
 tryStepForce n =
   if n>=0
@@ -472,7 +475,8 @@ tryStepForce n =
 
 -- |stepForce n a - produces an intermediate Forcible after n steps (n face additions) starting from Forcible a.
 -- It raises an error if it encounters a stuck/incorrect Forcible within n steps.
--- If forcing finishes successfully in n or fewer steps, it will return that final Forcible. 
+-- If forcing finishes successfully in n or fewer steps, it will return that final Forcible.
+-- It will raise an error if n<0.  
 stepForce :: Forcible a => Int -> a ->  a
 stepForce n = runTry . tryStepForce n
 
@@ -509,7 +513,7 @@ forceF:: Forcible a => a -> Forced a
 forceF = runTry . tryForceF
 
 -- |withForced f - Use f to convert a (Forced a) to a (Forced b)
--- Both a and b should be Forcible
+-- Both a and b should be Forcible.
 withForced :: (a->b) -> Forced a -> Forced b
 withForced f (Forced a) = Forced (f a)
 
@@ -622,6 +626,10 @@ tryOneStep fs =
                 Just bdC -> do fs' <- tryReviseFS bdC fs
                                return $ Just (fs',bdC)
                 Nothing  -> return Nothing           -- no more updates
+
+{-# DEPRECATED tryOneStepForce "Renamed as tryOneStep" #-}
+tryOneStepForce :: ForceState -> Try (Maybe (ForceState, BoundaryChange))
+tryOneStepForce = tryOneStep
 
 -- | Apply the update generator on the changed boundary of a ForceState
 tryReviseFS :: BoundaryChange -> ForceState -> Try ForceState
