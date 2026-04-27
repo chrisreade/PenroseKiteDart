@@ -1339,7 +1339,7 @@ aligning vs vfun = vfun . alignedVP vs
 alignBefore :: (VPatch -> a) -> (Vertex,Vertex) -> Tgraph -> a
 alignBefore = flip aligning
 
--- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligning on the x-axis.
+-- | alignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligning on the x-axis.
 -- Will raise an error if either a or b is not a vertex in g.
 alignedVP:: HasGraph a => (Vertex,Vertex) -> a -> VPatch
 alignedVP vs = alignXaxis vs . makeVP
