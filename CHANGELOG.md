@@ -1,5 +1,8 @@
 # Revision history for PenroseKiteDart
 
+## version v1.8.1
+
+Fixed bug (introduced in 1.8) rotations and scales not behaving as described.
 
 ## version v1.8
 

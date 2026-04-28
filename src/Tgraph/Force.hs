@@ -628,6 +628,7 @@ tryOneStep fs =
                 Nothing  -> return Nothing           -- no more updates
 
 {-# DEPRECATED tryOneStepForce "Renamed as tryOneStep" #-}
+-- |renamed as tryOneStep
 tryOneStepForce :: ForceState -> Try (Maybe (ForceState, BoundaryChange))
 tryOneStepForce = tryOneStep
 
