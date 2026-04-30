@@ -113,7 +113,7 @@ import Data.Set(Set)
 import qualified Data.Set as Set  (null,intersection,deleteFindMin)-- used for boundary covers
 import qualified Data.IntSet as IntSet (member,(\\)) -- for boundary vertex set
 import qualified Data.IntMap.Strict as VMap (delete, fromList, findMin, null, lookup, (!)) -- used for boundary loops, boundaryLoops
-
+import Control.Monad ( (>=>) )
 
 -- |smart dr g - uses VPatch drawing function dr after converting g to a VPatch
 -- It will add boundary joins regardless of the drawing function.
@@ -437,11 +437,11 @@ tryCheckCasesDKF de fa =
             ++ "The incorrect Forced ForceState has Tgraph:\n"
             ++ show  (forgetF fa)
            ) $
-    fmap (map labelAsForced) $ tryAtLeastOne
+    map labelAsForced <$> tryAtLeastOne
     [ onFail ("tryCheckCasesDKF: Dart on edge: " ++ show de ++ "\n") $
-        tryFSOp (\fs -> tryAddHalfDart de fs >>= tryForce) a
+        tryFSOp (tryAddHalfDart de >=> tryForce) a
     , onFail ("tryCheckCasesDKF: Kite on edge: " ++ show de ++ "\n") $
-        tryFSOp (\fs -> tryAddHalfKite de fs >>= tryForce) a
+        tryFSOp (tryAddHalfKite de >=> tryForce) a
     ] where a = forgetF fa
 
 {- tryCheckCasesDKF :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
@@ -582,7 +582,7 @@ trySuperForce = fmap labelAsForced . tryFSOp trySuperForceFS where
     trySuperForceFS fs =
         do ffs <- onFail "trySuperForceFS: force failed (incorrect Tgraph)\n" $
                   tryForceF fs
-           case singleChoiceEdges $ ffs of
+           case singleChoiceEdges ffs of
               [] -> return $ forgetF ffs
               (elpr:_) -> do extended <- addSingle elpr $ forgetF ffs
                              trySuperForceFS extended

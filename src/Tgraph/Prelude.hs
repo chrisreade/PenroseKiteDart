@@ -349,10 +349,10 @@ makeUncheckedTgraph = Tgraph
 
 -- |fully evaluate a tileface
 evalFace :: TileFace -> TileFace
-evalFace !f@(LD (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
-evalFace !f@(RD (!x,!y,!z)) = x `seq` y `seq` z `seq` f
-evalFace !f@(LK (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
-evalFace !f@(RK (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
+evalFace f@(LD (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
+evalFace f@(RD (!x,!y,!z)) = x `seq` y `seq` z `seq` f
+evalFace f@(LK (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
+evalFace f@(RK (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
 
 
 {- -- |evaluate a tileface (and check for edgeloops)
@@ -658,7 +658,7 @@ dedges = concatMap faceDedges . faces
 
 -- | fully evaluate a directed edge
 evalDedge :: Dedge -> Dedge
-evalDedge !e@(a,b) | a==b = error $ "evalEdge: loop edge found with vertex " ++ show a ++ "\n"
+evalDedge e@(a,b) | a==b = error $ "evalEdge: loop edge found with vertex " ++ show a ++ "\n"
                  | otherwise = e
 
 -- | fully evaluate a list of directed edges
@@ -1006,7 +1006,7 @@ missingRevs es = Set.elems $ foldl' check Set.empty es where
 -- | efficiently finds missing reverse directions from a set of directed edges,
 -- and returns them as a set.
 missingRevSet:: Set Dedge -> Set Dedge
-missingRevSet es = Set.foldl' check Set.empty es where
+missingRevSet = Set.foldl' check Set.empty where
     check eset e@(a,b) | Set.member e eset = Set.delete e eset
                        | otherwise = Set.insert (b,a) eset
 
@@ -1089,7 +1089,7 @@ faceForEdge = Map.lookup
 -- |Given a tileface (face) and a map from each directed edge to the (unique) tileface containing it (efMap)
 -- return the list of edge neighbours of face.
 edgeNbs:: TileFace -> Map Dedge TileFace -> [TileFace]
-edgeNbs face efMap = mapMaybe (flip faceForEdge efMap) edges where
+edgeNbs face efMap = mapMaybe (`faceForEdge` efMap) edges where
    edges = reverseD <$> faceDedges face
 
 -- |For an argument with a non-empty list of faces,

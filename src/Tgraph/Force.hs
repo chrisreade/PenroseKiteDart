@@ -170,6 +170,7 @@ import qualified Data.Set as Set (foldr',elems,fromList)
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
 import Tgraph.Grid 
+import Control.Monad ( (>=>) )
 -- import TileLib ( Drawable ) 
 {-
 ***************************************************************************   
@@ -260,7 +261,7 @@ isBoundaryV v = VMap.member v . nextBVMap . boundaryDedges
 makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g =
   let bdes = boundaryESet g
-      bvs = Set.foldr' ((IntSet.insert).fst) IntSet.empty bdes --IntSet.fromList (map fst $ Set.toList bdes) -- (map snd bdes would also do) for all boundary vertices
+      bvs = Set.foldr' (IntSet.insert . fst) IntSet.empty bdes --IntSet.fromList (map fst $ Set.toList bdes) -- (map snd bdes would also do) for all boundary vertices
       bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
       newgrid = createGrid $ VMap.elems bvLocs
   in 
@@ -425,7 +426,7 @@ tryFinishFS fs =  do
 
 -- |A version of tryFSOp that uses the supplied update generator rather than the default.
 tryFSOpWith :: Forcible a => UpdateGenerator -> (ForceState -> Try ForceState) -> a -> Try a
-tryFSOpWith ugen f = tryFSOp (\fs -> trySetUG ugen fs >>= f)
+tryFSOpWith ugen f = tryFSOp (trySetUG ugen >=> f)
 
 -- | try forcing using a given UpdateGenerator.
 --  tryForceWith uGen fs - does updates using uGen until there are no more updates.

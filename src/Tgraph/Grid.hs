@@ -12,7 +12,7 @@ It is used to quickly identify touching vertices (e.g. when forcing).
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TupleSections             #-}
+-- {-# LANGUAGE TupleSections             #-}
 
 
 module Tgraph.Grid
@@ -56,7 +56,7 @@ instance ValuedPoint (P2 Double) where
 
 -- | A pair of a value and a 2D point is considered a ValuedPoint
 instance ValuedPoint (a, P2 Double) where
-    getPoint ((_,p)) = p
+    getPoint (_,p) = p
 
 -- | get the Int x and Int y grid coordinates for a ValuedPoint (using floor).
 gridCoords :: ValuedPoint a => a -> (Int,Int)
@@ -89,7 +89,7 @@ insertGrid ap gd = Grid $ IMap.alter column n (gridmap gd)
 fromGrid :: Grid a -> Int -> Int -> [a]
 fromGrid gd n = 
     case IMap.lookup n (gridmap gd) of
-      Nothing ->  (\_ -> [])
+      Nothing ->  const []
       Just imp -> (\m -> case IMap.lookup m imp of
                           Nothing -> []
                           Just aps -> aps)
@@ -127,7 +127,7 @@ touching p p1 = quadrance (p .-. p1) < 0.25 -- quadrance is square of length of 
 -- | insert (valued) points into a new grid without any checks.
 -- This is used to initialise a grid with (valued) points known not to be touching.       
 createGrid :: ValuedPoint a => [a] -> Grid a
-createGrid aps = foldl' (flip insertGrid) (Grid IMap.empty) aps
+createGrid = foldl' (flip insertGrid) (Grid IMap.empty)
 
 -- | insert (valued) points into a new grid with checks.
 -- This will return Left vpt if vpt is found in the grid with a touching location,
