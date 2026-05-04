@@ -995,10 +995,8 @@ bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
  -}
 
 -- | efficiently finds missing reverse directions from a list of directed edges
--- and returning a dedge list. (It uses missingRevSet)
+-- and returning a dedge list.
 missingRevs:: [Dedge] -> [Dedge]
---missingRevs = Set.elems . missingRevSet . Set.fromList
---missingRevs:: Set Dedge -> Set Dedge
 missingRevs es = Set.elems $ foldl' check Set.empty es where
     check eset e@(a,b) | Set.member e eset = Set.delete e eset
                  | otherwise = Set.insert (b,a) eset

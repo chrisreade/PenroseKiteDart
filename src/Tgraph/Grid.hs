@@ -12,7 +12,8 @@ It is used to quickly identify touching vertices (e.g. when forcing).
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE TypeFamilies              #-}
--- {-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE Strict                    #-}
+
 
 
 module Tgraph.Grid
@@ -34,6 +35,7 @@ import Diagrams.Prelude
 
 
 import Data.List ( find )
+import Data.Maybe ( fromMaybe )
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IMap (alter,insert,empty,lookup)
 
@@ -90,9 +92,7 @@ fromGrid :: Grid a -> Int -> Int -> [a]
 fromGrid gd n = 
     case IMap.lookup n (gridmap gd) of
       Nothing ->  const []
-      Just imp -> (\m -> case IMap.lookup m imp of
-                          Nothing -> []
-                          Just aps -> aps)
+      Just imp -> (\m -> fromMaybe [] (IMap.lookup m imp)) 
 
 -- | get the list of (valued) points from 9 grid cells (around the one with given Int coords)         
 fromGridNear :: Grid a -> Int -> Int -> [a]
