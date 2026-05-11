@@ -207,7 +207,7 @@ drawForce' :: OKBackend b =>
               Colour Double -> Tgraph -> Diagram b
 drawForce' c g =
     smartOn g draw vp # lc c <> draw vp
-    where vp = makeVP $ forceF g
+    where vp = makeVP $ force g
 
 -- |applies partCompose to a Tgraph g, then draws the composed Tgraph
 -- along with the remainder faces (drawn in lime).

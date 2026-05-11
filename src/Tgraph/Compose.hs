@@ -96,40 +96,38 @@ tryPartComposeFaces g =
 -- The calculation of remainder faces is also more efficient with a known forced Tgraph.
 -- Also dartWingInfo does not need to be calculated for composing a forced Tgraph.
 partComposeF:: HasGraph a => Forced a -> ([TileFace], Forced Tgraph)
-partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
-  -- !evalnewfaces = evalFaces newfaces
+partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph evalnewfaces) where
+  !evalnewfaces = evalFaces newfaces
   (_,dwFMap,unused) = dartsMapUnused (recoverGraph fg)
-  (remainder,newfaces) = process (VMap.keys dwFMap) (unused,[])
-  process [] res = res
-  process (w:more) (rems, nfcs) = 
-      let fcs = dwFMap  VMap.! w
-      in case length fcs of
-           -- 8 faces = large dart base, 6 faces = lrge kite centre, 3 faces = unknown on boundary
-           8 -> process more (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs)
-           6 -> process more (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs)
-           3 -> process more (fcs++rems, nfcs)
-           other -> error $ 
-                     "partComposeF: Not possible for a forced Tgraph\n" ++
-                     "Number of faces should be 8,6,or 3 but found " ++ show other ++
-                     "\nat dart wing vertex: " ++ show w ++ "\n"
+  (remainder,newfaces) = foldl' checkDW (unused,[]) (VMap.keys dwFMap)
+  checkDW (rems, nfcs) w = 
+     let fcs = dwFMap  VMap.! w
+     in case length fcs of
+          -- 8 faces = large dart base
+          8 -> (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs)
+          -- 6 faces = lrge kite centre
+          6 -> (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs)
+          -- 3 faces = unknown on boundary
+          3 -> (fcs++rems, nfcs)
+          other -> error $ 
+                    "partComposeF: Not possible for a forced Tgraph\n" ++
+                    "Number of faces should be 8,6,or 3 but found " ++ show other ++
+                    "\nat dart wing vertex: " ++ show w ++ "\n"
+
   largeRD fcs = do rd <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
-                   let !f = evalFace $ makeRD (originV lk) (originV rd) (wingV rd)
-                   return f
+                   return $ RD (originV lk, originV rd, wingV rd)
   largeLD fcs = do ld <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
-                   let !f = evalFace $ makeLD (originV rk) (wingV ld) (originV ld)
-                   return f
+                   return $ LD (originV rk, wingV ld, originV ld)
   largeRK fcs = do rd  <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
                    rk <- find (matchingJoinE lk) fcs
-                   let !f = evalFace $ makeRK (originV rd) (wingV rk) (originV lk)
-                   return f
+                   return $ RK (originV rd, wingV rk, originV lk)
   largeLK fcs = do ld  <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
                    lk <- find (matchingJoinE rk) fcs
-                   let !f = evalFace $ makeLK (originV ld) (originV rk) (wingV lk)
-                   return f
+                   return $ LK (originV ld, originV rk, wingV lk)
 
 
 -- |composeF - produces a composed Forced Tgraph from a Forced Tgraph.
@@ -268,7 +266,7 @@ partComposeDWI dwInfo = (remainder, evalFaces newFaces) where
 
     newRDs = map makenewRD groupRDs 
     groupRDs = mapMaybe groupRD (largeDartBases dwInfo)
-    makenewRD [rd,lk] = makeRD (originV lk) (originV rd) (oppV lk) 
+    makenewRD [rd,lk] = RD (originV lk, originV rd, oppV lk) 
     makenewRD _       = error "partComposeFaces: RD case"
     groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
@@ -277,7 +275,7 @@ partComposeDWI dwInfo = (remainder, evalFaces newFaces) where
 
     newLDs = map makenewLD groupLDs 
     groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
-    makenewLD [ld,rk] = makeLD (originV rk) (oppV rk) (originV ld)
+    makenewLD [ld,rk] = LD (originV rk, oppV rk, originV ld)
     makenewLD _       = error "partComposeFaces: LD case"
     groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs
@@ -286,7 +284,7 @@ partComposeDWI dwInfo = (remainder, evalFaces newFaces) where
 
     newRKs = map makenewRK groupRKs 
     groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
-    makenewRK [rd,_,rk] = makeRK (originV rd) (wingV rk) (originV rk)
+    makenewRK [rd,_,rk] = RK (originV rd, wingV rk, originV rk)
     makenewRK _         = error "cpartComposeFaces: RK case"
     groupRK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     rd <- find isRD fcs
@@ -296,7 +294,7 @@ partComposeDWI dwInfo = (remainder, evalFaces newFaces) where
 
     newLKs = map makenewLK groupLKs 
     groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
-    makenewLK [ld,_,lk] = makeLK (originV ld) (originV lk) (wingV lk)
+    makenewLK [ld,_,lk] = LK (originV ld, originV lk, wingV lk)
     makenewLK _         = error "partComposeFaces: LK case"
     groupLK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
                     ld <- find isLD fcs

@@ -1,5 +1,10 @@
 # Revision history for PenroseKiteDart
 
+## since v1.8.1
+
+Renamed type UpdateMap to Updates
+Renamed selector updateMap to updates
+
 ## version v1.8.1
 
 Fixed bug (introduced in 1.8) rotations and scales not behaving as described.

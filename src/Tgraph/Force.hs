@@ -58,7 +58,7 @@ module Tgraph.Force
   , ForceState(..)
   , BoundaryChange(..)
   , Update(..)
-  , UpdateMap
+  , Updates
   , UpdateGenerator(..)
   , UFinder
   , UChecker
@@ -159,7 +159,7 @@ import Data.List ((\\), nub, find, partition)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
-import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for UpdateMap
+import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for Updates
 import Data.IntMap.Strict(IntMap)
 import qualified Data.IntMap.Strict as VMap (filterWithKey, alter, adjust, delete, lookup, (!), keysSet, member
                                             , fromAscList, fromList, assocs, insert, elems)
@@ -318,15 +318,23 @@ instance Show Update where
     show (SafeUpdate f) = "SafeUpdate (" ++ show f ++ ")"
     show (UnsafeUpdate mf) = "UnsafeUpdate (\0 -> " ++ show (mf 0)++ ")"
 
--- |UpdateMap: partial map associating updates with (some) boundary directed edges.
+-- |Updates: partial map associating updates with (some) boundary directed edges.
 -- (Any boundary directed edge will have the opposite direction in some face.)
-type UpdateMap = Map Dedge Update
+type Updates = Map Dedge Update
+
+-- |insert a new update
+insertUpdate :: Dedge  -> Update -> Updates -> Updates
+insertUpdate = Map.insert
+
+-- |get the boundary edges that have an update (from Updates)
+updateEdges :: Updates -> [Dedge]
+updateEdges = Map.keys
 
 -- |ForceState: The force state records information between executing single face updates during forcing
--- (a BoundaryState , an UpdateMap, and an UpdateGenerator).
+-- (a BoundaryState , an Updates, and an UpdateGenerator).
 data ForceState = ForceState
     { boundaryState:: BoundaryState
-    , updateMap:: ~UpdateMap  -- lazy field may not be used
+    , updates:: ~Updates  -- lazy field may not be used
     , updater:: UpdateGenerator -- new
     }
 
@@ -334,8 +342,8 @@ data ForceState = ForceState
 instance Show ForceState where
     show fs = show $ "ForceState with boundaryState:\n"
                       ++ show(boundaryState fs)
-                      ++ "\n\nand updateMap:\n"
-                      ++ show (updateMap fs)
+                      ++ "\n\nand updates:\n"
+                      ++ show (updates fs)
                       ++ "\n\n"
 
 -- |ForceState is in class HasFaces.
@@ -352,11 +360,11 @@ instance HasGraph ForceState where
 
 {-|UpdateGenerator is a newtype for functions which capture one or more of the forcing rules.
 The functions can be applied using the unwrapper applyUG
-and produce a (Try) UpdateMap when given a BoundaryState and a focus list of particular directed boundary edges.  
+and produce a (Try) Updates when given a BoundaryState and a focus list of particular directed boundary edges.  
 Each forcing rule has a particular UpdateGenerator,
 but they can also be combined (e.g in sequence - allUGenerator or otherwise - defaultAllUGen).
 -}
-newtype UpdateGenerator = UpdateGenerator {applyUG :: BoundaryState -> [Dedge] -> Try UpdateMap}
+newtype UpdateGenerator = UpdateGenerator {applyUG :: BoundaryState -> [Dedge] -> Try Updates}
 
 
 -- | Forcing a Tgraph requires conversion to a BoundaryState (which records extra data)
@@ -397,7 +405,7 @@ instance Forcible BoundaryState where
         return $ boundaryState fs'
     tryInitFS bd = do
         ~umap <- applyUG defaultAllUGen bd (boundary bd)
-        return $ ForceState { boundaryState = bd , updateMap = umap , updater = defaultAllUGen }
+        return $ ForceState { boundaryState = bd , updates = umap , updater = defaultAllUGen }
     tryChangeBoundary f bd = do -- update generator not used
         bdC <- f bd
         return $ newBoundaryState bdC
@@ -409,11 +417,11 @@ instance Forcible Tgraph where
     tryChangeBoundary f = -- update generator not used
         fmap recoverGraph . tryChangeBoundary f . makeBoundaryState
 
--- |Resets the update generator in a ForceState (and recalculates updateMap)
+-- |Resets the update generator in a ForceState (and recalculates updates)
 trySetUG :: UpdateGenerator -> ForceState -> Try ForceState       
 trySetUG ugen fs = do
     ~umap <- applyUG ugen (boundaryState fs) (boundary fs)
-    return $ fs { updateMap = umap, updater = ugen }
+    return $ fs { updates = umap, updater = ugen }
 
 -- |ForceState only operation to do all update steps.
 -- Used to define the more general tryForce
@@ -618,7 +626,7 @@ tryAddHalfDart = tryChangeBoundary . tryAddHalfDartBoundary where
 -- (3) a Left report for a stuck/incorrect Tgraph.
 tryOneStep :: ForceState -> Try (Maybe (ForceState,BoundaryChange))
 tryOneStep fs =
-      case findSafeUpdate (updateMap fs) of
+      case findSafeUpdate (updates fs) of
       Just u -> do bdChange <- trySafeUpdate (boundaryState fs) u
                    fs' <- tryReviseFS bdChange fs
                    return $ Just (fs',bdChange)
@@ -636,8 +644,8 @@ tryOneStepForce = tryOneStep
 -- | Apply the update generator on the changed boundary of a ForceState
 tryReviseFS :: BoundaryChange -> ForceState -> Try ForceState
 tryReviseFS bdC fs =
-    do umap <- tryReviseUpdates (updater fs) bdC (updateMap fs)
-       return $ fs{ boundaryState = newBoundaryState bdC, updateMap = umap}
+    do umap <- tryReviseUpdates (updater fs) bdC (updates fs)
+       return $ fs{ boundaryState = newBoundaryState bdC, updates = umap}
 
 
 
@@ -693,9 +701,9 @@ boundaryAt :: Vertex -> BoundaryState -> [Dedge]
 boundaryAt v bs = [preceding v bs, following v bs]
 
 {-# INLINE tryReviseUpdates #-}
--- |tryReviseUpdates uGen bdChange: revises the UpdateMap after boundary change (bdChange)
+-- |tryReviseUpdates uGen bdChange: revises the Updates after boundary change (bdChange)
 -- using uGen to calculate new updates.
-tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> UpdateMap -> Try UpdateMap
+tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> Updates -> Try Updates
 tryReviseUpdates uGen bdChange umap =
   do let umap' = foldl' (flip Map.delete) umap (removedEdges bdChange)
      umap'' <- applyUG uGen (newBoundaryState bdChange) (revisedEdges bdChange)
@@ -703,14 +711,14 @@ tryReviseUpdates uGen bdChange umap =
 
 {-# INLINE findSafeUpdate #-}
 -- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
-findSafeUpdate:: UpdateMap -> Maybe Update
+findSafeUpdate:: Updates -> Maybe Update
 -- slower to use filter
 -- findSafeUpdate umap = fmap snd $ Map.lookupMin $ Map.filter isSafeUpdate umap where
 findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
       isSafeUpdate (SafeUpdate _ ) = True
-      isSafeUpdate (UnsafeUpdate _ ) = False
+      isSafeUpdate _ = False
 
-{-| tryUnsafes: Should only be used when there are no Safe updates in the UpdateMap.
+{-| tryUnsafes: Should only be used when there are no Safe updates in the Updates.
    tryUnsafes works through the unsafe updates in (directed edge) key order and
    completes the first unsafe update that is not blocked (by a touching vertex), returning Right (Just bdC)
    where bdC is the resulting boundary change (if there is one).
@@ -718,7 +726,7 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
    Left report if there are unsafes but all unsafes are blocked, where report describes the problem.
 -}
 tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
-tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
+tryUnsafes fs = checkBlocked 0 $ Map.elems $ updates fs where
   bd = boundaryState fs
   -- the integer records how many blocked cases have been found so far
   checkBlocked:: Int -> [Update]  -> Try (Maybe BoundaryChange)
@@ -745,7 +753,6 @@ tryUnsafes fs = checkBlocked 0 $ Map.elems $ updateMap fs where
     when all unsafe updates are blocked (and there is at least one) - see tryUnsafes]
 -}
 checkUnsafeUpdate:: BoundaryState -> Update -> Maybe BoundaryChange
-checkUnsafeUpdate _  (SafeUpdate _) = error  "checkUnsafeUpdate: applied to safe update.\n"
 checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
   let v = nextVertex bd
       newface = makeFace v
@@ -756,7 +763,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
     Left _  -> Nothing  -- blocked by touching vertex
     Right newgrid ->
      let 
-       (unmatched, matchedDedges) = partition (\(x,y) -> x == v || y == v) (faceDedges newface) -- (two edges,singleton)
+       (!unmatched, !matchedDedges) = partition (\(x,y) -> x == v || y == v) (faceDedges newface) -- (two edges,singleton)
        newBdry = map reverseD unmatched -- two edges
        resultBd = BoundaryState
                     { boundaryDedges = bdesInsert newBdry $ bdesDelete matchedDedges $ boundaryDedges bd
@@ -774,6 +781,7 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
                     , newFace = newface
                     }
      in Just bdChange
+checkUnsafeUpdate _  _ = error  "checkUnsafeUpdate: applied to safe update.\n"
 
 {-| trySafeUpdate bd u adds a new face by completing a safe update u on BoundaryState bd
     (raising an error if u is an unsafe update).
@@ -785,12 +793,10 @@ checkUnsafeUpdate bd (UnsafeUpdate makeFace) =
     in a triangle (and removes 3 boundary vertices), closing a hole.
 -}
 trySafeUpdate:: BoundaryState -> Update -> Try BoundaryChange
-trySafeUpdate _  (UnsafeUpdate _) = error "trySafeUpdate: applied to non-safe update.\n"
 trySafeUpdate bd (SafeUpdate newface) =
    let fDedges = faceDedges newface
        localBoundary = nub [e | v <- faceVList newface, e <- boundaryAt v bd] -- duplicates removed
-       (matchedDedges, unmatched) = partition (`elem` localBoundary) fDedges
-       -- matchedDedges = fDedges `intersect` localBoundary -- list of 2 or 3
+       (!matchedDedges, !unmatched) = partition (`elem` localBoundary) fDedges -- (2 or 3, 1 or none)
        removedBVs = commonVs matchedDedges -- usually 1 vertex no longer on boundary (exceptionally 3)
        newBdry = map reverseD unmatched --(fDedges \\ matchedDedges) -- one or none
        nbrFaces = nub $ concatMap (facesAtBV bd) removedBVs
@@ -819,6 +825,7 @@ trySafeUpdate bd (SafeUpdate newface) =
               ,show nbrFaces
               ,"\n"
               ]
+trySafeUpdate _  _ = error "trySafeUpdate: applied to non-safe update.\n"
 
 
 -- | given 2 consecutive directed edges (not necessarily in the right order),
@@ -859,7 +866,7 @@ tryRecalibratingForce :: Forcible c => c -> Try c
 tryRecalibratingForce = tryFSOp recalibrating where
    recalibrating fs = do
        fs' <- tryStepForce 20000 fs
-       if null $ updateMap fs'
+       if null $ updates fs'
        then return fs'
        else recalibrating fs' {boundaryState = recalculateBVLocs $ boundaryState fs'}
 
@@ -923,10 +930,10 @@ combineUpdateGenerators gens = UpdateGenerator genf where
   genf bd focus =
     do let addGen (Right (es,umap)) gen =
              do umap' <- applyUG gen bd es
-                let es' = es \\ Map.keys umap'
-                return (es',Map.union umap' umap)
+                let es' = es \\ updateEdges umap'
+                return (es',umap' <> umap)
            addGen other _  = other  -- fails with first failing generator
-       (_ , umap) <- foldl' addGen (Right (focus,Map.empty)) gens
+       (_ , umap) <- foldl' addGen (Right (focus,mempty)) gens
        return umap
 
 {-| allUGenerator was the original generator for all updates.
@@ -1081,8 +1088,7 @@ newUpdateGenerator checker finder = UpdateGenerator genf where
   genf bd edges = foldl' addU (Right Map.empty) (finder bd edges) where
      addU (Left x) _          = Left x
      addU (Right ump) (e,fc)  = do u <- checker bd fc
-                                   return (Map.insert e u ump)
-
+                                   return (insertUpdate e u ump)
 
 --   Ten Update Generators (with corresponding Finders)
 
@@ -1226,40 +1232,40 @@ queenMissingKite = boundaryEdgeFilter Short predicate where
 --  add a symmetric (mirror) face for a given face at a boundary join edge.
 completeHalf :: UChecker
 completeHalf bd (LD(a,b,_)) = makeUpdate makeFace <$> x where
-        makeFace v = makeRD a v b --RD (a,v,b)
+        makeFace v = RD (a,v,b) --makeRD a v b --
         x = tryFindThirdV bd (b,a) (3,1) --anglesForJoinRD
 completeHalf bd (RD(a,_,b)) = makeUpdate makeFace <$> x where
-        makeFace v = makeLD a b v --LD (a,b,v)
+        makeFace v = LD (a,b,v) --makeLD a b v --
         x = tryFindThirdV bd (a,b) (1,3) --anglesForJoinLD
 completeHalf bd (LK(a,_,b)) = makeUpdate makeFace <$> x where
-        makeFace v = makeRK a b v --RK (a,b,v)
+        makeFace v = RK (a,b,v) --makeRK a b v --
         x = tryFindThirdV bd (a,b) (1,2) --anglesForJoinRK
 completeHalf bd (RK(a,b,_)) = makeUpdate makeFace <$> x where
-        makeFace v = makeLK a v b --LK (a,v,b)
+        makeFace v = LK (a,v,b) --makeLK a v b --
         x = tryFindThirdV bd (b,a) (2,1) --anglesForJoinLK
 
 -- |add a (missing) half kite on a (boundary) short edge of a dart or kite
 addKiteShortE :: UChecker
 addKiteShortE bd (RD(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace v = makeLK v c b --LK (v,c,b)
+    makeFace v = LK (v,c,b) --makeLK v c b --
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortLK
 addKiteShortE bd (LD(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace v = makeRK v c b --RK (v,c,b)
+    makeFace v = RK (v,c,b) --makeRK v c b --
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (LK(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace v = makeRK v c b --RK (v,c,b)
+    makeFace v = RK (v,c,b) --makeRK v c b --
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortRK
 addKiteShortE bd (RK(_,b,c)) = makeUpdate makeFace <$> x where
-    makeFace v = makeLK v c b --LK (v,c,b)
+    makeFace v = LK (v,c,b) --makeLK v c b --
     x = tryFindThirdV bd (c,b) (2,2) --anglesForShortLK
 
 -- |add a half dart top to a boundary short edge of a half kite.
 addDartShortE :: UChecker
 addDartShortE bd (RK(_,b,c)) = makeUpdate makeFace <$> x where
-        makeFace v = makeLD v c b --LD (v,c,b)
+        makeFace v = LD (v,c,b) --makeLD v c b --
         x = tryFindThirdV bd (c,b) (3,1) --anglesForShortLD
 addDartShortE bd (LK(_,b,c)) = makeUpdate makeFace <$> x where
-        makeFace v = makeRD v c b --RD (v,c,b)
+        makeFace v = RD (v,c,b) --makeRD v c b --
         x = tryFindThirdV bd (c,b) (1,3) --anglesForShortRD
 addDartShortE _  _ = error "addDartShortE applied to non-kite face\n"
 
@@ -1272,31 +1278,31 @@ completeSunStar bd fc = if isKite fc
 -- |add a kite to a long edge of a dart or kite
 addKiteLongE :: UChecker
 addKiteLongE bd (LD(a,_,c)) = makeUpdate makeFace <$> x where
-    makeFace v = makeRK c v a --RK (c,v,a)
+    makeFace v = RK (c,v,a) --makeRK c v a --
     x = tryFindThirdV bd (a,c) (2,1) -- anglesForLongRK
 addKiteLongE bd (RD(a,b,_)) = makeUpdate makeFace <$> x where
-    makeFace v = makeLK b a v --LK (b,a,v)
+    makeFace v = LK (b,a,v) --makeLK b a v --
     x = tryFindThirdV bd (b,a) (1,2) -- anglesForLongLK
 addKiteLongE bd (RK(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace v = makeLK a c v --LK (a,c,v)
+  makeFace v = LK (a,c,v) --makeLK a c v --
   x = tryFindThirdV bd (a,c) (1,2) -- anglesForLongLK
 addKiteLongE bd (LK(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace v = makeRK a v b --RK (a,v,b)
+  makeFace v = RK (a,v,b) --makeRK a v b --
   x = tryFindThirdV bd (b,a) (2,1) -- anglesForLongRK
 
 -- |add a half dart on a boundary long edge of a dart or kite
 addDartLongE :: UChecker
 addDartLongE bd (LD(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace v = makeRD a c v --RD (a,c,v)
+  makeFace v = RD (a,c,v)--makeRD a c v --
   x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongRD
 addDartLongE bd (RD(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace v = makeLD a v b --LD (a,v,b)
+  makeFace v = LD (a,v,b) --makeLD a v b --
   x = tryFindThirdV bd (b,a) (1,1) -- anglesForLongLD
 addDartLongE bd (LK(a,b,_)) = makeUpdate makeFace <$> x where
-  makeFace v = makeRD b a v --RD (b,a,v)
+  makeFace v = RD (b,a,v) --makeRD b a v --
   x = tryFindThirdV bd (b,a) (1,1) -- anglesForLongRD
 addDartLongE bd (RK(a,_,c)) = makeUpdate makeFace <$> x where
-  makeFace v = makeLD c v a --LD (c,v,a)
+  makeFace v = LD (c,v,a) --makeLD c v a --
   x = tryFindThirdV bd (a,c) (1,1) -- anglesForLongLD
 
 {-
@@ -1347,19 +1353,19 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
         | mustbeStar bd (originV f) = mapItem (completeSunStar bd f)
         | mustbeKing bd (originV f) = mapItem (addDartLongE bd f)
         | mustbeJack bd (wingV f) = mapItem (addKiteLongE bd f)
-        | otherwise = Right Map.empty
+        | otherwise = Right mempty
 
       kiteLongDecider f
         | mustbeSun bd (originV f) = mapItem (completeSunStar bd f)
         | mustbeQueen bd (wingV f) = mapItem (addDartLongE bd f)
-        | otherwise = Right Map.empty
+        | otherwise = Right mempty
 
       kiteShortDecider f
         | mustbeDeuce bd (oppV f) || mustbeJack bd (oppV f) = mapItem (addDartShortE bd f)
         | mustbeQueen bd (wingV f) || isDartOrigin bd (wingV f) = mapItem (addKiteShortE bd f)
-        | otherwise = Right Map.empty
- --     mapItem :: Try Update -> Try UpdateMap
-      mapItem = fmap (\u -> Map.insert e u Map.empty)
+        | otherwise = Right mempty
+ --     mapItem :: Try Update -> Try Updates
+      mapItem = fmap (\u -> insertUpdate e u mempty)
 
 {- defaultAllUGen :: UpdateGenerator
 defaultAllUGen = UpdateGenerator { applyUG = gen } where
@@ -1390,7 +1396,7 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
         | mustbeQueen bd (wingV f) || isDartOrigin bd (wingV f) = mapItem e (addKiteShortE bd f)
         | otherwise = Right Map.empty
 
-      mapItem e = fmap (\u -> Map.insert e u Map.empty)
+      mapItem e = fmap (\u -> insertUpdate e u Map.empty)
       combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
                                            -- otherwise combines the update maps with mconcat
  -}
