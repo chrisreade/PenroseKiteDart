@@ -2,6 +2,7 @@
 
 ## since v1.8.1
 
+Changed type of Updates (was UpdateMap) to a data type with a pair of maps
 Renamed type UpdateMap to Updates
 Renamed selector updateMap to updates
 

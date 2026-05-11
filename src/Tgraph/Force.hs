@@ -58,7 +58,7 @@ module Tgraph.Force
   , ForceState(..)
   , BoundaryChange(..)
   , Update(..)
-  , Updates
+  , Updates(..)
   , UpdateGenerator(..)
   , UFinder
   , UChecker
@@ -159,7 +159,7 @@ import Data.List ((\\), nub, find, partition)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
-import qualified Data.Map.Strict as Map (empty, delete, elems, insert, union, keys) -- used for Updates
+import qualified Data.Map.Strict as Map (null, delete, elems, insert, lookupMin, keys) -- used for Updates
 import Data.IntMap.Strict(IntMap)
 import qualified Data.IntMap.Strict as VMap (filterWithKey, alter, adjust, delete, lookup, (!), keysSet, member
                                             , fromAscList, fromList, assocs, insert, elems)
@@ -318,20 +318,49 @@ instance Show Update where
     show (SafeUpdate f) = "SafeUpdate (" ++ show f ++ ")"
     show (UnsafeUpdate mf) = "UnsafeUpdate (\0 -> " ++ show (mf 0)++ ")"
 
--- |Updates: partial map associating updates with (some) boundary directed edges.
+-- |Updates: two partial maps associating updates with (some) boundary directed edges.
+-- One for safe updates and one for unsafe updates
 -- (Any boundary directed edge will have the opposite direction in some face.)
-type Updates = Map Dedge Update
+data Updates = Updates{safes :: Map Dedge Update, unsafes :: Map Dedge Update}
+  deriving (Show)
 
--- |insert a new update
+-- | Updates form a semigroup
+instance Semigroup Updates where
+  ups1 <> ups2 = Updates
+   { safes = safes ups1 <> safes ups2
+   , unsafes = unsafes ups1 <> unsafes ups2
+   }
+
+-- | Updates form a monoid
+instance Monoid Updates where
+  mempty = Updates{safes = mempty, unsafes = mempty}
+
+-- |insert a new update (note that a safe can replace un unsafe but not vice versa).
 insertUpdate :: Dedge  -> Update -> Updates -> Updates
-insertUpdate = Map.insert
+insertUpdate e u@(SafeUpdate _) ups
+  = ups{ safes = Map.insert e u (safes ups)
+       , unsafes = Map.delete e (unsafes ups)
+       } -- a safe can replace an unsafe
+insertUpdate e u@(UnsafeUpdate _)  ups
+  = ups{unsafes = Map.insert e u (unsafes ups)}
+
+-- |delete an update
+deleteUpdate :: Dedge  -> Updates -> Updates
+deleteUpdate e ups
+  = ups{ safes   = Map.delete e (safes ups)
+       , unsafes = Map.delete e (unsafes ups)
+       }
 
 -- |get the boundary edges that have an update (from Updates)
 updateEdges :: Updates -> [Dedge]
-updateEdges = Map.keys
+updateEdges ups = Map.keys (safes ups) ++ Map.keys (unsafes ups)
+
+-- |are there no more updates?
+noUpdates :: Updates -> Bool
+noUpdates ups = Map.null (safes ups) && Map.null (unsafes ups)
 
 -- |ForceState: The force state records information between executing single face updates during forcing
--- (a BoundaryState , an Updates, and an UpdateGenerator).
+-- (a BoundaryState , updates, and an UpdateGenerator).
 data ForceState = ForceState
     { boundaryState:: BoundaryState
     , updates:: ~Updates  -- lazy field may not be used
@@ -404,8 +433,8 @@ instance Forcible BoundaryState where
         fs' <- f fs
         return $ boundaryState fs'
     tryInitFS bd = do
-        ~umap <- applyUG defaultAllUGen bd (boundary bd)
-        return $ ForceState { boundaryState = bd , updates = umap , updater = defaultAllUGen }
+        ~ups <- applyUG defaultAllUGen bd (boundary bd)
+        return $ ForceState { boundaryState = bd , updates = ups , updater = defaultAllUGen }
     tryChangeBoundary f bd = do -- update generator not used
         bdC <- f bd
         return $ newBoundaryState bdC
@@ -420,8 +449,8 @@ instance Forcible Tgraph where
 -- |Resets the update generator in a ForceState (and recalculates updates)
 trySetUG :: UpdateGenerator -> ForceState -> Try ForceState       
 trySetUG ugen fs = do
-    ~umap <- applyUG ugen (boundaryState fs) (boundary fs)
-    return $ fs { updates = umap, updater = ugen }
+    ~ups <- applyUG ugen (boundaryState fs) (boundary fs)
+    return $ fs { updates = ups, updater = ugen }
 
 -- |ForceState only operation to do all update steps.
 -- Used to define the more general tryForce
@@ -644,8 +673,8 @@ tryOneStepForce = tryOneStep
 -- | Apply the update generator on the changed boundary of a ForceState
 tryReviseFS :: BoundaryChange -> ForceState -> Try ForceState
 tryReviseFS bdC fs =
-    do umap <- tryReviseUpdates (updater fs) bdC (updates fs)
-       return $ fs{ boundaryState = newBoundaryState bdC, updates = umap}
+    do ups <- tryReviseUpdates (updater fs) bdC (updates fs)
+       return $ fs{ boundaryState = newBoundaryState bdC, updates = ups}
 
 
 
@@ -704,19 +733,15 @@ boundaryAt v bs = [preceding v bs, following v bs]
 -- |tryReviseUpdates uGen bdChange: revises the Updates after boundary change (bdChange)
 -- using uGen to calculate new updates.
 tryReviseUpdates:: UpdateGenerator -> BoundaryChange -> Updates -> Try Updates
-tryReviseUpdates uGen bdChange umap =
-  do let umap' = foldl' (flip Map.delete) umap (removedEdges bdChange)
-     umap'' <- applyUG uGen (newBoundaryState bdChange) (revisedEdges bdChange)
-     return (Map.union umap'' umap')
+tryReviseUpdates uGen bdChange ups =
+  do let ups' = foldl' (flip deleteUpdate) ups (removedEdges bdChange)
+     ups'' <- applyUG uGen (newBoundaryState bdChange) (revisedEdges bdChange)
+     return (ups'' <> ups')
 
 {-# INLINE findSafeUpdate #-}
 -- |finds the first safe update - Nothing if there are none (ordering is directed edge key ordering)
 findSafeUpdate:: Updates -> Maybe Update
--- slower to use filter
--- findSafeUpdate umap = fmap snd $ Map.lookupMin $ Map.filter isSafeUpdate umap where
-findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
-      isSafeUpdate (SafeUpdate _ ) = True
-      isSafeUpdate _ = False
+findSafeUpdate ups = snd <$> Map.lookupMin (safes ups)
 
 {-| tryUnsafes: Should only be used when there are no Safe updates in the Updates.
    tryUnsafes works through the unsafe updates in (directed edge) key order and
@@ -726,7 +751,7 @@ findSafeUpdate umap = find isSafeUpdate (Map.elems umap) where
    Left report if there are unsafes but all unsafes are blocked, where report describes the problem.
 -}
 tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
-tryUnsafes fs = checkBlocked 0 $ Map.elems $ updates fs where
+tryUnsafes fs = checkBlocked 0 $ Map.elems $ unsafes $ updates fs where
   bd = boundaryState fs
   -- the integer records how many blocked cases have been found so far
   checkBlocked:: Int -> [Update]  -> Try (Maybe BoundaryChange)
@@ -866,7 +891,7 @@ tryRecalibratingForce :: Forcible c => c -> Try c
 tryRecalibratingForce = tryFSOp recalibrating where
    recalibrating fs = do
        fs' <- tryStepForce 20000 fs
-       if null $ updates fs'
+       if noUpdates $ updates fs'
        then return fs'
        else recalibrating fs' {boundaryState = recalculateBVLocs $ boundaryState fs'}
 
@@ -928,13 +953,13 @@ sun, queen, jack (largeDartBase), ace (fool), deuce (largeKiteCentre), king, sta
 combineUpdateGenerators :: [UpdateGenerator] -> UpdateGenerator
 combineUpdateGenerators gens = UpdateGenerator genf where
   genf bd focus =
-    do let addGen (Right (es,umap)) gen =
-             do umap' <- applyUG gen bd es
-                let es' = es \\ updateEdges umap'
-                return (es',umap' <> umap)
+    do let addGen (Right (es,ups)) gen =
+             do ups' <- applyUG gen bd es
+                let es' = es \\ updateEdges ups'
+                return (es',ups' <> ups)
            addGen other _  = other  -- fails with first failing generator
-       (_ , umap) <- foldl' addGen (Right (focus,mempty)) gens
-       return umap
+       (_ , ups) <- foldl' addGen (Right (focus,mempty)) gens
+       return ups
 
 {-| allUGenerator was the original generator for all updates.
     It combines the individual update generators for each of the 10 rules in sequence using combineUpdateGenerators
@@ -1085,10 +1110,10 @@ hasAnyMatchingE [] = False
 -}
 newUpdateGenerator :: UChecker -> UFinder -> UpdateGenerator
 newUpdateGenerator checker finder = UpdateGenerator genf where
-  genf bd edges = foldl' addU (Right Map.empty) (finder bd edges) where
+  genf bd edges = foldl' addU (Right mempty) (finder bd edges) where
      addU (Left x) _          = Left x
-     addU (Right ump) (e,fc)  = do u <- checker bd fc
-                                   return (insertUpdate e u ump)
+     addU (Right ups) (e,fc)  = do u <- checker bd fc
+                                   return (insertUpdate e u ups)
 
 --   Ten Update Generators (with corresponding Finders)
 
@@ -1338,7 +1363,7 @@ defaultAllUGen :: UpdateGenerator
 defaultAllUGen = UpdateGenerator { applyUG = gen } where
   gen bd es = combine $ map decide es where -- Either String is a monoid as well as Map
     combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
-                                         -- otherwise combines the update maps with mconcat
+                                         -- otherwise combines the updates with mconcat
     decide e = decider $ inspectBDedge bd e where
 
       decider (f,Join)  = mapItem (completeHalf bd f) -- rule 1
@@ -1366,40 +1391,6 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
         | otherwise = Right mempty
  --     mapItem :: Try Update -> Try Updates
       mapItem = fmap (\u -> insertUpdate e u mempty)
-
-{- defaultAllUGen :: UpdateGenerator
-defaultAllUGen = UpdateGenerator { applyUG = gen } where
-  gen bd es = combine $ map decide es where -- Either String is a monoid as well as Map
-      decide e = decider (e,f,etype) where (f,etype) = inspectBDedge bd e
-
-      decider (e,f,Join)  = mapItem e (completeHalf bd f) -- rule 1
-      decider (e,f,Short)
-        | isDart f = mapItem e (addKiteShortE bd f) -- rule 2
-        | otherwise = kiteShortDecider e f
-      decider (e,f,Long)
-        | isDart f = dartLongDecider e f
-        | otherwise = kiteLongDecider e f
-
-      dartLongDecider e f
-        | mustbeStar bd (originV f) = mapItem e (completeSunStar bd f)
-        | mustbeKing bd (originV f) = mapItem e (addDartLongE bd f)
-        | mustbeJack bd (wingV f) = mapItem e (addKiteLongE bd f)
-        | otherwise = Right Map.empty
-
-      kiteLongDecider e f
-        | mustbeSun bd (originV f) = mapItem e (completeSunStar bd f)
-        | mustbeQueen bd (wingV f) = mapItem e (addDartLongE bd f)
-        | otherwise = Right Map.empty
-
-      kiteShortDecider e f
-        | mustbeDeuce bd (oppV f) || mustbeJack bd (oppV f) = mapItem e (addDartShortE bd f)
-        | mustbeQueen bd (wingV f) || isDartOrigin bd (wingV f) = mapItem e (addKiteShortE bd f)
-        | otherwise = Right Map.empty
-
-      mapItem e = fmap (\u -> insertUpdate e u Map.empty)
-      combine = fmap mconcat . concatFails -- concatenates all failure reports if there are any
-                                           -- otherwise combines the update maps with mconcat
- -}
 
 -- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
