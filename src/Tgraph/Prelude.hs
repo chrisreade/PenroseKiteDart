@@ -1411,16 +1411,14 @@ The third argument is the mapping of vertices to points.
     fastAddVPoints [] fcOther _ = error $ "locateVertices (fastAddVPoints): Faces not tile-connected: "
                                           ++ show fcOther ++ "\n"
     fastAddVPoints (face:fs) fcOther vpMap = fastAddVPoints (fs++nbs) fcOther' vpMap' where
-        nbs = filter (`Set.member` fcOther) (eNeighbours face)
+        nbs = filter (`Set.member` fcOther) (edgeNbs face themap)
         fcOther' = foldl' (flip Set.delete) fcOther nbs
 --        fcOther' = foldr Set.delete fcOther nbs
         vpMap' = addVPoint face vpMap
--- Given a list of faces and a face f, produce a list of edge neighbouring faces of f.
+-- Used to produce a list of edge neighbouring faces of a face.
 -- This version assumes no two faces can have a common dedge (using buildEFMap).
-    eNeighbours = eNbrs
-       where themap = buildEFMap fcs
-             eNbrs f  = edgeNbs f themap
-
+    themap = buildEFMap fcs
+    
 -- |Given a tileface and a vertex to location map which gives locations for at least 2 of the tileface vertices
 -- this returns a new map by adding a location for the third vertex (when missing) or the same map when not missing.
 -- It will raise an error if there are fewer than 2 tileface vertices with a location in the map

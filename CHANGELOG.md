@@ -5,6 +5,7 @@
 Changed type of Updates (was UpdateMap) to a data type with a pair of maps
 Renamed type UpdateMap to Updates
 Renamed selector updateMap to updates
+More laziness in BoundaryState
 
 ## version v1.8.1
 

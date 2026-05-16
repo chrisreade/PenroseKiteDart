@@ -13,7 +13,7 @@ auxiliary functions
 tryGetDartWingInfo, getDartWingInfoForced (and type DartWingInfo)
 for debugging but getDartWingInfoForced is no longer used internally.
 -}
--- {-# LANGUAGE Strict                #-} 
+{-# LANGUAGE Strict                #-} 
 {-# OPTIONS_GHC -Wno-deprecations  #-}
 
 module Tgraph.Compose 
@@ -84,7 +84,7 @@ tryPartCompose g =
 tryPartComposeFaces:: HasGraph a => a -> Try ([TileFace],[TileFace])
 tryPartComposeFaces g = 
   do dwInfo <- tryGetDartWingInfo g 
-     return $ partComposeFaces dwInfo
+     return $ partComposeDWI dwInfo
 -- tryPartComposeFaces is used in an example showing failure of the connected, no crossing boundary check.
 
 
@@ -193,7 +193,7 @@ getDWIassumeF isForced g fg =
 -- Uses a triple of IntSets rather than lists
   processD (kcs, dbs, unks) drt =
     let w = wingV drt
-        revLongE = reverseD (longE drt)
+--        revLongE = reverseD (longE drt)
     in
         if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else-- already classified
         let
@@ -205,15 +205,26 @@ getDWIassumeF isForced g fg =
             if any (matchingLongE drt) (filter isDart fcs) then (IntSet.insert w kcs,dbs,unks) else 
                      -- long edge drt shared with another dart => largeKiteCentre
             if isForced then (kcs, dbs, IntSet.insert w unks) else
-            let     -- (when not already forced) do same checks but with forced faces 
+            let     -- (when not already forced) check forced faces 
                 ffcs = filter (isAtV w) (faces fg)
-            in
+            in case length ffcs of
+                 -- 8 faces = large dart base
+                 8 -> (kcs,IntSet.insert w dbs,unks)
+                 -- 6 faces = lrge kite centre
+                 6 -> (IntSet.insert w kcs,dbs,unks)
+                 -- 3 faces = unknown on boundary
+                 3 -> (kcs,dbs,IntSet.insert w unks)
+                 other -> error $ 
+                           "getDWIassumeF: Not possible for a forced Tgraph\n" ++
+                           "Number of faces should be 8,6,or 3 in forced version of Tgraph but found " ++ show other ++
+                           "\nat dart wing vertex: " ++ show w ++ "\n"
+ {-            in
                 if w `elem` map originV (filter isKite ffcs) then (kcs,IntSet.insert w dbs,unks) else 
                     -- wing is a half kite origin => largeDartBase
                 if revLongE `elem` map longE (filter isDart ffcs) then (IntSet.insert w kcs,dbs,unks) else 
                     -- long edge drt shared with another dart => largeKiteCentre
                 (kcs,dbs,IntSet.insert w unks) -- on the forced boundary so must be unknown
-
+ -}
 
 -- |Not exported - used in partComposeF and in getDWIassumeF.
 -- Returns a triple of:

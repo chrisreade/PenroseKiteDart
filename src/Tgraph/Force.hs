@@ -191,13 +191,15 @@ a list of all the faces,
 the next vertex label to be used when adding a new vertex,
 the boundary directed edges (directed so that faces are on LHS and exterior is on RHS).
 These boundary directed edges are represented using type BoundaryDedges.
+New: the positions of boundary vertices and the grid are made lazy.
+They are not needed until the first unsafe update has to be done (if there is one).
 -}
 data BoundaryState
    = BoundaryState
      { boundaryDedges:: BoundaryDedges  -- ^ boundary directed edges (face on LHS, exterior on RHS)
      , bvFacesMap:: VertexMap [TileFace] -- ^faces at each boundary vertex.
-     , bvLocMap:: VertexMap (Point V2 Double)  -- ^ position of each boundary vertex.
-     , grid:: Grid (Point V2 Double) -- ^ a grid of locations to avoid (initially boundary vertex locations).
+     , bvLocMap:: ~(VertexMap (Point V2 Double))  -- ^ position of each boundary vertex.
+     , grid:: ~(Grid (Point V2 Double)) -- ^ a grid of locations to avoid (initially boundary vertex locations).
      , allFaces:: [TileFace] -- ^ all the tile faces
      , nextVertex:: Vertex -- ^ next vertex number
      } deriving (Show)
@@ -262,8 +264,8 @@ makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g =
   let bdes = boundaryESet g
       bvs = Set.foldr' (IntSet.insert . fst) IntSet.empty bdes --IntSet.fromList (map fst $ Set.toList bdes) -- (map snd bdes would also do) for all boundary vertices
-      bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
-      newgrid = createGrid $ VMap.elems bvLocs
+      ~bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
+      ~newgrid = createGrid $ VMap.elems bvLocs
   in 
       BoundaryState
       { boundaryDedges = bdesFromSet bdes
@@ -364,7 +366,7 @@ noUpdates ups = Map.null (safes ups) && Map.null (unsafes ups)
 data ForceState = ForceState
     { boundaryState:: BoundaryState
     , updates:: ~Updates  -- lazy field may not be used
-    , updater:: UpdateGenerator -- new
+    , updater:: UpdateGenerator
     }
 
 -- | Show ForceState does not show the UpdateGenerator which contains a function.
@@ -1392,7 +1394,7 @@ defaultAllUGen = UpdateGenerator { applyUG = gen } where
  --     mapItem :: Try Update -> Try Updates
       mapItem = fmap (\u -> insertUpdate e u mempty)
 
--- |Given a BoundaryState and a directed boundary edge, this returns the same edge with
+-- |Given a BoundaryState and a directed boundary edge, this returns
 -- the unique face on that edge and the edge type for that face and edge (Short/Long/Join)
 inspectBDedge:: BoundaryState -> Dedge -> (TileFace, EdgeType)
 inspectBDedge bd (a,b) = (face,edgeType (b,a) face) where
