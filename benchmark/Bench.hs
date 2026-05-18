@@ -7,7 +7,7 @@ import Control.Concurrent (threadDelay)
 
 main :: IO ()
 main = 
-  do let wait = threadDelay 100000
+  do let wait = threadDelay 25000
      wait
      _ <- traceMarkerIO "starting decompositions" 
      let !kD = {-# SCC "decomposing" #-} decompositions kingGraph !! n
@@ -33,11 +33,17 @@ main =
                             ++ show (maxV cfkD)
      _  <- traceMarkerIO "finished (unchecked) composing" 
      wait
-     _ <- traceMarkerIO "starting new force of (already forced) " 
-     let !newfkD = {-# SCC "repeatedForce" #-} force $ recoverGraph fkD
-     putStrLn $ "Number of faces of new force is " 
-                            ++ show (faceCount newfkD)
-     _  <- traceMarkerIO "finished new force of (already forced) " 
+     _ <- traceMarkerIO "redundant force" 
+     let !ffkD = {-# SCC "checkedCompose" #-} force $ recoverGraph fkD
+     putStrLn $ "Number of faces of new checked compose is " 
+                            ++ show (faceCount ffkD)
+     _  <- traceMarkerIO "finished redundant force" 
+     wait
+     _ <- traceMarkerIO "starting checked compose" 
+     let !newcfkD = {-# SCC "checkedCompose" #-} compose $ recoverGraph fkD
+     putStrLn $ "Number of faces of new checked compose is " 
+                            ++ show (faceCount newcfkD)
+     _  <- traceMarkerIO "finished checked compose" 
      return ()
      
 {-

@@ -6,6 +6,7 @@ Changed type of Updates (was UpdateMap) to a data type with a pair of maps
 Renamed type UpdateMap to Updates
 Renamed selector updateMap to updates
 More laziness in BoundaryState
+Change to DartWingInfo (unMapped now includes kites with no dart wing at their oppV)
 
 ## version v1.8.1
 

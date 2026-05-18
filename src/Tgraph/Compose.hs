@@ -35,13 +35,12 @@ module Tgraph.Compose
   , getDartWingInfoForced
   ) where
 
-import Data.List (find,(\\),partition,nub)
+import Data.List (find,(\\),partition)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
-import qualified Data.IntMap.Strict as VMap (lookup,(!),alter,empty,elems,keys)
-import Data.Maybe (catMaybes,mapMaybe)
+import qualified Data.IntMap.Strict as VMap (lookup,(!),alter,empty,keys)
+import Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.IntSet as IntSet (empty,insert,toList,member)
-
 import Tgraph.Prelude
 import Tgraph.Force ( Forced(), forgetF, labelAsForced, tryForceF )
 {-------------------------------------------------------------------------
@@ -139,23 +138,27 @@ composeF = snd . partComposeF
 
 -- |DartWingInfo is a record type for the result of classifying dart wings in a Tgraph.
 -- Faces at a largeKiteCentre vertex will form kite faces when composed.
--- Faces at a largeDartBase vertex will form dart faces when composed.
+-- Faces at a largeDartBase vertex will form dart faces when composed (excludin kites with origin at the largeDartBase).
 -- Faces at an unknown vertex cannot be composed.
 -- The record includes a faceMap from dart wings to faces at that vertex.
--- and a list of any faces (necessarily kites) not included in the faceMap (unMapped)
+-- A list (unMapped) which includes any kites not in the faceMap and those only in the faceMap at the kite origin.
+--
+-- NB. Kites that only have a dart wing at their origin, are added to the map for dart wing classification purposes
+-- but not used when composing at largeDartBases, hence they need to be recorded as unMapped as well.
+-- Such kites cannot exist in a forced Tgraph, so this only arises when composing unforced Tgraphs.
 data DartWingInfo =  DartWingInfo 
      { largeKiteCentres  :: [Vertex] -- ^ dart wing vertices classified as large kite centres.
      , largeDartBases  :: [Vertex]  -- ^ dart wing vertices classified as large dart bases.
      , unknowns :: [Vertex] -- ^ unclassified (boundary) dart wing vertices.
      , faceMap :: VertexMap [TileFace] -- ^ a mapping from dart wing vertices to faces at the vertex.
-     , unMapped :: [TileFace] -- ^ any faces not at a dart wing vertex (necessarily kites)
+     , unMapped :: [TileFace] -- ^ any kites whose oppV is not at a dart wing vertex.
      } deriving Show
 
--- |Recover a list of faces (no repetitions) contained in the dart wing info.
+{- -- |Recover a list of faces (no repetitions) contained in the dart wing info.
 -- (These should be all faces of the Tgraph used to make the dart wing info.)
 recoverFaces :: DartWingInfo -> [TileFace]
 recoverFaces dwInfo =  nub $ concat (unMapped dwInfo : VMap.elems (faceMap dwInfo))
-
+ -}
 
 -- |The given Tgraph is not assumed to be forced.
 -- Getting the dart wing information makes use of the forced version
@@ -226,11 +229,23 @@ getDWIassumeF isForced g fg =
                 (kcs,dbs,IntSet.insert w unks) -- on the forced boundary so must be unknown
  -}
 
--- |Not exported - used in partComposeF and in getDWIassumeF.
--- Returns a triple of:
---   list of all half-darts,
---   a dart wing to faces map, and 
---   left over faces (not at a dartwing)
+{- |Not exported - used in partComposeF and in getDWIassumeF.
+Returns a triple of:
+ list of all half-darts,
+ a dart wing to faces map, and 
+ left over faces (kites guaranteed to be remainder in a composition)
+
+Note: when kites are added they can have dart wings at originV and/or at oppV.
+
+1) Neither -  added to unused
+
+2) Both - added to both
+
+3) OppV only - added to OppV
+
+4) OriginV only - Not possible in a forced Tgraph.
+Added to originV (for dart wing classification purposes) but also added to unused as they cannot be part of a larger face.
+-}
 dartsMapUnused :: Tgraph -> ([TileFace], VertexMap [TileFace],[TileFace])
 dartsMapUnused g = (drts,dwFMap,unused) where
     (drts,kts) = partition isDart (faces g)
@@ -253,9 +268,8 @@ dartsMapUnused g = (drts,dwFMap,unused) where
       in  case (VMap.lookup opp vmap, VMap.lookup org vmap) of
             (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
             (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
-            (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, unsd)
+            (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, f:unsd) -- kite will not form part of a new face (not possible for forced Tgraph)
             (Nothing, Nothing)   ->  (vmap, f:unsd) -- kite face not at any dart wing
-
     addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
     addK f (Just fs) = Just (f:fs)
 
@@ -269,9 +283,49 @@ partComposeFaces = partComposeDWI --dwInfo = (remainder, evalFaces newFaces) whe
 -- for use in the composeK example in Extras.
 -- It does not assume the dart wing info has come from a forced Tgraph
 -- so the resulting composed faces may not form a valid Tgraph.
+--
+-- This version relies on kites that only have a dart wing at their origin, being included in unMapped.
+-- Such kites are also recorded in the dart wing/(kite origin) for classification purposes but then
+-- filtered out when composing at a largeDartBase.
 partComposeDWI :: DartWingInfo -> ([TileFace],[TileFace])
+partComposeDWI dwInfo = (remainder, evalFaces newfaces) where
+    ~remainder0 = unMapped dwInfo ++ concatMap facesFor (unknowns dwInfo)
+    (~remainder1,newfaces1) = foldl' collectDarts (remainder0,[]) (largeDartBases dwInfo)
+    (~remainder,newfaces) = foldl' collectKites (remainder1,newfaces1) (largeKiteCentres dwInfo)
+    facesFor v = faceMap dwInfo VMap.! v
+    collectDarts :: ([TileFace], [TileFace]) -> Vertex -> ([TileFace], [TileFace])
+    collectDarts (rems, newfs) v = (fcs''++rems, newfs'') where
+      wanted f = isDart f || originV f /=v -- ignore kites with origins at v
+      fcs = filter wanted (facesFor v)
+      (newfs' , fcs') = fromMaybe (newfs,fcs) $ groupRD fcs newfs
+      (newfs'' , fcs'') = fromMaybe (newfs',fcs') $ groupLD fcs' newfs'
+      groupRD fs nfs =
+         do rd <- find isRD fs
+            lk <- find (matchingShortE rd) fs
+            return (RD (originV lk, originV rd, oppV lk):nfs, fs\\[rd,lk])
+      groupLD fs nfs = 
+         do ld <- find isLD fs
+            rk <- find (matchingShortE ld) fs
+            return (LD (originV rk, oppV rk, originV ld):nfs, fs\\[ld,rk])
+    collectKites :: ([TileFace], [TileFace]) -> Vertex -> ([TileFace], [TileFace])
+    collectKites (rems, newfs) v = (fcs''++rems, newfs'') where
+      fcs = facesFor v
+      (newfs' , fcs') = fromMaybe (newfs,fcs) $ groupRK fcs newfs
+      (newfs'' , fcs'') = fromMaybe (newfs',fcs') $ groupLK fcs' newfs'
+      groupRK fs nfs =
+         do rd <- find isRD fs
+            lk <- find (matchingShortE rd) fs
+            rk <- find (matchingJoinE lk) fs
+            return (RK (originV rd, wingV rk, originV rk):nfs, fs\\[rd,lk,rk])
+      groupLK fs nfs = 
+          do ld <- find isLD fs
+             rk <- find (matchingShortE ld) fs
+             lk <- find (matchingJoinE rk) fs
+             return (LK (originV ld, originV lk, wingV lk):nfs, fs\\[ld,rk,lk])
+
+{- partComposeDWI :: DartWingInfo -> ([TileFace],[TileFace])
 partComposeDWI dwInfo = (remainder, evalFaces newFaces) where
-    remainder = recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
+    remainder = nub $ recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
      -- all faces except those successfully used in making composed faces.   
     newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
 
@@ -312,4 +366,4 @@ partComposeDWI dwInfo = (remainder, evalFaces newFaces) where
                     rk <- find (matchingShortE ld) fcs
                     lk <- find (matchingJoinE rk) fcs
                     return [ld,rk,lk]
-
+ -}
