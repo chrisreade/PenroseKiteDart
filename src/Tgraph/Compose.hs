@@ -38,11 +38,13 @@ module Tgraph.Compose
 import Data.List (find,(\\),partition)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
+import Data.IntMap (IntMap)
 import qualified Data.IntMap.Strict as VMap (lookup,(!),alter,empty,keys)
 import Data.Maybe (catMaybes, fromMaybe)
-import qualified Data.IntSet as IntSet (empty,insert,toList,member)
+import Data.IntSet(IntSet)
+import qualified Data.IntSet as IntSet (empty,insert,toList)
 import Tgraph.Prelude
-import Tgraph.Force ( Forced(), forgetF, labelAsForced, tryForceF )
+import Tgraph.Force ( Forced(), forgetF, labelAsForced, tryForce )
 {-------------------------------------------------------------------------
 ***************************************************************************              
 COMPOSING compose, partCompose, tryPartCompose, ...
@@ -160,21 +162,74 @@ recoverFaces :: DartWingInfo -> [TileFace]
 recoverFaces dwInfo =  nub $ concat (unMapped dwInfo : VMap.elems (faceMap dwInfo))
  -}
 
+-- | Not exported. (Used by tryGetDartWingInfo and getDartWingInfoForced.)
+-- Requires a dart wing IntMap which must be from a forced Tgarph
+-- Returns a triple of (largeKiteCentres, largeDartBases, Unknowns)
+classifyDartWings :: IntMap [TileFace]-> [Vertex] -> (IntSet,IntSet,IntSet)
+classifyDartWings dwMap = foldl' classifyDartWing (IntSet.empty, IntSet.empty, IntSet.empty) where
+-- kcs = kite centres of larger kites,
+-- dbs = dart bases of larger darts,
+-- unks = unclassified dart wing vertices
+-- Uses a triple of IntSets rather than lists
+-- Uses the forced version to classify dart wings from the original 
+  classifyDartWing (kcs, dbs, unks) w =
+    let fcs = dwMap VMap.! w
+    in case length fcs of
+        -- 8 faces = large dart base
+        8 -> (kcs,IntSet.insert w dbs,unks)
+        -- 6 faces = lrge kite centre
+        6 -> (IntSet.insert w kcs,dbs,unks)
+        -- 3 faces = unknown on boundary
+        3 -> (kcs,dbs,IntSet.insert w unks)
+        other -> error $ 
+                 "classifyDartWings: Not possible for forced version of Tgraph\n" ++
+                 "(called by either tryGetDartWingInfo or getDartWingInfoForced).\n " ++
+                 "Number of faces should be 8,6,or 3 in forced version of Tgraph but found " ++ show other ++
+                 "\nat dart wing vertex: " ++ show w ++ "\n"
+
 -- |The given Tgraph is not assumed to be forced.
 -- Getting the dart wing information makes use of the forced version
 -- as well as the Tgraph so this uses tryForce first which can fail if
 -- the Tgraph is found to be incorrect.
 tryGetDartWingInfo :: HasGraph a => a -> Try DartWingInfo
 tryGetDartWingInfo a =
+  do let g = recoverGraph a
+         (drts,dwFMap,unused) = dartsMapUnused g 
+     fg <- onFail "tryGetDartWingInfo: incorrect Tgraph (found during forcing).\n" $ tryForce g
+     let (_,~dwFMapForced,_) = dartsMapUnused fg
+         -- forced version is used for classifying (but darts from original graph)
+         (allKcs,allDbs,allUnks) = classifyDartWings dwFMapForced (map wingV drts)  
+     return $ DartWingInfo 
+               { largeKiteCentres = IntSet.toList allKcs
+               , largeDartBases = IntSet.toList allDbs
+               , unknowns = IntSet.toList allUnks
+               , faceMap = dwFMap -- original map (not forced version)
+               , unMapped = unused -- from original Tgraph
+               }
+
+
+{- tryGetDartWingInfo :: HasGraph a => a -> Try DartWingInfo
+tryGetDartWingInfo a =
     do let g = recoverGraph a
        fg <- onFail "tryGetDartWingInfo: incorrect Tgraph found.\n" $ tryForceF g
        return $ getDWIassumeF False g fg
-
+ -}
 -- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg
 -- and calculates a faceMap for each dart wing, returning as DartWingInfo.
 -- The classification is much simplified knowing that the Tgraph is forced.
-getDartWingInfoForced :: Forced Tgraph -> DartWingInfo
-getDartWingInfoForced fg = getDWIassumeF True (forgetF fg) fg
+getDartWingInfoForced:: Forced Tgraph -> DartWingInfo
+getDartWingInfoForced fg =  
+  DartWingInfo { largeKiteCentres = IntSet.toList allKcs
+               , largeDartBases = IntSet.toList allDbs
+               , unknowns = IntSet.toList allUnks
+               , faceMap = dwFMap
+               , unMapped = unused
+               } where
+  (drts,dwFMap,unused) = dartsMapUnused (forgetF fg)
+  (allKcs,allDbs,allUnks) = classifyDartWings dwFMap (map wingV drts)  
+
+
+{- HISTORICAL keep for info usied in processD
 
 -- | getDWIassumeF (not exported but used to define 2 cases getDartWingInfoForced and tryGetDartWingInfo).
 -- getDWIassumeF isForced g fg (where fg is forceF g), classifies the dart wings in g and calculates a faceMap for each dart wing,
@@ -189,6 +244,7 @@ getDWIassumeF isForced g fg =
                , unMapped = unused
                } where
   (drts,dwFMap,unused) = dartsMapUnused g
+  (_,~dwFMapForced,_) = if isForced then ([],dwFMap,[]) else dartsMapUnused (forgetF fg)
   (allKcs,allDbs,allUnks) = foldl' processD (IntSet.empty, IntSet.empty, IntSet.empty) drts  
 -- kcs = kite centres of larger kites,
 -- dbs = dart bases of larger darts,
@@ -209,7 +265,7 @@ getDWIassumeF isForced g fg =
                      -- long edge drt shared with another dart => largeKiteCentre
             if isForced then (kcs, dbs, IntSet.insert w unks) else
             let     -- (when not already forced) check forced faces 
-                ffcs = filter (isAtV w) (faces fg)
+                ffcs = dwFMapForced VMap.! w --filter (isAtV w) (faces fg)
             in case length ffcs of
                  -- 8 faces = large dart base
                  8 -> (kcs,IntSet.insert w dbs,unks)
@@ -221,19 +277,13 @@ getDWIassumeF isForced g fg =
                            "getDWIassumeF: Not possible for a forced Tgraph\n" ++
                            "Number of faces should be 8,6,or 3 in forced version of Tgraph but found " ++ show other ++
                            "\nat dart wing vertex: " ++ show w ++ "\n"
- {-            in
-                if w `elem` map originV (filter isKite ffcs) then (kcs,IntSet.insert w dbs,unks) else 
-                    -- wing is a half kite origin => largeDartBase
-                if revLongE `elem` map longE (filter isDart ffcs) then (IntSet.insert w kcs,dbs,unks) else 
-                    -- long edge drt shared with another dart => largeKiteCentre
-                (kcs,dbs,IntSet.insert w unks) -- on the forced boundary so must be unknown
  -}
-
-{- |Not exported - used in partComposeF and in getDWIassumeF.
+ 
+{- |Not exported - used in partComposeF, getDartWingInfoForced and tryGetDartWingInfo.
 Returns a triple of:
  list of all half-darts,
  a dart wing to faces map, and 
- left over faces (kites guaranteed to be remainder in a composition)
+ unused - kites guaranteed to be remainder in a composition.
 
 Note: when kites are added they can have dart wings at originV and/or at oppV.
 
@@ -244,7 +294,8 @@ Note: when kites are added they can have dart wings at originV and/or at oppV.
 3) OppV only - added to OppV
 
 4) OriginV only - Not possible in a forced Tgraph.
-Added to originV (for dart wing classification purposes) but also added to unused as they cannot be part of a larger face.
+Added to originV (for dart wing classification purposes)
+but also added to unused as they cannot be part of a composition.
 -}
 dartsMapUnused :: Tgraph -> ([TileFace], VertexMap [TileFace],[TileFace])
 dartsMapUnused g = (drts,dwFMap,unused) where
