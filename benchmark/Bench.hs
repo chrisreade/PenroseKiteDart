@@ -34,8 +34,8 @@ main =
      _  <- traceMarkerIO "finished (unchecked) composing" 
      wait
      _ <- traceMarkerIO "redundant force" 
-     let !ffkD = {-# SCC "checkedCompose" #-} force $ recoverGraph fkD
-     putStrLn $ "Number of faces of new checked compose is " 
+     let !ffkD = {-# SCC "redundantForce" #-} force $ recoverGraph fkD
+     putStrLn $ "Number of faces after redundant force is " 
                             ++ show (faceCount ffkD)
      _  <- traceMarkerIO "finished redundant force" 
      wait
@@ -43,6 +43,12 @@ main =
      let !newcfkD = {-# SCC "checkedCompose" #-} compose $ recoverGraph fkD
      putStrLn $ "Number of faces of new checked compose is " 
                             ++ show (faceCount newcfkD)
+     _  <- traceMarkerIO "finished checked compose" 
+     wait
+     _ <- traceMarkerIO "starting checked compose" 
+     let !qcfkD = {-# SCC "quickCompose" #-} snd $ quickPartCompose $ recoverGraph fkD
+     putStrLn $ "Number of faces of new checked compose is " 
+                            ++ show (faceCount qcfkD)
      _  <- traceMarkerIO "finished checked compose" 
      return ()
      

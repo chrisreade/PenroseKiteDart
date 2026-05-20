@@ -23,6 +23,8 @@ module Tgraph.Compose
     -- * General compose operations 
   , compose
   , partCompose
+  , quickCompose
+  , quickPartCompose
   , tryPartCompose
   , tryPartComposeFaces
   -- * Exported auxiliary functions (and type)
@@ -55,7 +57,9 @@ COMPOSING compose, partCompose, tryPartCompose, ...
 -- the composed Tgraph.  It will raise an error if the result is not a valid Tgraph
 -- (i.e. if it fails the connectedness, no crossing boundary check).
 -- It does not assume the given Tgraph is forced.
--- It can raise an error if the Tgraph is found to be incorrect (when getting dartwing info).
+-- It inspects the forced version to classify dart wings (hence costing a force operation).
+-- It can raise an error if the Tgraph is found to be incorrect when calculating the forced version).
+-- (See also composeF and compForce.)
 compose:: HasGraph a => a -> Tgraph
 compose = snd . partCompose
 
@@ -63,8 +67,9 @@ compose = snd . partCompose
 -- and a composed Tgraph. 
 -- It checks the composed Tgraph for connectedness and no crossing boundaries
 -- raising an error if this check fails.
--- It does not assume the given Tgraph is forced.
--- It can raise an error if the Tgraph is found to be incorrect (when getting dartwing info).
+-- It inspects the forced version to classify dart wings (hence costing a force operation).
+-- It can raise an error if the Tgraph is found to be incorrect when calculating the forced version).
+-- (See also quickPartCompose)
 partCompose:: HasGraph a => a -> ([TileFace],Tgraph)
 partCompose = runTry . onFail "partCompose:\n" . tryPartCompose . recoverGraph
 
@@ -91,7 +96,7 @@ tryPartComposeFaces g =
 
 -- |partComposeF fg - produces a pair consisting of remainder faces (faces from fg which will not compose) 
 -- and a composed (Forced) Tgraph.
--- Since fg is a forced Tgraph it does not need a check for validity of the composed Tgraph.
+-- Since fg is a forced Tgraph it does not need a check for validity (connected and no crossing boundaries) of the composed Tgraph.
 -- The fact that the function is total and the result is also Forced relies on theorems
 -- established for composing.
 -- The calculation of remainder faces is also more efficient with a known forced Tgraph.
@@ -163,7 +168,7 @@ recoverFaces dwInfo =  nub $ concat (unMapped dwInfo : VMap.elems (faceMap dwInf
  -}
 
 -- | Not exported. (Used by tryGetDartWingInfo and getDartWingInfoForced.)
--- Requires a dart wing IntMap which must be from a forced Tgarph
+-- Requires a dart wing IntMap which must be from a forced Tgraph
 -- Returns a triple of (largeKiteCentres, largeDartBases, Unknowns)
 classifyDartWings :: IntMap [TileFace]-> [Vertex] -> (IntSet,IntSet,IntSet)
 classifyDartWings dwMap = foldl' classifyDartWing (IntSet.empty, IntSet.empty, IntSet.empty) where
@@ -228,6 +233,54 @@ getDartWingInfoForced fg =
   (drts,dwFMap,unused) = dartsMapUnused (forgetF fg)
   (allKcs,allDbs,allUnks) = classifyDartWings dwFMap (map wingV drts)  
 
+-- | A faster version of compose which may underestimate the composable faces.
+-- It does not use force to check classification of dart wings, so some dartwings may be
+-- incorrectly classified as unknown (leaving fewer composed faces).
+-- It checks the resulting Tgraph for connected and no crossing boundaries, so
+-- it can raise an error if this check fails.
+-- It will always be correct on a forced Tgraph.
+quickCompose :: HasGraph a => a -> Tgraph
+quickCompose a = snd (quickPartCompose a)
+
+-- | A faster version of partCompose which may underestimate the composable faces.
+-- It does not use force to check classification of dart wings, so some dartwings may be
+-- incorrectly classified as unknown (leaving more remainder faces and fewer composed faces).
+-- It checks the resulting Tgraph for connected and no crossing boundaries, so
+-- it can raise an error if this check fails.
+-- It will always be correct on a forced Tgraph.
+quickPartCompose:: HasGraph a => a -> ([TileFace], Tgraph)
+quickPartCompose a = (remainder, checked) where
+  checked = runTry $ onFail "quickPartCompose:\n" $ tryConnectedNoCross newfaces
+  (_,dwFMap,unused) = dartsMapUnused (recoverGraph a)
+  (remainder,newfaces) = foldl' checkDW (unused,[]) (VMap.keys dwFMap)
+  checkDW (rems, nfcs) w = 
+     let fcs = dwFMap  VMap.! w
+     in  if w `elem` map originV (filter isKite fcs) 
+                    -- dart wing is also a half kite origin => largeDartBase
+         then (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs) 
+         else case darts fcs of
+            [d1,d2] -> if matchingLongE d1 d2
+                            -- two darts share long edge => largekiteCentre
+                       then (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs)
+                            -- two darts, no matching long edge => largeDartBase
+                       else (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs)
+                  -- otherwise unknown (add faces to remainder faces)
+            _ -> (fcs++rems, nfcs)
+
+  largeRD fcs = do rd <- find isRD fcs
+                   lk <- find ((==oppV rd) . wingV) fcs
+                   return $ RD (originV lk, originV rd, wingV rd)
+  largeLD fcs = do ld <- find isLD fcs
+                   rk <- find ((==oppV ld) . wingV) fcs
+                   return $ LD (originV rk, wingV ld, originV ld)
+  largeRK fcs = do rd  <- find isRD fcs
+                   lk <- find ((==oppV rd) . wingV) fcs
+                   rk <- find (matchingJoinE lk) fcs
+                   return $ RK (originV rd, wingV rk, originV lk)
+  largeLK fcs = do ld  <- find isLD fcs
+                   rk <- find ((==oppV ld) . wingV) fcs
+                   lk <- find (matchingJoinE rk) fcs
+                   return $ LK (originV ld, originV rk, wingV lk)
 
 {- HISTORICAL keep for info usied in processD
 
@@ -284,18 +337,6 @@ Returns a triple of:
  list of all half-darts,
  a dart wing to faces map, and 
  unused - kites guaranteed to be remainder in a composition.
-
-Note: when kites are added they can have dart wings at originV and/or at oppV.
-
-1) Neither -  added to unused
-
-2) Both - added to both
-
-3) OppV only - added to OppV
-
-4) OriginV only - Not possible in a forced Tgraph.
-Added to originV (for dart wing classification purposes)
-but also added to unused as they cannot be part of a composition.
 -}
 dartsMapUnused :: Tgraph -> ([TileFace], VertexMap [TileFace],[TileFace])
 dartsMapUnused g = (drts,dwFMap,unused) where
@@ -308,7 +349,7 @@ dartsMapUnused g = (drts,dwFMap,unused) where
                     -- maps all dart wing vertices to 1 or 2 half darts.
     (dwFMap,unused) = foldl' insertK (dartWMap,[]) kts 
                     -- all kite halves added to relevant dart wings of the dart wing map.
-                    -- the unused list records half kites not added to any dart wing.
+                    -- the unused list records half kites that will become remainder.
     insertD vmap f = VMap.alter (addD f) (wingV f) vmap
     addD f Nothing = Just [f]
     addD f (Just fs) = Just (f:fs)
@@ -317,10 +358,16 @@ dartsMapUnused g = (drts,dwFMap,unused) where
           org = originV f  -- cannot have a kite wingV at a dart originV
           -- kite origin cases not needed for forced Tgraph, but included for completeness of the map
       in  case (VMap.lookup opp vmap, VMap.lookup org vmap) of
-            (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
-            (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
-            (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, f:unsd) -- kite will not form part of a new face (not possible for forced Tgraph)
+        -- neither - add to unused 
             (Nothing, Nothing)   ->  (vmap, f:unsd) -- kite face not at any dart wing
+       -- both - add to both
+            (Just _ ,Just _)     ->  (VMap.alter (addK f) opp $ VMap.alter (addK f) org vmap, unsd)
+        -- opp only - add to opp
+            (Just _ , Nothing)   ->  (VMap.alter (addK f) opp vmap, unsd)
+        -- origin only - add to origin BUT also add to unused.
+        -- (Kites with only origin at dart wing cannot form part of a composed face.
+        -- This case cannot arise in forced Tgraphs.)
+            (Nothing, Just _ )   ->  (VMap.alter (addK f) org vmap, f:unsd) -- kite will not form part of a new face (not possible for forced Tgraph)
     addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
     addK f (Just fs) = Just (f:fs)
 

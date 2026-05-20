@@ -163,10 +163,10 @@ import qualified Data.Map.Strict as Map (null, delete, elems, insert, lookupMin,
 import Data.IntMap.Strict(IntMap)
 import qualified Data.IntMap.Strict as VMap (filterWithKey, alter, adjust, delete, lookup, (!), keysSet, member
                                             , fromAscList, fromList, assocs, insert, elems)
-import qualified Data.IntSet as IntSet (member,empty,insert)
+import qualified Data.IntSet as IntSet (member)
             -- used for BoundaryState locations AND faces at boundary vertices
 import Data.Set (Set)
-import qualified Data.Set as Set (foldr',elems,fromList)
+import qualified Data.Set as Set (elems,fromList)
 import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) used in tryUnsafeUpdate 
 import Tgraph.Prelude
 import Tgraph.Grid 
@@ -262,13 +262,14 @@ isBoundaryV v = VMap.member v . nextBVMap . boundaryDedges
 -- |Calculates BoundaryState information from a Tgraph.
 makeBoundaryState:: Tgraph -> BoundaryState
 makeBoundaryState g =
-  let bdes = boundaryESet g
-      bvs = Set.foldr' (IntSet.insert . fst) IntSet.empty bdes --IntSet.fromList (map fst $ Set.toList bdes) -- (map snd bdes would also do) for all boundary vertices
+  let bdes = bdesFromSet $ boundaryESet g
+      bvs = VMap.keysSet $ nextBVMap bdes -- the boundary vertices are the keys of the nextBVMap
+      -- location data is lazy (not needed until an unsafe update is executed)
       ~bvLocs = VMap.filterWithKey (\k _ -> k `IntSet.member` bvs) $ locateGraphVertices g
       ~newgrid = createGrid $ VMap.elems bvLocs
   in 
       BoundaryState
-      { boundaryDedges = bdesFromSet bdes
+      { boundaryDedges = bdes
       , bvFacesMap = vertexFMap bvs g
       , bvLocMap = bvLocs
       , grid = newgrid

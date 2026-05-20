@@ -2,11 +2,15 @@
 
 ## since v1.8.1
 
-Changed type of Updates (was UpdateMap) to a data type with a pair of maps
-Renamed type UpdateMap to Updates
-Renamed selector updateMap to updates
-More laziness in BoundaryState
+- Renamed type UpdateMap to Updates and changed the type
+to a data type with a pair of maps.
+- Renamed selector updateMap to updates
+
+More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
+
 Change to DartWingInfo (unMapped now includes kites with no dart wing at their oppV)
+
+Added quickCompose and quickPartCompose (approximations to compose and partCompose that do not use a force operation)
 
 ## version v1.8.1
 

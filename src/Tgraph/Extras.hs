@@ -303,7 +303,6 @@ composeK g = runTry $
 -- and uses a faster composition method for forced Tgraphs.
 -- This relies on a proof that composition does not need to be checked for a forced Tgraph.
 -- (We also have a proof that the result must be a forced Tgraph when the initial force succeeds.)
--- This will raise an error if the initial force fails with an incorrect Tgraph.
 compForce:: (Forcible a, HasGraph a) => a -> Forced Tgraph
 compForce = composeF . withForced recoverGraph . forceF
 
