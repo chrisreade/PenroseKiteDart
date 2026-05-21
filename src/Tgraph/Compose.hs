@@ -29,7 +29,6 @@ module Tgraph.Compose
   , tryPartComposeFaces
   -- * Exported auxiliary functions (and type)
   , partComposeDWI
-  , partComposeFaces
   , DartWingInfo(..)
   -- , getDWIassumeF
   -- , getDartWingInfo
@@ -49,7 +48,7 @@ import Tgraph.Prelude
 import Tgraph.Force ( Forced(), forgetF, labelAsForced, tryForce )
 {-------------------------------------------------------------------------
 ***************************************************************************              
-COMPOSING compose, partCompose, tryPartCompose, ...
+COMPOSING composeF, compose, partCompose, tryPartCompose, ...
 ***************************************************************************
 ---------------------------------------------------------------------------}
 
@@ -90,7 +89,7 @@ tryPartCompose g =
 tryPartComposeFaces:: HasGraph a => a -> Try ([TileFace],[TileFace])
 tryPartComposeFaces g = 
   do dwInfo <- tryGetDartWingInfo g 
-     return $ partComposeDWI dwInfo
+     return $ partComposeFacesDWI dwInfo
 -- tryPartComposeFaces is used in an example showing failure of the connected, no crossing boundary check.
 
 
@@ -212,13 +211,6 @@ tryGetDartWingInfo a =
                , unMapped = unused -- from original Tgraph
                }
 
-
-{- tryGetDartWingInfo :: HasGraph a => a -> Try DartWingInfo
-tryGetDartWingInfo a =
-    do let g = recoverGraph a
-       fg <- onFail "tryGetDartWingInfo: incorrect Tgraph found.\n" $ tryForceF g
-       return $ getDWIassumeF False g fg
- -}
 -- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg
 -- and calculates a faceMap for each dart wing, returning as DartWingInfo.
 -- The classification is much simplified knowing that the Tgraph is forced.
@@ -234,13 +226,13 @@ getDartWingInfoForced fg =
   (allKcs,allDbs,allUnks) = classifyDartWings dwFMap (map wingV drts)  
 
 -- | A faster version of compose which may underestimate the composable faces.
--- It does not use force to check classification of dart wings, so some dartwings may be
+-- It does not use force to check classification of dart wings, so some dart wings may be
 -- incorrectly classified as unknown (leaving fewer composed faces).
 -- It checks the resulting Tgraph for connected and no crossing boundaries, so
 -- it can raise an error if this check fails.
 -- It will always be correct on a forced Tgraph.
 quickCompose :: HasGraph a => a -> Tgraph
-quickCompose a = snd (quickPartCompose a)
+quickCompose = snd . quickPartCompose
 
 -- | A faster version of partCompose which may underestimate the composable faces.
 -- It does not use force to check classification of dart wings, so some dartwings may be
@@ -255,17 +247,25 @@ quickPartCompose a = (remainder, checked) where
   (remainder,newfaces) = foldl' checkDW (unused,[]) (VMap.keys dwFMap)
   checkDW (rems, nfcs) w = 
      let fcs = dwFMap  VMap.! w
-     in  if w `elem` map originV (filter isKite fcs) 
-                    -- dart wing is also a half kite origin => largeDartBase
-         then (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs) 
-         else case darts fcs of
+         (thekites,thedarts) = partition isKite fcs
+     in  if w `elem` map originV thekites 
+         -- dart wing is also a half kite origin => largeDartBase
+         then (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs) else
+         if shortMatch $ filter ((==w) . oppV) thekites
+         -- two half kites, with oppV at w, share a short edge => largeKiteCentre
+         then (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs) else
+         case thedarts of
             [d1,d2] -> if matchingLongE d1 d2
                             -- two darts share long edge => largekiteCentre
                        then (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs)
                             -- two darts, no matching long edge => largeDartBase
                        else (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs)
-                  -- otherwise unknown (add faces to remainder faces)
+          -- otherwise unknown (add faces to remainder faces)
             _ -> (fcs++rems, nfcs)
+
+  shortMatch [] = False
+  shortMatch [ _ ] =  False
+  shortMatch (k:more) = any (matchingShortE k) more || shortMatch more
 
   largeRD fcs = do rd <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
@@ -371,12 +371,20 @@ dartsMapUnused g = (drts,dwFMap,unused) where
     addK _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
     addK f (Just fs) = Just (f:fs)
 
-{-# DEPRECATED partComposeFaces "Use partComposeDWI" #-}
--- |partComposeFaces has been renamed as partComposeDWI.
-partComposeFaces :: DartWingInfo -> ([TileFace],[TileFace])
-partComposeFaces = partComposeDWI --dwInfo = (remainder, evalFaces newFaces) where
- 
--- |partComposeDWI constructs a pair of (remainder,composedfaces) from dart wing information (DWI).
+-- |partComposeDWI constructs a pair of remainder faces and a composed Tgraph
+-- from dart wing information (DWI).
+-- This is used in defining tryPartCompose but also exported
+-- (used in the composeK example in Extras).
+-- It does not assume the dart wing info has come from a forced Tgraph
+-- so a check on connected and no crossing boundaries is performed on the composed faces
+-- and will raise an error if this fails.
+partComposeDWI :: DartWingInfo -> ([TileFace],Tgraph)
+partComposeDWI dwi = (remainder,g) where
+  g = runTry $ tryConnectedNoCross fcs
+  (remainder,fcs) = partComposeFacesDWI dwi
+
+-- |Not Exported: partComposeFacesDWI (used in partComposeDWI and tryPartComposeFaces)
+-- constructs a pair of (remainder,composedfaces) from dart wing information (DWI).
 -- This is used in defining tryPartComposeFaces but also exported
 -- for use in the composeK example in Extras.
 -- It does not assume the dart wing info has come from a forced Tgraph
@@ -385,8 +393,8 @@ partComposeFaces = partComposeDWI --dwInfo = (remainder, evalFaces newFaces) whe
 -- This version relies on kites that only have a dart wing at their origin, being included in unMapped.
 -- Such kites are also recorded in the dart wing/(kite origin) for classification purposes but then
 -- filtered out when composing at a largeDartBase.
-partComposeDWI :: DartWingInfo -> ([TileFace],[TileFace])
-partComposeDWI dwInfo = (remainder, evalFaces newfaces) where
+partComposeFacesDWI :: DartWingInfo -> ([TileFace],[TileFace])
+partComposeFacesDWI dwInfo = (remainder, evalFaces newfaces) where
     ~remainder0 = unMapped dwInfo ++ concatMap facesFor (unknowns dwInfo)
     (~remainder1,newfaces1) = foldl' collectDarts (remainder0,[]) (largeDartBases dwInfo)
     (~remainder,newfaces) = foldl' collectKites (remainder1,newfaces1) (largeKiteCentres dwInfo)

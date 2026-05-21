@@ -293,9 +293,10 @@ composeK g = runTry $
       let changedInfo = dwInfo{ largeKiteCentres = largeKiteCentres dwInfo ++ unknowns dwInfo
                               , unknowns = []
                               }
-          ( _ , newfaces) = partComposeDWI changedInfo
+      return $ snd $ partComposeDWI changedInfo
+{-           ( _ , newfaces) = partComposeDWI changedInfo
       tryConnectedNoCross newfaces
-
+ -}
 -- |compForce is a partial function similar to (compose . force),
 -- i.e it does a force then compose (raising an error if the force fails with an incorrect Tgraph).
 -- However it produces an explicitly Forced Tgraph, 

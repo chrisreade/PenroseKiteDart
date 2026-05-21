@@ -278,7 +278,7 @@ makeBoundaryState g =
       }
 
 -- |BoundaryState is in class HasFaces.
--- Note the default implementations are overiden to use precalculated information
+-- Note the default implementations are overriden to use precalculated information
 instance HasFaces BoundaryState where
     faces = allFaces
     boundaryESet = bdesToSet . boundaryDedges  -- (overrides default) boundary already calculated
