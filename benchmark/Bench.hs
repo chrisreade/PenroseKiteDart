@@ -33,29 +33,19 @@ main =
                             ++ show (maxV cfkD)
      _  <- traceMarkerIO "finished (unchecked) composing" 
      wait
-     _ <- traceMarkerIO "redundant force" 
-     let !ffkD = {-# SCC "redundantForce" #-} force $ recoverGraph fkD
-     putStrLn $ "Number of faces after redundant force is " 
-                            ++ show (faceCount ffkD)
-     _  <- traceMarkerIO "finished redundant force" 
-     wait
      _ <- traceMarkerIO "starting checked compose" 
      let !newcfkD = {-# SCC "checkedCompose" #-} compose $ recoverGraph fkD
      putStrLn $ "Number of faces of new checked compose is " 
                             ++ show (faceCount newcfkD)
      _  <- traceMarkerIO "finished checked compose" 
      wait
-     _ <- traceMarkerIO "starting checked compose" 
-     let !qcfkD = {-# SCC "quickCompose" #-} snd $ quickPartCompose $ recoverGraph fkD
-     putStrLn $ "Number of faces of new checked compose is " 
+     _ <- traceMarkerIO "starting quickCompose" 
+     let !qcfkD = {-# SCC "quickCompose" #-} quickCompose $ recoverGraph fkD
+     putStrLn $ "Number of faces of quickCompose is " 
                             ++ show (faceCount qcfkD)
-     _  <- traceMarkerIO "finished checked compose" 
+     _  <- traceMarkerIO "finished quickCompose" 
      return ()
      
-{-
-     putStrLn $ "Number of faces of reforced force (" ++ sn ++ " times decomposed King) is " 
-                            ++ show (faceCount rcfkD)
--}
 
   where
        sn = show n

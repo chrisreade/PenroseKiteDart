@@ -101,8 +101,8 @@ tryPartComposeFaces g =
 -- The calculation of remainder faces is also more efficient with a known forced Tgraph.
 -- Also dartWingInfo does not need to be calculated for composing a forced Tgraph.
 partComposeF:: HasGraph a => Forced a -> ([TileFace], Forced Tgraph)
-partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph evalnewfaces) where
-  !evalnewfaces = evalFaces newfaces
+partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
+  -- !evalnewfaces = evalFaces newfaces
   (_,dwFMap,unused) = dartsMapUnused (recoverGraph fg)
   (remainder,newfaces) = foldl' checkDW (unused,[]) (VMap.keys dwFMap)
   checkDW (rems, nfcs) w = 
@@ -121,18 +121,18 @@ partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph evalnewfaces) 
 
   largeRD fcs = do rd <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
-                   return $ RD (originV lk, originV rd, wingV rd)
+                   return $ makeRD (originV lk) (originV rd) (wingV rd)
   largeLD fcs = do ld <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
-                   return $ LD (originV rk, wingV ld, originV ld)
+                   return $ makeLD (originV rk) (wingV ld) (originV ld)
   largeRK fcs = do rd  <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
                    rk <- find (matchingJoinE lk) fcs
-                   return $ RK (originV rd, wingV rk, originV lk)
+                   return $ makeRK (originV rd) (wingV rk) (originV lk)
   largeLK fcs = do ld  <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
                    lk <- find (matchingJoinE rk) fcs
-                   return $ LK (originV ld, originV rk, wingV lk)
+                   return $ makeLK (originV ld) (originV rk) (wingV lk)
 
 
 -- |composeF - produces a composed Forced Tgraph from a Forced Tgraph.
@@ -269,20 +269,20 @@ quickPartCompose a = (remainder, checked) where
 
   largeRD fcs = do rd <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
-                   return $ RD (originV lk, originV rd, wingV rd)
+                   return $ makeRD (originV lk) (originV rd) (wingV rd)
   largeLD fcs = do ld <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
-                   return $ LD (originV rk, wingV ld, originV ld)
+                   return $ makeLD (originV rk) (wingV ld) (originV ld)
   largeRK fcs = do rd  <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
                    rk <- find (matchingJoinE lk) fcs
-                   return $ RK (originV rd, wingV rk, originV lk)
+                   return $ makeRK (originV rd) (wingV rk) (originV lk)
   largeLK fcs = do ld  <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
                    lk <- find (matchingJoinE rk) fcs
-                   return $ LK (originV ld, originV rk, wingV lk)
+                   return $ makeLK (originV ld) (originV rk) (wingV lk)
 
-{- HISTORICAL keep for info usied in processD
+{- HISTORICAL keep for info used in processD
 
 -- | getDWIassumeF (not exported but used to define 2 cases getDartWingInfoForced and tryGetDartWingInfo).
 -- getDWIassumeF isForced g fg (where fg is forceF g), classifies the dart wings in g and calculates a faceMap for each dart wing,
@@ -394,7 +394,7 @@ partComposeDWI dwi = (remainder,g) where
 -- Such kites are also recorded in the dart wing/(kite origin) for classification purposes but then
 -- filtered out when composing at a largeDartBase.
 partComposeFacesDWI :: DartWingInfo -> ([TileFace],[TileFace])
-partComposeFacesDWI dwInfo = (remainder, evalFaces newfaces) where
+partComposeFacesDWI dwInfo = (remainder, newfaces) where
     ~remainder0 = unMapped dwInfo ++ concatMap facesFor (unknowns dwInfo)
     (~remainder1,newfaces1) = foldl' collectDarts (remainder0,[]) (largeDartBases dwInfo)
     (~remainder,newfaces) = foldl' collectKites (remainder1,newfaces1) (largeKiteCentres dwInfo)
@@ -408,11 +408,11 @@ partComposeFacesDWI dwInfo = (remainder, evalFaces newfaces) where
       groupRD fs nfs =
          do rd <- find isRD fs
             lk <- find (matchingShortE rd) fs
-            return (RD (originV lk, originV rd, oppV lk):nfs, fs\\[rd,lk])
+            return (makeRD (originV lk) (originV rd) (oppV lk):nfs, fs\\[rd,lk])
       groupLD fs nfs = 
          do ld <- find isLD fs
             rk <- find (matchingShortE ld) fs
-            return (LD (originV rk, oppV rk, originV ld):nfs, fs\\[ld,rk])
+            return (makeLD (originV rk) (oppV rk) (originV ld):nfs, fs\\[ld,rk])
     collectKites :: ([TileFace], [TileFace]) -> Vertex -> ([TileFace], [TileFace])
     collectKites (rems, newfs) v = (fcs''++rems, newfs'') where
       fcs = facesFor v
@@ -422,54 +422,10 @@ partComposeFacesDWI dwInfo = (remainder, evalFaces newfaces) where
          do rd <- find isRD fs
             lk <- find (matchingShortE rd) fs
             rk <- find (matchingJoinE lk) fs
-            return (RK (originV rd, wingV rk, originV rk):nfs, fs\\[rd,lk,rk])
+            return (makeRK (originV rd) (wingV rk) (originV rk):nfs, fs\\[rd,lk,rk])
       groupLK fs nfs = 
           do ld <- find isLD fs
              rk <- find (matchingShortE ld) fs
              lk <- find (matchingJoinE rk) fs
-             return (LK (originV ld, originV lk, wingV lk):nfs, fs\\[ld,rk,lk])
+             return (makeLK (originV ld) (originV lk) (wingV lk):nfs, fs\\[ld,rk,lk])
 
-{- partComposeDWI :: DartWingInfo -> ([TileFace],[TileFace])
-partComposeDWI dwInfo = (remainder, evalFaces newFaces) where
-    remainder = nub $ recoverFaces dwInfo \\ concatMap concat [groupRDs, groupLDs, groupRKs, groupLKs]
-     -- all faces except those successfully used in making composed faces.   
-    newFaces = newRDs ++ newLDs ++ newRKs ++ newLKs
-
-    newRDs = map makenewRD groupRDs 
-    groupRDs = mapMaybe groupRD (largeDartBases dwInfo)
-    makenewRD [rd,lk] = RD (originV lk, originV rd, oppV lk) 
-    makenewRD _       = error "partComposeFaces: RD case"
-    groupRD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
-                    rd <- find isRD fcs
-                    lk <- find (matchingShortE rd) fcs
-                    return [rd,lk]
-
-    newLDs = map makenewLD groupLDs 
-    groupLDs = mapMaybe groupLD (largeDartBases dwInfo) 
-    makenewLD [ld,rk] = LD (originV rk, oppV rk, originV ld)
-    makenewLD _       = error "partComposeFaces: LD case"
-    groupLD v = do  fcs <- VMap.lookup v (faceMap dwInfo)
-                    ld <- find isLD fcs
-                    rk <- find (matchingShortE ld) fcs
-                    return [ld,rk]
-
-    newRKs = map makenewRK groupRKs 
-    groupRKs = mapMaybe groupRK (largeKiteCentres dwInfo) 
-    makenewRK [rd,_,rk] = RK (originV rd, wingV rk, originV rk)
-    makenewRK _         = error "cpartComposeFaces: RK case"
-    groupRK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
-                    rd <- find isRD fcs
-                    lk <- find (matchingShortE rd) fcs
-                    rk <- find (matchingJoinE lk) fcs
-                    return [rd,lk,rk]
-
-    newLKs = map makenewLK groupLKs 
-    groupLKs = mapMaybe groupLK (largeKiteCentres dwInfo) 
-    makenewLK [ld,_,lk] = LK (originV ld, originV lk, wingV lk)
-    makenewLK _         = error "partComposeFaces: LK case"
-    groupLK v = do  fcs <- VMap.lookup v (faceMap dwInfo)
-                    ld <- find isLD fcs
-                    rk <- find (matchingShortE ld) fcs
-                    lk <- find (matchingJoinE rk) fcs
-                    return [ld,rk,lk]
- -}

@@ -355,13 +355,6 @@ evalFace f@(LK (!x,!y,!z)) = x `seq` y `seq` z `seq` f
 evalFace f@(RK (!x,!y,!z)) = x `seq` y `seq` z `seq` f 
 
 
-{- -- |evaluate a tileface (and check for edgeloops)
-evalFace :: TileFace -> TileFace
-evalFace f = if x==y || x==z || y==z 
-             then error $ "evalFace : Edge loop found for face " ++ show f
-             else f
-             where (x,y,z) = faceVs f
- -}
 -- |fully evaluate a list of tilefaces.
 evalFaces :: HasFaces a => a -> a
 evalFaces !a = foldr (seq . evalFace) () (faces a) `seq` a
@@ -620,7 +613,7 @@ class HasFaces a where
     -- |the set of directed edges of the boundary
     -- (direction with a tileface on the left and exterior on right).
     boundaryESet :: a -> Set Dedge
-    boundaryESet = missingRevSet . dedgeSet --missingRevSet . dedges
+    boundaryESet = missingRevSet . dedgeSet
 
     -- |create a map associating to each boundary vertex, a list of faces at the vertex
     boundaryVFMap :: a -> VertexMap [TileFace]
@@ -659,7 +652,7 @@ dedges = concatMap faceDedges . faces
 -- | fully evaluate a directed edge
 evalDedge :: Dedge -> Dedge
 evalDedge e@(a,b) | a==b = error $ "evalEdge: loop edge found with vertex " ++ show a ++ "\n"
-                 | otherwise = e
+                  | otherwise = e
 
 -- | fully evaluate a list of directed edges
 evalDedges :: [Dedge] -> [Dedge]           
@@ -780,11 +773,16 @@ makeLK x y z = LK (x,y,z)
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
-faceVs = tileRep
+faceVs = evalTriple . tileRep
+
+-- |force evaluation of a triple
+evalTriple :: (Int,Int,Int) -> (Int,Int,Int)
+evalTriple tr@(a,b,c) = a `seq` b `seq` c `seq` tr
+
 -- |list of (three) face vertices in order clockwise starting with origin
 faceVList::TileFace -> [Vertex]
 -- faceVList = (\(x,y,z) -> [x,y,z]) . faceVs
-faceVList f = [a,b,c] where (!a,!b,!c) = faceVs f
+faceVList f = [a,b,c] where (a,b,c) = faceVs f
 -- |the set of vertices of a face
 faceVSet :: TileFace -> VertexSet
 -- faceVSet = IntSet.fromList . faceVList
@@ -794,9 +792,9 @@ faceVSet f = IntSet.insert a $ IntSet.insert b $ IntSet.insert c IntSet.empty
 
 -- |firstV, secondV and thirdV vertices of a face are counted clockwise starting with the origin
 firstV,secondV,thirdV:: TileFace -> Vertex
-firstV  face = a where (!a,_,_) = faceVs face
-secondV face = b where (_,!b,_) = faceVs face
-thirdV  face = c where (_,_,!c) = faceVs face
+firstV  face = a where (a,_,_) = faceVs face
+secondV face = b where (_,b,_) = faceVs face
+thirdV  face = c where (_,_,c) = faceVs face
 
 originV,wingV,oppV:: TileFace -> Vertex
 -- |the origin vertex of a face (firstV)
@@ -844,7 +842,7 @@ prevV v face = case indexV v face of
 -- |isAtV v f asks if a face f has v as a vertex
 isAtV:: Vertex -> TileFace -> Bool
 isAtV v f = v==a || v==b || v==c
-     where (!a,!b,!c) = faceVs f
+     where (a,b,c) = faceVs f
 {-     
 isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
 isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
@@ -869,17 +867,12 @@ we may refer to this as an edge list rather than just a directed edge list.
 
 -- |produces a list of directed edges (clockwise) round a face.
 faceDedges::TileFace -> [Dedge]
-faceDedges (LD(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
-faceDedges (RD(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
-faceDedges (LK(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
-faceDedges (RK(!a,!b,!c)) = [(a,b),(b,c),(c,a)]
+faceDedges f = [(a,b),(b,c),(c,a)] where (a,b,c) = faceVs f
 --  faceDedges !f = [(a,b),(b,c),(c,a)] where (!a,!b,!c) = faceVs f
 -- |produces a list of directed edges (clockwise) round a face.
 faceDedgeSet::TileFace -> Set Dedge
-faceDedgeSet (LD(!a,!b,!c)) = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
-faceDedgeSet (RD(!a,!b,!c)) = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
-faceDedgeSet (LK(!a,!b,!c)) = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
-faceDedgeSet (RK(!a,!b,!c)) = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
+faceDedgeSet f = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
+                 where (a,b,c) = faceVs f
 
 -- |opposite directed edge.
 reverseD:: Dedge -> Dedge
