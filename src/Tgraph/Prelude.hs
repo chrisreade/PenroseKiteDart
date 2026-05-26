@@ -144,10 +144,10 @@ module Tgraph.Prelude
   , joinOfTile
   , facePhiEdges
   , faceNonPhiEdges
---  , matchingE
-  , matchingLongE
-  , matchingShortE
-  , matchingJoinE
+ -- , shared
+  , sharedLongE
+  , sharedShortE
+  , sharedJoinE
   , hasDedge
   , hasDedgeIn
   , completeEdgeSet
@@ -496,8 +496,8 @@ newSharedEdges face fcs =
 -- | noNewConflict face fcs returns True if face has an illegal shared edge with fcs.
 -- It does not check for illegal cases within the fcs.
 noNewConflict :: TileFace -> [TileFace] -> Bool
-noNewConflict face fcs = all legal shared where
-    shared = newSharedEdges face fcs
+noNewConflict face fcs = all legal sharededges where
+    sharededges = newSharedEdges face fcs
 
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   
@@ -816,7 +816,7 @@ indexV v face | v==a = 0
               | v==b = 1
               | v==c = 2
               | otherwise = error ("indexV: " ++ show v ++ " not found in " ++ show face)
-              where (!a,!b,!c) = faceVs face
+              where (a,b,c) = faceVs face
 
 {- indexV v face = case elemIndex v (faceVList face) of
                   Just i -> i
@@ -931,21 +931,21 @@ faceNonPhiEdges (RK(_,!b,!c))  = [(b,c),(c,b)]
 faceNonPhiEdges (LK(_,!b,!c))  = [(b,c),(c,b)]
 -- faceNonPhiEdges face = bothDirOneWay (faceDedges face) \\ facePhiEdges face
 
--- |matchingE eselect face is a predicate on tile faces 
--- where eselect selects a particular edge type of a face
--- (eselect could be joinE or longE or shortE for example).
--- This is True for face' if face' has an eselect edge matching the (reversed) eselect edge of face.
-matchingE :: (TileFace -> Dedge) -> TileFace -> TileFace -> Bool
-matchingE eselect face = (== reverseD (eselect face)) . eselect
+-- |not exported : shared edgeChoice face is a predicate on tile faces 
+-- where edgeChoice selects a particular edge of a face
+-- (joinE or longE or shortE).
+-- Used to define sharedLongE, sharedShortE, sharedJoinE.
+shared :: (TileFace -> Dedge) -> TileFace -> TileFace -> Bool
+shared edgeChoice face = (== reverseD (edgeChoice face)) . edgeChoice
 
-matchingLongE,matchingShortE,matchingJoinE ::  TileFace -> TileFace -> Bool
-      -- Used in Compose (getDartWingInfo and composedFaceGroups).
+
+sharedLongE,sharedShortE,sharedJoinE ::  TileFace -> TileFace -> Bool
 -- |check if two TileFaces have opposite directions for their long edge.
-matchingLongE  = matchingE longE
+sharedLongE  = shared longE
 -- |check if two TileFaces have opposite directions for their short edge.
-matchingShortE = matchingE shortE
+sharedShortE = shared shortE
 -- |check if two TileFaces have opposite directions for their join edge.
-matchingJoinE  = matchingE joinE
+sharedJoinE  = shared joinE
 
 -- |hasDedge f e returns True if directed edge e is one of the directed edges of face f
 hasDedge :: TileFace -> Dedge -> Bool

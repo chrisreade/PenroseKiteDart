@@ -40,7 +40,7 @@ import Data.List (find,(\\),partition)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import Data.IntMap (IntMap)
-import qualified Data.IntMap.Strict as VMap (lookup,(!),alter,empty,keys)
+import qualified Data.IntMap.Strict as VMap (lookup,(!),alter,empty,keys,member)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.IntSet(IntSet)
 import qualified Data.IntSet as IntSet (empty,insert,toList)
@@ -127,11 +127,11 @@ partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) wher
                    return $ makeLD (originV rk) (wingV ld) (originV ld)
   largeRK fcs = do rd  <- find isRD fcs
                    lk <- find ((==oppV rd) . wingV) fcs
-                   rk <- find (matchingJoinE lk) fcs
+                   rk <- find (sharedJoinE lk) fcs
                    return $ makeRK (originV rd) (wingV rk) (originV lk)
   largeLK fcs = do ld  <- find isLD fcs
                    rk <- find ((==oppV ld) . wingV) fcs
-                   lk <- find (matchingJoinE rk) fcs
+                   lk <- find (sharedJoinE rk) fcs
                    return $ makeLK (originV ld) (originV rk) (wingV lk)
 
 
@@ -248,39 +248,64 @@ quickPartCompose a = (remainder, checked) where
   checkDW (rems, nfcs) w = 
      let fcs = dwFMap  VMap.! w
          (thekites,thedarts) = partition isKite fcs
+         hasKiteOppWithOriginInMap = 
+             -- does some kite (attached at its oppV) have its origin at a largeDartBase.
+               case find ((==w) . oppV) thekites of
+                   Nothing -> False
+                   Just k -> VMap.member (originV k) dwFMap
+         
      in  if w `elem` map originV thekites 
          -- dart wing is also a half kite origin => largeDartBase
-         then (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs) else
+         then collectDarts (rems,nfcs) (filter (wanted w) fcs) else
          if shortMatch $ filter ((==w) . oppV) thekites
          -- two half kites, with oppV at w, share a short edge => largeKiteCentre
-         then (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs) else
+         then collectKites (rems, nfcs) fcs  else
          case thedarts of
-            [d1,d2] -> if matchingLongE d1 d2
+            [d1,d2] -> if sharedLongE d1 d2
                             -- two darts share long edge => largekiteCentre
-                       then (rems, catMaybes [largeRK fcs, largeLK fcs] ++ nfcs)
+                       then collectKites (rems, nfcs) fcs
                             -- two darts, no matching long edge => largeDartBase
-                       else (rems, catMaybes [largeRD fcs, largeLD fcs] ++ nfcs)
+                       else collectDarts (rems,nfcs) (filter (wanted w) fcs)
           -- otherwise unknown (add faces to remainder faces)
-            _ -> (fcs++rems, nfcs)
+--            _ -> (fcs++rems, nfcs)
+            _ -> if hasKiteOppWithOriginInMap
+                     -- must be a largeKiteCentre
+                 then collectKites (rems, nfcs) fcs
+                    -- assume unknown
+                 else (fcs++rems, nfcs) 
 
+  wanted v f = isDart f || originV f /=v
   shortMatch [] = False
   shortMatch [ _ ] =  False
-  shortMatch (k:more) = any (matchingShortE k) more || shortMatch more
+  shortMatch (k:more) = any (sharedShortE k) more || shortMatch more
+  
+  collectDarts :: ([TileFace], [TileFace]) -> [TileFace] -> ([TileFace], [TileFace])
+  collectDarts (rems, newfs) fcs = (fcs''++rems, newfs'') where
+    (newfs' , fcs') = fromMaybe (newfs,fcs) $ groupRD fcs newfs
+    (newfs'' , fcs'') = fromMaybe (newfs',fcs') $ groupLD fcs' newfs'
+    groupRD fs nfs =
+       do rd <- find isRD fs
+          lk <- find (sharedShortE rd) fs
+          return (makeRD (originV lk) (originV rd) (oppV lk):nfs, fs\\[rd,lk])
+    groupLD fs nfs = 
+       do ld <- find isLD fs
+          rk <- find (sharedShortE ld) fs
+          return (makeLD (originV rk) (oppV rk) (originV ld):nfs, fs\\[ld,rk])
+  collectKites :: ([TileFace], [TileFace]) -> [TileFace] -> ([TileFace], [TileFace])
+  collectKites (rems, newfs) fcs = (fcs''++rems, newfs'') where
+    (newfs' , fcs') = fromMaybe (newfs,fcs) $ groupRK fcs newfs
+    (newfs'' , fcs'') = fromMaybe (newfs',fcs') $ groupLK fcs' newfs'
+    groupRK fs nfs =
+       do rd <- find isRD fs
+          lk <- find (sharedShortE rd) fs
+          rk <- find (sharedJoinE lk) fs
+          return (makeRK (originV rd) (wingV rk) (originV rk):nfs, fs\\[rd,lk,rk])
+    groupLK fs nfs = 
+        do ld <- find isLD fs
+           rk <- find (sharedShortE ld) fs
+           lk <- find (sharedJoinE rk) fs
+           return (makeLK (originV ld) (originV lk) (wingV lk):nfs, fs\\[ld,rk,lk])
 
-  largeRD fcs = do rd <- find isRD fcs
-                   lk <- find ((==oppV rd) . wingV) fcs
-                   return $ makeRD (originV lk) (originV rd) (wingV rd)
-  largeLD fcs = do ld <- find isLD fcs
-                   rk <- find ((==oppV ld) . wingV) fcs
-                   return $ makeLD (originV rk) (wingV ld) (originV ld)
-  largeRK fcs = do rd  <- find isRD fcs
-                   lk <- find ((==oppV rd) . wingV) fcs
-                   rk <- find (matchingJoinE lk) fcs
-                   return $ makeRK (originV rd) (wingV rk) (originV lk)
-  largeLK fcs = do ld  <- find isLD fcs
-                   rk <- find ((==oppV ld) . wingV) fcs
-                   lk <- find (matchingJoinE rk) fcs
-                   return $ makeLK (originV ld) (originV rk) (wingV lk)
 
 {- HISTORICAL keep for info used in processD
 
@@ -407,11 +432,11 @@ partComposeFacesDWI dwInfo = (remainder, newfaces) where
       (newfs'' , fcs'') = fromMaybe (newfs',fcs') $ groupLD fcs' newfs'
       groupRD fs nfs =
          do rd <- find isRD fs
-            lk <- find (matchingShortE rd) fs
+            lk <- find (sharedShortE rd) fs
             return (makeRD (originV lk) (originV rd) (oppV lk):nfs, fs\\[rd,lk])
       groupLD fs nfs = 
          do ld <- find isLD fs
-            rk <- find (matchingShortE ld) fs
+            rk <- find (sharedShortE ld) fs
             return (makeLD (originV rk) (oppV rk) (originV ld):nfs, fs\\[ld,rk])
     collectKites :: ([TileFace], [TileFace]) -> Vertex -> ([TileFace], [TileFace])
     collectKites (rems, newfs) v = (fcs''++rems, newfs'') where
@@ -420,12 +445,12 @@ partComposeFacesDWI dwInfo = (remainder, newfaces) where
       (newfs'' , fcs'') = fromMaybe (newfs',fcs') $ groupLK fcs' newfs'
       groupRK fs nfs =
          do rd <- find isRD fs
-            lk <- find (matchingShortE rd) fs
-            rk <- find (matchingJoinE lk) fs
+            lk <- find (sharedShortE rd) fs
+            rk <- find (sharedJoinE lk) fs
             return (makeRK (originV rd) (wingV rk) (originV rk):nfs, fs\\[rd,lk,rk])
       groupLK fs nfs = 
           do ld <- find isLD fs
-             rk <- find (matchingShortE ld) fs
-             lk <- find (matchingJoinE rk) fs
+             rk <- find (sharedShortE ld) fs
+             lk <- find (sharedJoinE rk) fs
              return (makeLK (originV ld) (originV lk) (wingV lk):nfs, fs\\[ld,rk,lk])
 

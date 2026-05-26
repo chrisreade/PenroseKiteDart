@@ -2,7 +2,7 @@
 
 ## since v1.8.1
 
-- Replaced type UpdateMap with new data type Updates (with a pair of maps).
+- Replaced type UpdateMap with new data type Updates (with two maps).
 - Renamed selector updateMap to updates
 
 - partComposeDWI has a new type returning a Tgraph with the remainder faces
@@ -10,8 +10,9 @@
 
 - Change to DartWingInfo (unMapped now includes kites with no dart wing at their oppV)
 
-More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
+- Renamed matchingLongE,matchingJoinE,matchingShortE to sharingLongE,sharingJoinE,sharingShortE
 
+More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
 
 Added quickCompose and quickPartCompose (approximations to compose and partCompose that do not use a force operation)
 
