@@ -248,9 +248,9 @@ quickPartCompose a = (remainder, checked) where
   checkDW (rems, nfcs) w = 
      let fcs = dwFMap  VMap.! w
          (thekites,thedarts) = partition isKite fcs
-         hasKiteOppWithOriginInMap = 
+         hasKiteOppWithOriginInMap v = 
              -- does some kite (attached at its oppV) have its origin at a largeDartBase.
-               case find ((==w) . oppV) thekites of
+               case find ((==v) . oppV) thekites of
                    Nothing -> False
                    Just k -> VMap.member (originV k) dwFMap
          
@@ -266,12 +266,10 @@ quickPartCompose a = (remainder, checked) where
                        then collectKites (rems, nfcs) fcs
                             -- two darts, no matching long edge => largeDartBase
                        else collectDarts (rems,nfcs) (filter (wanted w) fcs)
-          -- otherwise unknown (add faces to remainder faces)
---            _ -> (fcs++rems, nfcs)
-            _ -> if hasKiteOppWithOriginInMap
+            _ -> if hasKiteOppWithOriginInMap w
                      -- must be a largeKiteCentre
                  then collectKites (rems, nfcs) fcs
-                    -- assume unknown
+                    -- otherwise assume unknown
                  else (fcs++rems, nfcs) 
 
   wanted v f = isDart f || originV f /=v

@@ -12,6 +12,8 @@
 
 - Renamed matchingLongE,matchingJoinE,matchingShortE to sharingLongE,sharingJoinE,sharingShortE
 
+exported verticesFromBoundary
+
 More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
 
 Added quickCompose and quickPartCompose (approximations to compose and partCompose that do not use a force operation)

@@ -84,6 +84,7 @@ module Tgraph.Prelude
   , boundaryVSet
   , boundaryVertexSet
   , boundaryVsDup
+  , verticesFromBoundary
   , boundaryEFMap
   , boundaryVFaces
   , boundaryEFaces
@@ -215,9 +216,9 @@ import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet (union,empty,singleton,insert,delete,fromList,toList,null,(\\),notMember,deleteFindMin,findMin,findMax,member,difference,elems)
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map (fromList, lookup, fromListWith, elems, filterWithKey)
-import Data.Maybe (mapMaybe) -- edgeNbrs
+import Data.Maybe (mapMaybe, maybeToList) -- edgeNbrs
 import Data.Set (Set)
-import qualified Data.Set as Set (fromList,member,null,delete,elems,empty,insert,foldl')
+import qualified Data.Set as Set (fromList,member,null,delete,elems,empty,insert,foldl',toList)
 import Diagrams.Prelude hiding (union,mapping)
 -- import Diagrams.TwoD.Text (Text)
 
@@ -383,27 +384,44 @@ Returns Right g where g is a Tgraph on passing checks.
 Returns Left lines if a test fails, where lines describes the problem found.
 -}
 tryTgraphProps:: [TileFace] -> Try Tgraph
-tryTgraphProps []       =  Right emptyTgraph
-tryTgraphProps fcs
-      | hasEdgeLoops fcs  =
-         failReport $ "tryTgraphProps: Non-valid tile-face(s)\n" ++
-                      "Edge Loops at: " ++ show (findEdgeLoops fcs) ++ "\n"
-      | illegalTiling fcs =  failReports
-                               ["tryTgraphProps: Non-legal tiling\n"
-                               ,"Conflicting face directed edges (non-planar tiling): "
-                               ,show (conflictingDedges fcs)
-                               ,"\nIllegal tile juxtapositions: "
-                               ,show (illegals fcs)
-                               ,"\n"
-                               ]
-      | otherwise         = let vs = vertexSet fcs
-                            in if IntSet.findMin vs <1 -- any (<1) $ IntSet.toList vs
-                               then failReports
-                                        ["tryTgraphProps: Vertex numbers not all >0: "
-                                        ,show (IntSet.toList vs)
-                                        ,"\n"
-                                        ]
-                               else tryConnectedNoCross fcs
+tryTgraphProps fcs =
+   let vs = vertexSet fcs  -- delay subsequent in case never used
+       ~deslist = dedges fcs
+       ~edgeLoops = filter (uncurry (==)) deslist
+       ~conflicting = duplicates deslist
+       ~efMap = dedgeFMap deslist fcs
+       ~sharedEs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
+                   | f1 <- fcs
+                   , d1 <- faceDedges f1
+                   , let d2 = reverseD d1
+                   , f2 <-  maybeToList $  Map.lookup d2 efMap
+                   ]
+       ~illegalEs = filter (not . legal) sharedEs
+    in if IntSet.findMin vs <1
+       then failReports ["tryTgraphProps: Vertex numbers not all >0: "
+                        ,show (IntSet.toList vs)
+                        ,"\n"
+                        ]
+       else if not $ null edgeLoops
+       then failReports ["tryTgraphProps: Non-valid tile-face(s)\n"
+                        ,"Edge Loops at: "
+                        , show edgeLoops
+                        ,"\n"
+                        ]
+       else if not $ null conflicting
+       then failReports ["tryTgraphProps: Non-legal tiling\n"
+                        ,"Conflicting face directed edges (non-planar tiling): "
+                        ,show conflicting
+                        ,"\n"
+                        ]
+       else if not $ null illegalEs
+       then failReports ["tryTgraphProps: Non-legal tiling\n"
+                        ,"Illegal tile juxtapositions: "
+                        ,show illegalEs
+                        ,"\n"
+                        ]
+           -- makes use of precalculated edges and vertices
+      else tryConnectedNoCross' fcs deslist vs
 
 -- |Checks a list of faces for no crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected).
@@ -412,36 +430,46 @@ tryTgraphProps fcs
 -- This is used by tryTgraphProps after other checks have been made,
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
 tryConnectedNoCross:: [TileFace] -> Try Tgraph
-tryConnectedNoCross fcs
-  | not (connected fcs) = failReports
-                              ["tryConnectedNoCross: Non-valid Tgraph (Not connected)\n"
-                              ,show fcs
-                              ,"\n"
-                              ]
-  | crossingBoundaries fcs = failReports
-                                ["tryConnectedNoCross: Non-valid Tgraph\n"
-                                ,"Crossing boundaries found at "
-                                ,show (crossingBVs fcs)
-                                ,"\nwith faces\n"
-                                ,show fcs
-                                ,"\n"
-                                ]
-  | otherwise            = Right (Tgraph fcs)
+tryConnectedNoCross fcs = tryConnectedNoCross' fcs (dedges fcs) (vertexSet fcs)
 
--- |Returns any repeated vertices within each TileFace for a list of TileFaces.
-findEdgeLoops:: HasFaces a => a -> [Vertex]
-findEdgeLoops = concatMap findEdgeLoop . faces
+-- |(not exported) A variant of tryConnectedNoCross with precalculated dedge list and vertex set.
+-- Checks for no crossing boundaries and connectedness.
+-- The given dedge list must be all the dedges in the faces, 
+-- and the given vertex set must be all the vertices in the faces.
+-- Returns Right g where g is a Tgraph on passing checks.
+-- Returns Left lines if a test fails, where lines describes the problem found.
+-- This is used by tryTgraphProps after other checks have been made,
+-- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
+tryConnectedNoCross' :: [TileFace] -> [Dedge] -> IntSet -> Try Tgraph
+tryConnectedNoCross' fcs deslist vs =
+    let des = Set.fromList deslist
+        bes = missingRevSet des -- boundaryESetFrom
+        duplicateBVs = duplicates $ verticesFromBoundary bes
+        connectedFcs = null (snd $ connectedBy (bes<>des) (IntSet.findMin vs) vs)
+        crossing = not $ null duplicateBVs
+    in if not connectedFcs
+       then failReports
+            ["tryConnectedNoCross: Non-valid Tgraph (Not connected)\n"
+            ,show fcs
+            ,"\n"
+            ]
+       else if crossing
+       then failReports
+            ["tryConnectedNoCross: Non-valid Tgraph\n"
+            ,"Crossing boundaries found at "
+            ,show duplicateBVs
+            ,"\nwith faces\n"
+            ,show fcs
+            ,"\n"
+            ]
+       else Right (Tgraph fcs)
 
--- |Returns a repeated vertex for TileFace
-findEdgeLoop :: TileFace -> [Vertex]
-findEdgeLoop = duplicates . faceVList
-
--- |Checks if there are repeated vertices within any TileFace for a list of TileFaces.
+-- |Used in testing.
+---Checks if there are repeated vertices within any TileFace for a list of TileFaces.
 -- Returns True if there are any.
 hasEdgeLoops:: HasFaces a => a  -> Bool
-hasEdgeLoops = not . null . findEdgeLoops
-
-
+hasEdgeLoops = any (uncurry (==)) . dedges
+ 
 -- |duplicates finds any duplicated items in a list.
 -- It produces unique results (that is duplicates (duplicates es) == [] ).
 duplicates :: Ord a => [a] -> [a]
@@ -450,15 +478,6 @@ duplicates = check Set.empty Set.empty where
   check dups seen (x:xs) | x `Set.member` dups = check dups seen xs
                          | x `Set.member` seen = check (Set.insert x dups) seen xs
                          | otherwise = check dups (Set.insert x seen) xs
-
-
--- |conflictingDedges fcs returns a list of conflicting directed edges in fcs
--- i.e. different faces having the same edge in the same direction.
--- (which should be null for a Tgraph)
-conflictingDedges :: HasFaces a => a -> [Dedge]
-conflictingDedges = duplicates . dedges
-
-
 
 -- | edgeType d f - classifies the directed edge d
 -- which must be one of the three directed edges of face f.
@@ -470,7 +489,7 @@ edgeType d f | d == longE f  = Long
              | otherwise = error $ "edgeType: directed edge " ++ show d ++
                                    " not found in face " ++ show f ++ "\n"
 
--- |For a list of tile faces fcs this produces a list of tuples of the form (f1,etpe1,f2,etype2)
+{- -- |For a list of tile faces fcs this produces a list of tuples of the form (f1,etpe1,f2,etype2)
 -- where f1 and f2 share a common edge and etype1 is the type of the shared edge in f1 and
 -- etype2 is the type of the shared edge in f2.
 -- This list can then be checked for inconsistencies / illegal pairings (using legal).
@@ -481,7 +500,7 @@ sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
                    , let d2 = reverseD d1
                    , f2 <- filter (`hasDedge` d2) fcs
                   ]
-
+ -}
 {-# INLINE newSharedEdges #-}
 -- |A version of sharedEdges comparing a single face against a list of faces.
 -- This does not look at shared edges within the list, but just the new face against the list.
@@ -518,43 +537,39 @@ legal (LD _, Long,  RK _ , Long ) = True
 legal (RK _, Long,  LD _ , Long ) = True
 legal _ = False
 
--- | Returns a list of illegal face pairings of the form (f1,e1,f2,e2) where f1 and f2 share an edge
--- and e1 is the type of this edge in f1, and e2 is the type of this edge in f2.
--- The list should be null for a legal Tgraph.
-illegals:: [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
-illegals = filter (not . legal) .  sharedEdges
-
--- | Returns True if there are conflicting directed edges or if there are illegal shared edges
+-- | Used for testing. Returns True if there are conflicting directed edges or if there are illegal shared edges
 -- in the list of tile faces
 illegalTiling:: [TileFace] -> Bool
-illegalTiling fcs = not (null (illegals fcs)) || not (null (conflictingDedges fcs))
+illegalTiling fcs =  -- relies on || lazy in second arg as efMap assumes no duplicate dedges
+    not (null $ duplicates deslist) || not (null illegals) where
+    deslist = dedges fcs
+    ~efMap = dedgeFMap deslist fcs
+    ~sharedEs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
+                   | f1 <- fcs
+                   , d1 <- faceDedges f1
+                   , let d2 = reverseD d1
+                   , f2 <-  maybeToList $  Map.lookup d2 efMap
+                 ]
+    ~illegals = filter (not . legal) sharedEs
 
 -- |crossingBVs fcs returns a list of vertices where there are crossing boundaries
 -- (which should be null for Tgraphs, VPatches, BoundaryStates, Forced, TrackedTgraph).               
 crossingBVs :: HasFaces a => a -> [Vertex]
 crossingBVs = duplicates . boundaryVsDup
 
-{- -- |duplicateInts - not exported.
--- finds any duplicated items in a list (unique results).
--- It uses IntSet, so faster than duplicates on large integer lists.
-duplicateInts :: [Int] -> [Int]
-duplicateInts = check IntSet.empty IntSet.empty where
-  check dups _ [] = IntSet.toList dups
-  check dups seen (x:xs) | x `IntSet.member` dups = check dups seen xs
-                         | x `IntSet.member` seen = check (IntSet.insert x dups) seen xs
-                         | otherwise = check dups (IntSet.insert x seen) xs
- -}
-
 -- |There are crossing boundaries if vertices occur more than once
 -- in the boundary vertices.
-crossingBoundaries :: HasFaces a => a  -> Bool
-crossingBoundaries = not . null . crossingBVs
 
--- |Predicate to check if the faces are connected (in graph theory sense).
+crossingBoundaries :: HasFaces a => a  -> Bool
+crossingBoundaries = not . null . crossingBVs -- Used in testing
+
+-- |Predicate to check if the faces are connected.
+-- That is, the vertices of the faces are connected by the edges (assumed bidirectional).
 connected:: HasFaces a => a -> Bool
-connected = conn . faces where
+connected = conn . faces where -- n.b. no longer used internally as tryConnectedNoCross
+                               -- now calls connectedBy directly
     conn [] =  True
-    conn fcs = null (snd $ connectedBy (completeEdges fcs) (IntSet.findMin vs) vs)
+    conn fcs = null (snd $ connectedBy (completeEdgeSet fcs) (IntSet.findMin vs) vs)
                     where vs = vertexSet fcs
 
 -- |Auxiliary function for calculating connectedness.
@@ -563,9 +578,9 @@ connected = conn . faces where
 -- and unconn is a list of vertices from set verts that are not connected to v.
 -- This version creates an IntMap to represent edges (Vertex to [Vertex])
 -- and uses IntSets for the search algorithm arguments.
-connectedBy :: [Dedge] -> Vertex -> VertexSet -> ([Vertex],[Vertex])
+connectedBy :: Set Dedge -> Vertex -> VertexSet -> ([Vertex],[Vertex])
 connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.delete v verts) where
-  nextMap = VMap.fromListWith (++) $ map (\(a,b)->(a,[b])) edges
+  nextMap = VMap.fromListWith (++) $ map (\(a,b)->(a,[b])) (Set.toList edges)
 -- search arguments (sets):  done (=processed), visited, unvisited.
   search done visited unvisited
     | IntSet.null unvisited = (IntSet.toList visited ++ IntSet.toList done,[])
@@ -617,8 +632,7 @@ class HasFaces a where
 
     -- |create a map associating to each boundary vertex, a list of faces at the vertex
     boundaryVFMap :: a -> VertexMap [TileFace]
-    boundaryVFMap a = vertexFMap (boundaryVSet fcs) fcs
-                       where fcs = faces a
+    boundaryVFMap a = vertexFMap (boundaryVSet a) (faces a)
 
 {-# DEPRECATED boundaryEdgeSet "Use boundaryESet" #-}
 -- |get the set of boundary directed edges
@@ -642,8 +656,13 @@ boundary = Set.elems . boundaryESet
 -- This may have duplicates when applied to an arbitrary list of TileFace or VPatch.
 -- but has no duplicates for Tgraph, BoundaryState, Forced, TrackedTgraph. 
 boundaryVsDup :: HasFaces a => a -> [Vertex]
-boundaryVsDup = Set.foldl' (flip ((:).fst)) [] . boundaryESet
+boundaryVsDup = verticesFromBoundary . boundaryESet
    -- map fst . boundary
+
+-- |given a set of boundary edges this produces a list of the boundary vertices
+-- (with possible duplicates).
+verticesFromBoundary :: Set Dedge -> [Vertex]
+verticesFromBoundary = Set.foldl' (flip ((:).fst)) []
 
 -- |get all the directed edges (directed clockwise round each face)
 dedges :: HasFaces a => a -> [Dedge]

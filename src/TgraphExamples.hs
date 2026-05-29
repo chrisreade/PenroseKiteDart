@@ -429,7 +429,7 @@ emplaceChoices = emplaceChoicesF . forceF  where
 
   emplaceChoicesF:: Forced Tgraph -> [Forced Tgraph]
   emplaceChoicesF fg | nullGraph compfg = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, fg)]
-                          | otherwise    = forceF . decompose <$> emplaceChoicesF compfg
+                     | otherwise        = forceF . decompose <$> emplaceChoicesF compfg
                           where compfg = composeF fg
   chooseUnknowns :: [([Vertex],Forced Tgraph)] -> [Forced Tgraph]
   chooseUnknowns [] = []
