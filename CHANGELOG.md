@@ -12,7 +12,7 @@
 
 - Renamed matchingLongE,matchingJoinE,matchingShortE to sharingLongE,sharingJoinE,sharingShortE
 
-exported verticesFromBoundary
+exported:  verticesFromBoundary, vertexSetFromEdges
 
 More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
 

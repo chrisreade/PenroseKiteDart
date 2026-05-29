@@ -37,8 +37,9 @@ module Tgraph.Prelude
   , VertexSet
   , VertexMap
   , Dedge
-    -- $Edges
+     -- $Edges
   , EdgeType(..)
+  , vertexSetFromEdges
 -- * Tgraph Property Checks
 --  , renumberFaces
 --  , differing
@@ -677,19 +678,9 @@ evalDedge e@(a,b) | a==b = error $ "evalEdge: loop edge found with vertex " ++ s
 evalDedges :: [Dedge] -> [Dedge]           
 evalDedges !es = foldr (seq . evalDedge) () es `seq` es
 
-
 -- |create a directed edge to face map from the (reverse direction of the) boundary edges
 boundaryEFMap :: HasFaces a => a -> Map Dedge TileFace
-boundaryEFMap fcs = Map.fromList (assocFaces des) where
-       des = map reverseD $ boundary fcs
-       vfMap = boundaryVFMap fcs
-       assocFaces [] = []
-       assocFaces (d@(a,b):more) =
-           case filter (liftA2 (&&) (isAtV a) (`hasDedge` d)) (vfMap VMap.! b) of
-               [face] -> (d,face):assocFaces more
-               []   -> assocFaces more
-               _   -> error $ "boundaryEFMap: more than one Tileface has the same directed edge: "
-                              ++ show d ++ "\n"
+boundaryEFMap a = makeEFMapFrom (map reverseD $ boundary a) (boundaryVFMap a)
 
 -- |find the faces which have at leat one boundary vertex.
 boundaryVFaces :: HasFaces a => a -> [TileFace]
@@ -996,15 +987,11 @@ bothDir es = missingRevs es ++ es
 bothDirSet:: Set Dedge -> Set Dedge
 bothDirSet es = missingRevSet es <> es
 
-{- 
--- |bothDirOneWay adds all the reverse directed edges to a list of directed edges
--- without checking for duplicates.
--- Should be used on lists with single directions only.
--- If the argument may contain reverse directions, use bothDir to avoid duplicates.
-bothDirOneWay :: [Dedge] -> [Dedge]
-bothDirOneWay [] = []
-bothDirOneWay (e@(a,b):es)= e:(b,a):bothDirOneWay es
- -}
+-- |The set of vertices in a list of edges
+vertexSetFromEdges :: [Dedge] -> IntSet
+vertexSetFromEdges des = IntSet.fromList fsts <> IntSet.fromList snds
+    where (fsts,snds) = unzip des 
+
 
 -- | efficiently finds missing reverse directions from a list of directed edges
 -- and returning a dedge list.
@@ -1047,22 +1034,27 @@ vertexFMap vs = foldl' insertf startVF . faces where
 vertexFacesMap :: HasFaces a => [Vertex] -> a -> VertexMap [TileFace]
 vertexFacesMap = vertexFMap . IntSet.fromList
 
+-- | Given a list of dedges and a vertex to faces map, create an edge to faces map.
+-- The vertex to faces map should have a key for each vertex in the edge list.
+-- An error will be raised if more than one face has the same directed edge in the dedge list
+makeEFMapFrom :: [Dedge] -> IntMap [TileFace] -> Map Dedge TileFace
+makeEFMapFrom des vfmap = Map.fromList (assocFaces des) where
+    assocFaces [] = []
+    assocFaces (d@(a,b):more) =
+        case filter (liftA2 (&&) (isAtV a) (`hasDedge` d)) (vfmap VMap.! b) of
+            [face] -> (d,face):assocFaces more
+            []   -> assocFaces more
+            _   -> error $ "makeEFMapFrom: more than one Tileface has the same directed edge: "
+                           ++ show d ++ "\n"
+
 -- | dedgeFMap des a - Produces an edge-face map. Each directed edge in des is associated with
 -- a unique face in a that has that directed edge (if there is one).
 -- It will report an error if more than one face in a has the same directed edge in des. 
 -- If the directed edges are all the ones in a, buildEFMap will be more efficient.
 -- If the edges are just the boundary edges, use boundaryEFMap instead.
 dedgeFMap:: HasFaces a => [Dedge] -> a -> Map Dedge TileFace
-dedgeFMap des fcs =  Map.fromList (assocFaces des) where
-   vset = IntSet.fromList (map fst des) `IntSet.union` IntSet.fromList (map snd des)
-   vfMap = vertexFMap vset fcs
-   assocFaces [] = []
-   assocFaces (d@(a,b):more) =
-       case filter (liftA2 (&&) (isAtV a) (`hasDedge` d)) (vfMap VMap.! b) of
-           [face] -> (d,face):assocFaces more
-           []   -> assocFaces more
-           _   -> error $ "dedgeFMap: more than one Tileface has the same directed edge: "
-                          ++ show d ++ "\n"
+dedgeFMap des a = makeEFMapFrom des (vertexFMap (vertexSetFromEdges des) a)
+
 
 {-# DEPRECATED dedgesFacesMap "Use dedgeFMap" #-}
 -- |same as dedgeFMap
