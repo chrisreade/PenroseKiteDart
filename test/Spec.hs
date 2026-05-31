@@ -82,6 +82,9 @@ fullunionGraph = fullUnion  (g1, (1,15)) (g2,(1,10)) where
 
 graphPropSpec :: Spec
 graphPropSpec = describe "Test Properties of Tgraphs" $ do
+    context "An empty Tgraph" $
+      it "maxV of makeTgraph [] should be 0" $
+        maxV (makeTgraph []) `shouldBe` 0
     context "When fcs (a list of tile-faces) has any face with a repeated vertex" $
       it "hasEdgeLoops fcs should return True" $
         hasEdgeLoops x0 `shouldBe` True

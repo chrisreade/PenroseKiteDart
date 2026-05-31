@@ -1,28 +1,46 @@
 # Revision history for PenroseKiteDart
 
-## since v1.8.1
+## since version 1.8.1
 
-- Replaced type UpdateMap with new data type Updates (with two maps).
-- Renamed selector updateMap to updates
+- Possibly breaking changes:
+   - Replaced type UpdateMap with new data type Updates (using two maps).
+   - Renamed selector updateMap to updates
+   - partComposeDWI has a different type returning a Tgraph with the remainder faces
+   - Renamed matchingLongE,matchingJoinE,matchingShortE to sharingLongE,sharingJoinE,sharingShortE
+   - Change to DartWingInfo (unMapped now includes kites with no dart wing at their oppV)
+- Removed Deprecated:
+   - partComposeFaces - use - (runTry . tryPartComposeFaces)
+   - boundaryEdgeSet - use - boundaryESet
+   - boundaryVertexSet - use - boundaryVSet
+   - vertexFacesMap - use - vertexFMap . IntSet.fromList
+   - dedgesFacesMap - use - dedgeFMap
+   - boundaryEdgeFaces - use - boundaryEFaces
+   - rotateBefore - use - (flip rotating)
+   - alignAll - use - (map . alignXaxis)
+   - alignBefore - use - (flip aligning)
+   - makeAlignedVP  - use - alignedVP
+   - tryOneStepForce - use - tryOneStep
+   - recoverGraphF - use - (withForced recoverGraph)
+   - boundaryStateF - use - (withForced boundaryState)
+   - makeBoundaryStateF - use - (withForced makeBoundaryState)
+   - initFSF - use - (withForced initFS)
+   - relabelContig - use - (relabelFrom 1)
+   - checkRelabelGraph - use - relabelGraph
+   - smartRotateBefore - use - (flip smartRotating)
+   - smartAlignBefore - use - (flip smartAligning)
+   - drawTrackedTgraphAligned - use - (flip drawTrackedTgraphAligning)
+   - drawTrackedTgraphRotated - use - (flip drawTrackedTgraphRotating)
+   - allClashes - use - allTouching
+- Other Changes
+  - Added: quickCompose and quickPartCompose (approximations to compose and partCompose that do not use a force operation)
+   - Added: verticesForBEs, vertexSetForEdges
+   - More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
 
-- partComposeDWI has a new type returning a Tgraph with the remainder faces
-  (removed deprecated partComposeFaces)
-
-- Change to DartWingInfo (unMapped now includes kites with no dart wing at their oppV)
-
-- Renamed matchingLongE,matchingJoinE,matchingShortE to sharingLongE,sharingJoinE,sharingShortE
-
-exported:  verticesFromBoundary, vertexSetFromEdges
-
-More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
-
-Added quickCompose and quickPartCompose (approximations to compose and partCompose that do not use a force operation)
-
-## version v1.8.1
+## version 1.8.1
 
 Fixed bug (introduced in 1.8) rotations and scales not behaving as described.
 
-## version v1.8
+## version 1.8
 
 - Possibly breaking change: The ForceState now carries an UpdateGenerator and Forcible class operations now assume defaultAllUGen or take the UpdateGenerator from the ForceState.
 The Forcible class operations are now
@@ -45,7 +63,7 @@ The Forcible class operations are now
   - superForce now produces Forced Tgraph (compose with forgetF to obtain Tgraph)
 
 
-## version v1.7
+## version 1.7
 
 Significant speed up of forcing.
 
@@ -61,7 +79,7 @@ Significant speed up of forcing.
   - Exported tryOnBoundary, isBoundaryDE, isBoundaryV
   - Used smart on boundaryFDart.. and boundaryGap.. example figures.
 
-## version v1.6.1
+## version 1.6.1
 
 - Internal Representation change:
     - Changed type of BoundaryDedges in BoundaryState (constructors not exported)
@@ -80,7 +98,7 @@ Significant speed up of forcing.
     - Deprecated partComposeFaces (now renamed as partComposeDWI)
     - Changed emphasizeFaces to use smartOn so only boundary joins are drawn (used in commonFaces)
 
-## version v1.6
+## version 1.6
 - Possibly breaking:
 
    - Replaced boundary in class HasFaces with boundaryESet (Set instead of list)
@@ -127,7 +145,7 @@ Significant speed up of forcing.
    - dashjPiece Use drawjPiece
    - dashjP3 Use drawjP3
 
-## version v1.5.1
+## version 1.5.1
 
 - possibly breaking:
     added boundaryVFMap to class HasFaces
@@ -166,7 +184,7 @@ Significant speed up of forcing.
 - added: dashJOnly, drawJPiece, and drawJ 
 (alongside dashjOnly, drawjPiece, and drawj which still use ultraThin) 
 
-## version v1.5 2025-8-9
+## version 1.5 2025-8-9
 
 Changes to composing.
 

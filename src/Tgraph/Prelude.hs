@@ -24,7 +24,7 @@ This module re-exports module HalfTile and module Try.
 module Tgraph.Prelude
   ( module HalfTile
   , module Try
-       -- * Making Tgraphs
+  -- * Making Tgraphs
   , Tgraph() -- not Data Constructor Tgraph
   , TileFace
   , makeTgraph
@@ -32,50 +32,42 @@ module Tgraph.Prelude
   , checkedTgraph
   , makeUncheckedTgraph
   , emptyTgraph
--- * Vertices and Edges
+  -- * Vertex and Edge Types
   , Vertex
   , VertexSet
   , VertexMap
   , Dedge
      -- $Edges
   , EdgeType(..)
-  , vertexSetFromEdges
 -- * Tgraph Property Checks
---  , renumberFaces
---  , differing
   , tryTgraphProps
   , tryConnectedNoCross
   , tryCorrectTouchingVs
---  , findEdgeLoops
   , hasEdgeLoops
   , duplicates
---  , duplicateInts
---  , conflictingDedges
   , edgeType
-  --, findEdgeLoop
---  , sharedEdges
---  , newSharedEdges
-  , noNewConflict
--- unused  , noNewConflictFull
---  , legal
---  , illegals
+  , compatibleNew
+  , noNewConflict --dep
   , illegalTiling
   , crossingBVs
- -- , crossingVertices
   , crossingBoundaries
   , connected
---  , connectedBy
    -- * HasGraph operations
   , HasGraph(..)
+  , nullGraph
+  , rotating
+  , aligning
+  , makeVP
+  , rotatedVP
+  , alignedVP
   , selectFaces
   , removeFaces
   , removeVertices
   , selectVertices
      -- * HasFaces operations
   , HasFaces(..) -- faces, boundaryESet, maxV, boundaryVFMap
-  , boundaryEdgeSet
+--  , boundaryEdgeSet
   , boundary
--- , maxV
   , dedgeSet
   , dedges
   , evalDedge
@@ -83,18 +75,12 @@ module Tgraph.Prelude
   , vertexSet
   , vertices
   , boundaryVSet
-  , boundaryVertexSet
   , boundaryVsDup
-  , verticesFromBoundary
   , boundaryEFMap
   , boundaryVFaces
   , boundaryEFaces
-  , boundaryEdgeFaces
   , boundaryJoinFaces
-  --, boundaryVFMap
---  , faces
   , nullFaces
-  , nullGraph
   , evalFaces
   , evalFace
   , faceCount
@@ -109,9 +95,7 @@ module Tgraph.Prelude
   , nonPhiEdges
   , defaultAlignment
   , vertexFMap
-  , vertexFacesMap
   , dedgeFMap
-  , dedgesFacesMap
   , buildEFMap
   , extractLowestJoin
   , lowestJoin
@@ -137,7 +121,7 @@ module Tgraph.Prelude
   , prevV
   , isAtV
   , hasVIn
-    -- * Face and Edge ops
+    -- * Other Face-Edge-Vertex ops
   , faceDedges
   , reverseD
   , joinE
@@ -146,7 +130,6 @@ module Tgraph.Prelude
   , joinOfTile
   , facePhiEdges
   , faceNonPhiEdges
- -- , shared
   , sharedLongE
   , sharedShortE
   , sharedJoinE
@@ -156,13 +139,13 @@ module Tgraph.Prelude
   , completeEdges
   , bothDirSet
   , bothDir
---   , bothDirOneWay
   , missingRevs
   , missingRevSet
+  , vertexSetForEdges
+  , verticesForBEs
     -- * VPatch and Conversions
   , VPatch(..)
   , VertexLocMap
-  , makeVP
   , subFaces
   , relevantVP
   , restrictTo
@@ -171,23 +154,14 @@ module Tgraph.Prelude
   , removeVerticesFromVP
   , selectVerticesFromVP
   , findLoc
-    -- * Drawing Tgraphs and VPatches with Labels
-  , DrawableLabelled(..)
-  , labelSize
-  , labelled
-  , rotating
-  , rotatedVP
-  , rotateBefore -- deprecated
-  , dropLabels
--- * Tgraph and VPatch alignment with vertices
-  , aligning
-  , alignBefore -- deprecated
-  , alignedVP
-  , makeAlignedVP -- deprecated
   , centerOn
   , alignXaxis
   , alignments
-  , alignAll
+    -- * Drawing with Labels
+  , DrawableLabelled(..)
+  , labelSize
+  , labelled
+  , dropLabels
     -- *  Drawing Edges
   , drawEdgesVP
   , drawEdgeVP
@@ -290,6 +264,8 @@ makeTgraph performs a no touching vertex check as well as using tryTgraphProps f
 It produces an error if either check fails.
 Note that the other Tgraph properties are checked first, to ensure that calculation of 
 vertex locations can be done for a touching vertex check.
+
+See also checkedTgraph and tryConnectedNoCross
 -}
 makeTgraph :: [TileFace] -> Tgraph
 makeTgraph fcs = runTry $ onFail "makeTgraph: (failed):\n" $ tryMakeTgraph fcs
@@ -301,6 +277,8 @@ using touchingVertices (which calculates vertex locations).
 It produces Left ... if either check fails and Right g otherwise where g is the Tgraph.
 Note that the other Tgraph properties are checked first, to ensure that calculation of 
 vertex locations can be done.
+
+See also checkedTgraph and tryConnectedNoCross
 -}
 tryMakeTgraph :: [TileFace] -> Try Tgraph
 tryMakeTgraph fcs =
@@ -367,6 +345,9 @@ and producing an error if a check fails.
 
 Note: This does not check for touching vertices (distinct labels for the same vertex).
 To perform this additional check use makeTgraph which also uses tryTgraphProps.
+
+If only connectedness and no crossing boundaries needs to be checked, use tryConnectedNoCross
+(e.g. when faces come from an existing Tgraph or from a composition).
 -}
 checkedTgraph:: [TileFace] -> Tgraph
 checkedTgraph = runTry . onFail report . tryTgraphProps
@@ -385,17 +366,18 @@ Returns Right g where g is a Tgraph on passing checks.
 Returns Left lines if a test fails, where lines describes the problem found.
 -}
 tryTgraphProps:: [TileFace] -> Try Tgraph
+tryTgraphProps []  = Right emptyTgraph
 tryTgraphProps fcs =
    let vs = vertexSet fcs  -- delay subsequent in case never used
        ~deslist = dedges fcs
        ~edgeLoops = filter (uncurry (==)) deslist
        ~conflicting = duplicates deslist
-       ~efMap = dedgeFMap deslist fcs
+       ~efMap = buildEFMap fcs -- dedgeFMap deslist fcs
        ~sharedEs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
-                   | f1 <- fcs
-                   , d1 <- faceDedges f1
+                   | d1 <- filter (uncurry (<)) deslist
                    , let d2 = reverseD d1
-                   , f2 <-  maybeToList $  Map.lookup d2 efMap
+                   , f1 <- maybeToList $  Map.lookup d1 efMap
+                   , f2 <- maybeToList $  Map.lookup d2 efMap
                    ]
        ~illegalEs = filter (not . legal) sharedEs
     in if IntSet.findMin vs <1
@@ -431,26 +413,29 @@ tryTgraphProps fcs =
 -- This is used by tryTgraphProps after other checks have been made,
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
 tryConnectedNoCross:: [TileFace] -> Try Tgraph
+tryConnectedNoCross [] = Right emptyTgraph
 tryConnectedNoCross fcs = tryConnectedNoCross' fcs (dedges fcs) (vertexSet fcs)
 
 -- |(not exported) A variant of tryConnectedNoCross with precalculated dedge list and vertex set.
 -- Checks for no crossing boundaries and connectedness.
 -- The given dedge list must be all the dedges in the faces, 
 -- and the given vertex set must be all the vertices in the faces.
+-- The faces must not be null.
 -- Returns Right g where g is a Tgraph on passing checks.
 -- Returns Left lines if a test fails, where lines describes the problem found.
 -- This is used by tryTgraphProps after other checks have been made,
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
 tryConnectedNoCross' :: [TileFace] -> [Dedge] -> IntSet -> Try Tgraph
-tryConnectedNoCross' fcs deslist vs =
+tryConnectedNoCross' fcs deslist vs = -- no arguments are null
     let des = Set.fromList deslist
         bes = missingRevSet des -- boundaryESetFrom
-        duplicateBVs = duplicates $ verticesFromBoundary bes
-        connectedFcs = null (snd $ connectedBy (bes<>des) (IntSet.findMin vs) vs)
+        duplicateBVs = duplicates $ verticesForBEs bes
         crossing = not $ null duplicateBVs
+        connectedFcs = null (snd $ connectedBy (bes<>des) (IntSet.findMin vs) vs)
     in if not connectedFcs
        then failReports
             ["tryConnectedNoCross: Non-valid Tgraph (Not connected)\n"
+            ,"with faces\n"
             ,show fcs
             ,"\n"
             ]
@@ -490,21 +475,11 @@ edgeType d f | d == longE f  = Long
              | otherwise = error $ "edgeType: directed edge " ++ show d ++
                                    " not found in face " ++ show f ++ "\n"
 
-{- -- |For a list of tile faces fcs this produces a list of tuples of the form (f1,etpe1,f2,etype2)
--- where f1 and f2 share a common edge and etype1 is the type of the shared edge in f1 and
--- etype2 is the type of the shared edge in f2.
--- This list can then be checked for inconsistencies / illegal pairings (using legal).
-sharedEdges:: [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
-sharedEdges fcs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
-                   | f1 <- fcs
-                   , d1 <- faceDedges f1
-                   , let d2 = reverseD d1
-                   , f2 <- filter (`hasDedge` d2) fcs
-                  ]
- -}
 {-# INLINE newSharedEdges #-}
--- |A version of sharedEdges comparing a single face against a list of faces.
--- This does not look at shared edges within the list, but just the new face against the list.
+-- |newSharedEdges face fcs - compares face against a list of faces (fcs) 
+-- to produce information about edges of face that are shared with fcs.
+-- This does not look at shared edges within fcs.
+-- It does not check for conflicts (common edges in the same direction).
 newSharedEdges:: TileFace -> [TileFace] -> [(TileFace,EdgeType,TileFace,EdgeType)]
 newSharedEdges face fcs =
     [(face, edgeType d1 face, fc', edgeType d2 fc')
@@ -513,11 +488,19 @@ newSharedEdges face fcs =
      , fc' <- filter (`hasDedge` d2) fcs
     ]
 
+-- | compatibleNew face fcs returns True if face has an illegal shared edge with fcs.
+-- It does not check for illegal cases within the fcs.
+-- It does not check for conflicting edges (sharing a directed edge in the same direction).
+compatibleNew :: TileFace -> [TileFace] -> Bool
+compatibleNew face fcs = all legal sharededges where
+    sharededges = newSharedEdges face fcs
+
+{-# DEPRECATED noNewConflict "Renamed as compatibleNew" #-}
 -- | noNewConflict face fcs returns True if face has an illegal shared edge with fcs.
 -- It does not check for illegal cases within the fcs.
+-- It does not check for conflicting edges (sharing a directed edge in the same direction).
 noNewConflict :: TileFace -> [TileFace] -> Bool
-noNewConflict face fcs = all legal sharededges where
-    sharededges = newSharedEdges face fcs
+noNewConflict = compatibleNew
 
 -- | legal (f1,etype1,f2,etype2) is True if and only if it is legal for f1 and f2 to share an edge
 -- with edge type etype1 (and etype2 is equal to etype1).                   
@@ -543,15 +526,15 @@ legal _ = False
 illegalTiling:: [TileFace] -> Bool
 illegalTiling fcs =  -- relies on || lazy in second arg as efMap assumes no duplicate dedges
     not (null $ duplicates deslist) || not (null illegals) where
-    deslist = dedges fcs
-    ~efMap = dedgeFMap deslist fcs
-    ~sharedEs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
-                   | f1 <- fcs
-                   , d1 <- faceDedges f1
+       deslist = dedges fcs
+       ~efMap = buildEFMap fcs -- dedgeFMap deslist fcs
+       ~sharedEs = [(f1, edgeType d1 f1, f2, edgeType d2 f2)
+                   | d1 <- filter (uncurry (<)) deslist
                    , let d2 = reverseD d1
-                   , f2 <-  maybeToList $  Map.lookup d2 efMap
-                 ]
-    ~illegals = filter (not . legal) sharedEs
+                   , f1 <- maybeToList $  Map.lookup d1 efMap
+                   , f2 <- maybeToList $  Map.lookup d2 efMap
+                   ]
+       ~illegals = filter (not . legal) sharedEs
 
 -- |crossingBVs fcs returns a list of vertices where there are crossing boundaries
 -- (which should be null for Tgraphs, VPatches, BoundaryStates, Forced, TrackedTgraph).               
@@ -570,8 +553,9 @@ connected:: HasFaces a => a -> Bool
 connected = conn . faces where -- n.b. no longer used internally as tryConnectedNoCross
                                -- now calls connectedBy directly
     conn [] =  True
-    conn fcs = null (snd $ connectedBy (completeEdgeSet fcs) (IntSet.findMin vs) vs)
+    conn fcs = null (snd $ connectedBy edges (IntSet.findMin vs) vs)
                     where vs = vertexSet fcs
+                          edges = bothDirSet (dedgeSet fcs)
 
 -- |Auxiliary function for calculating connectedness.
 -- connectedBy edges v verts returns a pair of lists of vertices (conn,unconn)
@@ -590,13 +574,6 @@ connectedBy edges v verts = search IntSet.empty (IntSet.singleton v) (IntSet.del
         let (x,visited') = IntSet.deleteFindMin visited
             newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x
         in  search (IntSet.insert x done) (IntSet.union newVs visited') (unvisited IntSet.\\ newVs)
-          
-{-             x = IntSet.findMin visited
-              visited' = IntSet.deleteMin visited
-              newVs = IntSet.fromList $ filter (`IntSet.notMember` done) $ nextMap VMap.! x
-
- -}
-
 
 -- |The empty Tgraph
 emptyTgraph :: Tgraph
@@ -608,7 +585,7 @@ nullFaces = null . faces
 
 -- |does the graph have no faces?
 nullGraph :: HasGraph a => a -> Bool
-nullGraph g = nullFaces (recoverGraph g)
+nullGraph = nullFaces . recoverGraph
 
 -- |Class HasFaces for operations using (a list of) TileFaces.
 -- 
@@ -635,11 +612,6 @@ class HasFaces a where
     boundaryVFMap :: a -> VertexMap [TileFace]
     boundaryVFMap a = vertexFMap (boundaryVSet a) (faces a)
 
-{-# DEPRECATED boundaryEdgeSet "Use boundaryESet" #-}
--- |get the set of boundary directed edges
-boundaryEdgeSet :: HasFaces a => a -> Set Dedge
-boundaryEdgeSet = boundaryESet
-
 -- |An ascending list of the vertices occuring in faces (without duplicates)
 vertices :: HasFaces a => a -> [Vertex]
 vertices = IntSet.elems . vertexSet
@@ -657,13 +629,14 @@ boundary = Set.elems . boundaryESet
 -- This may have duplicates when applied to an arbitrary list of TileFace or VPatch.
 -- but has no duplicates for Tgraph, BoundaryState, Forced, TrackedTgraph. 
 boundaryVsDup :: HasFaces a => a -> [Vertex]
-boundaryVsDup = verticesFromBoundary . boundaryESet
+boundaryVsDup = verticesForBEs . boundaryESet
    -- map fst . boundary
 
--- |given a set of boundary edges this produces a list of the boundary vertices
--- (with possible duplicates).
-verticesFromBoundary :: Set Dedge -> [Vertex]
-verticesFromBoundary = Set.foldl' (flip ((:).fst)) []
+-- |Given a complete set of boundary edges this produces a list of the boundary vertices
+-- (with duplicates if and only if the boundary is a crossing boundary).
+-- If the edges are not a complete boundary, Use (Set.toList . vertexSetForEdges).
+verticesForBEs :: Set Dedge -> [Vertex]
+verticesForBEs = Set.foldl' (flip ((:).fst)) []
 
 -- |get all the directed edges (directed clockwise round each face)
 dedges :: HasFaces a => a -> [Dedge]
@@ -678,7 +651,8 @@ evalDedge e@(a,b) | a==b = error $ "evalEdge: loop edge found with vertex " ++ s
 evalDedges :: [Dedge] -> [Dedge]           
 evalDedges !es = foldr (seq . evalDedge) () es `seq` es
 
--- |create a directed edge to face map from the (reverse direction of the) boundary edges
+-- |create a directed edge to face map from the (reverse direction of the) boundary edges.
+-- Thus if dedge d maps to face f, then d is a dedge of f (and reverseD d is a boundary dedge).
 boundaryEFMap :: HasFaces a => a -> Map Dedge TileFace
 boundaryEFMap a = makeEFMapFrom (map reverseD $ boundary a) (boundaryVFMap a)
 
@@ -689,11 +663,6 @@ boundaryVFaces a = nub $ concat $ VMap.elems $ boundaryVFMap a
 -- |get the set of boundary vertices
 boundaryVSet :: HasFaces a => a -> VertexSet
 boundaryVSet = IntSet.fromList . boundaryVsDup
-
-{-# DEPRECATED boundaryVertexSet "Use boundaryVSet" #-}
--- |get the set of boundary vertices
-boundaryVertexSet :: HasFaces a => a -> VertexSet
-boundaryVertexSet = boundaryVSet
 
 -- |A list of tilefaces is in class HasFaces
 instance HasFaces [TileFace] where
@@ -886,7 +855,7 @@ faceDedgeSet f = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empt
 
 -- |opposite directed edge.
 reverseD:: Dedge -> Dedge
-reverseD (!a,!b) = (b,a)
+reverseD (!a,!b) = (b,a) -- swap
 
 {-
 -- |firstE, secondE and thirdE are the directed edges of a face counted clockwise from the origin, 
@@ -976,32 +945,32 @@ completeEdges = bothDir . dedges
 completeEdgeSet :: HasFaces a => a -> Set Dedge
 completeEdgeSet = bothDirSet . dedgeSet
 
--- |bothDir adds missing reverse directed edges to a list of directed edges
--- to complete edges (Result is a complete edge list)
--- It assumes no duplicates in argument.
+-- |bothDir des - forms a complete bidirectional list of edges from the given list des (of directed edges).
+-- It adds missing reverse directed edges to des (i.e its boundary directed edge list).
+-- It assumes no duplicates in des.
 bothDir:: [Dedge] -> [Dedge]
-bothDir es = missingRevs es ++ es
+bothDir es = missingRevs es <> es
 
--- |bothDirSet adds missing reverse directed edges to a set of directed edges
--- to complete edges (Result is a complete edge set)
+-- |bothDirSet des forms a complete bidirectional set of edges from the set des (of directed edges).
+-- It adds missing reverse directed edges to des (i.e its boundary directed edge set).
 bothDirSet:: Set Dedge -> Set Dedge
 bothDirSet es = missingRevSet es <> es
 
--- |The set of vertices in a list of edges
-vertexSetFromEdges :: [Dedge] -> IntSet
-vertexSetFromEdges des = IntSet.fromList fsts <> IntSet.fromList snds
+-- |The set of vertices in a list of edges.
+-- It does not assume edges form loops (unlike verticesForBEs)
+vertexSetForEdges :: [Dedge] -> IntSet
+vertexSetForEdges des = IntSet.fromList fsts <> IntSet.fromList snds
     where (fsts,snds) = unzip des 
 
-
--- | efficiently finds missing reverse directions from a list of directed edges
--- and returning a dedge list.
+-- |Given a list of directed edges, finds the boundary directed edge list.
+-- That is, it finds missing reverse directions for the given list.
 missingRevs:: [Dedge] -> [Dedge]
-missingRevs es = Set.elems $ foldl' check Set.empty es where
+missingRevs = Set.elems . foldl' check Set.empty where
     check eset e@(a,b) | Set.member e eset = Set.delete e eset
                  | otherwise = Set.insert (b,a) eset
 
--- | efficiently finds missing reverse directions from a set of directed edges,
--- and returns them as a set.
+-- |Given a set of directed edges, finds the boundary directed edge set.
+-- That is, it finds missing reverse directions from the given set.
 missingRevSet:: Set Dedge -> Set Dedge
 missingRevSet = Set.foldl' check Set.empty where
     check eset e@(a,b) | Set.member e eset = Set.delete e eset
@@ -1028,24 +997,17 @@ vertexFMap vs = foldl' insertf startVF . faces where
                       where addf Nothing = Nothing
                             addf (Just fs) = Just (f:fs)
 
-{-# DEPRECATED vertexFacesMap "Use vertexFMap . IntSet.fromList" #-}
--- |For vertex list vs and faces from a,
--- create a VertexMap from each vertex in vs to a list of those faces in a that are at that vertex.
-vertexFacesMap :: HasFaces a => [Vertex] -> a -> VertexMap [TileFace]
-vertexFacesMap = vertexFMap . IntSet.fromList
-
 -- | Given a list of dedges and a vertex to faces map, create an edge to faces map.
 -- The vertex to faces map should have a key for each vertex in the edge list.
 -- An error will be raised if more than one face has the same directed edge in the dedge list
 makeEFMapFrom :: [Dedge] -> IntMap [TileFace] -> Map Dedge TileFace
-makeEFMapFrom des vfmap = Map.fromList (assocFaces des) where
-    assocFaces [] = []
-    assocFaces (d@(a,b):more) =
+makeEFMapFrom des vfmap = Map.fromList (mapMaybe assocFace des) where
+    assocFace d@(a,b) =
         case filter (liftA2 (&&) (isAtV a) (`hasDedge` d)) (vfmap VMap.! b) of
-            [face] -> (d,face):assocFaces more
-            []   -> assocFaces more
-            _   -> error $ "makeEFMapFrom: more than one Tileface has the same directed edge: "
-                           ++ show d ++ "\n"
+            [face] -> Just (d,face)
+            []     -> Nothing
+            other  -> error $ "makeEFMapFrom: more than one Tileface has the same directed edge: "
+                              ++ show d ++ "\nfaces: " ++ show other ++ "\n"
 
 -- | dedgeFMap des a - Produces an edge-face map. Each directed edge in des is associated with
 -- a unique face in a that has that directed edge (if there is one).
@@ -1053,13 +1015,7 @@ makeEFMapFrom des vfmap = Map.fromList (assocFaces des) where
 -- If the directed edges are all the ones in a, buildEFMap will be more efficient.
 -- If the edges are just the boundary edges, use boundaryEFMap instead.
 dedgeFMap:: HasFaces a => [Dedge] -> a -> Map Dedge TileFace
-dedgeFMap des a = makeEFMapFrom des (vertexFMap (vertexSetFromEdges des) a)
-
-
-{-# DEPRECATED dedgesFacesMap "Use dedgeFMap" #-}
--- |same as dedgeFMap
-dedgesFacesMap:: HasFaces a => [Dedge] -> a -> Map Dedge TileFace
-dedgesFacesMap = dedgeFMap
+dedgeFMap des a = makeEFMapFrom des (vertexFMap (vertexSetForEdges des) a)
 
 -- |select the faces with a join edge on the boundary.
 -- Useful for drawing join edges only on the boundary.
@@ -1070,11 +1026,6 @@ boundaryJoinFaces a = Map.elems $ Map.filterWithKey isJoin $ boundaryEFMap a whe
 -- |get the faces with at least one boundary edge.
 boundaryEFaces :: HasFaces a => a -> [TileFace]
 boundaryEFaces = nub . Map.elems . boundaryEFMap
-
-{-# DEPRECATED boundaryEdgeFaces "Use boundaryEFaces" #-}
--- |find the faces in with at least one boundary edge.
-boundaryEdgeFaces :: HasFaces a => a -> [TileFace]
-boundaryEdgeFaces = boundaryEFaces
 
 -- |Build a full Map from all directed edges to faces (the unique face containing the directed edge)
 -- The faces should not contain conflicting dedges. 
@@ -1269,12 +1220,6 @@ labelled :: (OKBackend b, DrawableLabelled a) =>
             (Patch -> Diagram b) -> a -> Diagram b
 labelled = labelColourSize red small --(normalized 0.023)
 
-{-# DEPRECATED rotateBefore "Use (flip rotating)" #-}
--- |rotateBefore vfun a g - makes a VPatch from g then rotates by angle a before applying the VPatch function vfun.
--- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
-rotateBefore :: (VPatch -> a) -> Angle Double -> Tgraph -> a
-rotateBefore = flip rotating
-
 -- |rotating a vfun g - makes a VPatch from g then rotates by angle a before applying vfun 
 -- (a VPatch continuation function - usually a drawing function).
 -- Tgraphs need to be rotated after a VPatch is calculated but before any labelled drawing.
@@ -1316,14 +1261,6 @@ alignments prs vps = if length prs > length vps
                      then error "alignments: Too many alignment pairs.\n"
                      else zipWith alignXaxis prs vps
 
-{-# DEPRECATED alignAll "Use (map . alignXaxis)" #-}
--- |alignAll (a,b) vpList
--- provided both vertices a and b exist in each VPatch in vpList, the VPatch are all aligned
--- centred on a, with b on the positive x axis.
--- An error is raised if any VPatch does not contain both a and b vertices.
-alignAll:: (Vertex, Vertex) -> [VPatch] -> [VPatch]
-alignAll  = map . alignXaxis
-
 -- |aligning (a,b) vfun g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
 -- before applying vfun (a VPatch continuation function - usually a drawing function)
 -- Will raise an error if either a or b is not a vertex in g.
@@ -1333,25 +1270,10 @@ alignAll  = map . alignXaxis
 aligning ::  HasGraph a => (Vertex,Vertex) -> (VPatch -> b) -> a -> b
 aligning vs vfun = vfun . alignedVP vs
 
-{-# DEPRECATED alignBefore "Use (flip aligning)" #-}
--- |alignBefore vfun (a,b) g - makes a VPatch from g oriented with centre on a and b aligned on the x-axis
--- before applying the VPatch function vfun
--- Will raise an error if either a or b is not a vertex in g.
--- Tgraphs need to be aligned after a VPatch is calculated but before any labelled drawing.
-alignBefore :: (VPatch -> a) -> (Vertex,Vertex) -> Tgraph -> a
-alignBefore = flip aligning
-
 -- | alignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligning on the x-axis.
 -- Will raise an error if either a or b is not a vertex in g.
 alignedVP:: HasGraph a => (Vertex,Vertex) -> a -> VPatch
 alignedVP vs = alignXaxis vs . makeVP
-
-{-# DEPRECATED makeAlignedVP "Renamed as alignedVP" #-}
--- | makeAlignedVP (a,b) g - make a VPatch from g oriented with centre on a and b aligning on the x-axis.
--- Will raise an error if either a or b is not a vertex in g.
-makeAlignedVP:: HasGraph a => (Vertex,Vertex) -> a -> VPatch
-makeAlignedVP = alignedVP
-
 
 -- |produce a diagram of a list of edges (given a suitable VPatch)
 -- Will raise an error if any vertex of the edges is not a key in the vertex to location mapping of the VPatch.

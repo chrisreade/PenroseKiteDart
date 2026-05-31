@@ -27,7 +27,7 @@ module Tgraph.Grid
   , touching
   , ValuedPoint(..)
   , allTouching
-  , allClashes
+ -- , allClashes
 
 ) where
 
@@ -149,8 +149,3 @@ allTouching f aps = check aps (Grid IMap.empty) []  where
           Right gd' -> check more gd' cs
           Left ap'  -> check more gd ((f ap, f ap'):cs) 
           -- note ap' earlier than ap in the incoming list
-
-{-# DEPRECATED allClashes "Renamed as allTouching)" #-}
--- | another name for allTouching
-allClashes :: ValuedPoint a => (a -> b) -> [a] -> [(b, b)]
-allClashes = allTouching

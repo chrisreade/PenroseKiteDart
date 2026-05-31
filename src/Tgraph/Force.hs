@@ -39,10 +39,10 @@ module Tgraph.Force
   , tryForceF
   , forceF
   , withForced
-  , recoverGraphF --dep
-  , boundaryStateF --dep
-  , makeBoundaryStateF --dep
-  , initFSF --dep
+--  , recoverGraphF
+--  , boundaryStateF
+--  , makeBoundaryStateF
+--  , initFSF --dep
   , labelAsForced
    -- *  Force Related
   , addHalfKite
@@ -50,7 +50,7 @@ module Tgraph.Force
   , addHalfDart
   , tryAddHalfDart
 --  , tryOneStepWith
-  , tryOneStepForce -- dep
+--  , tryOneStepForce
   , tryOneStep
 -- * Types for Forcing
   , BoundaryState(..)
@@ -558,28 +558,6 @@ forceF = runTry . tryForceF
 withForced :: (a->b) -> Forced a -> Forced b
 withForced f (Forced a) = Forced (f a)
 
-{-# DEPRECATED recoverGraphF "Use (withForced recoverGraph)" #-}
--- | recoverGraphF is an explicitly forced version of recoverGraph
-recoverGraphF :: Forced ForceState -> Forced Tgraph
-recoverGraphF = withForced recoverGraph 
-
-{-# DEPRECATED boundaryStateF "Use (withForced boundaryState)" #-}
--- | boundaryStateF is an explicitly forced version of boundaryState
-boundaryStateF :: Forced ForceState -> Forced BoundaryState
-boundaryStateF = withForced boundaryState
-             -- boundaryStateF (Forced fs) = Forced (boundaryState fs)
-
-{-# DEPRECATED makeBoundaryStateF "Use (withForced makeBoundaryState)" #-}
--- | makeBoundaryStateF is an explicitly forced version of makeBoundaryState
-makeBoundaryStateF :: Forced Tgraph -> Forced BoundaryState
-makeBoundaryStateF = withForced makeBoundaryState
-       -- makeBoundaryStateF (Forced g) = Forced (makeBoundaryState g)
-
-{-# DEPRECATED initFSF "Use (withForced initFS)" #-}
--- | initFSF is an explicitly forced version of initFS
-initFSF :: Forcible a => Forced a -> Forced ForceState
-initFSF = withForced initFS
-
 -- |try to find the right direction for an edge to be a boundary directed edge.
 -- Returns either Right de where de is the correct direction for the edge on the boundary,
 -- or returns Left failreport.. if neither direction is consistent with boundary directed edges.
@@ -667,11 +645,6 @@ tryOneStep fs =
                 Just bdC -> do fs' <- tryReviseFS bdC fs
                                return $ Just (fs',bdC)
                 Nothing  -> return Nothing           -- no more updates
-
-{-# DEPRECATED tryOneStepForce "Renamed as tryOneStep" #-}
--- |renamed as tryOneStep
-tryOneStepForce :: ForceState -> Try (Maybe (ForceState, BoundaryChange))
-tryOneStepForce = tryOneStep
 
 -- | Apply the update generator on the changed boundary of a ForceState
 tryReviseFS :: BoundaryChange -> ForceState -> Try ForceState
@@ -844,7 +817,7 @@ trySafeUpdate bd (SafeUpdate newface) =
                    , revisedEdges = affectedBoundary resultBd newBdry -- 3 or 0 edges
                    , newFace = newface
                    }
-   in if noNewConflict newface nbrFaces
+   in if compatibleNew newface nbrFaces
       then Right bdChange
       else failReports
               ["trySafeUpdate:(incorrect tiling)\nConflicting new face  "

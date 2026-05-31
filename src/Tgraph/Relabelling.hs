@@ -36,14 +36,14 @@ module Tgraph.Relabelling
  --  , relabellingFrom
   , uncheckedRelabelGraph
   , relabelGraph
-  , checkRelabelGraph
+--  , checkRelabelGraph
   -- $SafeRelabelling
 --  , relabellingTo
 --  , extendRelabelling
 --  , relabellingFrom
   , relabelFrom
   , relabelAvoid
-  , relabelContig
+--  , relabelContig
   -- * Auxiliary Functions
   , relabelFace
   , relabelV
@@ -341,11 +341,6 @@ relabelGraph rlab g =
          tryMakeTgraph newFaces
   where newFaces = map (relabelFace rlab) (faces g) 
 
-{-# DEPRECATED checkRelabelGraph "Use relabelGraph" #-}
--- |renamed as relabelGraph
-checkRelabelGraph :: Relabelling -> Tgraph -> Tgraph
-checkRelabelGraph = relabelGraph
-
 {- $SafeRelabelling
 
 __Safe Relabelling__
@@ -453,16 +448,7 @@ relabelFrom n g = uncheckedRelabelGraph rlab g where
   -- assert: rlab is 1-1 on the vertices of g
   --  (the unsafe domain of rlab is disjoint from the vertices of g)
   -- assert: the relabelled Tgraph preserves the Tgraph properties
- 
-{-# DEPRECATED relabelContig "Use (relabelFrom 1)" #-}
--- |Relabel all vertices in a Tgraph using new labels 1..n (where n is the number of vertices).
-relabelContig :: Tgraph -> Tgraph
-relabelContig g = uncheckedRelabelGraph rlab g where
-   rlab = relabellingFrom 1 (vertexSet g)
-  -- assert: rlab is 1-1 on the vertices of g
-  --  (the unsafe domain of rlab is disjoint from the vertices of g)
-  -- assert: the relabelled Tgraph preserves the Tgraph properties
-                     
+                      
 {-|
 tryMatchFace f g - looks for a face in g that corresponds to f (with a common directed edge),
 If the corresponding face does not match constructor (LK,RK,LD,RD) this stops the

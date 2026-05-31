@@ -28,8 +28,8 @@ module Tgraph.Extras
   , smartOn
   , smartRotating
   , smartAligning
-  , smartRotateBefore
-  , smartAlignBefore
+ -- , smartRotateBefore
+ -- , smartAlignBefore
   , drawBoundaryJoins
   , drawJoinsFor
     -- * Overlaid drawing tools for Tgraphs
@@ -94,8 +94,8 @@ module Tgraph.Extras
   , drawTrackedTgraphRotating
   , drawTrackedTgraphAligning
 
-  , drawTrackedTgraphRotated
-  , drawTrackedTgraphAligned
+ -- , drawTrackedTgraphRotated
+ -- , drawTrackedTgraphAligned
   ) where
 
 import TileLib
@@ -166,14 +166,6 @@ smartRotating :: (OKBackend b, HasGraph a) =>
                 Angle Double -> (VPatch -> Diagram b) -> a -> Diagram b
 smartRotating angle vfun a = rotating angle (smartOn g vfun) g where g = recoverGraph a
 
-{-# DEPRECATED smartRotateBefore "Use (flip smartRotating)" #-}
--- |smartRotateBefore vfun angle g - a tricky combination of smart with rotateBefore.
--- Uses vfun to produce a Diagram after converting g to a rotated VPatch (rotated by angle)
--- then adds the dashed boundary join edges of g.
-smartRotateBefore :: OKBackend b =>
-                     (VPatch -> Diagram b) -> Angle Double -> Tgraph -> Diagram b
-smartRotateBefore = flip smartRotating
-
 -- |smartAligning (a,b) vfun g - a tricky combination of smart with aligning.
 -- Uses vfun to produce a Diagram after converting g to an aligned VPatch
 -- then adds the dashed boundary join edges of g.
@@ -184,14 +176,6 @@ smartRotateBefore = flip smartRotating
 smartAligning :: (OKBackend b, HasGraph a) =>
               (Vertex,Vertex) -> (VPatch -> Diagram b) ->  a -> Diagram b
 smartAligning (a,b) vfun c = aligning (a,b) (smartOn g vfun) g where g = recoverGraph c
-
-{-# DEPRECATED smartAlignBefore "Use (flip smartAligning)" #-}
--- |smartAlignBefore vfun (a,b) g - a tricky combination of smart with aligning.
--- Uses vfun to produce a Diagram after converting g to an aligned VPatch
--- then adds the dashed boundary join edges of g.
-smartAlignBefore :: OKBackend b =>
-                    (VPatch -> Diagram b) -> (Vertex,Vertex) -> Tgraph -> Diagram b
-smartAlignBefore = flip smartAligning 
 
 -- |drawForce g is a diagram showing the argument g in red overlayed on force g.
 -- It adds dashed join edges on the boundary of g.
@@ -376,7 +360,6 @@ boundaryECovering forcedfs = covers [(forcedfs, boundaryESet forcedfs)] where
            where (de,des) = Set.deleteFindMin es
                  newcases = map (\x -> (x, commonBdry des x))
                                 (runTry $ tryCheckCasesDKF de ffs)
-
 
 -- | commonBdry des a - returns those directed edges in des that are boundary directed edges of a
 commonBdry:: HasFaces a => Set Dedge -> a -> Set Dedge
@@ -800,17 +783,6 @@ drawTrackedTgraphRotating a drawList ttg = mconcat $ reverse $ zipWith ($) drawL
     untracked = faces vp \\ concat (tracked ttg)
     vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
 
-{-# DEPRECATED drawTrackedTgraphRotated "Use (flip drawTrackedTgraphRotating)" #-}
-{-|
-    To draw a TrackedTgraph rotated.
-    Same as drawTrackedTgraph but with additional angle argument for the rotation.
-    This is useful when labels are being drawn.
-    The angle argument is used to rotate the common vertex location map (anticlockwise) before drawing
-    to ensure labels are not rotated.
--}
-drawTrackedTgraphRotated :: OKBackend b => [VPatch -> Diagram b] -> Angle Double -> TrackedTgraph -> Diagram b
-drawTrackedTgraphRotated = flip drawTrackedTgraphRotating
-
 {-|
     To draw a TrackedTgraph aligned.
     Same as drawTrackedTgraph but with additional vertex pair argument for the (x-axis) alignment.
@@ -821,21 +793,8 @@ drawTrackedTgraphRotated = flip drawTrackedTgraphRotating
 -}
 drawTrackedTgraphAligning :: OKBackend b => (Vertex,Vertex) -> [VPatch -> Diagram b] -> TrackedTgraph -> Diagram b
 drawTrackedTgraphAligning (a,b) drawList ttg = mconcat $ reverse $ zipWith ($) drawList vpList where
-    vp = makeAlignedVP (a,b) ttg
+    vp = alignedVP (a,b) ttg
     untracked = faces vp \\ concat (tracked ttg)
     vpList = map (`restrictTo` vp) (untracked:tracked ttg) ++ repeat vp
-
-{-# DEPRECATED drawTrackedTgraphAligned "Use (flip drawTrackedTgraphAligning)" #-}
-{-|
-    To draw a TrackedTgraph aligned.
-    Same as drawTrackedTgraph but with additional vertex pair argument for the (x-axis) alignment.
-    This is useful when labels are being drawn.
-    The vertex pair argument is used to align the common vertex location map before drawing
-    (to ensure labels are not rotated).
-    This will raise an error if either of the pair of vertices is not a vertex of (the tgraph of) the TrackedTgraph
--}
-drawTrackedTgraphAligned :: OKBackend b => [VPatch -> Diagram b] -> (Vertex,Vertex) -> TrackedTgraph -> Diagram b
-drawTrackedTgraphAligned = flip drawTrackedTgraphAligning
-
 
 
