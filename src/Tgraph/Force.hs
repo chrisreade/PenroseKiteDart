@@ -90,6 +90,7 @@ module Tgraph.Force
   , recalibratingForce
   , tryRecalibratingForce
   , recalculateBVLocs
+  , tryForceAt
     -- * Forcing Rules and Update Generators
     -- $rules
 
@@ -159,7 +160,7 @@ import Data.List ((\\), nub, find, partition)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import Data.Map.Strict(Map)
-import qualified Data.Map.Strict as Map (null, delete, elems, insert, lookupMin, keys) -- used for Updates
+import qualified Data.Map.Strict as Map (null, delete, elems, insert, lookupMin, keys,lookup) -- used for Updates
 import Data.IntMap.Strict(IntMap)
 import qualified Data.IntMap.Strict as VMap (filterWithKey, alter, adjust, delete, lookup, (!), keysSet, member
                                             , fromAscList, fromList, assocs, insert, elems)
@@ -171,6 +172,7 @@ import Diagrams.Prelude (Point, V2) -- necessary for touch check (touchCheck) us
 import Tgraph.Prelude
 import Tgraph.Grid 
 import Control.Monad ( (>=>) )
+import Data.Maybe(mapMaybe)
 -- import TileLib ( Drawable ) 
 {-
 ***************************************************************************   
@@ -727,13 +729,22 @@ findSafeUpdate ups = snd <$> Map.lookupMin (safes ups)
    Left report if there are unsafes but all unsafes are blocked, where report describes the problem.
 -}
 tryUnsafes:: ForceState -> Try (Maybe BoundaryChange)
-tryUnsafes fs = checkBlocked 0 $ Map.elems $ unsafes $ updates fs where
-  bd = boundaryState fs
+tryUnsafes fs = tryUnsafesBS (boundaryState fs) (Map.elems $ unsafes $ updates fs) -- directed edge key order
+
+{-| tryUnsafesBS: called by tryUnsafes with a list of unsafe updates to try in order
+   tryUnsafesBS works through the unsafe updates in order and
+   completes the first unsafe update that is not blocked (by a touching vertex), returning Right (Just bdC)
+   where bdC is the resulting boundary change (if there is one).
+   It returns Right Nothing if there are no unsafe updates but
+   Left report if there are unsafes but all unsafes are blocked, where report describes the problem.
+-}
+tryUnsafesBS:: BoundaryState -> [Update] -> Try (Maybe BoundaryChange)
+tryUnsafesBS bd = checkBlocked 0 where
   -- the integer records how many blocked cases have been found so far
   checkBlocked:: Int -> [Update]  -> Try (Maybe BoundaryChange)
   checkBlocked 0 [] = return Nothing
   checkBlocked n [] = failReports 
-                        ["tryUnsafes: There are "
+                        ["tryUnsafesBS: There are "
                         ,show n
                         ," unsafe updates but ALL unsafe updates are blocked (by touching vertices)\n"
                         ,"This should not happen! However it may arise when accuracy limits are reached on very large Tgraphs.\n"
@@ -849,7 +860,7 @@ tryUpdate bd u@(SafeUpdate _) = trySafeUpdate bd u
 tryUpdate bd u@(UnsafeUpdate _) =
   case checkUnsafeUpdate bd u of
        Just bdC -> return bdC
-       Nothing ->  failReport "tryUpdate: crossing boundary (touching vertices).\n"
+       Nothing -> failReport "tryUpdate: crossing boundary (touching vertices).\n"
 
 -- |This recalibrates a BoundaryState by recalculating boundary vertex positions from scratch with locateGraphVertices.
 -- and a new grid of positions
@@ -877,7 +888,30 @@ tryRecalibratingForce = tryFSOp recalibrating where
 recalibratingForce :: Forcible c => c -> c
 recalibratingForce = runTry . tryRecalibratingForce
 
+-- | Not exported. Auxiliary ForceState function used by tryForceAt
+tryForceAtFS :: [Vertex] -> ForceState -> Try ForceState
+tryForceAtFS vs fs = do
+  let bs = boundaryState fs
+      boundaryFor v = if isBoundaryV v bs then boundaryAt v bs else []
+      des = Set.elems $ Set.fromList $ concatMap boundaryFor vs -- does nub and sort
+  ~ups <- applyUG defaultAllUGen bs des
+  let thesafes = mapMaybe (`Map.lookup` safes ups) des
+      ~theunsafes = mapMaybe (`Map.lookup` unsafes ups) des
+      fs0 = fs{updates = ups}
+  case thesafes of
+       (u:_) -> do bdChange <- trySafeUpdate bs u
+                   fs' <- tryReviseFS bdChange fs0
+                   tryForceAtFS vs fs'
+       []  -> do maybeBdC <- tryUnsafesBS bs theunsafes
+                 case maybeBdC of
+                       Just bdC -> do fs' <- tryReviseFS bdC fs0
+                                      tryForceAtFS vs fs'
+                       Nothing  -> return fs           -- no more updates
 
+-- | Experimental version of tryForce that only adds faces at the given vertices.
+-- (Any vertex not on the boundary is ignored).
+tryForceAt :: Forcible a => [Vertex] -> a -> Try a
+tryForceAt vs = tryFSOp (tryForceAtFS vs)
 
 {- $rules
 FORCING RULES:

@@ -4,7 +4,7 @@
 
 - Possibly breaking changes:
    - Replaced type UpdateMap with new data type Updates (using two maps).
-   - Renamed selector updateMap to updates
+   - Renamed selector updateMap to updates (in ForceState)
    - partComposeDWI has a different type returning a Tgraph with the remainder faces
    - Renamed matchingLongE,matchingJoinE,matchingShortE to sharingLongE,sharingJoinE,sharingShortE
    - Change to DartWingInfo (unMapped now includes kites with no dart wing at their oppV)
@@ -12,7 +12,7 @@
    - partComposeFaces - use - (runTry . tryPartComposeFaces)
    - boundaryEdgeSet - use - boundaryESet
    - boundaryVertexSet - use - boundaryVSet
-   - vertexFacesMap - use - vertexFMap . IntSet.fromList
+   - vertexFacesMap - use - (vertexFMap . IntSet.fromList)
    - dedgesFacesMap - use - dedgeFMap
    - boundaryEdgeFaces - use - boundaryEFaces
    - rotateBefore - use - (flip rotating)
@@ -33,8 +33,11 @@
    - allClashes - use - allTouching
 - Other Changes
   - Added: quickCompose and quickPartCompose (approximations to compose and partCompose that do not use a force operation)
-   - Added: verticesForBEs, vertexSetForEdges
-   - More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
+  - Added experimental tryForceAt
+  - Added experimental tryGetDartWingInfoLocal
+  - Added: verticesForBEs, vertexSetForEdges
+  - deprecated noNewConflict (renamed as compatibleNew)
+  - More laziness in BoundaryState (avoids vertex location calculation until any unsafe update)
 
 ## version 1.8.1
 

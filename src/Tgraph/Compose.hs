@@ -8,10 +8,7 @@ Stability   : experimental
 
 This module includes the main composition operations compose, partCompose,
 tryPartCompose and the more efficient versions composeF, partComposeF (for explicitly forced Tgraphs).
-It also exposes 
-auxiliary functions
-tryGetDartWingInfo, getDartWingInfoForced (and type DartWingInfo)
-for debugging but getDartWingInfoForced is no longer used internally.
+It also exposes some auxiliary functions for debugging/experimental purposes.
 -}
 {-# LANGUAGE Strict                #-} 
 {-# OPTIONS_GHC -Wno-deprecations  #-}
@@ -23,16 +20,15 @@ module Tgraph.Compose
     -- * General compose operations 
   , compose
   , partCompose
+  , tryPartCompose
   , quickCompose
   , quickPartCompose
-  , tryPartCompose
-  , tryPartComposeFaces
   -- * Exported auxiliary functions (and type)
+  , tryPartComposeFaces
   , partComposeDWI
   , DartWingInfo(..)
-  -- , getDWIassumeF
-  -- , getDartWingInfo
   , tryGetDartWingInfo
+  , tryGetDartWingInfoLocal
   , getDartWingInfoForced
   ) where
 
@@ -45,30 +41,27 @@ import Data.Maybe (catMaybes, fromMaybe)
 import Data.IntSet(IntSet)
 import qualified Data.IntSet as IntSet (empty,insert,toList)
 import Tgraph.Prelude
-import Tgraph.Force ( Forced(), forgetF, labelAsForced, tryForce )
-{-------------------------------------------------------------------------
-***************************************************************************              
-COMPOSING composeF, compose, partCompose, tryPartCompose, ...
-***************************************************************************
----------------------------------------------------------------------------}
+import Tgraph.Force ( Forced(), forgetF, labelAsForced, tryForce, tryForceAt )
 
--- |The main compose (partial) function which simply drops the remainder faces from partCompose to return just
--- the composed Tgraph.  It will raise an error if the result is not a valid Tgraph
--- (i.e. if it fails the connectedness, no crossing boundary check).
--- It does not assume the given Tgraph is forced.
+-- |The general compose (partial) function which simply drops the remainder faces from partCompose to return just
+-- the composed Tgraph. 
+-- It does not assume the given Tgraph is forced which makes it an expensive operation on large Tgraphs.
 -- It inspects the forced version to classify dart wings (hence costing a force operation).
 -- It can raise an error if the Tgraph is found to be incorrect when calculating the forced version).
--- (See also composeF and compForce.)
+-- It will raise an error if the result is not a valid Tgraph
+-- (i.e. if it fails the connectedness, no crossing boundary check at the end).
+-- (See also composeF and compForce and quickCompose.)
 compose:: HasGraph a => a -> Tgraph
 compose = snd . partCompose
 
 -- |partCompose g is a partial function producing a pair consisting of remainder faces (faces from g which will not compose) 
--- and a composed Tgraph. 
--- It checks the composed Tgraph for connectedness and no crossing boundaries
--- raising an error if this check fails.
+-- and a composed Tgraph.
+-- It does not assume the given Tgraph is forced which makes it an expensive operation on large Tgraphs.
 -- It inspects the forced version to classify dart wings (hence costing a force operation).
 -- It can raise an error if the Tgraph is found to be incorrect when calculating the forced version).
--- (See also quickPartCompose)
+-- It checks the composed faces for connectedness and no crossing boundaries
+-- raising an error if this check fails.
+-- (See also partComposeF and quickPartCompose.)
 partCompose:: HasGraph a => a -> ([TileFace],Tgraph)
 partCompose = runTry . onFail "partCompose:\n" . tryPartCompose . recoverGraph
 
@@ -98,12 +91,10 @@ tryPartComposeFaces g =
 -- Since fg is a forced Tgraph it does not need a check for validity (connected and no crossing boundaries) of the composed Tgraph.
 -- The fact that the function is total and the result is also Forced relies on theorems
 -- established for composing.
--- The calculation of remainder faces is also more efficient with a known forced Tgraph.
--- Also dartWingInfo does not need to be calculated for composing a forced Tgraph.
 partComposeF:: HasGraph a => Forced a -> ([TileFace], Forced Tgraph)
 partComposeF fg = (remainder, labelAsForced $ makeUncheckedTgraph newfaces) where
   -- !evalnewfaces = evalFaces newfaces
-  (_,dwFMap,unused) = dartsMapUnused (recoverGraph fg)
+  (dwFMap,unused) = dwMapUnused (recoverGraph fg)
   (remainder,newfaces) = foldl' checkDW (unused,[]) (VMap.keys dwFMap)
   checkDW (rems, nfcs) w = 
      let fcs = dwFMap  VMap.! w
@@ -147,7 +138,8 @@ composeF = snd . partComposeF
 -- Faces at a largeDartBase vertex will form dart faces when composed (excludin kites with origin at the largeDartBase).
 -- Faces at an unknown vertex cannot be composed.
 -- The record includes a faceMap from dart wings to faces at that vertex.
--- A list (unMapped) which includes any kites not in the faceMap and those only in the faceMap at the kite origin.
+-- A list (unMapped) of faces that will necessarily be remainder faces.
+-- (this includes kite-halves not in the faceMap and those kite halves only in the faceMap at the kite origin.
 --
 -- NB. Kites that only have a dart wing at their origin, are added to the map for dart wing classification purposes
 -- but not used when composing at largeDartBases, hence they need to be recorded as unMapped as well.
@@ -198,11 +190,11 @@ classifyDartWings dwMap = foldl' classifyDartWing (IntSet.empty, IntSet.empty, I
 tryGetDartWingInfo :: HasGraph a => a -> Try DartWingInfo
 tryGetDartWingInfo a =
   do let g = recoverGraph a
-         (drts,dwFMap,unused) = dartsMapUnused g 
+         (dwFMap,unused) = dwMapUnused g 
      fg <- onFail "tryGetDartWingInfo: incorrect Tgraph (found during forcing).\n" $ tryForce g
-     let (_,~dwFMapForced,_) = dartsMapUnused fg
+     let (~dwFMapForced,_) = dwMapUnused fg
          -- forced version is used for classifying (but darts from original graph)
-         (allKcs,allDbs,allUnks) = classifyDartWings dwFMapForced (map wingV drts)  
+         (allKcs,allDbs,allUnks) = classifyDartWings dwFMapForced (VMap.keys dwFMap) --(map wingV drts)  
      return $ DartWingInfo 
                { largeKiteCentres = IntSet.toList allKcs
                , largeDartBases = IntSet.toList allDbs
@@ -210,6 +202,26 @@ tryGetDartWingInfo a =
                , faceMap = dwFMap -- original map (not forced version)
                , unMapped = unused -- from original Tgraph
                }
+
+-- |Experimental version of tryGetDartWingInfo that only forces at the dart wings
+-- rather than a complete force to retrieve dart wing information.
+tryGetDartWingInfoLocal :: HasGraph a => a -> Try DartWingInfo
+tryGetDartWingInfoLocal a =
+  do let g = recoverGraph a
+         (dwFMap,unused) = dwMapUnused g
+         wings = VMap.keys dwFMap
+     fg <- onFail "tryGetDartWingInfoLocal: incorrect Tgraph (found during forcing).\n" $ tryForceAt wings g
+     let (~dwFMapExtra,_) = dwMapUnused fg
+         -- forced version is used for classifying (but darts from original graph)
+         (allKcs,allDbs,allUnks) = classifyDartWings dwFMapExtra (VMap.keys dwFMap)  
+     return $ DartWingInfo 
+               { largeKiteCentres = IntSet.toList allKcs
+               , largeDartBases = IntSet.toList allDbs
+               , unknowns = IntSet.toList allUnks
+               , faceMap = dwFMap -- original map (not forced version)
+               , unMapped = unused -- from original Tgraph
+               }
+ 
 
 -- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg
 -- and calculates a faceMap for each dart wing, returning as DartWingInfo.
@@ -222,10 +234,10 @@ getDartWingInfoForced fg =
                , faceMap = dwFMap
                , unMapped = unused
                } where
-  (drts,dwFMap,unused) = dartsMapUnused (forgetF fg)
-  (allKcs,allDbs,allUnks) = classifyDartWings dwFMap (map wingV drts)  
+  (dwFMap,unused) = dwMapUnused (forgetF fg)
+  (allKcs,allDbs,allUnks) = classifyDartWings dwFMap  (VMap.keys dwFMap) --(map wingV drts)  
 
--- | A faster version of compose which may underestimate the composable faces.
+-- |A faster version of compose which may underestimate the composable faces.
 -- It does not use force to check classification of dart wings, so some dart wings may be
 -- incorrectly classified as unknown (leaving fewer composed faces).
 -- It checks the resulting Tgraph for connected and no crossing boundaries, so
@@ -243,7 +255,7 @@ quickCompose = snd . quickPartCompose
 quickPartCompose:: HasGraph a => a -> ([TileFace], Tgraph)
 quickPartCompose a = (remainder, checked) where
   checked = runTry $ onFail "quickPartCompose:\n" $ tryConnectedNoCross newfaces
-  (_,dwFMap,unused) = dartsMapUnused (recoverGraph a)
+  (dwFMap,unused) = dwMapUnused (recoverGraph a)
   (remainder,newfaces) = foldl' checkDW (unused,[]) (VMap.keys dwFMap)
   checkDW (rems, nfcs) w = 
      let fcs = dwFMap  VMap.! w
@@ -272,7 +284,7 @@ quickPartCompose a = (remainder, checked) where
                     -- otherwise assume unknown
                  else (fcs++rems, nfcs) 
 
-  wanted v f = isDart f || originV f /=v
+  wanted v f = isDart f || originV f /=v -- ignore kites with origin at v
   shortMatch [] = False
   shortMatch [ _ ] =  False
   shortMatch (k:more) = any (sharedShortE k) more || shortMatch more
@@ -304,65 +316,15 @@ quickPartCompose a = (remainder, checked) where
            lk <- find (sharedJoinE rk) fs
            return (makeLK (originV ld) (originV lk) (wingV lk):nfs, fs\\[ld,rk,lk])
 
-
-{- HISTORICAL keep for info used in processD
-
--- | getDWIassumeF (not exported but used to define 2 cases getDartWingInfoForced and tryGetDartWingInfo).
--- getDWIassumeF isForced g fg (where fg is forceF g), classifies the dart wings in g and calculates a faceMap for each dart wing,
--- returning as DartWingInfo. The boolean isForced is used to decide if g can be assumed to be forced.
--- When this is True, the classification is simpler and does not use fg.
-getDWIassumeF:: Bool -> Tgraph -> Forced Tgraph -> DartWingInfo
-getDWIassumeF isForced g fg =  
-  DartWingInfo { largeKiteCentres = IntSet.toList allKcs
-               , largeDartBases = IntSet.toList allDbs
-               , unknowns = IntSet.toList allUnks
-               , faceMap = dwFMap
-               , unMapped = unused
-               } where
-  (drts,dwFMap,unused) = dartsMapUnused g
-  (_,~dwFMapForced,_) = if isForced then ([],dwFMap,[]) else dartsMapUnused (forgetF fg)
-  (allKcs,allDbs,allUnks) = foldl' processD (IntSet.empty, IntSet.empty, IntSet.empty) drts  
--- kcs = kite centres of larger kites,
--- dbs = dart bases of larger darts,
--- unks = unclassified dart wing vertices
--- Uses a triple of IntSets rather than lists
-  processD (kcs, dbs, unks) drt =
-    let w = wingV drt
---        revLongE = reverseD (longE drt)
-    in
-        if w `IntSet.member` kcs || w `IntSet.member` dbs then (kcs, dbs, unks) else-- already classified
-        let
-            fcs = dwFMap VMap.! w -- list of  faces at w
-        in
-            if w `elem` map originV (filter isKite fcs) then (kcs,IntSet.insert w dbs,unks) else 
-                    -- wing is a half kite origin => largeDartBase
- --           if revLongE `elem` map longE (filter isDart fcs) then (IntSet.insert w kcs,dbs,unks) else 
-            if any (matchingLongE drt) (filter isDart fcs) then (IntSet.insert w kcs,dbs,unks) else 
-                     -- long edge drt shared with another dart => largeKiteCentre
-            if isForced then (kcs, dbs, IntSet.insert w unks) else
-            let     -- (when not already forced) check forced faces 
-                ffcs = dwFMapForced VMap.! w --filter (isAtV w) (faces fg)
-            in case length ffcs of
-                 -- 8 faces = large dart base
-                 8 -> (kcs,IntSet.insert w dbs,unks)
-                 -- 6 faces = lrge kite centre
-                 6 -> (IntSet.insert w kcs,dbs,unks)
-                 -- 3 faces = unknown on boundary
-                 3 -> (kcs,dbs,IntSet.insert w unks)
-                 other -> error $ 
-                           "getDWIassumeF: Not possible for a forced Tgraph\n" ++
-                           "Number of faces should be 8,6,or 3 in forced version of Tgraph but found " ++ show other ++
-                           "\nat dart wing vertex: " ++ show w ++ "\n"
- -}
  
 {- |Not exported - used in partComposeF, getDartWingInfoForced and tryGetDartWingInfo.
-Returns a triple of:
- list of all half-darts,
+Returns a pair of:
  a dart wing to faces map, and 
  unused - kites guaranteed to be remainder in a composition.
+A dart wing list (without duplicates) can be recovered from the map keys.
 -}
-dartsMapUnused :: Tgraph -> ([TileFace], VertexMap [TileFace],[TileFace])
-dartsMapUnused g = (drts,dwFMap,unused) where
+dwMapUnused :: Tgraph -> (VertexMap [TileFace],[TileFace])
+dwMapUnused g = (dwFMap,unused) where
     (drts,kts) = partition isDart (faces g)
   -- special case of vertexFacesMap for dart wings only
   -- using only relevant vertices where there is a dart wing.
