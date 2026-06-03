@@ -192,7 +192,7 @@ tryGetDartWingInfo a =
   do let g = recoverGraph a
          (dwFMap,unused) = dwMapUnused g 
      fg <- onFail "tryGetDartWingInfo: incorrect Tgraph (found during forcing).\n" $ tryForce g
-     let (~dwFMapForced,_) = dwMapUnused fg
+     let dwFMapForced = extendMap dwFMap (extraFaces (faces fg) (faces g)) -- dwMapUnused fg
          -- forced version is used for classifying (but darts from original graph)
          (allKcs,allDbs,allUnks) = classifyDartWings dwFMapForced (VMap.keys dwFMap) --(map wingV drts)  
      return $ DartWingInfo 
@@ -203,6 +203,26 @@ tryGetDartWingInfo a =
                , unMapped = unused -- from original Tgraph
                }
 
+-- | Not exported , used by tryGetDartWingInfo to extend an existing dartwing faces map
+-- only at the existing dart wings using new faces.
+extendMap :: VertexMap [TileFace] -> [TileFace] -> VertexMap [TileFace]
+extendMap dwm fcs = dwmFinal where
+  (drts,kts) = partition isDart fcs
+  dwm1 = foldl' insertDIF dwm drts
+  dwmFinal = foldl' insertKIF dwm1 kts
+  insertDIF m d = VMap.alter (addF d) (wingV d) m
+  insertKIF m k = VMap.alter (addF k) (oppV k) $ VMap.alter (addF k) (originV k) m
+  addF _ Nothing = Nothing  -- not added to map if it is not a dart wing vertex
+  addF f (Just fs) = Just (f:fs)
+
+-- | Not exported , used by tryGetDartWingInfo to get the new faces added to a forced tgraph.
+-- It assumes the first list of faces extends the second list only by adding to the front.
+-- It returns the front part of the list that has been added.
+extraFaces :: [TileFace] -> [TileFace] -> [TileFace]
+extraFaces fg [] = fg
+extraFaces fg (f:_) = takeWhile (/= f) fg
+
+
 -- |Experimental version of tryGetDartWingInfo that only forces at the dart wings
 -- rather than a complete force to retrieve dart wing information.
 tryGetDartWingInfoLocal :: HasGraph a => a -> Try DartWingInfo
@@ -211,7 +231,7 @@ tryGetDartWingInfoLocal a =
          (dwFMap,unused) = dwMapUnused g
          wings = VMap.keys dwFMap
      fg <- onFail "tryGetDartWingInfoLocal: incorrect Tgraph (found during forcing).\n" $ tryForceAt wings g
-     let (~dwFMapExtra,_) = dwMapUnused fg
+     let dwFMapExtra = extendMap dwFMap (extraFaces (faces fg) (faces g)) --dwMapUnused fg
          -- forced version is used for classifying (but darts from original graph)
          (allKcs,allDbs,allUnks) = classifyDartWings dwFMapExtra (VMap.keys dwFMap)  
      return $ DartWingInfo 

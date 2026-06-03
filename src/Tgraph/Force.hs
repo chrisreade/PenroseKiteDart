@@ -366,6 +366,8 @@ noUpdates ups = Map.null (safes ups) && Map.null (unsafes ups)
 
 -- |ForceState: The force state records information between executing single face updates during forcing
 -- (a BoundaryState , updates, and an UpdateGenerator).
+-- A convention throughout is to initialize and leave a ForceState with the default update generator
+-- and corresponding updates. It is important that the updates are calculated lazily in case they are not used.
 data ForceState = ForceState
     { boundaryState:: BoundaryState
     , updates:: ~Updates  -- lazy field may not be used
@@ -451,12 +453,6 @@ instance Forcible Tgraph where
     tryChangeBoundary f = -- update generator not used
         fmap recoverGraph . tryChangeBoundary f . makeBoundaryState
 
--- |Resets the update generator in a ForceState (and recalculates updates)
-trySetUG :: UpdateGenerator -> ForceState -> Try ForceState       
-trySetUG ugen fs = do
-    ~ups <- applyUG ugen (boundaryState fs) (boundary fs)
-    return $ fs { updates = ups, updater = ugen }
-
 -- |ForceState only operation to do all update steps.
 -- Used to define the more general tryForce
 tryFinishFS :: ForceState -> Try ForceState
@@ -466,13 +462,24 @@ tryFinishFS fs =  do
       Just (fs',_) -> tryFinishFS fs'
       Nothing -> return fs -- final state (no more updates)
 
--- |A version of tryFSOp that uses the supplied update generator rather than the default.
+-- |A version of tryFSOp that (temporarily) uses the supplied update generator rather than the default
+-- to perform the supplied try ForceState operation.
+-- It will reset the default update generator (in case a resulting ForceState is used after completion).
 tryFSOpWith :: Forcible a => UpdateGenerator -> (ForceState -> Try ForceState) -> a -> Try a
-tryFSOpWith ugen f = tryFSOp (trySetUG ugen >=> f)
+tryFSOpWith ugen f = tryFSOp (trySetUG ugen >=> f >=> trySetUG defaultAllUGen)
+
+-- |Not exported. Only used in tryFSOpWith,
+-- Resets the update generator in a ForceState (and recalculates updates lazily)
+-- It is used twice in tryFSOpWith to restore the default.
+trySetUG :: UpdateGenerator -> ForceState -> Try ForceState       
+trySetUG ugen fs = do
+    ~ups <- applyUG ugen (boundaryState fs) (boundary fs)
+    return $ fs { updates = ups, updater = ugen }
 
 -- | try forcing using a given UpdateGenerator.
 --  tryForceWith uGen fs - does updates using uGen until there are no more updates.
 --  It produces Left report if it encounters a Forcible representing a stuck/incorrect Tgraph.
+-- It will reset the default update generator and updates (in case a resulting ForceState is used after completion).
 tryForceWith :: Forcible a => UpdateGenerator -> a -> Try a
 tryForceWith ug = tryFSOpWith ug tryFinishFS
 
@@ -492,6 +499,7 @@ wholeTiles = forceWith wholeTileUpdates
 
 -- | forceWith ugen: force using the supplied UpdateGenerator ugen.
 -- This raises an error on discovering a stuck/incorrect Forcible.
+-- It will reset the default update generator and updates (in case a resulting ForceState is used after completion).
 forceWith:: Forcible a => UpdateGenerator -> a -> a
 forceWith ugen = runTry . tryForceWith ugen
 
@@ -894,6 +902,23 @@ tryForceAtFS vs fs = do
   let bs = boundaryState fs
       boundaryFor v = if isBoundaryV v bs then boundaryAt v bs else []
       des = Set.elems $ Set.fromList $ concatMap boundaryFor vs -- does nub and sort
+  let thesafes = mapMaybe (`Map.lookup` safes (updates fs)) des
+      ~theunsafes = mapMaybe (`Map.lookup` unsafes (updates fs)) des
+  case thesafes of
+       (u:_) -> do bdChange <- trySafeUpdate bs u
+                   fs' <- tryReviseFS bdChange fs
+                   tryForceAtFS vs fs'
+       []  -> do maybeBdC <- tryUnsafesBS bs theunsafes
+                 case maybeBdC of
+                       Just bdC -> do fs' <- tryReviseFS bdC fs
+                                      tryForceAtFS vs fs'
+                       Nothing  -> return fs           -- no more updates
+
+{- tryForceAtFS :: [Vertex] -> ForceState -> Try ForceState
+tryForceAtFS vs fs = do
+  let bs = boundaryState fs
+      boundaryFor v = if isBoundaryV v bs then boundaryAt v bs else []
+      des = Set.elems $ Set.fromList $ concatMap boundaryFor vs -- does nub and sort
   ~ups <- applyUG defaultAllUGen bs des
   let thesafes = mapMaybe (`Map.lookup` safes ups) des
       ~theunsafes = mapMaybe (`Map.lookup` unsafes ups) des
@@ -907,7 +932,7 @@ tryForceAtFS vs fs = do
                        Just bdC -> do fs' <- tryReviseFS bdC fs0
                                       tryForceAtFS vs fs'
                        Nothing  -> return fs           -- no more updates
-
+ -}
 -- | Experimental version of tryForce that only adds faces at the given vertices.
 -- (Any vertex not on the boundary is ignored).
 tryForceAt :: Forcible a => [Vertex] -> a -> Try a
