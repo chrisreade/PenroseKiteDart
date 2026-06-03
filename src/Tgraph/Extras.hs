@@ -266,8 +266,8 @@ emphasizeFaces a g = (smartOn a draw vp # lw thin) <>
 
 
 -- | For illustrating an unsound version of composition.
--- This composition defaults to 
--- forming a large half kite when there is an unknown
+-- This composition defaults to trying to form
+-- a large half kite when there is an unknown
 -- dart wing on the boundary with a complete kite at the short edge of the half dart.
 -- This is unsound in that it can create an incorrect Tgraph from a correct Tgraph.
 -- E.g. when applied to force queenGraph.

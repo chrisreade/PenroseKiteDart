@@ -900,39 +900,20 @@ recalibratingForce = runTry . tryRecalibratingForce
 tryForceAtFS :: [Vertex] -> ForceState -> Try ForceState
 tryForceAtFS vs fs = do
   let bs = boundaryState fs
-      boundaryFor v = if isBoundaryV v bs then boundaryAt v bs else []
-      des = Set.elems $ Set.fromList $ concatMap boundaryFor vs -- does nub and sort
+      bvs = filter (`isBoundaryV` bs) vs
+      des = Set.elems $ Set.fromList $ concatMap (`boundaryAt` bs) bvs -- does nub and sort
   let thesafes = mapMaybe (`Map.lookup` safes (updates fs)) des
       ~theunsafes = mapMaybe (`Map.lookup` unsafes (updates fs)) des
   case thesafes of
        (u:_) -> do bdChange <- trySafeUpdate bs u
                    fs' <- tryReviseFS bdChange fs
-                   tryForceAtFS vs fs'
+                   tryForceAtFS bvs fs'
        []  -> do maybeBdC <- tryUnsafesBS bs theunsafes
                  case maybeBdC of
                        Just bdC -> do fs' <- tryReviseFS bdC fs
-                                      tryForceAtFS vs fs'
+                                      tryForceAtFS bvs fs'
                        Nothing  -> return fs           -- no more updates
 
-{- tryForceAtFS :: [Vertex] -> ForceState -> Try ForceState
-tryForceAtFS vs fs = do
-  let bs = boundaryState fs
-      boundaryFor v = if isBoundaryV v bs then boundaryAt v bs else []
-      des = Set.elems $ Set.fromList $ concatMap boundaryFor vs -- does nub and sort
-  ~ups <- applyUG defaultAllUGen bs des
-  let thesafes = mapMaybe (`Map.lookup` safes ups) des
-      ~theunsafes = mapMaybe (`Map.lookup` unsafes ups) des
-      fs0 = fs{updates = ups}
-  case thesafes of
-       (u:_) -> do bdChange <- trySafeUpdate bs u
-                   fs' <- tryReviseFS bdChange fs0
-                   tryForceAtFS vs fs'
-       []  -> do maybeBdC <- tryUnsafesBS bs theunsafes
-                 case maybeBdC of
-                       Just bdC -> do fs' <- tryReviseFS bdC fs0
-                                      tryForceAtFS vs fs'
-                       Nothing  -> return fs           -- no more updates
- -}
 -- | Experimental version of tryForce that only adds faces at the given vertices.
 -- (Any vertex not on the boundary is ignored).
 tryForceAt :: Forcible a => [Vertex] -> a -> Try a

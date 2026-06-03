@@ -222,7 +222,6 @@ extraFaces :: [TileFace] -> [TileFace] -> [TileFace]
 extraFaces fg [] = fg
 extraFaces fg (f:_) = takeWhile (/= f) fg
 
-
 -- |Experimental version of tryGetDartWingInfo that only forces at the dart wings
 -- rather than a complete force to retrieve dart wing information.
 tryGetDartWingInfoLocal :: HasGraph a => a -> Try DartWingInfo
@@ -241,7 +240,6 @@ tryGetDartWingInfoLocal a =
                , faceMap = dwFMap -- original map (not forced version)
                , unMapped = unused -- from original Tgraph
                }
- 
 
 -- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg
 -- and calculates a faceMap for each dart wing, returning as DartWingInfo.
@@ -304,7 +302,7 @@ quickPartCompose a = (remainder, checked) where
                     -- otherwise assume unknown
                  else (fcs++rems, nfcs) 
 
-  wanted v f = isDart f || originV f /=v -- ignore kites with origin at v
+  wanted v f = isDart f || originV f /=v -- ignore kites with origin at v after classifying v
   shortMatch [] = False
   shortMatch [ _ ] =  False
   shortMatch (k:more) = any (sharedShortE k) more || shortMatch more
@@ -378,12 +376,11 @@ dwMapUnused g = (dwFMap,unused) where
 
 -- |partComposeDWI constructs a pair of remainder faces and a composed Tgraph
 -- from dart wing information (DWI).
--- This is used in defining tryPartCompose but also exported
--- (used in the composeK example in Extras).
 -- It does not assume the dart wing info has come from a forced Tgraph
 -- so a check on connected and no crossing boundaries is performed on the composed faces
 -- and will raise an error if this fails.
 partComposeDWI :: DartWingInfo -> ([TileFace],Tgraph)
+-- This is used in defining tryPartCompose but also exported (used in the composeK example in Extras).
 partComposeDWI dwi = (remainder,g) where
   g = runTry $ tryConnectedNoCross fcs
   (remainder,fcs) = partComposeFacesDWI dwi
