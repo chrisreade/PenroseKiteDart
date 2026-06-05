@@ -1,13 +1,13 @@
 # Revision history for PenroseKiteDart
 
-## since version 1.8.1
+## version 1.9
 
 - Possibly breaking changes:
    - Replaced type UpdateMap with new data type Updates (using two maps).
    - Renamed selector updateMap to updates (in ForceState)
    - partComposeDWI has a different type returning a Tgraph with the remainder faces
    - Renamed matchingLongE,matchingJoinE,matchingShortE to sharingLongE,sharingJoinE,sharingShortE
-   - Change to DartWingInfo (unMapped now includes kites with no dart wing at their oppV)
+   - Change to DartWingInfo. Selector unMapped is changed to remaining. The remaining list now includes all kites without a dart wing at their oppV.
 - Removed Deprecated:
    - partComposeFaces - use - (runTry . tryPartComposeFaces)
    - boundaryEdgeSet - use - boundaryESet

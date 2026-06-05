@@ -322,16 +322,16 @@ except combinations which are found to be incorrect.
 The common faces of the covers constitute an empire (level 1) of g.
 This will raise an error if the initial force fails with an incorrect/stuck Tgraph.
 -}
-forcedBoundaryECovering:: Tgraph -> [Forced Tgraph]
+forcedBoundaryECovering:: Forcible a => a -> [Forced Tgraph]
 forcedBoundaryECovering g = withForced recoverGraph <$> boundaryECovering gforcedBdry where
      gforcedBdry = runTry $ onFail "forcedBoundaryECovering:Initial force failed (incorrect Tgraph)\n" 
-                          $ tryInitFS g  >>= tryForceF
+                          $ tryInitFS g >>= tryForceF
 
 {-| forcedBoundaryVCovering g - produces a list of all boundary covers of force g as with
 forcedBoundaryECovering g but covering all boundary vertices rather than just boundary edges.
 This will raise an error if the initial force fails with an incorrect/stuck Tgraph.                      
 -}
-forcedBoundaryVCovering:: Tgraph -> [Forced Tgraph]
+forcedBoundaryVCovering:: Forcible a => a -> [Forced Tgraph]
 forcedBoundaryVCovering g = withForced recoverGraph <$> boundaryVCovering ffs where
      ffs = runTry $ onFail "forcedBoundaryVCovering:Initial force failed (incorrect Tgraph)\n"
                   $ tryInitFS g  >>= tryForceF 
@@ -427,41 +427,11 @@ tryCheckCasesDKF de fa =
         tryFSOp (tryAddHalfKite de >=> tryForce) a
     ] where a = forgetF fa
 
-{- tryCheckCasesDKF :: (Forcible a, Show a) => Dedge -> Forced a -> Try [Forced a]
-tryCheckCasesDKF dedge fb = 
-    onFail ("tryCheckCasesDKF: <<< Counter Example Found!! >>>\n"
-            ++ "\nBoth legal extensions to directed edge " ++ show dedge
-            ++ " \nare incorrrect for a successfully forced Forcible.\n"
-            ++ "This shows a successfully forced forcible can still be incorrect\n"
-            ++ "which is a counter example to the hypothesis that successful forcing\n"
-            ++ "returns correct tilings.\n\n"
-            ++ "The incorrect but forced forcible is:\n"
-            ++ show fb
-           )
-    $ tryAtLeastOne $ tryDartAndKiteF dedge (forgetF fb)
-  
--- | checkCasesDKF dedge fb (where fb is an explicitly forced Forcible
--- and dedge is a directed boundary edge of fb) tries to add both a half kite and a half dart to the edge
--- then tries forcing each result.
--- It returns the list of only the successful results provided there is AT LEAST ONE.
--- If there are no successes, this may be an important counter example 
--- and it will raise an error describing the counter example
--- to the following:
---
--- Hypothesis: A successfully forced Tgraph is correct (a correct tiling).
---
--- (If both legal additions to a boundary edge are incorrect,
--- then the (Forced) Forcible must be incorrect).
-checkCasesDKF :: (Forcible a, Show a) => Dedge -> Forced a -> [Forced a]
-checkCasesDKF dedge = runTry . tryCheckCasesDKF dedge
- -} 
-
 -- |A test function to draw (as a column) the list of covers resulting from forcedBoundaryVCovering
--- for a given Tgraph.
-drawFBCovering :: OKBackend b =>
-                  Tgraph -> Diagram b
+-- for a given forcible.
+drawFBCovering :: (OKBackend b, Forcible a) =>
+                  a -> Diagram b
 drawFBCovering g = lw ultraThin $ vsep 1 (draw . recoverGraph <$> forcedBoundaryVCovering g)
-
 
 -- | empire1 g - produces a TrackedTgraph representing the level 1 empire of g.
 -- Raises an error if force g fails with a stuck/incorrect Tgraph.

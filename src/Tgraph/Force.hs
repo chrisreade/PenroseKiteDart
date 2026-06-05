@@ -412,7 +412,8 @@ newtype UpdateGenerator = UpdateGenerator {applyUG :: BoundaryState -> [Dedge] -
 -- force related operations to be generalised for use on any Forcible.
 -- For example tryAddHalfKite and tryAddHalfDart are implemented using tryChangeBoundary.
 class Forcible a where
-    -- | tryFSOp (try ForseState Operation), generalises a (try) ForceState operation to a (try) Forcible operation.
+    -- | tryFSOp (try ForseState Operation), generalises a (try) ForceState operation to a (try) Forcible operation
+    -- (beginning and ending with the same forcible type).
     --
     -- To improve performance of a sequence of force related operations, express each as a
     -- ForceState -> Try ForceState, then compose (e.g. using (\<=\<) or (\>=\>) from Control.Monad) and pass to tryFSOp.
@@ -422,7 +423,8 @@ class Forcible a where
     -- This uses defaultAllUGen for Tgraphs and BoundaryStates but stored update generator when the instance is a ForceState.
     -- (See also tryFSOpWith).
     tryInitFS :: a -> Try ForceState
-    -- | tryChangeBoundary, converts a (try) BoundaryState changing operation to a (try) Forcible operation.
+    -- | tryChangeBoundary, converts a (try) BoundaryState changing operation to a (try) Forcible operation
+    -- (beginning and ending with the same forcible type).
     tryChangeBoundary :: (BoundaryState -> Try BoundaryChange) -> a -> Try a
 
 -- |ForceStates are Forcible

@@ -138,24 +138,24 @@ composeF = snd . partComposeF
 -- Faces at a largeDartBase vertex will form dart faces when composed (excludin kites with origin at the largeDartBase).
 -- Faces at an unknown vertex cannot be composed.
 -- The record includes a faceMap from dart wings to faces at that vertex.
--- A list (unMapped) of faces that will necessarily be remainder faces.
+-- A list (remaining) of faces that will necessarily be remainder faces.
 -- (this includes kite-halves not in the faceMap and those kite halves only in the faceMap at the kite origin.
 --
 -- NB. Kites that only have a dart wing at their origin, are added to the map for dart wing classification purposes
--- but not used when composing at largeDartBases, hence they need to be recorded as unMapped as well.
+-- but not used when composing at largeDartBases, hence they need to be recorded as remaining as well.
 -- Such kites cannot exist in a forced Tgraph, so this only arises when composing unforced Tgraphs.
 data DartWingInfo =  DartWingInfo 
      { largeKiteCentres  :: [Vertex] -- ^ dart wing vertices classified as large kite centres.
      , largeDartBases  :: [Vertex]  -- ^ dart wing vertices classified as large dart bases.
      , unknowns :: [Vertex] -- ^ unclassified (boundary) dart wing vertices.
      , faceMap :: VertexMap [TileFace] -- ^ a mapping from dart wing vertices to faces at the vertex.
-     , unMapped :: [TileFace] -- ^ any kites whose oppV is not at a dart wing vertex.
+     , remaining :: [TileFace] -- ^ any kites whose oppV is not at a dart wing vertex.
      } deriving Show
 
 {- -- |Recover a list of faces (no repetitions) contained in the dart wing info.
 -- (These should be all faces of the Tgraph used to make the dart wing info.)
 recoverFaces :: DartWingInfo -> [TileFace]
-recoverFaces dwInfo =  nub $ concat (unMapped dwInfo : VMap.elems (faceMap dwInfo))
+recoverFaces dwInfo =  nub $ concat (remaining dwInfo : VMap.elems (faceMap dwInfo))
  -}
 
 -- | Not exported. (Used by tryGetDartWingInfo and getDartWingInfoForced.)
@@ -200,7 +200,7 @@ tryGetDartWingInfo a =
                , largeDartBases = IntSet.toList allDbs
                , unknowns = IntSet.toList allUnks
                , faceMap = dwFMap -- original map (not forced version)
-               , unMapped = unused -- from original Tgraph
+               , remaining = unused -- from original Tgraph
                }
 
 -- | Not exported , used by tryGetDartWingInfo to extend an existing dartwing faces map
@@ -238,7 +238,7 @@ tryGetDartWingInfoLocal a =
                , largeDartBases = IntSet.toList allDbs
                , unknowns = IntSet.toList allUnks
                , faceMap = dwFMap -- original map (not forced version)
-               , unMapped = unused -- from original Tgraph
+               , remaining = unused -- from original Tgraph
                }
 
 -- | getDartWingInfoForced fg (fg an explicitly Forced Tgraph) classifies the dart wings in fg
@@ -250,7 +250,7 @@ getDartWingInfoForced fg =
                , largeDartBases = IntSet.toList allDbs
                , unknowns = IntSet.toList allUnks
                , faceMap = dwFMap
-               , unMapped = unused
+               , remaining = unused
                } where
   (dwFMap,unused) = dwMapUnused (forgetF fg)
   (allKcs,allDbs,allUnks) = classifyDartWings dwFMap  (VMap.keys dwFMap) --(map wingV drts)  
@@ -392,12 +392,12 @@ partComposeDWI dwi = (remainder,g) where
 -- It does not assume the dart wing info has come from a forced Tgraph
 -- so the resulting composed faces may not form a valid Tgraph.
 --
--- This version relies on kites that only have a dart wing at their origin, being included in unMapped.
+-- This version relies on kites that only have a dart wing at their origin, being included in remaining.
 -- Such kites are also recorded in the dart wing/(kite origin) for classification purposes but then
 -- filtered out when composing at a largeDartBase.
 partComposeFacesDWI :: DartWingInfo -> ([TileFace],[TileFace])
 partComposeFacesDWI dwInfo = (remainder, newfaces) where
-    ~remainder0 = unMapped dwInfo ++ concatMap facesFor (unknowns dwInfo)
+    ~remainder0 = remaining dwInfo ++ concatMap facesFor (unknowns dwInfo)
     (~remainder1,newfaces1) = foldl' collectDarts (remainder0,[]) (largeDartBases dwInfo)
     (~remainder,newfaces) = foldl' collectKites (remainder1,newfaces1) (largeKiteCentres dwInfo)
     facesFor v = faceMap dwInfo VMap.! v
