@@ -31,7 +31,7 @@ import qualified Control.Monad (void) -- used for tileLabel
 {-|
 Representing half tile pieces polymorphicly.
 The type parameter (rep) is specialised for graphs and vector representations of tilings. 
-For Pieces - rep is V2 Double
+For Pieces - rep is [V2 Double]
 For TileFaces (in Tgraphs) rep is (Vertex,Vertex,Vertex)
 -}
 data HalfTile rep = LD rep -- ^ Left Dart

@@ -1,5 +1,11 @@
 # Revision history for PenroseKiteDart
 
+
+## Since v1.9
+Fundamental change to Pieces (now using a list of vectors for drawn edges instead of a single vector for join edge).
+VPatch and Patch now transform correctly before and after drawing (linear transformations).
+Previously only rotations, translations, and uniform scaling worked before drawing.
+
 ## version 1.9
 
 - Possibly breaking changes:

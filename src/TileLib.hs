@@ -23,6 +23,8 @@ module TileLib
   ( OKBackend
   -- * Pieces
   , Piece
+  , OldPiece
+  , oldVersion
   , joinVector
   , ldart
   , rdart
@@ -32,7 +34,7 @@ module TileLib
   , phi
   , ttangle
   , drawnEdges
-  , wholeTileEdges
+  --, wholeTileEdges TO DO
   -- $OKBackend
   , drawPiece
   , drawjPiece
@@ -48,7 +50,7 @@ module TileLib
   , fillOnlyPieceDK
   , fillPieceDK
   -- , fillMaybePieceDK
-  , leftFillPieceDK
+  -- , leftFillPieceDK TO DO
   , experiment
     -- * Patches and Drawable Class
   , Patch
@@ -66,8 +68,8 @@ module TileLib
     -- * Patch Decomposition and Compose choices
   , decompPatch
   , decompositionsP
-  , compChoices
-  , compNChoices
+ -- , compChoices TO DO
+ -- , compNChoices TO DO
     -- * Example Patches
   , penta
   , sun
@@ -77,7 +79,7 @@ module TileLib
   , sun6
     -- * Example Diagrams of Patches
   , sun6Fig
-  , leftFilledSun6
+  -- , leftFilledSun6 TO DO
   , filledSun6
     -- * Rotation and Scaling operations
   , rotations
@@ -94,29 +96,54 @@ import CheckBackend
 import HalfTile
 
 {-| Piece is a type for (scaled and oriented) tile halves: Left Dart, Right Dart, Left Kite, Right Kite
-represented by a vector from their origin along the join edge where
-origin for a dart is the tip, origin for a kite is the vertex opposite the vertex with
+represented by a list of two vectors for the non-join edges (starting from the origin).
+That is, the first vector is from the origin to the wing of the half-tile,
+and the second vector is from the wing to the opp vertex, where
+the origin for a dart is the tip, the origin for a kite is the vertex opposite the vertex with
 largest internal angle.
 
 (This specialises polymorphic HalfTiles with 2D vectors).
 
 Pieces are Transformable (but not translatable until they are located).
 -}
-type Piece = HalfTile (V2 Double)
+type Piece = HalfTile [V2 Double]
+
+-- OldPiece is an older representation of a Piece using just the join edge vector
+type OldPiece = HalfTile (V2 Double)
+
+-- Convert a Piece to an OldPiece by calculating its join vector
+oldVersion :: Piece -> OldPiece
+oldVersion = fmap sumV
+
+{-|This produces a list of vectors representing the two adjacent non-join tile directed edges of a piece starting from the origin.
+
+We consider left and right as viewed from the origin.
+This means that darts are reversed with respect to a view from the tail, but kites are
+in keeping with a common view (the kite tail being the origin).
+
+So for right dart and left kite the edges are directed and ordered clockwise from the piece origin, and for left dart and right kite these are
+directed and ordered anti-clockwise from the piece origin.
+-}
+drawnEdges:: Piece -> [V2 Double]
+drawnEdges = tileRep
 
 -- | get the vector representing the join edge in the direction away from the origin of a piece
 joinVector:: Piece -> V2 Double
-joinVector = tileRep
+joinVector = sumV . drawnEdges
 
 ldart,rdart,lkite,rkite:: Piece
 -- |ldart is a left dart at the origin with join edge oriented along the x axis, unit length.
-ldart = LD unitX
+ldart = LD [v',unitX ^-^ v'] where v' = phi*^rotate (ttangle 9) unitX --LD unitX
 -- |rdart is a right dartat the origin with join edge oriented along the x axis, unit length.
-rdart = RD unitX
+rdart = RD [v',unitX ^-^ v'] where v' = phi*^rotate (ttangle 1) unitX -- RD unitX
 -- |lkite is a left kite at the origin with join edge oriented along the x axis, length phi.
-lkite = LK (phi*^unitX)
+lkite = LK [v',j ^-^ v'] where 
+        v' = rotate (ttangle 1) j
+        j  = phi*^unitX    -- LK (phi*^unitX)
 -- |rkite  is a right kite at the origin with join edge oriented along the x axis, length phi.
-rkite = RK (phi*^unitX)
+rkite = RK [v',j ^-^ v'] where 
+        v' = rotate (ttangle 9) j
+        j  = phi*^unitX  --  RK (phi*^unitX)
 
 -- |All edge lengths are powers of the golden ratio (phi).
 -- We have the following roperties of the golden ratio 
@@ -134,28 +161,15 @@ ttangle:: Int -> Angle Double
 ttangle n = fromIntegral (n `mod` 10) *^tt
              where tt = 1/10 @@ turn
 
-{-|This produces a list of vectors representing the two adjacent non-join tile directed edges of a piece starting from the origin.
-
-We consider left and right as viewed from the origin.
-This means that darts are reversed with respect to a view from the tail, but kites are
-in keeping with a common view (the kite tail being the origin).
-
-So for right dart and left kite the edges are directed and ordered clockwise from the piece origin, and for left dart and right kite these are
-directed and ordered anti-clockwise from the piece origin.
--}
-drawnEdges:: Piece -> [V2 Double]
-drawnEdges (LD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 9) v
-drawnEdges (RD v) = [v',v ^-^ v'] where v' = phi*^rotate (ttangle 1) v
-drawnEdges (RK v) = [v',v ^-^ v'] where v' = rotate (ttangle 9) v
-drawnEdges (LK v) = [v',v ^-^ v'] where v' = rotate (ttangle 1) v
-
--- |the 4 tile edges of a completed half-tile piece (used for colour fill).
+{- -- |the 4 tile edges of a completed half-tile piece (used for colour fill).
 -- These are directed and ordered clockwise from the origin of the tile.
 wholeTileEdges:: Piece -> [V2 Double]
+wholeTileEdges p@LK _ = drawnEdges p ++ 
 wholeTileEdges (LD v) = wholeTileEdges (RD v)
 wholeTileEdges (RD v) = drawnEdges (RD v) ++ map negated (reverse $ drawnEdges (LD v))
 wholeTileEdges (LK v) = drawnEdges (LK v) ++ map negated (reverse $ drawnEdges (RK v))
 wholeTileEdges (RK v) = wholeTileEdges (LK v)
+ -}
 
 {- $OKBackend 
 Note: Most functions for drawing will have constraint OKBackend b and result type Diagram b
@@ -226,7 +240,7 @@ fillOnlyPiece col piece  = drawRoundPiece piece # fillColor col # lw none
 -- Note the order D K.
 -- Can be used with both Colour and AlphaColour
 fillOnlyPieceDK :: (OKBackend b, Color c1, Color c2) =>
-                   c1 -> c2 -> HalfTile (V2 Double) -> Diagram b
+                   c1 -> c2 -> Piece -> Diagram b
 fillOnlyPieceDK dcol kcol piece = 
     if isDart piece 
     then fillOnlyPiece dcol piece
@@ -237,7 +251,7 @@ fillOnlyPieceDK dcol kcol piece =
 -- Note the order D K.
 -- Can be used with both Colour and AlphaColour
 fillPieceDK :: (OKBackend b, Color c1, Color c2) =>
-               c1 -> c2 -> HalfTile (V2 Double) -> Diagram b
+               c1 -> c2 -> Piece -> Diagram b
 fillPieceDK dcol kcol = drawPiece <> fillOnlyPieceDK dcol kcol
 {- 
 fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
@@ -247,7 +261,8 @@ fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
      (LK _) -> fillOnlyPiece kcol piece
      (RK _) -> fillOnlyPiece kcol piece
  -}
--- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
+
+{- -- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.
 -- (Right half-tiles produce nothing, so whole tiles are not drawn twice).
 -- Works with AlphaColours as well as Colours.
@@ -257,7 +272,8 @@ leftFillPieceDK dcol kcol pc =
      case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fillColor dcol
                 (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fillColor kcol
                 _      -> mempty
-        
+ -}    
+
 -- |experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.
 -- Half tiles are first drawn with dashed lines, then certain edges are overlayed to emphasise them.
@@ -268,11 +284,11 @@ experiment:: OKBackend b =>
 experiment piece = emph piece <> (drawRoundPiece piece # dashingN [0.003,0.003] 0 # lw ultraThin)
     --emph pc <> (drawRoundPiece pc # dashingO [1,2] 0 # lw ultraThin)
   where emph pc = case pc of
-          (LD v) -> (strokeLine . fromOffsets) [v] # lc red   -- emphasise join edge of darts in red
-          (RD v) -> (strokeLine . fromOffsets) [v] # lc red 
-          (LK v) -> (strokeLine . fromOffsets) [rotate (ttangle 1) v] -- emphasise long edge for kites
-          (RK v) -> (strokeLine . fromOffsets) [rotate (ttangle 9) v]
-
+          (LD _) -> (strokeLine . fromOffsets) [joinVector pc] # lc red   -- emphasise join edge of darts in red
+          (RD _) -> (strokeLine . fromOffsets) [joinVector pc] # lc red 
+          (LK (v:_)) -> (strokeLine . fromOffsets) [v] -- emphasise long edge for kites
+          (RK (v:_)) -> (strokeLine . fromOffsets) [v]
+          other -> error $ "experiment: " ++ show other ++ "\n"
 
 
 -- |A patch is a list of Located pieces (the point associated with each piece locates its originV)
@@ -346,7 +362,7 @@ colourDKG (c1,c2,c3) a = fillDK c1 c2 a # lineColor c3
 
 {-|
 Decomposing splits each located piece in a patch into a list of smaller located pieces to create a refined patch.
-(See also decompose in Tgraph.Decompose.hs for a more abstract version of this operation).
+(See also decompose in Tgraph.Decompose for a more abstract version of this operation).
 -}
 decompPatch :: Patch -> Patch
 decompPatch = concatMap decompPiece
@@ -354,30 +370,37 @@ decompPatch = concatMap decompPiece
 -- |Decomposing a located piece to a list of (2 or 3) located pieces at smaller scale.
 decompPiece :: Located Piece -> [Located Piece]
 decompPiece lp = case viewLoc lp of
-  (p, RD vd)-> [ LK vd  `at` p
-               , RD vd' `at` (p .+^ v')
-               ] where v'  = phi*^rotate (ttangle 1) vd
-                       vd' = (2-phi) *^ negated v' -- (2-phi) = 1/phi^2
-  (p, LD vd)-> [ RK vd `at` p
-               , LD vd' `at` (p .+^ v')
-               ]  where v'  = phi*^rotate (ttangle 9) vd
-                        vd' = (2-phi) *^ negated v'  -- (2-phi) = 1/phi^2
-  (p, RK vk)-> [ RD vd' `at` p
-               , LK vk' `at` (p .+^ v')
-               , RK vk' `at` (p .+^ v')
-               ] where v'  = rotate (ttangle 9) vk
-                       vd' = (2-phi) *^ v'  -- (2-phi) = 1/phi^2
-                       vk' = ((phi-1) *^ vk) ^-^ v' -- (phi-1) = 1/phi
-  (p, LK vk)-> [ LD vd' `at` p
-               , RK vk' `at` (p .+^ v')
-               , LK vk' `at` (p .+^ v')
-               ] where v'  = rotate (ttangle 1) vk
-                       vd' = (2-phi) *^ v'  -- (2-phi) = 1/phi^2
-                       vk' = ((phi-1) *^ vk) ^-^ v' -- (phi-1) = 1/phi
+  (p, RD [v,s])-> [ LK [v', s' ] `at` p
+                  , RD [s, negate s'] `at` (p .+^ v)
+                  ] where v' = (phi-1) *^ v
+                          s' = sumV [v,s] ^-^ v'
+  (p, LD [v,s])-> [ RK [v', s' ] `at` p
+                  , LD [s, negate s'] `at` (p .+^ v)
+                  ] where v' = (phi-1) *^ v
+                          s' = sumV [v,s] ^-^ v'
+  (p, RK [v,s])-> [ RD [l, s1] `at` p
+                  , LK [(1-phi) *^ v, negate s1] `at` (p .+^ v)
+                  , RK [s, s2] `at` (p .+^ v)
+                  ] where 
+                       j = sumV [v,s]
+                       l = (phi-1) *^ j
+                       s1 = (2-phi) *^ v ^-^ l
+                       s2 = (phi-2) *^ j
+  (p, LK [v,s])-> [ LD [l, s1] `at` p
+                  , RK [(1-phi) *^ v, negate s1] `at` (p .+^ v)
+                  , LK [s, s2] `at` (p .+^ v)
+                  ] where 
+                       j = sumV [v,s]
+                       l = (phi-1) *^ j
+                       s1 = (2-phi) *^ v ^-^ l
+                       s2 = (phi-2) *^ j
+  other -> error $ "decompPiece: " ++ show other ++ "/n"
 
 -- |Create an infinite list of increasing decompositions of a patch
 decompositionsP:: Patch -> [Patch]
 decompositionsP = iterate decompPatch
+
+{- 
 
 {-|
 compChoices applied to  a single located piece produces a list of alternative located pieces NOT a Patch.
@@ -418,7 +441,7 @@ compNChoices 0 lp = [lp]
 compNChoices n lp = do
     lp' <- compChoices lp
     compNChoices (n-1) lp'
-
+ -}
 
                                 
 -- |combine 5 copies of a patch (each rotated by ttangle 2 successively)
@@ -451,11 +474,11 @@ sun5 = suns!!5
 sun6Fig :: OKBackend b => Diagram b
 sun6Fig = draw sun6 # lw thin
 
-
+{- 
 -- |Colour filled using leftFillPieceDK. 
 leftFilledSun6 :: OKBackend b => Diagram b
 leftFilledSun6 = drawWith (leftFillPieceDK red blue) sun6 # lw thin
-
+-}
 -- |Colour filled using fillDK.
 filledSun6 :: OKBackend b => Diagram b
 filledSun6 = fillDK darkmagenta indigo sun6 # lw thin # lc gold

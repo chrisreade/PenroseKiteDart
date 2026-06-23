@@ -99,7 +99,7 @@ instance Transformable a => Transformable (P3_HalfTile a) where
 -- and the vector for a narrow rhombus is along the short diagonal.
 -- The choice of which vertex is the origin is derived from conversions
 -- from Darts and Kites (P2 tilings) 
-type P3_Piece = P3_HalfTile (V2 Double)
+type P3_Piece = P3_HalfTile [V2 Double]
 
 -- |Make P3_Halftile a Functor
 instance Functor P3_HalfTile where
@@ -120,6 +120,22 @@ instance Functor P3_HalfTile where
 -- (the join is toward the kite origin.)
 decompPieceP2toP3 :: Located Piece -> [Located P3_Piece]
 decompPieceP2toP3 lp = case viewLoc lp of
+    (p, LK [z,s]) -> [ RW [(phi-1) *^ v, s'] `at` p
+                     , RN [negate s, s'] `at` p.+^v
+                     ] where v = sumV [z,s]
+                             s' = (2-phi) *^ v
+    (p, RK [z,s]) -> [ LW [(phi-1) *^ v, s'] `at` p
+                     , LN [negate s, s'] `at` p.+^v
+                     ] where v = sumV [z,s]
+                             s' = (2-phi) *^ v
+    (p, LD [z,s]) -> [ RW [s,s1] `at` p.+^ z]
+                 where s1 = negate (sumV [z,s])
+    (p, RD [z,s]) -> [ LW [s,s1] `at` p.+^ z]
+                 where s1 = negate (sumV [z,s])
+    other -> error $ "decompPieceP2toP3: " ++ show other ++ "/n"
+
+{- decompPieceP2toP3 :: Located Piece -> [Located P3_Piece]
+decompPieceP2toP3 lp = case viewLoc lp of
     (p, LK v) -> [ RW z `at` p
                  , RN ((2-phi)*^ negate v) `at` p.+^v
                  ] where z = rotate (ttangle 1) v
@@ -130,7 +146,7 @@ decompPieceP2toP3 lp = case viewLoc lp of
                  where z = phi *^ rotate (ttangle 9) v
     (p, RD v) -> [ LW (negate z) `at` p.+^ z]
                  where z = phi *^ rotate (ttangle 1) v
-
+ -}
 -- |Converting from P3 to P2 tilings.
 -- Half narrow rhombuses become half kites (LN->RK,RN->LK).
 -- The rhombus wing becomes the kite origin and the rhombus origin becomes the kite wing.
@@ -171,19 +187,24 @@ decompP3toP2 = concatMap decompPieceP3toP2
 
 -- |The drawn edges of a P3_Piece excluding the join edge (as a list of vectors)
 drawnEdgesP3 :: P3_Piece -> [V2 Double]
-drawnEdgesP3 (LW v) = [z,v^-^z] where z = (phi-1)*^rotate (ttangle 1) v
+drawnEdgesP3 = tileRepP3
+
+{- drawnEdgesP3 (LW v) = [z,v^-^z] where z = (phi-1)*^rotate (ttangle 1) v
 drawnEdgesP3 (RW v) = [z,v^-^z] where z = (phi-1)*^rotate (ttangle 9) v
 drawnEdgesP3 (LN v) = [z,v^-^z] where z = phi*^rotate (ttangle 2) v
 drawnEdgesP3 (RN v) = [z,v^-^z] where z = phi*^rotate (ttangle 8) v
-
+ -}
 
 -- |Draws the two drawn edges of a P3_Piece
 drawPieceP3 :: OKBackend b => P3_Piece -> Diagram b
 drawPieceP3 = strokeLine . fromOffsets . drawnEdgesP3
 
+joinOfP3 :: P3_Piece -> V2 Double
+joinOfP3 = sumV . drawnEdgesP3
+
 -- |Draw dashed join only of a P3_Piece. 
 dashJOnlyP3 :: OKBackend b => P3_Piece -> Diagram b
-dashJOnlyP3 p = joinDashing (strokeLine $ fromOffsets [tileRepP3 p])
+dashJOnlyP3 p = joinDashing (strokeLine $ fromOffsets [joinOfP3 p])
 
 -- |Draws all edges of a P3_Piece using a faint dashed line for the join edge
 -- (J for plain dashed Join, j for faint dashed join)
