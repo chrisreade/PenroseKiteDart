@@ -120,14 +120,16 @@ instance Functor P3_HalfTile where
 -- (the join is toward the kite origin.)
 decompPieceP2toP3 :: Located Piece -> [Located P3_Piece]
 decompPieceP2toP3 lp = case viewLoc lp of
-    (p, LK [z,s]) -> [ RW [(phi-1) *^ v, s'] `at` p
-                     , RN [negate s, s'] `at` p.+^v
-                     ] where v = sumV [z,s]
-                             s' = (2-phi) *^ v
-    (p, RK [z,s]) -> [ LW [(phi-1) *^ v, s'] `at` p
-                     , LN [negate s, s'] `at` p.+^v
-                     ] where v = sumV [z,s]
-                             s' = (2-phi) *^ v
+    (p, LK [z,s]) -> [ RW [s1, s2] `at` p
+                     , RN [negate s, negate s2] `at` p.+^j
+                     ] where j = sumV [z,s]
+                             s1 = (phi-1) *^ j
+                             s2 = z ^-^ s1
+    (p, RK [z,s]) -> [ LW [s1, s2] `at` p
+                     , LN [negate s, negate s2] `at` p.+^j
+                     ] where j = sumV [z,s]
+                             s1 = (phi-1) *^ j
+                             s2 = z ^-^ s1
     (p, LD [z,s]) -> [ RW [s,s1] `at` p.+^ z]
                  where s1 = negate (sumV [z,s])
     (p, RD [z,s]) -> [ LW [s,s1] `at` p.+^ z]
@@ -157,17 +159,15 @@ decompPieceP2toP3 lp = case viewLoc lp of
 decompPieceP3toP2 :: Located P3_Piece -> [Located Piece]
 decompPieceP3toP2 lp = case viewLoc lp of
     (p, LW [z1,z2]) -> 
-                 [ RD [z1,negate z] `at` p
-                 , LK [ v', z] `at` (p.+^v)
-                 ] where v  = sumV [z1,z2]
-                         v' = (1-phi)*^v
-                         z  = z2 ^+^ v'
+                 [ RD [z1,s] `at` p
+                 , LK [ (1-phi)*^j, negate s] `at` (p.+^j)
+                 ] where j  = sumV [z1,z2]
+                         s = (2-phi) *^ j ^-^ z1
     (p, RW [z1,z2]) -> 
-                 [ LD [z1,negate z] `at` p
-                 , RK [ v', z] `at` (p.+^v)
-                 ] where v  = sumV [z1,z2]
-                         v' = (1-phi)*^v
-                         z  = z2 ^+^ v'
+                 [ LD [z1,s] `at` p
+                 , RK [ (1-phi)*^j, negate s] `at` (p.+^j)
+                 ] where j  = sumV [z1,z2]
+                         s = (2-phi) *^ j ^-^ z1
     (p, LN [z1,z2]) -> [ RK [negate z1, sumV [z1,z2]] `at` p .+^ z1]
     (p, RN [z1,z2]) -> [ LK [negate z1, sumV [z1,z2]] `at` p .+^ z1]
     other -> error $ "decompPieceP3toP2: " ++ show other ++ "/n"
@@ -370,4 +370,3 @@ labelSizeP3 = labelColourSizeP3 red
 labelledP3 :: (OKBackend b, P3_DrawableLabelled a) =>
             (P3_Patch -> Diagram b) -> a -> Diagram b
 labelledP3 = labelColourSizeP3 red small --(normalized 0.023)
-

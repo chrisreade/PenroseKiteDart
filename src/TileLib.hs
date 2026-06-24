@@ -68,8 +68,8 @@ module TileLib
     -- * Patch Decomposition and Compose choices
   , decompPatch
   , decompositionsP
- -- , compChoices TO DO
- -- , compNChoices TO DO
+  , compChoices
+  , compNChoices
     -- * Example Patches
   , penta
   , sun
@@ -399,7 +399,6 @@ decompPiece lp = case viewLoc lp of
 decompositionsP:: Patch -> [Patch]
 decompositionsP = iterate decompPatch
 
-{- 
 
 {-|
 compChoices applied to  a single located piece produces a list of alternative located pieces NOT a Patch.
@@ -407,6 +406,35 @@ Each of these is a larger scale single piece with a location such that when deco
 the original piece in its original position is part of the decomposition)
 -}
 compChoices :: Located Piece -> [Located Piece]
+compChoices lp = case viewLoc lp of
+  (p, RD [s,s'])-> [ RD [negate v',s] `at` (p .+^ v')
+                   , RK [v', s1]  `at` p
+                   ] where v' = (phi+1) *^ sumV [s,s']
+                           s1 = phi *^ s ^-^ v'
+  (p, LD [s,s'])-> [ LD [negate v',s] `at` (p .+^ v')
+                   , LK [v', s1]  `at` p
+                   ] where v' = (phi+1) *^ sumV [s,s']
+                           s1 = phi *^ s ^-^ v'
+  (p, RK [s,s'])-> [ LD [v, v ^+^ sumV [s,s'] ]  `at` p
+                   , LK [s1,s2] `at` (p .+^ j) 
+                   , RK [negate v',s] `at` (p .-^ v)
+                   ] where 
+                       v = phi *^ s
+                       v' = s ^+^ (phi+1) *^ s'
+                       j = negate ((phi+1) *^ s)
+                       s1 = phi *^ ((phi-1) *^ j ^+^ s')
+                       s2 = j ^-^ s1
+  (p, LK [s,s'])-> [ RD [v, v ^+^ sumV [s,s'] ]  `at` p
+                   , RK [s1,s2] `at` (p .+^ j) 
+                   , LK [negate v',s] `at` (p .-^ v)
+                   ] where 
+                       v = phi *^ s
+                       v' = s ^+^ (phi+1) *^ s'
+                       j = negate ((phi+1) *^ s)
+                       s1 = phi *^ ((phi-1) *^ j ^+^ s')
+                       s2 = j ^-^ s1
+  other -> error $ "compChoices: " ++ show other ++ "/n"
+{- 
 compChoices lp = case viewLoc lp of
   (p, RD vd)-> [ RD vd' `at` (p .+^ v')
                , RK vk  `at` p
@@ -432,6 +460,7 @@ compChoices lp = case viewLoc lp of
                        rv'  = phi*^rotate (ttangle 1) vk
                        rvk' = phi*^rotate (ttangle 7) vk
                        lvk' = phi*^rotate (ttangle 3) vk
+ -}
 
 -- |compNChoices n lp - gives a list of all the alternatives after n compChoices starting with lp
 -- Note that the result is not a Patch as the list represents alternatives.
@@ -440,7 +469,7 @@ compNChoices 0 lp = [lp]
 compNChoices n lp = do
     lp' <- compChoices lp
     compNChoices (n-1) lp'
- -}
+
 
                                 
 -- |combine 5 copies of a patch (each rotated by ttangle 2 successively)
