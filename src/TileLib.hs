@@ -23,8 +23,6 @@ module TileLib
   ( OKBackend
   -- * Pieces
   , Piece
-  , OldPiece
-  , oldVersion
   , joinVector
   , ldart
   , rdart
@@ -107,13 +105,6 @@ largest internal angle.
 Pieces are Transformable (but not translatable until they are located).
 -}
 type Piece = HalfTile [V2 Double]
-
--- OldPiece is an older representation of a Piece using just the join edge vector
-type OldPiece = HalfTile (V2 Double)
-
--- Convert a Piece to an OldPiece by calculating its join vector
-oldVersion :: Piece -> OldPiece
-oldVersion = fmap sumV
 
 {-|This produces a list of vectors representing the two adjacent non-join tile directed edges of a piece starting from the origin.
 
