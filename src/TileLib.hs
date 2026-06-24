@@ -361,31 +361,36 @@ decompPatch = concatMap decompPiece
 -- |Decomposing a located piece to a list of (2 or 3) located pieces at smaller scale.
 decompPiece :: Located Piece -> [Located Piece]
 decompPiece lp = case viewLoc lp of
-  (p, RD [v,s])-> [ LK [v', s' ] `at` p
-                  , RD [s, negate s'] `at` (p .+^ v)
-                  ] where v' = (phi-1) *^ v
-                          s' = sumV [v,s] ^-^ v'
-  (p, LD [v,s])-> [ RK [v', s' ] `at` p
-                  , LD [s, negate s'] `at` (p .+^ v)
-                  ] where v' = (phi-1) *^ v
-                          s' = sumV [v,s] ^-^ v'
-  (p, RK [v,s])-> [ RD [l, s1] `at` p
-                  , LK [(1-phi) *^ v, negate s1] `at` (p .+^ v)
-                  , RK [s, s2] `at` (p .+^ v)
-                  ] where 
-                       j = sumV [v,s]
-                       l = (phi-1) *^ j
-                       s1 = (2-phi) *^ v ^-^ l
-                       s2 = (phi-2) *^ j
-  (p, LK [v,s])-> [ LD [l, s1] `at` p
-                  , RK [(1-phi) *^ v, negate s1] `at` (p .+^ v)
-                  , LK [s, s2] `at` (p .+^ v)
-                  ] where 
-                       j = sumV [v,s]
-                       l = (phi-1) *^ j
-                       s1 = (2-phi) *^ v ^-^ l
-                       s2 = (phi-2) *^ j
+  (p, RD [z1,z2])-> [ LK [s1, s2 ] `at` p
+                    , RD [z2, negate s2] `at` (p .+^ z1)
+                    ] 
+    where s1 = (phi-1) *^ z1
+          s2 = sumV [z1,z2] ^-^ s1
+  (p, LD [z1,z2])-> [ RK [s1, s2 ] `at` p
+                    , LD [z2, negate s2] `at` (p .+^ z1)
+                    ]
+    where s1 = (phi-1) *^ z1
+          s2 = sumV [z1,z2] ^-^ s1
+  (p, RK [z1,z2])-> [ RD [s1, s2] `at` p
+                    , LK [s4, negate s2] `at` (p .+^ z1)
+                    , RK [z2, s3] `at` (p .+^ z1)
+                    ]
+    where j = sumV [z1,z2]
+          s1 = (phi-1) *^ j
+          s2 = (2-phi) *^ z1 ^-^ s1
+          s3 = (phi-2) *^ j
+          s4 = (1-phi) *^ z1
+  (p, LK [z1,z2])-> [ LD [s1, s2] `at` p
+                    , RK [s4, negate s2] `at` (p .+^ z1)
+                    , LK [z2, s3] `at` (p .+^ z1)
+                    ]
+    where j = sumV [z1,z2]
+          s1 = (phi-1) *^ j
+          s2 = (2-phi) *^ z1 ^-^ s1
+          s3 = (phi-2) *^ j
+          s4 = (1-phi) *^ z1
   other -> error $ "decompPiece: " ++ show other ++ "/n"
+
 
 -- |Create an infinite list of increasing decompositions of a patch
 decompositionsP:: Patch -> [Patch]
@@ -407,24 +412,22 @@ compChoices lp = case viewLoc lp of
                    , LK [v', s1]  `at` p
                    ] where v' = (phi+1) *^ sumV [s,s']
                            s1 = phi *^ s ^-^ v'
-  (p, RK [s,s'])-> [ LD [v, v ^+^ sumV [s,s'] ]  `at` p
-                   , LK [s1,s2] `at` (p .+^ j) 
-                   , RK [negate v',s] `at` (p .-^ v)
+  (p, RK [s,s'])-> [ LD [v, sumV [s,s']  ^-^ v]  `at` p
+                   , LK [negate v,s2] `at` (p .+^ v) 
+                   , RK [negate v',s] `at` (p .+^ v')
                    ] where 
                        v = phi *^ s
                        v' = s ^+^ (phi+1) *^ s'
-                       j = negate ((phi+1) *^ s)
-                       s1 = phi *^ ((phi-1) *^ j ^+^ s')
-                       s2 = j ^-^ s1
-  (p, LK [s,s'])-> [ RD [v, v ^+^ sumV [s,s'] ]  `at` p
-                   , RK [s1,s2] `at` (p .+^ j) 
-                   , LK [negate v',s] `at` (p .-^ v)
+                       s1 = sumV [s,s'] ^-^ v
+                       s2 = v ^+^ phi *^ s1
+  (p, LK [s,s'])-> [ RD [v, sumV [s,s']  ^-^ v]  `at` p
+                   , RK [negate v,s2] `at` (p .+^ v) 
+                   , LK [negate v',s] `at` (p .+^ v')
                    ] where 
                        v = phi *^ s
                        v' = s ^+^ (phi+1) *^ s'
-                       j = negate ((phi+1) *^ s)
-                       s1 = phi *^ ((phi-1) *^ j ^+^ s')
-                       s2 = j ^-^ s1
+                       s1 = sumV [s,s'] ^-^ v
+                       s2 = v ^+^ phi *^ s1
   other -> error $ "compChoices: " ++ show other ++ "/n"
 
 
@@ -511,7 +514,3 @@ phiScales = phiScaling 1
 phiScaling:: (Transformable a, V a ~ V2, N a ~ Double) => Double -> [a] -> [a]
 phiScaling _ [] = []
 phiScaling s (d:more) = scale s d: phiScaling (phi*s) more
-
-
-
-
