@@ -34,7 +34,7 @@ module TileLib
   , phi
   , ttangle
   , drawnEdges
-  --, wholeTileEdges TO DO
+  , wholeTileEdges
   -- $OKBackend
   , drawPiece
   , drawjPiece
@@ -50,7 +50,7 @@ module TileLib
   , fillOnlyPieceDK
   , fillPieceDK
   -- , fillMaybePieceDK
-  -- , leftFillPieceDK TO DO
+  , leftFillPieceDK
   , experiment
     -- * Patches and Drawable Class
   , Patch
@@ -133,17 +133,23 @@ joinVector = sumV . drawnEdges
 
 ldart,rdart,lkite,rkite:: Piece
 -- |ldart is a left dart at the origin with join edge oriented along the x axis, unit length.
-ldart = LD [v',unitX ^-^ v'] where v' = phi*^rotate (ttangle 9) unitX --LD unitX
+ldart = ldartFromJoin unitX
 -- |rdart is a right dartat the origin with join edge oriented along the x axis, unit length.
-rdart = RD [v',unitX ^-^ v'] where v' = phi*^rotate (ttangle 1) unitX -- RD unitX
--- |lkite is a left kite at the origin with join edge oriented along the x axis, length phi.
-lkite = LK [v',j ^-^ v'] where 
-        v' = rotate (ttangle 1) j
-        j  = phi*^unitX    -- LK (phi*^unitX)
+rdart = rdartFromJoin unitX
+-- |lkite  is a left kite at the origin with join edge oriented along the x axis, length phi.
+lkite = lkiteFromJoin (phi*^unitX)
 -- |rkite  is a right kite at the origin with join edge oriented along the x axis, length phi.
-rkite = RK [v',j ^-^ v'] where 
-        v' = rotate (ttangle 9) j
-        j  = phi*^unitX  --  RK (phi*^unitX)
+rkite = rkiteFromJoin (phi*^unitX)   
+
+ldartFromJoin, rdartFromJoin, lkiteFromJoin, rkiteFromJoin :: V2 Double -> Piece
+-- |create an (untransformed) left dart from a given join vector
+ldartFromJoin v = LD [v',v ^-^ v'] where v' = phi*^rotate (ttangle 9) v
+-- |create an (untransformed) right dart from a given join vector
+rdartFromJoin v = RD [v',v ^-^ v'] where v' = phi*^rotate (ttangle 1) v
+-- |create an (untransformed) left kite from a given join vector
+lkiteFromJoin v = LK [v',v ^-^ v'] where v' = rotate (ttangle 1) v
+-- |create an (untransformed) right kite from a given join vector
+rkiteFromJoin v = RK [v',v ^-^ v'] where v' = rotate (ttangle 9) v
 
 -- |All edge lengths are powers of the golden ratio (phi).
 -- We have the following roperties of the golden ratio 
@@ -161,15 +167,6 @@ ttangle:: Int -> Angle Double
 ttangle n = fromIntegral (n `mod` 10) *^tt
              where tt = 1/10 @@ turn
 
-{- -- |the 4 tile edges of a completed half-tile piece (used for colour fill).
--- These are directed and ordered clockwise from the origin of the tile.
-wholeTileEdges:: Piece -> [V2 Double]
-wholeTileEdges p@LK _ = drawnEdges p ++ 
-wholeTileEdges (LD v) = wholeTileEdges (RD v)
-wholeTileEdges (RD v) = drawnEdges (RD v) ++ map negated (reverse $ drawnEdges (LD v))
-wholeTileEdges (LK v) = drawnEdges (LK v) ++ map negated (reverse $ drawnEdges (RK v))
-wholeTileEdges (RK v) = wholeTileEdges (LK v)
- -}
 
 {- $OKBackend 
 Note: Most functions for drawing will have constraint OKBackend b and result type Diagram b
@@ -253,26 +250,28 @@ fillOnlyPieceDK dcol kcol piece =
 fillPieceDK :: (OKBackend b, Color c1, Color c2) =>
                c1 -> c2 -> Piece -> Diagram b
 fillPieceDK dcol kcol = drawPiece <> fillOnlyPieceDK dcol kcol
-{- 
-fillPieceDK dcol kcol piece = drawPiece piece <> filledPiece where
-  filledPiece = case piece of
-     (LD _) -> fillOnlyPiece dcol piece
-     (RD _) -> fillOnlyPiece dcol piece
-     (LK _) -> fillOnlyPiece kcol piece
-     (RK _) -> fillOnlyPiece kcol piece
- -}
 
-{- -- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
+-- |leftFillPieceDK dcol kcol pc fills the whole tile when pc is a left half-tile,
 -- darts are filled with colour dcol and kites with colour kcol.
 -- (Right half-tiles produce nothing, so whole tiles are not drawn twice).
+-- N.B. This relies on untransformed angles, so will not work as expected after any transform
+-- that does not preserve angles. 
 -- Works with AlphaColours as well as Colours.
 leftFillPieceDK :: (OKBackend b, Color c1, Color c2) =>
-                   c1 -> c2 -> HalfTile (V2 Double) -> Diagram b
+                   c1 -> c2 -> Piece -> Diagram b
 leftFillPieceDK dcol kcol pc =
      case pc of (LD _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fillColor dcol
                 (LK _) -> strokeLoop (glueLine $ fromOffsets $ wholeTileEdges pc)  # fillColor kcol
                 _      -> mempty
- -}    
+
+-- | The 4 tile edges of a completed half-tile piece (used for colour fill).
+-- This relies on untransformed angles, so will not work as expected after any transform
+-- that does not preserve angles. 
+wholeTileEdges:: Piece -> [V2 Double]
+wholeTileEdges p@(LD _) = drawnEdges p ++ map negated (reverse $ drawnEdges $ rdartFromJoin $ joinVector p)
+wholeTileEdges p@(RD _) = drawnEdges p ++ map negated (reverse $ drawnEdges $ ldartFromJoin $ joinVector p)
+wholeTileEdges p@(LK _) = drawnEdges p ++ map negated (reverse $ drawnEdges $ rkiteFromJoin $ joinVector p)
+wholeTileEdges p@(RK _) = drawnEdges p ++ map negated (reverse $ drawnEdges $ rkiteFromJoin $ joinVector p)
 
 -- |experiment uses a different rule for drawing half tiles.
 -- This clearly displays the larger kites and darts.

@@ -156,6 +156,23 @@ decompPieceP2toP3 lp = case viewLoc lp of
 -- The wide rhombus wing becomes both the kite opp and dart wing.
 decompPieceP3toP2 :: Located P3_Piece -> [Located Piece]
 decompPieceP3toP2 lp = case viewLoc lp of
+    (p, LW [z1,z2]) -> 
+                 [ RD [z1,negate z] `at` p
+                 , LK [ v', z] `at` (p.+^v)
+                 ] where v  = sumV [z1,z2]
+                         v' = (1-phi)*^v
+                         z  = z2 ^+^ v'
+    (p, RW [z1,z2]) -> 
+                 [ LD [z1,negate z] `at` p
+                 , RK [ v', z] `at` (p.+^v)
+                 ] where v  = sumV [z1,z2]
+                         v' = (1-phi)*^v
+                         z  = z2 ^+^ v'
+    (p, LN [z1,z2]) -> [ RK [negate z1, sumV [z1,z2]] `at` p .+^ z1]
+    (p, RN [z1,z2]) -> [ LK [negate z1, sumV [z1,z2]] `at` p .+^ z1]
+    other -> error $ "decompPieceP3toP2: " ++ show other ++ "/n"
+
+{- decompPieceP3toP2 lp = case viewLoc lp of
     (p, LW v) -> -- decompPiece (RD (z^-^v) `at` p.+^v)
                  -- where z = (phi-1)*^rotate (ttangle 1) v
                  [ RD ((2-phi)*^v) `at` p
@@ -171,7 +188,7 @@ decompPieceP3toP2 lp = case viewLoc lp of
                  where z = phi *^ rotate (ttangle 2) v
     (p, RN v) -> [ LK (v^-^z) `at` p.+^ z]
                  where z = phi *^ rotate (ttangle 8) v
-
+ -}
 -- | a P3_Patch is analagous to a Patch (but for for P3_Pieces)
 type P3_Patch =  [Located P3_Piece]
 
