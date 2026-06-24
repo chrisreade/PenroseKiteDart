@@ -1179,11 +1179,11 @@ instance Drawable VPatch where
 -- |converts a VPatch to a Patch, removing vertex information and converting faces to Located Pieces.
 dropLabels :: VPatch -> Patch
 dropLabels vp = map convert (faces vp) where
-  locations = vLocs vp
-  convert face = case (VMap.lookup (originV face) locations , VMap.lookup (oppV face) locations) of
-    (Just p, Just p') -> fmap (const (p' .-. p)) face `at` p -- using HalfTile functor fmap
-    _ -> error $ "dropLabels: Vertex location not found for some vertices:\n    "
-                ++ show (faceVList face \\ VMap.keys locations)  ++ "\n"
+   locations = vLocs vp
+   convert face = case (VMap.lookup (originV face) locations , VMap.lookup (wingV face) locations, VMap.lookup (oppV face) locations) of 
+    (Just p, Just p', Just p'') -> fmap (const [p' .-. p, p'' .-. p']) face `at` p -- using HalfTile functor fmap
+    _ -> error $ "dropLabels': Vertex location not found for some vertices:\n    "
+                 ++ show (faceVList face \\ VMap.keys locations)  ++ "\n"
 
 
 -- |Tgraphs are Drawable

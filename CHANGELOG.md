@@ -1,5 +1,17 @@
 # Revision history for PenroseKiteDart
 
+
+## Since v1.9
+
+- Possibly breaking change:
+Redefined Pieces to use a list of vectors for the drawn edges instead of a single vector for the join edge.
+VPatch and Patch now transform correctly before and after drawing (linear transformations).
+(Previously only rotations, translations, and uniform scaling worked before drawing.)
+The same changes have been made to P3_Piece in TileLibP3 so P3_Patch will transform correctly.
+The following no longer use angles in their definition: drawnEdges, drawnEdgesP3, decompPieceP3toP2, decompPieceP2toP3, compChoices, compNChoices
+
+- The following do rely on angles so will not work as expected after a transformation that does not preserve angles: wholeTileEdges, leftFillPieceDK.
+
 ## version 1.9
 
 - Possibly breaking changes:
