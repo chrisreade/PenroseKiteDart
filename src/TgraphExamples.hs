@@ -133,7 +133,6 @@ labelAt :: OKBackend b =>
 labelAt p l d = baselineText l # fontSize (output 15) # moveTo p <> d
 --labelAt p l d = baselineText l # fontSize (normalized 0.02) # moveTo p <> d
 
-
 fool, foolD, foolDminus:: Tgraph
 -- |fool: fool's kite - also called an ace.
 fool = makeTgraph [RK (5,2,7),LK (5,6,4),RK (5,4,3),LK (5,3,2),RD (1,2,3),LD (1,3,4)]

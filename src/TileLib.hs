@@ -23,8 +23,6 @@ module TileLib
   ( OKBackend
   -- * Pieces
   , Piece
-  , OldPiece
-  , oldVersion
   , joinVector
   , ldart
   , rdart
@@ -108,13 +106,6 @@ Pieces are Transformable (but not translatable until they are located).
 -}
 type Piece = HalfTile [V2 Double]
 
--- OldPiece is an older representation of a Piece using just the join edge vector
-type OldPiece = HalfTile (V2 Double)
-
--- Convert a Piece to an OldPiece by calculating its join vector
-oldVersion :: Piece -> OldPiece
-oldVersion = fmap sumV
-
 {-|This produces a list of vectors representing the two adjacent non-join tile directed edges of a piece starting from the origin.
 
 We consider left and right as viewed from the origin.
@@ -141,6 +132,7 @@ lkite = lkiteFromJoin (phi*^unitX)
 -- |rkite  is a right kite at the origin with join edge oriented along the x axis, length phi.
 rkite = rkiteFromJoin (phi*^unitX)   
 
+-- not exported
 ldartFromJoin, rdartFromJoin, lkiteFromJoin, rkiteFromJoin :: V2 Double -> Piece
 -- |create an (untransformed) left dart from a given join vector
 ldartFromJoin v = LD [v',v ^-^ v'] where v' = phi*^rotate (ttangle 9) v
@@ -290,7 +282,7 @@ experiment piece = emph piece <> (drawRoundPiece piece # dashingN [0.003,0.003] 
           other -> error $ "experiment: " ++ show other ++ "\n"
 
 
--- |A patch is a list of Located pieces (the point associated with each piece locates its originV)
+-- |A patch is a list of Located pieces (the point associated with each piece locates its origin)
 -- Patches are Transformable (including translatable)
 type Patch = [Located Piece]
 
@@ -434,33 +426,7 @@ compChoices lp = case viewLoc lp of
                        s1 = phi *^ ((phi-1) *^ j ^+^ s')
                        s2 = j ^-^ s1
   other -> error $ "compChoices: " ++ show other ++ "/n"
-{- 
-compChoices lp = case viewLoc lp of
-  (p, RD vd)-> [ RD vd' `at` (p .+^ v')
-               , RK vk  `at` p
-               ] where v'  = (phi+1) *^ vd                  -- vd*phi^2
-                       vd' = rotate (ttangle 9) (vd ^-^ v')
-                       vk  = rotate (ttangle 1) v'
-  (p, LD vd)-> [ LD vd' `at` (p .+^ v')
-               , LK vk `at` p
-               ] where v'  = (phi+1) *^ vd                  -- vd*phi^2
-                       vd' = rotate (ttangle 1) (vd ^-^ v')
-                       vk  = rotate (ttangle 9) v'
-  (p, RK vk)-> [ LD vk  `at` p
-               , LK lvk' `at` (p .+^ lv') 
-               , RK rvk' `at` (p .+^ rv')
-               ] where lv'  = phi*^rotate (ttangle 9) vk
-                       rv'  = phi*^rotate (ttangle 1) vk
-                       rvk' = phi*^rotate (ttangle 7) vk
-                       lvk' = phi*^rotate (ttangle 3) vk
-  (p, LK vk)-> [ RD vk  `at` p
-               , RK rvk' `at` (p .+^ rv')
-               , LK lvk' `at` (p .+^ lv')
-               ] where lv'  = phi*^rotate (ttangle 9) vk
-                       rv'  = phi*^rotate (ttangle 1) vk
-                       rvk' = phi*^rotate (ttangle 7) vk
-                       lvk' = phi*^rotate (ttangle 3) vk
- -}
+
 
 -- |compNChoices n lp - gives a list of all the alternatives after n compChoices starting with lp
 -- Note that the result is not a Patch as the list represents alternatives.
