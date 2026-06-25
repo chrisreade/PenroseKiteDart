@@ -106,7 +106,7 @@ Pieces are Transformable (but not translatable until they are located).
 -}
 type Piece = HalfTile [V2 Double]
 
-{-|This produces a list of vectors representing the two adjacent non-join tile directed edges of a piece starting from the origin.
+{-|This produces a list of vectors representing the two non-join tile directed edges of a piece starting from the origin.
 
 We consider left and right as viewed from the origin.
 This means that darts are reversed with respect to a view from the tail, but kites are
@@ -400,34 +400,37 @@ decompositionsP = iterate decompPatch
 {-|
 compChoices applied to  a single located piece produces a list of alternative located pieces NOT a Patch.
 Each of these is a larger scale single piece with a location such that when decomposed
-the original piece in its original position is part of the decomposition)
+the original piece in its original position is part of the decomposition).
+Note that the result is not a Patch as the list represents alternatives.
 -}
 compChoices :: Located Piece -> [Located Piece]
 compChoices lp = case viewLoc lp of
-  (p, RD [s,s'])-> [ RD [negate v',s] `at` (p .+^ v')
-                   , RK [v', s1]  `at` p
-                   ] where v' = (phi+1) *^ sumV [s,s']
-                           s1 = phi *^ s ^-^ v'
-  (p, LD [s,s'])-> [ LD [negate v',s] `at` (p .+^ v')
-                   , LK [v', s1]  `at` p
-                   ] where v' = (phi+1) *^ sumV [s,s']
-                           s1 = phi *^ s ^-^ v'
-  (p, RK [s,s'])-> [ LD [v, sumV [s,s']  ^-^ v]  `at` p
-                   , LK [negate v,s2] `at` (p .+^ v) 
-                   , RK [negate v',s] `at` (p .+^ v')
-                   ] where 
-                       v = phi *^ s
-                       v' = s ^+^ (phi+1) *^ s'
-                       s1 = sumV [s,s'] ^-^ v
-                       s2 = v ^+^ phi *^ s1
-  (p, LK [s,s'])-> [ RD [v, sumV [s,s']  ^-^ v]  `at` p
-                   , RK [negate v,s2] `at` (p .+^ v) 
-                   , LK [negate v',s] `at` (p .+^ v')
-                   ] where 
-                       v = phi *^ s
-                       v' = s ^+^ (phi+1) *^ s'
-                       s1 = sumV [s,s'] ^-^ v
-                       s2 = v ^+^ phi *^ s1
+  (p, RD [s1,s2])-> [ RD [negate z1,s1] `at` (p .+^ z1)
+                    , RK [z1, z2]  `at` p
+                    ]
+      where z1 = (phi+1) *^ sumV [s1,s2]
+            z2 = phi *^ s1 ^-^ z1
+  (p, LD [s1,s2])-> [ LD [negate z1,s1] `at` (p .+^ z1)
+                    , LK [z1, z2]  `at` p
+                    ] 
+      where z1 = (phi+1) *^ sumV [s1,s2]
+            z2 = phi *^ s1 ^-^ z1
+  (p, RK [s1,s2])-> [ LD [z1, z2]  `at` p
+                    , LK [negate z1,z3] `at` (p .+^ z1) 
+                    , RK [negate z,s1] `at` (p .+^ z)
+                    ]
+      where z1 = phi *^ s1
+            z  = s1 ^+^ (phi+1) *^ s2
+            z2 = sumV [s1,s2] ^-^ z1
+            z3 = z1 ^+^ phi *^ z2
+  (p, LK [s1,s2])-> [ RD [z1, z2]  `at` p
+                    , RK [negate z1,z3] `at` (p .+^ z1) 
+                    , LK [negate z,s1] `at` (p .+^ z)
+                    ]
+      where z1 = phi *^ s1
+            z  = s1 ^+^ (phi+1) *^ s2
+            z2 = sumV [s1,s2] ^-^ z1
+            z3 = z1 ^+^ phi *^ z2
   other -> error $ "compChoices: " ++ show other ++ "/n"
 
 

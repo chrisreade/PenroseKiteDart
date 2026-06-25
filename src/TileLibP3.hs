@@ -23,7 +23,9 @@ module TileLibP3
   ( 
   -- * P3_HalfTiles
     P3_HalfTile(..)
-  , tileRepP3
+ -- , tileRepP3
+  , joinVectorP3
+  , drawnEdgesP3
   -- * P3_Pieces
   , P3_Piece
   -- * Converting (located) Pieces
@@ -34,7 +36,6 @@ module TileLibP3
   , decompP2toP3
   , decompP3toP2
   -- * Drawing P3_Pieces
-  --, drawnEdgesP3
   , drawPieceP3
   , drawjPieceP3
   , drawJPieceP3
@@ -100,6 +101,15 @@ instance Transformable a => Transformable (P3_HalfTile a) where
 -- The choice of which vertex is the origin is derived from conversions
 -- from Darts and Kites (P2 tilings) 
 type P3_Piece = P3_HalfTile [V2 Double]
+
+-- |The drawn edges of a P3_Piece excluding the join edge (as a list of vectors)
+-- starting from the origin.
+drawnEdgesP3 :: P3_Piece -> [V2 Double]
+drawnEdgesP3 = tileRepP3
+
+-- |The join edge vector of a P3_Piece (from origin)
+joinVectorP3 :: P3_Piece -> V2 Double
+joinVectorP3 = sumV . drawnEdgesP3
 
 -- |Make P3_Halftile a Functor
 instance Functor P3_HalfTile where
@@ -175,21 +185,15 @@ decompP2toP3 = concatMap decompPieceP2toP3
 decompP3toP2 :: P3_Patch -> Patch
 decompP3toP2 = concatMap decompPieceP3toP2
 
--- |The drawn edges of a P3_Piece excluding the join edge (as a list of vectors)
-drawnEdgesP3 :: P3_Piece -> [V2 Double]
-drawnEdgesP3 = tileRepP3
-
 
 -- |Draws the two drawn edges of a P3_Piece
 drawPieceP3 :: OKBackend b => P3_Piece -> Diagram b
 drawPieceP3 = strokeLine . fromOffsets . drawnEdgesP3
 
-joinOfP3 :: P3_Piece -> V2 Double
-joinOfP3 = sumV . drawnEdgesP3
 
 -- |Draw dashed join only of a P3_Piece. 
 dashJOnlyP3 :: OKBackend b => P3_Piece -> Diagram b
-dashJOnlyP3 p = joinDashing (strokeLine $ fromOffsets [joinOfP3 p])
+dashJOnlyP3 p = joinDashing (strokeLine $ fromOffsets [joinVectorP3 p])
 
 -- |Draws all edges of a P3_Piece using a faint dashed line for the join edge
 -- (J for plain dashed Join, j for faint dashed join)

@@ -86,11 +86,15 @@ module TgraphExamples
  , kingEmpiresFig
  , kingEmpire1Fig
  , kingEmpire2Fig
-    -- *  Emplace Choices
+    -- *  Emplace Extend Choices
  , emplaceChoices
  , emplaceChoicesFig
+ , extendChoices
+ , extendChoicesFig
      -- * Example showing a P3 tiling
  , testRhombus
+      -- * Example showing a VPatch transform
+ , testVPTransform
 
   ) where
 
@@ -115,14 +119,14 @@ chunks n
       ch as = take n as : ch (drop n as)
 
 -- |arrangeRowsGap s n diags - arranges diags into n per row, centering each row horizontally,
--- with a seperation gap (horizontally and vertically) of s.
+-- with a separation gap (horizontally and vertically) of s.
 -- The result is a single diagram.
 arrangeRowsGap :: OKBackend b =>
                   Double -> Int -> [Diagram b] -> Diagram b
 arrangeRowsGap s n = centerY . vsep s . map (centerX . hsep s) . chunks n
 
 -- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
--- The result is a single diagram (seperation is 1 unit vertically and horizontally).
+-- The result is a single diagram (separation is 1 unit vertically and horizontally).
 arrangeRows :: OKBackend b =>
                Int -> [Diagram b] -> Diagram b
 arrangeRows = arrangeRowsGap 1.0
@@ -420,9 +424,14 @@ kingEmpire2Fig = showEmpire2 kingGraph
 
 
 -- |emplaceChoices forces then maximally composes. At this top level it
--- produces a list of forced choices for each of the unknowns of this top level Tgraph.
+-- produces a list of forced choices for each of the unknowns at this top level Tgraph.
 -- It then repeatedly applies (forceF . decompose ) back to the starting level to return a list of Forced Tgraphs.
--- This version relies on compForce theorem and related theorems
+-- This version relies on compForce theorem and related theorems.
+--
+-- Note that emplaceChoices is no longer considered useful as information
+-- can still be lost when composing.  A better approach to finding extension choices
+-- is to calculate a boundaryECovering or a boundaryVCovering after forcing.
+-- See extendChoices and extendChoicesFig.
 emplaceChoices:: Tgraph -> [Forced Tgraph]
 emplaceChoices = emplaceChoicesF . forceF  where
 
@@ -447,12 +456,26 @@ emplaceChoices = emplaceChoicesF . forceF  where
         Just d -> longE d
         Nothing -> error $ "findDartLongForWing: dart not found for dart wing vertex " ++ show v
 
--- |Example showing emplaceChoices for foolD with foolD shown in red in each choice
+-- |Example showing emplaceChoices for foolD with foolD shown in red in each choice.
+-- (See also extendChoicesFig.)
 emplaceChoicesFig :: OKBackend b => Diagram b
 emplaceChoicesFig =  lw thin $ hsep 1 $  overlayg <$> emplaceChoices g
     where g = foolD
           overlayg g' = smartAligning algmnt draw g # lc red <> aligning algmnt draw  g'
           algmnt = defaultAlignment $ maxCompForce g
+
+-- | extendChoices - better than emplaceChoices using a boundary cover after forcing.
+-- The resulting list of local possible extensions to given Tgraph.
+extendChoices :: Tgraph -> [Forced Tgraph]
+extendChoices g = withForced recoverGraph <$> boundaryECovering (forceF $ initFS g)
+
+-- | An example of extendChoices applied to foolD
+extendChoicesFig :: OKBackend b => Diagram b
+extendChoicesFig = padBorder $ lw thin $ vsep 2 [hsep 3 (take 3 figs), hsep 3 (drop 3 figs)] where
+   figs = map drawChoice $ extendChoices foolD
+   drawChoice d = lc red (smartAligning (1,5) draw foolD) <> 
+                  aligning (1,5) draw (force foolD) <>
+                  lw ultraThin (aligning (1,5) draw d)
 
 -- | An example to illustrate drawing P3 tiling (rhombuses).
 -- The top part (filled) is a 5 times decomposed sunGraph converted to rhombuses (P3) when drawn.
@@ -463,4 +486,14 @@ testRhombus = padBorder $
               ===
               draw g # reflectY # lw veryThin
       where g = decompositions sunGraph !! 5
+
+-- | Performs a shearY transform before and after drawing foolD (decomposed fool) with labels.
+-- In the left diagram labels are added after the transform, and on the right they are added before the transform.
+-- Since PKD version 1.10, linear transforms that do not preserve angles will work as expected on
+-- VPatch, Patch, P3_Patch.
+testVPTransform :: OKBackend b => Diagram b
+testVPTransform = 
+  padBorder $ lw thin $ 
+  hsep 1 [labelled drawj (shearY 1.2 vp), shearY 1.2 (labelled drawj vp)]
+           where vp = makeVP foolD
 
