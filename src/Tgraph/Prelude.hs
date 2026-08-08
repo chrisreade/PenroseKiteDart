@@ -848,7 +848,8 @@ we may refer to this as an edge list rather than just a directed edge list.
 faceDedges::TileFace -> [Dedge]
 faceDedges f = [(a,b),(b,c),(c,a)] where (a,b,c) = faceVs f
 --  faceDedges !f = [(a,b),(b,c),(c,a)] where (!a,!b,!c) = faceVs f
--- |produces a list of directed edges (clockwise) round a face.
+
+-- |produces a set of directed edges (clockwise) round a face.
 faceDedgeSet::TileFace -> Set Dedge
 faceDedgeSet f = Set.insert (a,b) $ Set.insert (b,c) $ Set.insert (c,a) Set.empty
                  where (a,b,c) = faceVs f

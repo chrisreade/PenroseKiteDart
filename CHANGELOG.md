@@ -1,10 +1,17 @@
 # Revision history for PenroseKiteDart
 
-
+## Since v1.10
+  Added kiteOppCount, deuceMissingDart, jackMissingDart, queenMissingDart
+  Deprecated
+    kiteGaps (Renamed as deuceMissingDart)
+    noTouchingDart (Renamed as jackMissingDart)
+    queenMissingDarts  (Renamed as queenMissingDart)
+  Removed isKiteOppV
+  
 ## version 1.10
 
 - Possibly breaking change:
-  - Redefined Pieces to use a list of two vectors for the drawn edges instead of a single
+  - Redefined Piece to use a list of two vectors for the drawn edges instead of a single
   vector for the join edge.
   VPatch and Patch now transform correctly before and after drawing (linear transformations).
   (Previously only rotations, translations, and uniform scaling worked before drawing.)
