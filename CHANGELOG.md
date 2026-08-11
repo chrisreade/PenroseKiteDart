@@ -1,11 +1,14 @@
 # Revision history for PenroseKiteDart
 
 ## Since v1.10
-  Added kiteOppCount, deuceMissingDart, jackMissingDart, queenMissingDart
+  Added
+     kiteOppCount, deuceMissingDart, jackMissingDart, queenMissingDart,
+     chunking, centerRows, centerRows', arrangeRows'
   Deprecated
     kiteGaps (Renamed as deuceMissingDart)
     noTouchingDart (Renamed as jackMissingDart)
     queenMissingDarts  (Renamed as queenMissingDart)
+    arrangeRowsGap (Renamed as arrangeRows')
   Removed isKiteOppV
   
 ## version 1.10

@@ -17,8 +17,12 @@ module TgraphExamples
   (-- * Some Layout tools
     padBorder
   , chunks
-  , arrangeRowsGap
+  , chunking
+  , centerRows
+  , centerRows'
   , arrangeRows
+  , arrangeRows'
+  , arrangeRowsGap -- deprecated
   , labelAt
     -- *  Tgraphs for 7 vertex types
   , sunGraph
@@ -111,6 +115,8 @@ padBorder :: OKBackend b =>
 padBorder = pad 1.2 . centerXY
 
 -- |chunks n l -  split a list l into chunks of length n (n>0)
+-- The last list may have fewer than n items.
+-- An error wil be raised if n<1.
 chunks::Int -> [a] -> [[a]]
 chunks n
   | n < 1 = error "chunks: argument <1\n"
@@ -118,20 +124,58 @@ chunks n
       ch [] = []
       ch as = take n as : ch (drop n as)
 
+{- chunking generalises chunks to allow specifying different lengths.
+
+   chunking ns as - will split the list as into a list of lists, where the lengths of inner lists
+   are determined by the Ints in ns (in order). The last Int in ns will be used as a default length for all subsequent inner lists.
+   The last inner list may be shorter than specified if there are not enough remaining elements in as.
+   An error will be raised if ns is null or if a non-positive Int is encountered in ns before as runs out.
+-}
+chunking :: [Int] -> [a] -> [[a]]
+chunking _ [] = []
+chunking (n:_) _ | n<1 = error $ "chunking: non-positive Int found " ++ "show n"
+chunking (n:m:more) ds = take n ds: chunking (m:more) (drop n ds)
+chunking [n] ds = chunks n ds -- repeat last Int n
+chunking [] _ = error "chunking: empty Int list found "
+
+-- |makes a list of lists of diagrams into a single diagram treating them as a column of rows,
+-- using default separator of 1.0 for rows and columns.
+centerRows :: OKBackend b =>
+              [[Diagram b]] -> Diagram b
+centerRows = centerRows' 1.0
+
+-- |given a default seperator value, this makes a list of lists of diagrams into a single diagram treating them as a column of rows,
+-- using the default separator for rows and columns.
+centerRows' :: OKBackend b =>
+               Double -> [[Diagram b]] -> Diagram b
+centerRows' s = centerY . vsep s . map (centerX . hsep s)
+
+-- |arrangeRows n diags - arranges diags into a single diagram with n>0 per row, centering each row horizontally.
+-- The default separation is 1.0 vertically and horizontally.
+-- An error is raised if n<1
+arrangeRows :: OKBackend b =>
+               Int -> [Diagram b] -> Diagram b
+arrangeRows = arrangeRows' 1.0
+
+-- |arrangeRows' s n diags - arranges diags into a single diagram with n>0 per row, centering each row horizontally,
+-- with a separation gap (horizontally and vertically) of s.
+-- An error is raised if n<1
+arrangeRows' :: OKBackend b =>
+                Double -> Int -> [Diagram b] -> Diagram b
+arrangeRows' s n = centerRows' s . chunks n
+
+
+{-# DEPRECATED arrangeRowsGap "Renamed as arrangeRows'" #-}
 -- |arrangeRowsGap s n diags - arranges diags into n per row, centering each row horizontally,
 -- with a separation gap (horizontally and vertically) of s.
 -- The result is a single diagram.
 arrangeRowsGap :: OKBackend b =>
                   Double -> Int -> [Diagram b] -> Diagram b
-arrangeRowsGap s n = centerY . vsep s . map (centerX . hsep s) . chunks n
+arrangeRowsGap = arrangeRows'
 
--- |arrangeRows n diags - arranges diags into n per row, centering each row horizontally.
--- The result is a single diagram (separation is 1 unit vertically and horizontally).
-arrangeRows :: OKBackend b =>
-               Int -> [Diagram b] -> Diagram b
-arrangeRows = arrangeRowsGap 1.0
 
--- |add a given label at a given point offset from the centre of the given diagram.
+
+-- |add a given label at a given point in the given diagram.
 labelAt :: OKBackend b =>
            Point V2 Double -> String -> Diagram b -> Diagram b
 labelAt p l d = baselineText l # fontSize (output 15) # moveTo p <> d
@@ -423,32 +467,34 @@ kingEmpire1Fig = showEmpire1 kingGraph
 kingEmpire2Fig = showEmpire2 kingGraph
 
 
--- |emplaceChoices forces then maximally composes. At this top level it
--- produces a list of forced choices for each of the unknowns at this top level Tgraph.
--- It then repeatedly applies (forceF . decompose ) back to the starting level to return a list of Forced Tgraphs.
+-- |emplaceChoices first forces then maximally composes. At this top level it
+-- produces a list of forced choices for the unknowns (boundary dart long edges).
+-- It then repeatedly applies (forceF . decompose) back to the starting level to return a list of Forced Tgraphs.
 -- This version relies on compForce theorem and related theorems.
 --
 -- Note that emplaceChoices is no longer considered useful as information
--- can still be lost when composing.  A better approach to finding extension choices
+-- can still be lost when composing even after forcing so the results may not always extend
+-- the given Tgraph (e.g. for sun3Dart).
+--
+-- A better approach to finding extension choices
 -- is to calculate a boundaryECovering or a boundaryVCovering after forcing.
 -- See extendChoices and extendChoicesFig.
 emplaceChoices:: Tgraph -> [Forced Tgraph]
 emplaceChoices = emplaceChoicesF . forceF  where
 
   emplaceChoicesF:: Forced Tgraph -> [Forced Tgraph]
-  emplaceChoicesF fg | nullGraph compfg = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, fg)]
+  emplaceChoicesF fg | nullGraph compfg = chooseUnknowns [(unknowns $ getDartWingInfoForced fg, withForced makeBoundaryState fg)]
                      | otherwise        = forceF . decompose <$> emplaceChoicesF compfg
                           where compfg = composeF fg
 
-  chooseUnknowns :: [([Vertex],Forced Tgraph)] -> [Forced Tgraph]
+  chooseUnknowns :: [([Vertex],Forced BoundaryState)] -> [Forced Tgraph]
   chooseUnknowns [] = []
-  chooseUnknowns (([],g0):more) = g0:chooseUnknowns more
-  chooseUnknowns ((u:unks,g0): more)
+  chooseUnknowns (([],bd):more) = withForced recoverGraph bd:chooseUnknowns more
+  chooseUnknowns ((u:unks,bd): more)
      =  chooseUnknowns (map (remainingunks unks) newgs ++ more)
-        where newgs = map (withForced recoverGraph) $ runTry $ tryCheckCasesDKF de g0
---        where newgs = map (withForced recoverGraph) $ atLeastOne $ (tryDartAndKiteF (findDartLongForWing u bd) bd)
-              de = findDartLongForWing u $ makeBoundaryState (forgetF g0)
-              remainingunks startunks g' = (startunks `intersect` boundaryVsDup g', g')
+        where newgs = runTry $ tryCheckCasesDKF de bd
+              de = findDartLongForWing u $ forgetF bd
+              remainingunks startunks bd' = (startunks `intersect` boundaryVsDup bd', bd')
 
   findDartLongForWing :: Vertex -> BoundaryState -> Dedge
   findDartLongForWing v bd
@@ -456,16 +502,19 @@ emplaceChoices = emplaceChoicesF . forceF  where
         Just d -> longE d
         Nothing -> error $ "findDartLongForWing: dart not found for dart wing vertex " ++ show v
 
--- |Example showing emplaceChoices for foolD with foolD shown in red in each choice.
+-- |Original example showing emplaceChoices for foolD with foolD shown in red in each choice.
+-- Note that replacing foolD by sun3Dart shows that the results do not always extend the original Tgraph.
 -- (See also extendChoicesFig.)
 emplaceChoicesFig :: OKBackend b => Diagram b
-emplaceChoicesFig =  lw thin $ hsep 1 $  overlayg <$> emplaceChoices g
+emplaceChoicesFig =  padBorder $ lw thin $ hsep 1 $ overlayg <$> emplaceChoices g
     where g = foolD
-          overlayg g' = smartAligning algmnt draw g # lc red <> aligning algmnt draw  g'
+          overlayg g' = smartAligning algmnt draw g # lc red # lw medium
+                        <> aligning algmnt draw g'
           algmnt = defaultAlignment $ maxCompForce g
 
--- | extendChoices - better than emplaceChoices using a boundary cover after forcing.
--- The resulting list of local possible extensions to given Tgraph.
+-- | extendChoices (better than emplaceChoices) uses a boundary cover after forcing.
+-- If there are no force failures (with an incorrect Tgraph), 
+-- the result is a list of all local possible forced extensions to the given Tgraph.
 extendChoices :: Tgraph -> [Forced Tgraph]
 extendChoices g = withForced recoverGraph <$> boundaryECovering (forceF $ initFS g)
 
@@ -476,6 +525,7 @@ extendChoicesFig = padBorder $ lw thin $ vsep 2 [hsep 3 (take 3 figs), hsep 3 (d
    drawChoice d = lc red (smartAligning (1,5) draw foolD) <> 
                   aligning (1,5) draw (force foolD) <>
                   lw ultraThin (aligning (1,5) draw d)
+
 
 -- | An example to illustrate drawing P3 tiling (rhombuses).
 -- The top part (filled) is a 5 times decomposed sunGraph converted to rhombuses (P3) when drawn.
