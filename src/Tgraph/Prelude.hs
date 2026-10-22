@@ -97,6 +97,7 @@ module Tgraph.Prelude
   , vertexFMap
   , dedgeFMap
   , buildEFMap
+  , makeEVnewMap
   , extractLowestJoin
   , lowestJoin
     -- * Other Face ops
@@ -183,7 +184,7 @@ module Tgraph.Prelude
   --, drawEdge
   ) where
 
-import Data.List ((\\),intersect,find,nub)
+import Data.List ((\\),intersect,find,nub,sort)
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 import Data.IntMap.Strict(IntMap)
@@ -1040,6 +1041,20 @@ buildEFMap = Map.fromList . concatMap assignFace . faces where
 -- | look up a face for an edge in an edge-face map
 faceForEdge :: Dedge -> Map Dedge TileFace ->  Maybe TileFace
 faceForEdge = Map.lookup
+
+-- | Given a starting int v and a list of directed edges des (mixed, not necessarily both directions)
+-- create a map from edges to new integers above v, such that:
+-- 1) The edges are both directions of edges in des without repetitions. 
+-- 2) Both (a,b) and (b,a) get the same integer.
+-- The edges get consecutive integers after being sorted
+-- (where if a>b then (a,b) gets the integer assigned to (b,a)).
+makeEVnewMap :: Vertex -> [Dedge] -> Map Dedge Vertex
+makeEVnewMap v des = themap where
+    themap = Map.fromList $ zip reps newVs ++ zip (map reverseD reps) newVs
+    reps = sort [e | e@(a,b) <- missingRevs des <> des , a<b]
+    newVs = [v+1..v+n]
+    n = length reps
+
 
 -- |Given a tileface (face) and a map from each directed edge to the (unique) tileface containing it (efMap)
 -- return the list of edge neighbours of face.

@@ -1,5 +1,31 @@
 # Revision history for PenroseKiteDart
 
+## version 1.11
+
+- added makeEVnewMap
+- Renamed module TileLibP3 as Tgraph.Rhombuses
+- Renamed some P3 functions, types, classes (for consistency)
+   - P3_HalfTile renamed as HalfTile_P3
+   - P3_Piece renamed as Piece_P3
+   - P3_Patch renamed as Patch_P3
+   - joinVectorP3 renamed as joinVector_P3
+   - drawnEdgesP3 renamed as drawnEdges_P3
+   - decompP2toP3 renamed as decompPatchP2toP3
+   - decompP3toP2 renamed as decompPatchP3toP2
+   - drawPieceP3  renamed as drawPiece_P3
+   - drawjPieceP3 renamed as drawjPiece_P3 
+   - drawJPieceP3 renamed as drawJPiece_P3
+   - P3_Drawable renamed as Drawable_P3
+   - P3_DrawableLabelled renamed as DrawableLabelled_P3
+   - labelColourSizeP3 renamed as labelColourSize_P3
+   - labelSizeP3 renamed as labelSize_P3
+   - labelledP3 renamed as labelled_P3
+   - drawP3With renamed as drawWith_P3
+   - drawP3 renamed as draw_P3
+   - drawjP3 renamed as drawj_P3
+   - drawJP3 renamed as drawJ_P3
+
+
 ## version 1.10.1
 
 -  VPatch is now deformable

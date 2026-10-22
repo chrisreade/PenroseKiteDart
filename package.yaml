@@ -42,7 +42,6 @@ library:
     - CheckBackend
     - HalfTile
     - TileLib
-    - TileLibP3
     - Try
     - Tgraph.Prelude
     - Tgraph.Decompose
@@ -51,6 +50,7 @@ library:
     - Tgraph.Relabelling
     - Tgraph.Extras
     - Tgraph.Grid
+    - Tgraph.Rhombuses
     - TgraphExamples
 tests:
   PenroseKiteDart-test:

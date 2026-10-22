@@ -36,7 +36,7 @@ module PKD
     -- * Smart drawing of Tgraphs and other extras 
   , module Tgraph.Extras
     -- * Converting to P3 (rhombus) tilings and drawing
-  , module TileLibP3
+  , module Tgraph.Rhombuses
 
   ) where
 
@@ -47,5 +47,5 @@ import Tgraph.Compose
 import Tgraph.Relabelling
 import Tgraph.Force
 import Tgraph.Extras
-import TileLibP3
+import Tgraph.Rhombuses
 

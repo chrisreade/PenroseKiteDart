@@ -23,8 +23,8 @@ module Tgraph.Decompose
   ) where
 
 import Data.Map.Strict(Map)
-import qualified Data.Map.Strict as Map ((!), fromList)
-import Data.List(sort)
+import qualified Data.Map.Strict as Map ((!))
+
 
 import Tgraph.Prelude
 
@@ -47,19 +47,21 @@ decomposeFaces a = newFaces where
     pvmap = phiVMap a
     newFaces = concatMap (decompFace pvmap) (faces a)
 
+
 -- |phiVMap fcs produces a finite map from the phi edges (the long edges including kite joins) to assigned new vertices not in fcs.
 -- Both (a,b) and (b,a) get the same new vertex number. This is used in decompFace, decompFaces and decompose.
 -- Sort is used to fix order of assigned numbers.
 -- Exported for use in TrackedTgraphs in Tgraph.Extras module.
 phiVMap :: HasFaces a => a -> Map Dedge Vertex
-phiVMap x = edgeVMap where
+phiVMap x = makeEVnewMap (maxV x) (concatMap facePhiEdges (faces x))
+{- phiVMap x = edgeVMap where
   --phiReps = sort [e | e@(a,b) <- phiEdges fcs, a<b]
   phiReps = sort [e | fc <- faces x, e@(a,b) <- facePhiEdges fc , a<b]
   newVs = [v+1..v+n]
   n = length phiReps
   v = maxV x
   edgeVMap = Map.fromList $ zip phiReps newVs ++ zip (map reverseD phiReps) newVs 
-
+ -}
 -- |Decompose a face producing new faces. 
 -- This requires an edge to vertex map to get a unique new vertex assigned to each phi edge
 -- (as created by phiVMap).
