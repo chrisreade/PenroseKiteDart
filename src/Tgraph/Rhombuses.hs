@@ -24,11 +24,17 @@ and generalised drawing functions for drawing P3 tilings.
 
 module Tgraph.Rhombuses 
   ( 
-  -- * Tgraph_P3, TileFace_P3
+  -- * Tgraph_P3
     Tgraph_P3()
-  , TileFace_P3
   , decomposeToRhombuses
   , decomposeToTgraph
+  , decomposeRhombuses
+  , tryComposeToRhombuses
+  , quickComposeToRhombuses
+  -- * TileFace_P3
+  , TileFace_P3
+  , tryConnectedNoCrossRhombuses
+  , faceCount_P3
   , faces_P3
   , maxV_P3
   , vertexSet_P3
@@ -41,7 +47,7 @@ module Tgraph.Rhombuses
   , join_P3
   , isWide
   , isNarrow
-
+  , dedges_P3
   -- * VPatch_P3
   , VPatch_P3(..)
   , makeVP_P3
@@ -93,8 +99,10 @@ import HalfTile
 import TileLib
 import Tgraph.Prelude
 import Tgraph.Decompose ( phiVMap )
+import Tgraph.Force (makeBoundaryState, boundaryEdgeFilter, isDartOrigin)
+import Tgraph.Compose ( DartWingInfo(largeKiteCentres), tryGetDartWingInfo)
 
-import qualified Data.Map.Strict as Map ((!))
+import qualified Data.Map.Strict as Map ( (!),empty,elems,lookup,insert,delete)
 import qualified Data.IntMap.Strict as VMap (fromList,toList,lookup,filterWithKey,keys,map,keysSet)
 import qualified Data.IntSet as IntSet(empty,insert,findMax,member,null,difference)
 import Data.List ( (\\) )
@@ -103,6 +111,14 @@ newtype Tgraph_P3 = Tgraph_P3 [TileFace_P3] deriving Show
 
 -- |TileFace_P3 is a P3 (half rhombus) analagous to TileFace
 type TileFace_P3 = HalfTile_P3 (Vertex,Vertex,Vertex)
+
+-- |Given a list of half rhombuses, check they are connected with no crossing boundary
+-- producing a Tgraph_P3 when successful.
+tryConnectedNoCrossRhombuses :: [TileFace_P3] -> Try Tgraph_P3
+tryConnectedNoCrossRhombuses rs = do
+    _ <- onFail "tryConnectedNoCrossRhombuses: result has crossing boundary or is not connected\n" $
+         checkConnectedNoCross (dedges_P3 rs)
+    return (Tgraph_P3 rs)
 
 -- |Decompose a Tgraph into Tgraph_P3 (rhombuses)
 -- The new vertex numbers are generated with phiVMap from Tgraph.Decompose
@@ -125,6 +141,105 @@ decomposeToTgraph (Tgraph_P3 rs) = makeTgraph (concatMap split rs) where
   split (LW(a,b,c)) = [RD(a,b,x), LK(c,x,b)] where x = (Map.!) newVFor (a,c)
   newVFor = makeEVnewMap v (map join_P3 (filter isWide rs))
   v = maxV_P3 rs
+
+-- |Decompose a Tgraph_P3 (via an intermediate Tgraph)
+decomposeRhombuses :: Tgraph_P3 -> Tgraph_P3
+decomposeRhombuses = decomposeToRhombuses . decomposeToTgraph
+
+
+-- | Try to compose a Tgraph to Tgraph_P3 (rhombuses).
+-- This can fail with crossing boundaries even on a forced Tgraph (e.g. force sun3Dart)
+-- It can also fail on an incorrect Tgraph (it uses tryGetDartWingInfo which uses tryForce).
+--
+-- First convert all halftile pairs sharing a short edge
+-- (dart and kite -> half Wide rhombus; kite and kite -> full Narrow rhombus).
+-- Then convert half kites with a boundary short edge that do not have an unknown oppV.
+-- Drop all other half kites and darts with a short edge on the boundary.
+tryComposeToRhombuses :: Tgraph -> Try Tgraph_P3
+tryComposeToRhombuses g = 
+     do dwi <- tryGetDartWingInfo g
+        let rhombs = composeRhombs (largeKiteCentres dwi) (faces g)
+        onFail "tryComposeToRhombuses: result has crossing boundary or is not connected\n" 
+             $ tryConnectedNoCrossRhombuses rhombs
+  where
+  composeRhombs lkcs fcs = extraNs ++ rhombs1 where
+    (rhombs1, remainders) = process ([], Map.empty) fcs
+    ordrd p@(a,b) | a<b = p
+                    | otherwise = (b,a)
+    -- process keeps and produces a pair (rhombuses, map)
+    -- The rhombuses are a result of combining two (P2) halftiles with matching short edge.
+    -- The map stores single half kites or darts not yet matched, keyed by ordered short edge.
+    -- The process deletes map entries that get combined as a rhombus.
+    -- Thus the final map has unmatched kites and darts.
+    process (ans,m) [] = (ans,Map.elems m)
+    process (ans,m) (f:more) 
+        = let sh = ordrd (reverseD (shortE f))
+            in case Map.lookup sh m of
+            Nothing -> process (ans, Map.insert sh f m) more
+            Just f' -> process (combine f f' ++ans, Map.delete sh m) more
+        -- kite wing becomes origin of narrow rhombus                   
+    combine (LK(a,b,c)) (RK(d,_,_)) = [RN(b,c,a),LN(b,d,c)]
+    combine (RK(d,c,b)) (LK(a,_,_)) = [LN(b,d,c),RN(b,c,a)]
+    -- dart origin becomes origin of wide rhombus
+    combine (LD(a,_,c)) (RK(d,_,_)) = [RW(a,d,c)]
+    combine (RK(d,c,_)) (LD(a,_,_)) = [RW(a,d,c)]
+    combine (RD(a,b,_)) (LK(d,_,_)) = [LW(a,b,d)]
+    combine (LK(d,_,b)) (RD(a,_,_)) = [LW(a,b,d)]
+    combine _ _ = error "tryComposeToRhombuses (combine): non matching pair of faces"
+    -- convert candidate half kites with boundary short edge.
+    extraNs = map convert candidates
+    -- candidate is kite with short edge on boundary and
+    -- kite oppV is a largeKiteCentre (not an unknown)
+    candidates  = filter (\f -> isKite f && (oppV f `elem` lkcs)) remainders
+    -- kite wing becomes origin of narrow rhombus half
+    convert (LK(a,b,c)) = RN(b,c,a)
+    convert (RK(d,c,b)) = LN(b,d,c)
+    convert _ = error "tryComposeToRhombuses (convert) found dart"
+
+-- | Compose a Tgraph to Tgraph_P3 (rhombuses).
+-- This is an approximation for unforced Tgraphs.
+-- It can fail with crossing boundaries even on a forced Tgraph (e.g. force sun3Dart)
+--
+-- First convert all halftile pairs sharing a short edge
+-- (dart and kite -> half Wide rhombus; kite and kite -> full Narrow rhombus).
+-- Then convert half kites with a boundary short edge that share their long edge with a dart.
+-- Drop all other half kites and darts with a short edge on the boundary.
+-- Thus information can be lost in the conversion. 
+quickComposeToRhombuses :: Tgraph -> Tgraph_P3
+quickComposeToRhombuses g = result where
+  result = runTry $ tryConnectedNoCrossRhombuses rhombs
+  rhombs = extraNs ++ process Map.empty (faces g) 
+  ordrd p@(a,b) | a<b = p
+                | otherwise = (b,a)
+  process _ [] = [] -- the map m stores single halftiles, keyed by ordered short edge
+  process m (f:more) = let sh = ordrd (reverseD (shortE f))
+                       in case Map.lookup sh m of
+                          Nothing -> process (Map.insert sh f m) more
+                          Just f' -> combine f f' ++ process m more
+    -- kite wing becomes origin of narrow rhombus                   
+  combine (LK(a,b,c)) (RK(d,_,_)) = [RN(b,c,a),LN(b,d,c)]
+  combine (RK(d,c,b)) (LK(a,_,_)) = [LN(b,d,c),RN(b,c,a)]
+  -- dart origin becomes origin of wide rhombus
+  combine (LD(a,_,c)) (RK(d,_,_)) = [RW(a,d,c)]
+  combine (RK(d,c,_)) (LD(a,_,_)) = [RW(a,d,c)]
+  combine (RD(a,b,_)) (LK(d,_,_)) = [LW(a,b,d)]
+  combine (LK(d,_,b)) (RD(a,_,_)) = [LW(a,b,d)]
+  combine _ _ = error "composeToRhombuses (combine): non matching pair of faces"
+  -- convert candidate half kites with boundary short edge.
+  extraNs = let bs = makeBoundaryState g
+                ks = map snd $ boundaryEdgeFilter Short candidate bs (boundary bs)
+            in map convert ks
+  -- candidate is kite with short edge on boundary and
+  -- dart origin at kite wing (i.e. kite wing is king or queen)
+  candidate bs f =  isKite f && isDartOrigin bs (wingV f)
+  -- kite wing becomes origin of narrow rhombus half
+  convert (LK(a,b,c)) = RN(b,c,a)
+  convert (RK(d,c,b)) = LN(b,d,c)
+  convert _ = error "composeToRhombuses (convert) found dart"
+
+-- |Count the half rhombuses
+faceCount_P3 :: Tgraph_P3 -> Int
+faceCount_P3 (Tgraph_P3 rs) = length rs
 
 -- |Get the TileFace_P3 list from a Tgraph_P3
 faces_P3 :: Tgraph_P3 -> [TileFace_P3]
@@ -189,6 +304,11 @@ isWide _      = False
 -- | Is the half rhombus a narrow one (LN,RN)?
 isNarrow :: TileFace_P3 -> Bool
 isNarrow = not . isWide
+
+-- |Directed edges of a list of half rhombuses (clockwise round each )
+dedges_P3 :: [TileFace_P3] -> [Dedge]
+dedges_P3 = concatMap (delist . faceVs_P3)
+   where delist (a,b,c) = [(a,b),(b,c),(c,a)]
 
 -- |VPatch_P3 is a version of VPatch for TileFace_P3s (vertex locations are the same - VertexLocMap)
 data VPatch_P3 = VPatch_P3 {vLocs_P3 :: VertexLocMap, vpFaces_P3 :: [TileFace_P3]} deriving Show

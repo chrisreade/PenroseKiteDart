@@ -2,8 +2,62 @@
 
 ## version 1.11
 
-- added makeEVnewMap
 - Renamed module TileLibP3 as Tgraph.Rhombuses
+- Added
+    - makeEVnewMap
+    - checkConnectedNoCross
+    - Tgraph_P3()
+    - decomposeToRhombuses
+    - decomposeToTgraph
+    - decomposeRhombuses
+    - tryComposeToRhombuses
+    - quickComposeToRhombuses
+    - TileFace_P3
+    - tryConnectedNoCrossRhombuses
+    - faces_P3
+    - maxV_P3
+    - vertexSet_P3
+    - faceVSet_P3
+    - faceVs_P3
+    - faceVList_P3
+    - originV_P3
+    - oppV_P3
+    - wingV_P3
+    - join_P3
+    - isWide
+    - isNarrow
+    - dedges_P3
+    - VPatch_P3(vLocs_P3,vpFaces_P3)
+    - makeVP_P3
+    - dropLabels_P3
+    - convertVPatch_P3
+    - convertVPatch
+    - deformVPatch_P3
+    - HalfTile_P3(LW,RW,LN,RN)
+    - joinVector_P3
+    - drawnEdges_P3
+    - Piece_P3
+    - decompPieceP2toP3
+    - decompPieceP3toP2
+    - Patch_P3
+    - decompPatchP2toP3
+    - decompPatchP3toP2
+    - drawPiece_P3
+    - drawjPiece_P3
+    - drawJPiece_P3
+    - fillOnlyPiece_P3
+    - fillOnlyPieceWN
+    - fillPieceWN
+    - Drawable_P3(..)
+    - draw_P3
+    - drawj_P3
+    - drawJ_P3
+    - fillWN
+    - fillNW
+    - DrawableLabelled_P3(..)
+    - labelSize_P3
+    - labelled_P3
+
 - Renamed some P3 functions, types, classes (for consistency)
    - P3_HalfTile renamed as HalfTile_P3
    - P3_Piece renamed as Piece_P3

@@ -42,6 +42,7 @@ module Tgraph.Prelude
 -- * Tgraph Property Checks
   , tryTgraphProps
   , tryConnectedNoCross
+  , checkConnectedNoCross
   , tryCorrectTouchingVs
   , hasEdgeLoops
   , duplicates
@@ -406,7 +407,8 @@ tryTgraphProps fcs =
                         ,"\n"
                         ]
            -- makes use of precalculated edges and vertices
-      else tryConnectedNoCross' fcs deslist vs
+      else do _ <- tryConnectedNoCross' deslist vs
+              return $ Tgraph fcs
 
 -- |Checks a list of faces for no crossing boundaries and connectedness.
 -- (No crossing boundaries and connected implies tile-connected).
@@ -416,8 +418,57 @@ tryTgraphProps fcs =
 -- but can be used alone when other properties are known to hold (e.g. in tryPartCompose)
 tryConnectedNoCross:: [TileFace] -> Try Tgraph
 tryConnectedNoCross [] = Right emptyTgraph
-tryConnectedNoCross fcs = tryConnectedNoCross' fcs (dedges fcs) (vertexSet fcs)
+tryConnectedNoCross fcs = do _ <- tryConnectedNoCross' (dedges fcs) (vertexSet fcs)
+                             return (Tgraph fcs)
 
+
+-- |(not exported) A variant of tryConnectedNoCross with precalculated dedge list and vertex set.
+-- Checks for no crossing boundaries and connectedness.
+-- Returns Right () on passing checks.
+-- Returns Left lines if a test fails, where lines describes the problem found.
+-- This is used by tryTgraphProps after other checks have been made.
+tryConnectedNoCross' :: [Dedge] -> IntSet -> Try ()
+tryConnectedNoCross' deslist vs = -- no arguments are null
+    let des = Set.fromList deslist
+        bes = missingRevSet des -- boundaryESetFrom
+        duplicateBVs = duplicates $ verticesForBEs bes
+        crossing = not $ null duplicateBVs
+        isConnected = null (snd $ connectedBy (bes<>des) (IntSet.findMin vs) vs)
+    in if not isConnected
+       then failReport
+            "tryConnectedNoCross': (Not connected)\n"
+       else if crossing
+       then failReports
+            ["tryConnectedNoCross': Crossing boundaries found at "
+            ,show duplicateBVs
+            ,"\n"
+            ]
+       else Right ()
+
+-- |Exported check for connectedness and no crossing boundaries taking just a dedge list.
+-- Returns Right () on passing checks.
+-- Returns Left lines if a test fails, where lines describes the problem found.
+checkConnectedNoCross :: [Dedge] -> Try ()
+checkConnectedNoCross [] = Right ()
+checkConnectedNoCross deslist = -- not null
+    let des = Set.fromList deslist
+        bes = missingRevSet des -- boundaryESetFrom
+        duplicateBVs = duplicates $ verticesForBEs bes
+        crossing = not $ null duplicateBVs
+        vs = IntSet.fromList (map fst deslist <> map snd deslist)
+        isConnected = null (snd $ connectedBy (bes<>des) (IntSet.findMin vs) vs)
+    in if not isConnected
+       then failReport
+            "checkConnectedNoCross: (Not connected)\n"
+       else if crossing
+       then failReports
+            ["checkConnectedNoCross: Crossing boundaries found at "
+            ,show duplicateBVs
+            ,"\n"
+            ]
+       else Right ()
+
+{- OLDER
 -- |(not exported) A variant of tryConnectedNoCross with precalculated dedge list and vertex set.
 -- Checks for no crossing boundaries and connectedness.
 -- The given dedge list must be all the dedges in the faces, 
@@ -433,8 +484,8 @@ tryConnectedNoCross' fcs deslist vs = -- no arguments are null
         bes = missingRevSet des -- boundaryESetFrom
         duplicateBVs = duplicates $ verticesForBEs bes
         crossing = not $ null duplicateBVs
-        connectedFcs = null (snd $ connectedBy (bes<>des) (IntSet.findMin vs) vs)
-    in if not connectedFcs
+        isConnected = null (snd $ connectedBy (bes<>des) (IntSet.findMin vs) vs)
+    in if not isConnected
        then failReports
             ["tryConnectedNoCross: Non-valid Tgraph (Not connected)\n"
             ,"with faces\n"
@@ -451,6 +502,7 @@ tryConnectedNoCross' fcs deslist vs = -- no arguments are null
             ,"\n"
             ]
        else Right (Tgraph fcs)
+ -}
 
 -- |Used in testing.
 ---Checks if there are repeated vertices within any TileFace for a list of TileFaces.
@@ -545,7 +597,6 @@ crossingBVs = duplicates . boundaryVsDup
 
 -- |There are crossing boundaries if vertices occur more than once
 -- in the boundary vertices.
-
 crossingBoundaries :: HasFaces a => a  -> Bool
 crossingBoundaries = not . null . crossingBVs -- Used in testing
 
