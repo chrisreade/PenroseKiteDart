@@ -34,16 +34,23 @@ main =
      _  <- traceMarkerIO "finished (unchecked) composing" 
      wait
      _ <- traceMarkerIO "starting checked compose" 
-     let !newcfkD = {-# SCC "checkedCompose" #-} compose $ recoverGraph fkD
+     let !newcfkD = {-# SCC "checkedCompose" #-} compose fkD
      putStrLn $ "Number of faces of new checked compose is " 
                             ++ show (faceCount newcfkD)
      _  <- traceMarkerIO "finished checked compose" 
      wait
+     _ <- traceMarkerIO "starting tryComposeToRhombuses" 
+     let !crfkD = {-# SCC "tryComposeToRhombuses" #-} runTry $ tryComposeToRhombuses $ recoverGraph fkD
+     putStrLn $ "Number of faces of quickCompose is " 
+                            ++ show (faceCount_P3 crfkD)
+     _  <- traceMarkerIO "finished quickCompose" 
+{-      wait
      _ <- traceMarkerIO "starting quickCompose" 
-     let !qcfkD = {-# SCC "quickCompose" #-} quickCompose $ recoverGraph fkD
+     let !qcfkD = {-# SCC "quickCompose" #-} quickCompose fkD
      putStrLn $ "Number of faces of quickCompose is " 
                             ++ show (faceCount qcfkD)
      _  <- traceMarkerIO "finished quickCompose" 
+ -}
      return ()
      
 

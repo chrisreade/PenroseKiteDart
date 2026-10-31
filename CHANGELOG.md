@@ -13,7 +13,9 @@
     - tryComposeToRhombuses
     - quickComposeToRhombuses
     - TileFace_P3
-    - tryConnectedNoCrossRhombuses
+    - tryConnectedNoCross_P3
+    - tryComposeToFaces_P3
+    - quickComposeToFaces_P3
     - faces_P3
     - maxV_P3
     - vertexSet_P3
@@ -34,6 +36,7 @@
     - convertVPatch
     - deformVPatch_P3
     - HalfTile_P3(LW,RW,LN,RN)
+    - tileRep_P3
     - joinVector_P3
     - drawnEdges_P3
     - Piece_P3
@@ -57,6 +60,7 @@
     - DrawableLabelled_P3(..)
     - labelSize_P3
     - labelled_P3
+    - composeToRhombusProblem (in TgraphExamples)
 
 - Renamed some P3 functions, types, classes (for consistency)
    - P3_HalfTile renamed as HalfTile_P3

@@ -97,6 +97,7 @@ module TgraphExamples
  , extendChoicesFig
      -- * Example showing a P3 tiling
  , testRhombus
+ , composeToRhombusProblem
       -- * Examples showing VPatch transform and deform
  , testVPTransform
  , deformExample
@@ -528,8 +529,9 @@ extendChoicesFig = padBorder $ lw thin $ vsep 2 [hsep 3 (take 3 figs), hsep 3 (d
                   lw ultraThin (aligning (1,5) draw d)
 
 
--- | An example to illustrate drawing P3 tiling (rhombuses).
--- The top part (filled) is a 5 times decomposed sunGraph converted to rhombuses (P3) when drawn.
+-- | An example to illustrate drawing a Tgraph as a P3 tiling (rhombuses).
+-- The top part (filled) is a 5 times decomposed sunGraph which is
+-- converted to rhombuses (P3) when drawn.
 -- The bottom part is the 5 times decomposed sunGraph reflected about its x-axis.
 testRhombus :: OKBackend b => Diagram b
 testRhombus = padBorder $ lw veryThin $
@@ -537,6 +539,16 @@ testRhombus = padBorder $ lw veryThin $
               ===
               draw g # reflectY
       where g = decompositions sunGraph !! 5
+
+-- |This example shows that force sun3Dart (left), when composed to rhombuses (right),
+-- has a crossing boundary. The lime coloured faces are (remainder) half kites
+-- not included in the composition.
+composeToRhombusProblem :: OKBackend b => Diagram b
+composeToRhombusProblem = padBorder $ lw thin $ hsep 1 [draw vp, fillWN grey lightgray vp3 <> lc lime (draw vp)]
+   where g = force sun3Dart
+         vp =  alignedVP (1,4) g
+         vp3 = convertVPatch rhom vp
+         rhom = runTry $ tryComposeToFaces_P3 g
 
 -- |Performs a shearY transform before and after drawing a forced queenGraph with labels.
 -- The left figure shows an untransformed forced queenGraph.

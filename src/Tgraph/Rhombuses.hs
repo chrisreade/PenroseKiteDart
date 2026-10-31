@@ -33,7 +33,9 @@ module Tgraph.Rhombuses
   , quickComposeToRhombuses
   -- * TileFace_P3
   , TileFace_P3
-  , tryConnectedNoCrossRhombuses
+  , tryConnectedNoCross_P3
+  , tryComposeToFaces_P3
+  , quickComposeToFaces_P3
   , faceCount_P3
   , faces_P3
   , maxV_P3
@@ -57,7 +59,7 @@ module Tgraph.Rhombuses
   , deformVPatch_P3
   -- * HalfTile_P3
   , HalfTile_P3(..)
- -- , tileRepP3
+  , tileRep_P3
   , joinVector_P3
   , drawnEdges_P3
   -- * Piece_P3s
@@ -114,9 +116,9 @@ type TileFace_P3 = HalfTile_P3 (Vertex,Vertex,Vertex)
 
 -- |Given a list of half rhombuses, check they are connected with no crossing boundary
 -- producing a Tgraph_P3 when successful.
-tryConnectedNoCrossRhombuses :: [TileFace_P3] -> Try Tgraph_P3
-tryConnectedNoCrossRhombuses rs = do
-    _ <- onFail "tryConnectedNoCrossRhombuses: result has crossing boundary or is not connected\n" $
+tryConnectedNoCross_P3  :: [TileFace_P3] -> Try Tgraph_P3
+tryConnectedNoCross_P3  rs = do
+    _ <- onFail "    tryConnectedNoCross_P3- : result has crossing boundary or is not connected\n" $
          checkConnectedNoCross (dedges_P3 rs)
     return (Tgraph_P3 rs)
 
@@ -157,10 +159,22 @@ decomposeRhombuses = decomposeToRhombuses . decomposeToTgraph
 -- Drop all other half kites and darts with a short edge on the boundary.
 tryComposeToRhombuses :: Tgraph -> Try Tgraph_P3
 tryComposeToRhombuses g = 
-     do dwi <- tryGetDartWingInfo g
-        let rhombs = composeRhombs (largeKiteCentres dwi) (faces g)
+     do rhombs <- tryComposeToFaces_P3 g
         onFail "tryComposeToRhombuses: result has crossing boundary or is not connected\n" 
-             $ tryConnectedNoCrossRhombuses rhombs
+             $ tryConnectedNoCross_P3 rhombs
+
+-- | Try to compose a Tgraph to Rhombuses (TileFace_P3).
+-- This can fail with crossing boundaries even on a forced Tgraph (e.g. force sun3Dart)
+-- It can also fail on an incorrect Tgraph (it uses tryGetDartWingInfo which uses tryForce).
+--
+-- First convert all halftile pairs sharing a short edge
+-- (dart and kite -> half Wide rhombus; kite and kite -> full Narrow rhombus).
+-- Then convert half kites with a boundary short edge that do not have an unknown oppV.
+-- Drop all other half kites and darts with a short edge on the boundary.
+tryComposeToFaces_P3 :: Tgraph -> Try [TileFace_P3]
+tryComposeToFaces_P3 g = 
+     do dwi <- tryGetDartWingInfo g
+        return $ composeRhombs (largeKiteCentres dwi) (faces g)
   where
   composeRhombs lkcs fcs = extraNs ++ rhombs1 where
     (rhombs1, remainders) = process ([], Map.empty) fcs
@@ -171,7 +185,7 @@ tryComposeToRhombuses g =
     -- The map stores single half kites or darts not yet matched, keyed by ordered short edge.
     -- The process deletes map entries that get combined as a rhombus.
     -- Thus the final map has unmatched kites and darts.
-    process (ans,m) [] = (ans,Map.elems m)
+    process (ans,m) [] = (ans,Map.elems m) 
     process (ans,m) (f:more) 
         = let sh = ordrd (reverseD (shortE f))
             in case Map.lookup sh m of
@@ -196,8 +210,8 @@ tryComposeToRhombuses g =
     convert (RK(d,c,b)) = LN(b,d,c)
     convert _ = error "tryComposeToRhombuses (convert) found dart"
 
--- | Compose a Tgraph to Tgraph_P3 (rhombuses).
--- This is an approximation for unforced Tgraphs.
+-- | (quick) Compose a Tgraph to Tgraph_P3 (rhombuses).
+-- This is an approximation for unforced Tgraphs, avoiding use of force.
 -- It can fail with crossing boundaries even on a forced Tgraph (e.g. force sun3Dart)
 --
 -- First convert all halftile pairs sharing a short edge
@@ -206,8 +220,18 @@ tryComposeToRhombuses g =
 -- Drop all other half kites and darts with a short edge on the boundary.
 -- Thus information can be lost in the conversion. 
 quickComposeToRhombuses :: Tgraph -> Tgraph_P3
-quickComposeToRhombuses g = result where
-  result = runTry $ tryConnectedNoCrossRhombuses rhombs
+quickComposeToRhombuses = runTry . tryConnectedNoCross_P3 . quickComposeToFaces_P3
+
+-- | (quick) Compose Rhombuses (TileFace_P3) from a Tgraph
+-- This is an approximation for unforced Tgraphs, avoiding use of force.
+--
+-- First convert all halftile pairs sharing a short edge
+-- (dart and kite -> half Wide rhombus; kite and kite -> full Narrow rhombus).
+-- Then convert half kites with a boundary short edge that share their long edge with a dart.
+-- Drop all other half kites and darts with a short edge on the boundary.
+-- Thus information can be lost in the conversion. 
+quickComposeToFaces_P3 :: Tgraph -> [TileFace_P3]
+quickComposeToFaces_P3 g = rhombs where
   rhombs = extraNs ++ process Map.empty (faces g) 
   ordrd p@(a,b) | a<b = p
                 | otherwise = (b,a)
@@ -239,7 +263,7 @@ quickComposeToRhombuses g = result where
 
 -- |Count the half rhombuses
 faceCount_P3 :: Tgraph_P3 -> Int
-faceCount_P3 (Tgraph_P3 rs) = length rs
+faceCount_P3 = length . faces_P3
 
 -- |Get the TileFace_P3 list from a Tgraph_P3
 faces_P3 :: Tgraph_P3 -> [TileFace_P3]
@@ -331,6 +355,11 @@ instance Deformable VPatch_P3 VPatch_P3 where
    deform' :: Double -> Deformation V2 V2 Double -> VPatch_P3 -> VPatch_P3
    deform' r d vp = vp{vLocs_P3 = VMap.map (deform' r d) (vLocs_P3 vp)}
 
+-- | Explicitly typed instance of deform for a VPatch_P3
+-- (This can avoid the need for type annotations when using deform)
+deformVPatch_P3 :: Deformation V2 V2 Double -> VPatch_P3 -> VPatch_P3
+deformVPatch_P3 = deform
+
 -- |Create a VPatch_P3 from a Tgraph_P3 (uses decomposeToTgraph)
 makeVP_P3 :: Tgraph_P3 -> VPatch_P3
 makeVP_P3 p@(Tgraph_P3 rs) = VPatch_P3 {vLocs_P3 = vlocsP3 , vpFaces_P3  = rs} where
@@ -377,8 +406,7 @@ convertVPatch_P3 fcs vp3
     diffSet = IntSet.difference vs source
     vlocs = VMap.filterWithKey (\ v _ -> v `IntSet.member` vs) vlocsP3
 
-deformVPatch_P3 :: Deformation V2 V2 Double -> VPatch_P3 -> VPatch_P3
-deformVPatch_P3 = deform
+
 -- | Penrose P3 Tiling uses wide and narrow rhombuses
 -- These are split into half tiles (triangles) as with kites and darts
 data HalfTile_P3 a
@@ -388,13 +416,13 @@ data HalfTile_P3 a
    | RN a -- ^ Right Narrow Rhombus
    deriving (Show,Eq)
 
-{-# INLINE tileRepP3 #-}
--- | tileRepP3 produces the representation without the label (LW,RW,LN,RN)
-tileRepP3 :: HalfTile_P3 a -> a
-tileRepP3 (LW a) = a
-tileRepP3 (RW a) = a
-tileRepP3 (LN a) = a
-tileRepP3 (RN a) = a
+{-# INLINE tileRep_P3 #-}
+-- | tileRep_P3 produces the representation without the label (LW,RW,LN,RN)
+tileRep_P3 :: HalfTile_P3 a -> a
+tileRep_P3 (LW a) = a
+tileRep_P3 (RW a) = a
+tileRep_P3 (LN a) = a
+tileRep_P3 (RN a) = a
 
 -- |Needed for Transformable instance of HalfTile_P3 - requires TypeFamilies
 type instance N (HalfTile_P3 a) = N a
@@ -414,7 +442,7 @@ type Piece_P3 = HalfTile_P3 [V2 Double]
 -- |The drawn edges of a Piece_P3 excluding the join edge (as a list of vectors)
 -- starting from the origin.
 drawnEdges_P3 :: Piece_P3 -> [V2 Double]
-drawnEdges_P3 = tileRepP3
+drawnEdges_P3 = tileRep_P3
 
 -- |The join edge vector of a Piece_P3 (from origin)
 joinVector_P3 :: Piece_P3 -> V2 Double
@@ -427,7 +455,7 @@ instance Functor HalfTile_P3 where
     fmap f (LN rep) = LN (f rep)
     fmap f (RN rep) = RN (f rep)
 
--- |Converting from P2 to P3 tilings.
+-- |Converting from P2 to P3 tilings at the Patch level.
 -- Half darts become half wide rhombuses (LD->RW,RD->LW).
 -- The rhombus origin is the dart wing, the rhombus opp is the dart origin, so
 -- the rhombus join is the dart long edge.

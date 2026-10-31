@@ -805,21 +805,21 @@ makeLK x y z = LK (x,y,z)
 
 -- |triple of face vertices in order clockwise starting with origin - tileRep specialised to TileFace
 faceVs::TileFace -> (Vertex,Vertex,Vertex)
-faceVs = evalTriple . tileRep
+faceVs = tileRep
 
--- |force evaluation of a triple
+{- -- |force evaluation of a triple
 evalTriple :: (Int,Int,Int) -> (Int,Int,Int)
 evalTriple tr@(a,b,c) = a `seq` b `seq` c `seq` tr
-
+ -}
 -- |list of (three) face vertices in order clockwise starting with origin
 faceVList::TileFace -> [Vertex]
--- faceVList = (\(x,y,z) -> [x,y,z]) . faceVs
-faceVList f = [a,b,c] where (a,b,c) = faceVs f
+faceVList = asList . faceVs where
+    asList (a,b,c) = [a,b,c]
+
 -- |the set of vertices of a face
 faceVSet :: TileFace -> VertexSet
--- faceVSet = IntSet.fromList . faceVList
-faceVSet f = IntSet.insert a $ IntSet.insert b $ IntSet.insert c IntSet.empty
-             where (a,b,c) = faceVs f
+faceVSet = asSet . faceVs where
+    asSet (a,b,c) = IntSet.insert a $ IntSet.insert b $ IntSet.insert c IntSet.empty
 
 
 -- |firstV, secondV and thirdV vertices of a face are counted clockwise starting with the origin
@@ -875,12 +875,7 @@ prevV v face = case indexV v face of
 isAtV:: Vertex -> TileFace -> Bool
 isAtV v f = v==a || v==b || v==c
      where (a,b,c) = faceVs f
-{-     
-isAtV v (LD(a,b,c))  =  v==a || v==b || v==c
-isAtV v (RD(a,b,c))  =  v==a || v==b || v==c
-isAtV v (LK(a,b,c))  =  v==a || v==b || v==c
-isAtV v (RK(a,b,c))  =  v==a || v==b || v==c
- -}
+
 -- |hasVIn vs f - asks if face f has an element of vs as a vertex
 hasVIn:: [Vertex] -> TileFace -> Bool
 hasVIn vs face = not $ null $ faceVList face `intersect` vs
