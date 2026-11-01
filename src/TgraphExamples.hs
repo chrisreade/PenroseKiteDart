@@ -544,7 +544,7 @@ testRhombus = padBorder $ lw veryThin $
 -- has a crossing boundary. The lime coloured faces are (remainder) half kites
 -- not included in the composition.
 composeToRhombusProblem :: OKBackend b => Diagram b
-composeToRhombusProblem = padBorder $ lw thin $ hsep 1 [draw vp, fillWN grey lightgray vp3 <> lc lime (draw vp)]
+composeToRhombusProblem = padBorder $ lw thin $ hsep 0.5 [draw vp, fillWN grey lightgray vp3 <> lc lime (draw vp)]
    where g = force sun3Dart
          vp =  alignedVP (1,4) g
          vp3 = convertVPatch rhom vp
